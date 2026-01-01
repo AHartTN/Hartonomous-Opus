@@ -288,6 +288,32 @@ seed_atoms_parallel/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/seed_atoms_parallel.dir/build.make CMakeFiles/seed_atoms_parallel.dir/build
 .PHONY : seed_atoms_parallel/fast
 
+#=============================================================================
+# Target rules for targets named ingest_model
+
+# Build rule for target.
+ingest_model: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ingest_model
+.PHONY : ingest_model
+
+# fast build rule for target.
+ingest_model/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ingest_model.dir/build.make CMakeFiles/ingest_model.dir/build
+.PHONY : ingest_model/fast
+
+#=============================================================================
+# Target rules for targets named extract_embeddings
+
+# Build rule for target.
+extract_embeddings: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 extract_embeddings
+.PHONY : extract_embeddings
+
+# fast build rule for target.
+extract_embeddings/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extract_embeddings.dir/build.make CMakeFiles/extract_embeddings.dir/build
+.PHONY : extract_embeddings/fast
+
 src/blake3_pg.o: src/blake3_pg.cpp.o
 .PHONY : src/blake3_pg.o
 
@@ -336,6 +362,30 @@ src/coordinates.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/hypercube_core.dir/build.make CMakeFiles/hypercube_core.dir/src/coordinates.cpp.s
 .PHONY : src/coordinates.cpp.s
 
+src/extract_embeddings.o: src/extract_embeddings.cpp.o
+.PHONY : src/extract_embeddings.o
+
+# target to build an object file
+src/extract_embeddings.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extract_embeddings.dir/build.make CMakeFiles/extract_embeddings.dir/src/extract_embeddings.cpp.o
+.PHONY : src/extract_embeddings.cpp.o
+
+src/extract_embeddings.i: src/extract_embeddings.cpp.i
+.PHONY : src/extract_embeddings.i
+
+# target to preprocess a source file
+src/extract_embeddings.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extract_embeddings.dir/build.make CMakeFiles/extract_embeddings.dir/src/extract_embeddings.cpp.i
+.PHONY : src/extract_embeddings.cpp.i
+
+src/extract_embeddings.s: src/extract_embeddings.cpp.s
+.PHONY : src/extract_embeddings.s
+
+# target to generate assembly for a file
+src/extract_embeddings.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/extract_embeddings.dir/build.make CMakeFiles/extract_embeddings.dir/src/extract_embeddings.cpp.s
+.PHONY : src/extract_embeddings.cpp.s
+
 src/hilbert.o: src/hilbert.cpp.o
 .PHONY : src/hilbert.o
 
@@ -383,6 +433,30 @@ src/hypercube.s: src/hypercube.cpp.s
 src/hypercube.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/hypercube.dir/build.make CMakeFiles/hypercube.dir/src/hypercube.cpp.s
 .PHONY : src/hypercube.cpp.s
+
+src/ingest_model.o: src/ingest_model.cpp.o
+.PHONY : src/ingest_model.o
+
+# target to build an object file
+src/ingest_model.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ingest_model.dir/build.make CMakeFiles/ingest_model.dir/src/ingest_model.cpp.o
+.PHONY : src/ingest_model.cpp.o
+
+src/ingest_model.i: src/ingest_model.cpp.i
+.PHONY : src/ingest_model.i
+
+# target to preprocess a source file
+src/ingest_model.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ingest_model.dir/build.make CMakeFiles/ingest_model.dir/src/ingest_model.cpp.i
+.PHONY : src/ingest_model.cpp.i
+
+src/ingest_model.s: src/ingest_model.cpp.s
+.PHONY : src/ingest_model.s
+
+# target to generate assembly for a file
+src/ingest_model.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ingest_model.dir/build.make CMakeFiles/ingest_model.dir/src/ingest_model.cpp.s
+.PHONY : src/ingest_model.cpp.s
 
 src/seed_atoms.o: src/seed_atoms.cpp.o
 .PHONY : src/seed_atoms.o
@@ -565,8 +639,10 @@ help:
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
 	@echo "... test"
+	@echo "... extract_embeddings"
 	@echo "... hypercube"
 	@echo "... hypercube_core"
+	@echo "... ingest_model"
 	@echo "... seed_atoms"
 	@echo "... seed_atoms_direct"
 	@echo "... seed_atoms_parallel"
@@ -580,12 +656,18 @@ help:
 	@echo "... src/coordinates.o"
 	@echo "... src/coordinates.i"
 	@echo "... src/coordinates.s"
+	@echo "... src/extract_embeddings.o"
+	@echo "... src/extract_embeddings.i"
+	@echo "... src/extract_embeddings.s"
 	@echo "... src/hilbert.o"
 	@echo "... src/hilbert.i"
 	@echo "... src/hilbert.s"
 	@echo "... src/hypercube.o"
 	@echo "... src/hypercube.i"
 	@echo "... src/hypercube.s"
+	@echo "... src/ingest_model.o"
+	@echo "... src/ingest_model.i"
+	@echo "... src/ingest_model.s"
 	@echo "... src/seed_atoms.o"
 	@echo "... src/seed_atoms.i"
 	@echo "... src/seed_atoms.s"

@@ -50,10 +50,17 @@ fi
 # Step 3: Apply all SQL functions
 echo ""
 echo "=== Step 3: Applying SQL Functions ==="
-psql -d "$DB_NAME" -q -f "$PROJECT_ROOT/sql/002_functions.sql" 2>/dev/null || \
+PSQL_CONN="psql"
+if [ -n "$PGPASSWORD" ]; then
+    PSQL_CONN="psql -U ${PGUSER:-hartonomous} -h ${PGHOST:-localhost}"
+fi
+
+$PSQL_CONN -d "$DB_NAME" -q -f "$PROJECT_ROOT/sql/002_functions.sql" 2>/dev/null || \
     echo "  Note: Some functions require C++ extension (hypercube_blake3, hypercube_coords_to_hilbert)"
-psql -d "$DB_NAME" -q -f "$PROJECT_ROOT/sql/003_ingestion.sql" 2>/dev/null || \
+$PSQL_CONN -d "$DB_NAME" -q -f "$PROJECT_ROOT/sql/003_ingestion.sql" 2>/dev/null || \
     echo "  Note: Some ingestion functions require C++ extension"
+$PSQL_CONN -d "$DB_NAME" -q -f "$PROJECT_ROOT/sql/005_model_ingestion.sql" 2>/dev/null || \
+    echo "  Note: Model ingestion schema applied"
 
 # Step 4: Install C++ extension if requested
 if [ "$INSTALL_EXTENSION" = true ]; then

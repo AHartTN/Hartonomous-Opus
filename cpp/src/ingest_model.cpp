@@ -165,7 +165,7 @@ std::vector<Token> parse_tokenizer_json(const std::string& filepath) {
 }
 
 // Compute token trajectory centroid and Hilbert index
-void compute_token_geometry(Token& tok, PGconn* conn) {
+void compute_token_geometry(Token& tok, [[maybe_unused]] PGconn* conn) {
     // Strip subword prefix for atom lookup
     std::string clean_text = tok.text;
     if (tok.is_subword && clean_text.size() >= 2) {
@@ -257,18 +257,18 @@ void compute_token_geometry(Token& tok, PGconn* conn) {
 
 // Generate token hash (model_id + index + text)
 void compute_token_hash(Token& tok, const Blake3Hash& model_id) {
-    Blake3Hasher hasher;
-    hasher.update(model_id.bytes, 32);
-    
+    Blake3Hasher::Incremental hasher;
+    hasher.update(std::span<const uint8_t>(model_id.bytes.data(), 32));
+
     // Add index as 4 bytes big-endian
     uint8_t idx_bytes[4];
     idx_bytes[0] = (tok.index >> 24) & 0xFF;
     idx_bytes[1] = (tok.index >> 16) & 0xFF;
     idx_bytes[2] = (tok.index >> 8) & 0xFF;
     idx_bytes[3] = tok.index & 0xFF;
-    hasher.update(idx_bytes, 4);
-    
-    hasher.update(reinterpret_cast<const uint8_t*>(tok.text.data()), tok.text.size());
+    hasher.update(std::span<const uint8_t>(idx_bytes, 4));
+
+    hasher.update(tok.text);
     tok.hash = hasher.finalize();
 }
 
@@ -294,7 +294,7 @@ Blake3Hash register_model(PGconn* conn, const std::string& name, const std::stri
     
     Blake3Hash model_id;
     if (PQntuples(res) > 0 && PQgetlength(res, 0, 0) == 32) {
-        std::memcpy(model_id.bytes, PQgetvalue(res, 0, 0), 32);
+        std::memcpy(model_id.bytes.data(), PQgetvalue(res, 0, 0), 32);
     }
     
     PQclear(res);

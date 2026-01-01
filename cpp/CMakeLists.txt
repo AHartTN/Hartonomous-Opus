@@ -132,6 +132,11 @@ if(PostgreSQL_FOUND)
     add_executable(ingest_model src/ingest_model.cpp)
     target_include_directories(ingest_model PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(ingest_model hypercube_core ${PostgreSQL_LIBRARIES} pthread)
+
+    # Safetensor embedding extractor (sparse semantic edges)
+    add_executable(extract_embeddings src/extract_embeddings.cpp)
+    target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} pthread)
 endif()
 
 # Summary

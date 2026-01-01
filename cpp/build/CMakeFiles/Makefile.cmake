@@ -67,4 +67,6 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/seed_atoms.dir/DependInfo.cmake"
   "CMakeFiles/seed_atoms_direct.dir/DependInfo.cmake"
   "CMakeFiles/seed_atoms_parallel.dir/DependInfo.cmake"
+  "CMakeFiles/ingest_model.dir/DependInfo.cmake"
+  "CMakeFiles/extract_embeddings.dir/DependInfo.cmake"
   )
