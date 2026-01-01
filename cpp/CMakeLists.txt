@@ -127,6 +127,11 @@ if(PostgreSQL_FOUND)
     add_executable(seed_atoms_parallel src/seed_atoms_parallel.cpp)
     target_include_directories(seed_atoms_parallel PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(seed_atoms_parallel hypercube_core ${PostgreSQL_LIBRARIES} pthread)
+    
+    # Model vocabulary ingestion tool
+    add_executable(ingest_model src/ingest_model.cpp)
+    target_include_directories(ingest_model PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(ingest_model hypercube_core ${PostgreSQL_LIBRARIES} pthread)
 endif()
 
 # Summary
