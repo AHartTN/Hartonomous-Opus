@@ -1,0 +1,1 @@
+/usr/bin/g++-11 -fPIC -O3 -march=native -DNDEBUG -Wall -Wextra -shared -Wl,-soname,hypercube.so -o hypercube.so CMakeFiles/hypercube.dir/src/hypercube.cpp.o  libhypercube_core.a

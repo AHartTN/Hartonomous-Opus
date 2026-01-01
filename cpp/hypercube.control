@@ -1,0 +1,6 @@
+# hypercube extension
+comment = '4D Hilbert curve indexing for semantic coordinate system'
+default_version = '1.0'
+module_pathname = '$libdir/hypercube'
+relocatable = true
+requires = 'postgis'

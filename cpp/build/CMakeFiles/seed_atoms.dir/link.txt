@@ -1,0 +1,1 @@
+/usr/bin/g++-11 -O3 -march=native -DNDEBUG -Wall -Wextra -pthread CMakeFiles/seed_atoms.dir/src/seed_atoms.cpp.o -o seed_atoms  libhypercube_core.a

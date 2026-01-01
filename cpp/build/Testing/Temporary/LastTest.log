@@ -1,0 +1,260 @@
+Start testing: Jan 01 22:29 UTC
+----------------------------------------------------------
+1/4 Testing: HilbertTest
+1/4 Test: HilbertTest
+Command: "/home/ahart/Projects/Hartonomous-Opus/cpp/build/test_hilbert"
+Directory: /home/ahart/Projects/Hartonomous-Opus/cpp/build
+"HilbertTest" start time: Jan 01 22:29 UTC
+Output:
+----------------------------------------------------------
+=== Hilbert Curve Tests ===
+Testing Hilbert curve roundtrip...
+  Specific points: PASS
+  Random points (100): PASS
+Testing Hilbert curve locality...
+  Locality property: PASS
+Testing Hilbert index ordering...
+  Index comparison: PASS
+Testing Hilbert index arithmetic...
+  Arithmetic: PASS
+
+All tests passed!
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"HilbertTest" end time: Jan 01 22:29 UTC
+"HilbertTest" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/4 Testing: CoordinatesTest
+2/4 Test: CoordinatesTest
+Command: "/home/ahart/Projects/Hartonomous-Opus/cpp/build/test_coordinates"
+Directory: /home/ahart/Projects/Hartonomous-Opus/cpp/build
+"CoordinatesTest" start time: Jan 01 22:29 UTC
+Output:
+----------------------------------------------------------
+=== Coordinate Mapper Tests ===
+Testing Unicode categorization...
+  WARN: ( (U+28) expected 6 got 8
+  WARN: ) (U+29) expected 7 got 8
+  WARN: + (U+2b) expected 11 got 8
+  Categorization: 11/14 passed
+Testing surface distribution...
+  Surface check: 228/228 on surface
+  Surface distribution: PASS
+Testing centroid calculation...
+  Simple centroid: PASS
+  Letters centroid: (4229892032, 2579191568, 2148042972, 2323276653)
+  Centroid calculation: PASS
+Testing Euclidean distance...
+  Euclidean distance: PASS
+Testing semantic clustering...
+  A at: (4229892032, 2656238591, 2275662060, 2147668534)
+  Z at: (4229892032, 2497252671, 2495838150, 2325169051)
+  a at: (4229892032, 2656238591, 2275660993, 2148038308)
+  0 at: (4229892032, 2465455487, 2544526254, 2275984268)
+  Semantic clustering: PASS (visual inspection)
+Testing Hilbert integration...
+  Hilbert integration: PASS
+
+All tests passed!
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CoordinatesTest" end time: Jan 01 22:29 UTC
+"CoordinatesTest" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/4 Testing: Blake3Test
+3/4 Test: Blake3Test
+Command: "/home/ahart/Projects/Hartonomous-Opus/cpp/build/test_blake3"
+Directory: /home/ahart/Projects/Hartonomous-Opus/cpp/build
+"Blake3Test" start time: Jan 01 22:29 UTC
+Output:
+----------------------------------------------------------
+=== BLAKE3 Tests ===
+Testing basic hashing...
+  Empty hash: PASS
+  hello hash: ea8f163db38682925e4491c5e58d4bb3506ef8c14eb78a86e908c5624a67200f
+  Different inputs: PASS
+  Deterministic: PASS
+Testing codepoint hashing...
+  Codepoint hashing: PASS
+Testing Merkle DAG hashing...
+  Merkle hashing: PASS
+Testing incremental hashing...
+  Incremental hashing: PASS
+  Reset: PASS
+Testing hex conversion...
+  Hex conversion: PASS
+Testing keyed hashing...
+  Keyed hashing: PASS
+Testing key derivation...
+  Key derivation: PASS
+
+All tests passed!
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Blake3Test" end time: Jan 01 22:29 UTC
+"Blake3Test" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/4 Testing: SemanticTest
+4/4 Test: SemanticTest
+Command: "/home/ahart/Projects/Hartonomous-Opus/cpp/build/test_semantic"
+Directory: /home/ahart/Projects/Hartonomous-Opus/cpp/build
+"SemanticTest" start time: Jan 01 22:29 UTC
+Output:
+----------------------------------------------------------
+============================================
+  Hartonomous Hypercube Semantic Tests
+============================================
+
+=== Test: Surface Constraint ===
+  Total on surface: 1112064
+  Total off surface: 0
+PASSED: All atoms are on hypercube surface
+
+=== Test: Case Pair Proximity ===
+PASSED: A is categorized as LetterUpper
+PASSED: a is categorized as LetterLower
+PASSED: B is categorized as LetterUpper
+PASSED: b is categorized as LetterLower
+PASSED: C is categorized as LetterUpper
+PASSED: c is categorized as LetterLower
+PASSED: D is categorized as LetterUpper
+PASSED: d is categorized as LetterLower
+PASSED: E is categorized as LetterUpper
+PASSED: e is categorized as LetterLower
+PASSED: F is categorized as LetterUpper
+PASSED: f is categorized as LetterLower
+PASSED: G is categorized as LetterUpper
+PASSED: g is categorized as LetterLower
+PASSED: H is categorized as LetterUpper
+PASSED: h is categorized as LetterLower
+PASSED: I is categorized as LetterUpper
+PASSED: i is categorized as LetterLower
+PASSED: J is categorized as LetterUpper
+PASSED: j is categorized as LetterLower
+PASSED: K is categorized as LetterUpper
+PASSED: k is categorized as LetterLower
+PASSED: L is categorized as LetterUpper
+PASSED: l is categorized as LetterLower
+PASSED: M is categorized as LetterUpper
+PASSED: m is categorized as LetterLower
+PASSED: N is categorized as LetterUpper
+PASSED: n is categorized as LetterLower
+PASSED: O is categorized as LetterUpper
+PASSED: o is categorized as LetterLower
+PASSED: P is categorized as LetterUpper
+PASSED: p is categorized as LetterLower
+PASSED: Q is categorized as LetterUpper
+PASSED: q is categorized as LetterLower
+PASSED: R is categorized as LetterUpper
+PASSED: r is categorized as LetterLower
+PASSED: S is categorized as LetterUpper
+PASSED: s is categorized as LetterLower
+PASSED: T is categorized as LetterUpper
+PASSED: t is categorized as LetterLower
+PASSED: U is categorized as LetterUpper
+PASSED: u is categorized as LetterLower
+PASSED: V is categorized as LetterUpper
+PASSED: v is categorized as LetterLower
+PASSED: W is categorized as LetterUpper
+PASSED: w is categorized as LetterLower
+PASSED: X is categorized as LetterUpper
+PASSED: x is categorized as LetterLower
+PASSED: Y is categorized as LetterUpper
+PASSED: y is categorized as LetterLower
+PASSED: Z is categorized as LetterUpper
+PASSED: z is categorized as LetterLower
+  Distance A-a: 369776
+  Distance A-Z: 3.24439e+08
+PASSED: A and a have non-zero distance (different coordinates)
+PASSED: A is closer to a (same letter) than to Z (different letter) (369776 < 3.24439e+08)
+
+=== Test: Category Clustering ===
+  Category 0 (control): 65 points, 100% on S³ surface
+  Category 1 (format): 26 points, 100% on S³ surface
+  Category 5 (space): 15 points, 100% on S³ surface
+  Category 6 (punctuation_open): 2 points, 100% on S³ surface
+  Category 7 (punctuation_close): 2 points, 100% on S³ surface
+  Category 8 (punctuation_other): 100 points, 100% on S³ surface
+  Category 9 (digit): 10 points, 100% on S³ surface
+  Category 11 (math_symbol): 100 points, 100% on S³ surface
+  Category 14 (letter_upper): 56 points, 100% on S³ surface
+  Category 15 (letter_lower): 58 points, 100% on S³ surface
+  Category 17 (letter_modifier): 80 points, 100% on S³ surface
+  Category 18 (letter_other): 100 points, 100% on S³ surface
+  Category 19 (mark_nonspacing): 100 points, 100% on S³ surface
+  Category 22 (symbol_other): 100 points, 100% on S³ surface
+  Category 23 (separator): 2 points, 100% on S³ surface
+PASSED: Category clustering analysis complete
+
+=== Test: Digit Clustering ===
+PASSED: '0' is categorized as Digit
+PASSED: '1' is categorized as Digit
+PASSED: '2' is categorized as Digit
+PASSED: '3' is categorized as Digit
+PASSED: '4' is categorized as Digit
+PASSED: '5' is categorized as Digit
+PASSED: '6' is categorized as Digit
+PASSED: '7' is categorized as Digit
+PASSED: '8' is categorized as Digit
+PASSED: '9' is categorized as Digit
+PASSED: All 10 digits are on 3-sphere surface
+  Digit centroid: (4229892032, 2465455487, 2546147233, 2270815028)
+  Distance 0-1: 1.2039e+06
+  Distance 0-A: 3.53767e+08
+PASSED: Digit 0 is closer to digit 1 than to letter A (1.2039e+06 < 3.53767e+08)
+
+=== Test: Hilbert Locality ===
+  Hilbert ordering of letters:
+    0: hilbert_lo=14985359555436106843
+    1: hilbert_lo=1536818100158700137
+    2: hilbert_lo=4647926118671635754
+    3: hilbert_lo=8609683989304562604
+    4: hilbert_lo=1355571962141980997
+    5: hilbert_lo=8305901751238730435
+    6: hilbert_lo=7578907000964953523
+    7: hilbert_lo=15973475980228701499
+    8: hilbert_lo=18419237006941389960
+    9: hilbert_lo=923670674407373413
+PASSED: All 52 letters have Hilbert indices
+
+=== Test: Hilbert Roundtrip ===
+  Roundtrip: 1112064 passed, 0 failed
+PASSED: Hilbert coords->index->coords roundtrip is lossless
+
+=== Test: BLAKE3 Uniqueness ===
+  Unique hashes: 1112064
+  Duplicates: 0
+PASSED: All BLAKE3 hashes are unique
+
+=== Test: BLAKE3 Determinism ===
+PASSED: BLAKE3 hash is deterministic (same input = same output)
+
+=== Test: Generation Performance ===
+  Generated 1112064 atoms in 900 ms
+PASSED: Generation completes in under 2 seconds (900 < 2000)
+
+=== Test: Atom Count ===
+  Total valid codepoints: 1112064
+PASSED: Atom count matches expected valid codepoints
+
+============================================
+  Results: 74 passed, 0 failed
+============================================
+<end of output>
+Test time =   3.52 sec
+----------------------------------------------------------
+Test Passed.
+"SemanticTest" end time: Jan 01 22:30 UTC
+"SemanticTest" time elapsed: 00:00:03
+----------------------------------------------------------
+
+End testing: Jan 01 22:30 UTC

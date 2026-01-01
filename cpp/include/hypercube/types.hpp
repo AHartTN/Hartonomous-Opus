@@ -1,0 +1,248 @@
+#pragma once
+
+#include <cstdint>
+#include <array>
+#include <compare>
+#include <span>
+#include <string>
+#include <string_view>
+#include <cstring>
+
+namespace hypercube {
+
+// 32-bit unsigned coordinate per dimension
+using Coord32 = uint32_t;
+
+// 4D point with 32-bit coordinates
+struct Point4D {
+    Coord32 x, y, z, m;
+    
+    constexpr Point4D() noexcept : x(0), y(0), z(0), m(0) {}
+    constexpr Point4D(Coord32 x_, Coord32 y_, Coord32 z_, Coord32 m_) noexcept
+        : x(x_), y(y_), z(z_), m(m_) {}
+    
+    constexpr auto operator<=>(const Point4D&) const noexcept = default;
+    
+    // Convert to doubles for PostGIS POINTZM (normalized to [0, 1])
+    constexpr double x_normalized() const noexcept { 
+        return static_cast<double>(x) / static_cast<double>(UINT32_MAX); 
+    }
+    constexpr double y_normalized() const noexcept { 
+        return static_cast<double>(y) / static_cast<double>(UINT32_MAX); 
+    }
+    constexpr double z_normalized() const noexcept { 
+        return static_cast<double>(z) / static_cast<double>(UINT32_MAX); 
+    }
+    constexpr double m_normalized() const noexcept { 
+        return static_cast<double>(m) / static_cast<double>(UINT32_MAX); 
+    }
+    
+    // Check if on 3-sphere surface (r² ≈ 1 within quantization tolerance)
+    // For atoms, all should be on surface; compositions are interior
+    constexpr bool is_on_surface() const noexcept {
+        // Convert to unit sphere coordinates
+        double ux = (static_cast<double>(x) / static_cast<double>(UINT32_MAX)) * 2.0 - 1.0;
+        double uy = (static_cast<double>(y) / static_cast<double>(UINT32_MAX)) * 2.0 - 1.0;
+        double uz = (static_cast<double>(z) / static_cast<double>(UINT32_MAX)) * 2.0 - 1.0;
+        double um = (static_cast<double>(m) / static_cast<double>(UINT32_MAX)) * 2.0 - 1.0;
+        double r_sq = ux*ux + uy*uy + uz*uz + um*um;
+        // Allow tolerance for integer quantization
+        return r_sq >= 0.9 && r_sq <= 1.1;
+    }
+};
+
+// 128-bit Hilbert curve index (two 64-bit parts)
+struct HilbertIndex {
+    uint64_t lo;  // Lower 64 bits
+    uint64_t hi;  // Upper 64 bits
+    
+    constexpr HilbertIndex() noexcept : lo(0), hi(0) {}
+    constexpr HilbertIndex(uint64_t lo_, uint64_t hi_) noexcept : lo(lo_), hi(hi_) {}
+    
+    // Compare: hi first, then lo (big-endian order)
+    constexpr auto operator<=>(const HilbertIndex& other) const noexcept {
+        if (hi != other.hi) return hi <=> other.hi;
+        return lo <=> other.lo;
+    }
+    constexpr bool operator==(const HilbertIndex& other) const noexcept {
+        return hi == other.hi && lo == other.lo;
+    }
+    
+    // Increment for iteration
+    constexpr HilbertIndex& operator++() noexcept {
+        if (++lo == 0) ++hi;
+        return *this;
+    }
+    
+    // Arithmetic for distance calculations
+    constexpr HilbertIndex operator-(const HilbertIndex& other) const noexcept {
+        HilbertIndex result;
+        result.lo = lo - other.lo;
+        result.hi = hi - other.hi - (lo < other.lo ? 1 : 0);
+        return result;
+    }
+    
+    constexpr HilbertIndex operator+(const HilbertIndex& other) const noexcept {
+        HilbertIndex result;
+        result.lo = lo + other.lo;
+        result.hi = hi + other.hi + (result.lo < lo ? 1 : 0);
+        return result;
+    }
+};
+
+// BLAKE3 hash (32 bytes)
+struct Blake3Hash {
+    std::array<uint8_t, 32> bytes;
+    
+    constexpr Blake3Hash() noexcept : bytes{} {}
+    
+    explicit Blake3Hash(std::span<const uint8_t> data) noexcept {
+        if (data.size() >= 32) {
+            std::memcpy(bytes.data(), data.data(), 32);
+        }
+    }
+    
+    constexpr auto operator<=>(const Blake3Hash&) const noexcept = default;
+    
+    // Hex string representation
+    std::string to_hex() const {
+        static constexpr char hex_chars[] = "0123456789abcdef";
+        std::string result;
+        result.reserve(64);
+        for (uint8_t b : bytes) {
+            result.push_back(hex_chars[b >> 4]);
+            result.push_back(hex_chars[b & 0x0F]);
+        }
+        return result;
+    }
+    
+    static Blake3Hash from_hex(std::string_view hex) {
+        Blake3Hash result;
+        if (hex.size() != 64) return result;
+        
+        for (size_t i = 0; i < 32; ++i) {
+            auto hex_to_nibble = [](char c) -> uint8_t {
+                if (c >= '0' && c <= '9') return c - '0';
+                if (c >= 'a' && c <= 'f') return 10 + c - 'a';
+                if (c >= 'A' && c <= 'F') return 10 + c - 'A';
+                return 0;
+            };
+            result.bytes[i] = (hex_to_nibble(hex[i*2]) << 4) | hex_to_nibble(hex[i*2+1]);
+        }
+        return result;
+    }
+    
+    // Raw bytes access
+    constexpr const uint8_t* data() const noexcept { return bytes.data(); }
+    constexpr uint8_t* data() noexcept { return bytes.data(); }
+    static constexpr size_t size() noexcept { return 32; }
+    
+    // Check if zero (uninitialized)
+    constexpr bool is_zero() const noexcept {
+        for (uint8_t b : bytes) if (b != 0) return false;
+        return true;
+    }
+};
+
+// Unicode codepoint category for semantic clustering
+enum class AtomCategory : uint8_t {
+    Control = 0,
+    Format,
+    PrivateUse,
+    Surrogate,
+    Noncharacter,
+    Space,
+    PunctuationOpen,
+    PunctuationClose,
+    PunctuationOther,
+    Digit,
+    NumberLetter,
+    MathSymbol,
+    Currency,
+    Modifier,
+    LetterUpper,
+    LetterLower,
+    LetterTitlecase,
+    LetterModifier,
+    LetterOther,
+    MarkNonspacing,
+    MarkSpacing,
+    MarkEnclosing,
+    SymbolOther,
+    Separator,
+    
+    COUNT  // For iteration
+};
+
+// Convert category to SQL enum string
+constexpr const char* category_to_string(AtomCategory cat) noexcept {
+    switch (cat) {
+        case AtomCategory::Control: return "control";
+        case AtomCategory::Format: return "format";
+        case AtomCategory::PrivateUse: return "private_use";
+        case AtomCategory::Surrogate: return "surrogate";
+        case AtomCategory::Noncharacter: return "noncharacter";
+        case AtomCategory::Space: return "space";
+        case AtomCategory::PunctuationOpen: return "punctuation_open";
+        case AtomCategory::PunctuationClose: return "punctuation_close";
+        case AtomCategory::PunctuationOther: return "punctuation_other";
+        case AtomCategory::Digit: return "digit";
+        case AtomCategory::NumberLetter: return "number_letter";
+        case AtomCategory::MathSymbol: return "math_symbol";
+        case AtomCategory::Currency: return "currency";
+        case AtomCategory::Modifier: return "modifier";
+        case AtomCategory::LetterUpper: return "letter_upper";
+        case AtomCategory::LetterLower: return "letter_lower";
+        case AtomCategory::LetterTitlecase: return "letter_titlecase";
+        case AtomCategory::LetterModifier: return "letter_modifier";
+        case AtomCategory::LetterOther: return "letter_other";
+        case AtomCategory::MarkNonspacing: return "mark_nonspacing";
+        case AtomCategory::MarkSpacing: return "mark_spacing";
+        case AtomCategory::MarkEnclosing: return "mark_enclosing";
+        case AtomCategory::SymbolOther: return "symbol_other";
+        case AtomCategory::Separator: return "separator";
+        default: return "symbol_other";
+    }
+}
+
+// Unicode atom with full metadata
+struct UnicodeAtom {
+    uint32_t codepoint;
+    AtomCategory category;
+    Point4D coords;
+    HilbertIndex hilbert;
+    Blake3Hash hash;
+};
+
+// Composition node in the Merkle DAG
+struct Composition {
+    Blake3Hash hash;
+    Point4D centroid;
+    HilbertIndex hilbert;
+    uint32_t depth;
+    uint32_t child_count;
+    uint64_t atom_count;
+};
+
+// Constants
+namespace constants {
+    // Hypercube dimensions
+    constexpr uint32_t DIMENSIONS = 4;
+    constexpr uint32_t BITS_PER_DIM = 32;
+    constexpr uint32_t TOTAL_BITS = DIMENSIONS * BITS_PER_DIM;  // 128 bits
+    
+    // Unicode ranges
+    constexpr uint32_t MAX_CODEPOINT = 0x10FFFF;
+    constexpr uint32_t BMP_END = 0xFFFF;
+    constexpr uint32_t SURROGATE_START = 0xD800;
+    constexpr uint32_t SURROGATE_END = 0xDFFF;
+    
+    // Hypercube surface: points where at least one coordinate is 0 or MAX
+    constexpr Coord32 SURFACE_MIN = 0;
+    constexpr Coord32 SURFACE_MAX = UINT32_MAX;
+    
+    // Number of valid Unicode codepoints (excluding surrogates)
+    constexpr uint32_t VALID_CODEPOINTS = MAX_CODEPOINT + 1 - (SURROGATE_END - SURROGATE_START + 1);
+}
+
+} // namespace hypercube

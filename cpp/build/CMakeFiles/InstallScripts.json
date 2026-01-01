@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/ahart/Projects/Hartonomous-Opus/cpp/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
