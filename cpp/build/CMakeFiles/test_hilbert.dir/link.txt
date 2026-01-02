@@ -1,1 +1,0 @@
-/usr/bin/g++-11 -O3 -march=native -DNDEBUG -Wall -Wextra CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.o -o test_hilbert  libhypercube_core.a

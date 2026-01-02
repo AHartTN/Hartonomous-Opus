@@ -1,1 +1,0 @@
-/usr/bin/g++-11 -O3 -march=native -DNDEBUG -Wall -Wextra CMakeFiles/extract_embeddings.dir/src/extract_embeddings.cpp.o -o extract_embeddings  libhypercube_core.a /usr/lib/x86_64-linux-gnu/libpq.so -lpthread

@@ -1,4 +1,7 @@
+-- =============================================================================
 -- Unified Atom Table Schema
+-- Status: CURRENT (v3) - This is the canonical schema
+-- =============================================================================
 --
 -- Consolidates atom, relation, and relation_edge into a SINGLE table.
 --

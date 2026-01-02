@@ -1,2 +1,0 @@
-/usr/bin/ar qc libhypercube_core.a CMakeFiles/hypercube_core.dir/src/hilbert.cpp.o CMakeFiles/hypercube_core.dir/src/coordinates.cpp.o CMakeFiles/hypercube_core.dir/src/blake3_pg.cpp.o
-/usr/bin/ranlib libhypercube_core.a

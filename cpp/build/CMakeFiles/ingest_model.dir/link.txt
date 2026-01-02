@@ -1,1 +1,0 @@
-/usr/bin/g++-11 -O3 -march=native -DNDEBUG -Wall -Wextra CMakeFiles/ingest_model.dir/src/ingest_model.cpp.o -o ingest_model  libhypercube_core.a /usr/lib/x86_64-linux-gnu/libpq.so -lpthread

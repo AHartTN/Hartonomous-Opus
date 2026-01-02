@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Semantic UDF Infrastructure
--- Production-ready SQL functions backed by C++ extensions
+-- Status: CURRENT - Production-ready SQL functions backed by C++ extensions
 -- =============================================================================
 --
 -- This file creates permanent database infrastructure for AI/ML operations:

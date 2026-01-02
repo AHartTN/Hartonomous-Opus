@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Model Ingestion Infrastructure
--- Complete package for ingesting AI models and building query capabilities
+-- Status: CURRENT - Complete package for AI model ingestion
 -- =============================================================================
 --
 -- This file provides:

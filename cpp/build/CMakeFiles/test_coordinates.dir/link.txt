@@ -1,1 +1,0 @@
-/usr/bin/g++-11 -O3 -march=native -DNDEBUG -Wall -Wextra CMakeFiles/test_coordinates.dir/tests/test_coordinates.cpp.o -o test_coordinates  libhypercube_core.a

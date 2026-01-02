@@ -1,1 +1,0 @@
-/usr/bin/g++-11 -O3 -march=native -DNDEBUG -Wall -Wextra CMakeFiles/seed_atoms_direct.dir/src/seed_atoms_direct.cpp.o -o seed_atoms_direct  libhypercube_core.a /usr/lib/x86_64-linux-gnu/libpq.so -lpthread

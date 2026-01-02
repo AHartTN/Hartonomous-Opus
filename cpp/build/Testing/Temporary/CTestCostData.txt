@@ -1,5 +1,0 @@
-HilbertTest 7 0.000457881
-CoordinatesTest 7 0.000445989
-Blake3Test 7 0.00022691
-SemanticTest 5 0.704613
----
