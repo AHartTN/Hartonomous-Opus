@@ -51,6 +51,13 @@ CREATE TABLE atom (
     -- X, Y, Z = spatial dimensions, M = 4th dimension
     coords          GEOMETRY(POINTZM, 0) NOT NULL,
     
+    -- Raw 32-bit coordinates (lossless storage)
+    -- PostgreSQL INTEGER is 32-bit signed, but bit pattern is same as uint32
+    coord_x         INTEGER,
+    coord_y         INTEGER,
+    coord_z         INTEGER,
+    coord_m         INTEGER,
+    
     -- Hilbert curve index (128-bit position as two 64-bit unsigned integers)
     -- Stored as BIGINT but interpreted as unsigned
     hilbert_lo      BIGINT NOT NULL,  -- Lower 64 bits
@@ -69,10 +76,14 @@ CREATE TABLE atom (
 CREATE TABLE relation (
     id              blake3_hash PRIMARY KEY,
     
-    -- Computed centroid of this composition in 4D space
-    coords          GEOMETRY(POINTZM, 0) NOT NULL,
+    -- Raw 32-bit centroid coordinates (lossless, source of truth)
+    -- PostgreSQL INTEGER is 32-bit signed, same bit pattern as uint32
+    coord_x         INTEGER NOT NULL,
+    coord_y         INTEGER NOT NULL,
+    coord_z         INTEGER NOT NULL,
+    coord_m         INTEGER NOT NULL,
     
-    -- Hilbert curve index of centroid
+    -- Hilbert curve index of centroid (for spatial range queries)
     hilbert_lo      BIGINT NOT NULL,
     hilbert_hi      BIGINT NOT NULL,
     
@@ -101,12 +112,15 @@ CREATE TABLE relation_edge (
 CREATE INDEX idx_relation_edge_child ON relation_edge(child_id);
 
 -- Spatial indices for geometric queries
+-- Spatial index on atom coords (PostGIS for geometric queries)
 CREATE INDEX idx_atom_coords ON atom USING GIST(coords);
-CREATE INDEX idx_relation_coords ON relation USING GIST(coords);
 
--- Hilbert curve indices for range queries
+-- Hilbert curve indices for range queries (primary spatial index for relations)
 CREATE INDEX idx_atom_hilbert ON atom(hilbert_hi, hilbert_lo);
 CREATE INDEX idx_relation_hilbert ON relation(hilbert_hi, hilbert_lo);
+
+-- Composite coordinate index for relations (no PostGIS needed)
+CREATE INDEX idx_relation_coords ON relation(coord_x, coord_y, coord_z, coord_m);
 
 -- Category index for semantic filtering
 CREATE INDEX idx_atom_category ON atom(category);

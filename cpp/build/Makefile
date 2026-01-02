@@ -314,6 +314,19 @@ extract_embeddings/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/extract_embeddings.dir/build.make CMakeFiles/extract_embeddings.dir/build
 .PHONY : extract_embeddings/fast
 
+#=============================================================================
+# Target rules for targets named cpe_ingest
+
+# Build rule for target.
+cpe_ingest: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 cpe_ingest
+.PHONY : cpe_ingest
+
+# fast build rule for target.
+cpe_ingest/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpe_ingest.dir/build.make CMakeFiles/cpe_ingest.dir/build
+.PHONY : cpe_ingest/fast
+
 src/blake3_pg.o: src/blake3_pg.cpp.o
 .PHONY : src/blake3_pg.o
 
@@ -361,6 +374,30 @@ src/coordinates.s: src/coordinates.cpp.s
 src/coordinates.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/hypercube_core.dir/build.make CMakeFiles/hypercube_core.dir/src/coordinates.cpp.s
 .PHONY : src/coordinates.cpp.s
+
+src/cpe_ingest.o: src/cpe_ingest.cpp.o
+.PHONY : src/cpe_ingest.o
+
+# target to build an object file
+src/cpe_ingest.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpe_ingest.dir/build.make CMakeFiles/cpe_ingest.dir/src/cpe_ingest.cpp.o
+.PHONY : src/cpe_ingest.cpp.o
+
+src/cpe_ingest.i: src/cpe_ingest.cpp.i
+.PHONY : src/cpe_ingest.i
+
+# target to preprocess a source file
+src/cpe_ingest.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpe_ingest.dir/build.make CMakeFiles/cpe_ingest.dir/src/cpe_ingest.cpp.i
+.PHONY : src/cpe_ingest.cpp.i
+
+src/cpe_ingest.s: src/cpe_ingest.cpp.s
+.PHONY : src/cpe_ingest.s
+
+# target to generate assembly for a file
+src/cpe_ingest.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpe_ingest.dir/build.make CMakeFiles/cpe_ingest.dir/src/cpe_ingest.cpp.s
+.PHONY : src/cpe_ingest.cpp.s
 
 src/extract_embeddings.o: src/extract_embeddings.cpp.o
 .PHONY : src/extract_embeddings.o
@@ -639,6 +676,7 @@ help:
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
 	@echo "... test"
+	@echo "... cpe_ingest"
 	@echo "... extract_embeddings"
 	@echo "... hypercube"
 	@echo "... hypercube_core"
@@ -656,6 +694,9 @@ help:
 	@echo "... src/coordinates.o"
 	@echo "... src/coordinates.i"
 	@echo "... src/coordinates.s"
+	@echo "... src/cpe_ingest.o"
+	@echo "... src/cpe_ingest.i"
+	@echo "... src/cpe_ingest.s"
 	@echo "... src/extract_embeddings.o"
 	@echo "... src/extract_embeddings.i"
 	@echo "... src/extract_embeddings.s"

@@ -137,6 +137,11 @@ if(PostgreSQL_FOUND)
     add_executable(extract_embeddings src/extract_embeddings.cpp)
     target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} pthread)
+
+    # CPE ingester (high-performance file/directory ingestion)
+    add_executable(cpe_ingest src/cpe_ingest.cpp)
+    target_include_directories(cpe_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(cpe_ingest hypercube_core ${PostgreSQL_LIBRARIES} pthread)
 endif()
 
 # Summary

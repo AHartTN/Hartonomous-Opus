@@ -32,16 +32,25 @@ std::string g_conninfo = "dbname=hypercube";
 // Number of parallel generators
 int g_num_generators = 8;
 
-// Pre-compute reciprocal for coordinate normalization
-constexpr double COORD_SCALE = 1.0 / 4294967295.0;
-
 struct AtomRecord {
     Blake3Hash hash;
     int32_t codepoint;
     AtomCategory category;
-    double x, y, z, m;
+    // Raw 32-bit coordinates stored as signed int32 (same bit pattern as uint32)
+    int32_t coord_x, coord_y, coord_z, coord_m;
+    // Hilbert indices as signed int64 (same bit pattern as uint64)
     int64_t hilbert_lo, hilbert_hi;
 };
+
+// Convert uint32 to int32 (reinterpret bits, no data loss)
+inline int32_t uint32_to_int32(uint32_t val) {
+    return static_cast<int32_t>(val);
+}
+
+// Convert uint64 to int64 (reinterpret bits, no data loss)
+inline int64_t uint64_to_int64(uint64_t val) {
+    return static_cast<int64_t>(val);
+}
 
 // Generate atoms for a codepoint range
 void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) {
@@ -59,21 +68,24 @@ void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) 
         rec.hash = Blake3Hasher::hash_codepoint(cp);
         rec.codepoint = static_cast<int32_t>(cp);
         rec.category = CoordinateMapper::categorize(cp);
-        rec.x = static_cast<double>(coords.x) * COORD_SCALE;
-        rec.y = static_cast<double>(coords.y) * COORD_SCALE;
-        rec.z = static_cast<double>(coords.z) * COORD_SCALE;
-        rec.m = static_cast<double>(coords.m) * COORD_SCALE;
-        rec.hilbert_lo = static_cast<int64_t>(hilbert.lo);
-        rec.hilbert_hi = static_cast<int64_t>(hilbert.hi);
+        // Store raw uint32 coordinates as int32 (same bit pattern)
+        rec.coord_x = uint32_to_int32(coords.x);
+        rec.coord_y = uint32_to_int32(coords.y);
+        rec.coord_z = uint32_to_int32(coords.z);
+        rec.coord_m = uint32_to_int32(coords.m);
+        // Store raw uint64 Hilbert indices as int64 (same bit pattern)
+        rec.hilbert_lo = uint64_to_int64(hilbert.lo);
+        rec.hilbert_hi = uint64_to_int64(hilbert.hi);
         
         out.push_back(rec);
     }
 }
 
-// Insert atoms using COPY directly into atom table with EWKB geometry
-bool copy_atoms_ewkb(PGconn* conn, const std::vector<AtomRecord>& atoms) {
+// Insert atoms using COPY directly into atom table with raw integer coordinates
+bool copy_atoms_lossless(PGconn* conn, const std::vector<AtomRecord>& atoms) {
+    // Updated COPY to include both raw integer coords and PostGIS geometry
     PGresult* res = PQexec(conn, 
-        "COPY atom (id, codepoint, category, coords, hilbert_lo, hilbert_hi) "
+        "COPY atom (id, codepoint, category, coords, coord_x, coord_y, coord_z, coord_m, hilbert_lo, hilbert_hi) "
         "FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
     
     if (PQresultStatus(res) != PGRES_COPY_IN) {
@@ -93,6 +105,12 @@ bool copy_atoms_ewkb(PGconn* conn, const std::vector<AtomRecord>& atoms) {
     std::memcpy(ewkb, "01010000c0", 10);
     ewkb[74] = '\0';
     
+    // Convert int32 to normalized double for PostGIS (preserves as much precision as possible)
+    auto int32_to_normalized_double = [](int32_t val) -> double {
+        uint32_t uval = static_cast<uint32_t>(val);
+        return static_cast<double>(uval) / 4294967295.0;
+    };
+    
     auto double_to_hex = [&](double val, char* out) {
         uint64_t bits;
         std::memcpy(&bits, &val, sizeof(bits));
@@ -108,13 +126,13 @@ bool copy_atoms_ewkb(PGconn* conn, const std::vector<AtomRecord>& atoms) {
     for (size_t i = 0; i < atoms.size(); ++i) {
         const auto& a = atoms[i];
         
-        // Build EWKB
-        double_to_hex(a.x, ewkb + 10);
-        double_to_hex(a.y, ewkb + 26);
-        double_to_hex(a.z, ewkb + 42);
-        double_to_hex(a.m, ewkb + 58);
+        // Build EWKB from raw integer coords (converted to normalized double for PostGIS)
+        double_to_hex(int32_to_normalized_double(a.coord_x), ewkb + 10);
+        double_to_hex(int32_to_normalized_double(a.coord_y), ewkb + 26);
+        double_to_hex(int32_to_normalized_double(a.coord_z), ewkb + 42);
+        double_to_hex(int32_to_normalized_double(a.coord_m), ewkb + 58);
         
-        // Build row
+        // Build row: id, codepoint, category, coords(EWKB), coord_x, coord_y, coord_z, coord_m, hilbert_lo, hilbert_hi
         batch += "\\\\x";
         batch += a.hash.to_hex();
         batch += '\t';
@@ -127,6 +145,23 @@ bool copy_atoms_ewkb(PGconn* conn, const std::vector<AtomRecord>& atoms) {
         batch += '\t';
         
         batch += ewkb;
+        batch += '\t';
+        
+        // Raw integer coordinates (lossless)
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_x);
+        batch += num_buf;
+        batch += '\t';
+        
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_y);
+        batch += num_buf;
+        batch += '\t';
+        
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_z);
+        batch += num_buf;
+        batch += '\t';
+        
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_m);
+        batch += num_buf;
         batch += '\t';
         
         snprintf(num_buf, sizeof(num_buf), "%ld", a.hilbert_lo);
@@ -173,10 +208,10 @@ bool copy_atoms_ewkb(PGconn* conn, const std::vector<AtomRecord>& atoms) {
     return true;
 }
 
-// Insert atoms using COPY to staging table
+// Insert atoms using COPY to staging table (legacy, updated for lossless)
 bool copy_to_staging(PGconn* conn, const std::vector<AtomRecord>& atoms) {
     PGresult* res = PQexec(conn, 
-        "COPY atom_staging (hash, codepoint, category, x, y, z, m, hilbert_lo, hilbert_hi) "
+        "COPY atom_staging (hash, codepoint, category, coord_x, coord_y, coord_z, coord_m, hilbert_lo, hilbert_hi) "
         "FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
     
     if (PQresultStatus(res) != PGRES_COPY_IN) {
@@ -207,17 +242,17 @@ bool copy_to_staging(PGconn* conn, const std::vector<AtomRecord>& atoms) {
         row += category_to_string(a.category);
         row += '\t';
         
-        // Coordinates
-        snprintf(num_buf, sizeof(num_buf), "%.10f", a.x);
+        // Raw integer coordinates (lossless)
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_x);
         row += num_buf;
         row += '\t';
-        snprintf(num_buf, sizeof(num_buf), "%.10f", a.y);
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_y);
         row += num_buf;
         row += '\t';
-        snprintf(num_buf, sizeof(num_buf), "%.10f", a.z);
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_z);
         row += num_buf;
         row += '\t';
-        snprintf(num_buf, sizeof(num_buf), "%.10f", a.m);
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_m);
         row += num_buf;
         row += '\t';
         
@@ -348,15 +383,20 @@ int main(int argc, char* argv[]) {
     PQexec(conn, "DROP INDEX IF EXISTS idx_atom_category");
     PQexec(conn, "DROP INDEX IF EXISTS idx_atom_letters");
     PQexec(conn, "DROP INDEX IF EXISTS idx_atom_digits");
+    PQexec(conn, "DROP INDEX IF EXISTS idx_atom_coord_x");
+    PQexec(conn, "DROP INDEX IF EXISTS idx_atom_coord_y");
+    PQexec(conn, "DROP INDEX IF EXISTS idx_atom_coord_z");
+    PQexec(conn, "DROP INDEX IF EXISTS idx_atom_coord_m");
+    PQexec(conn, "DROP INDEX IF EXISTS idx_atom_coords_int");
     PQexec(conn, "TRUNCATE atom CASCADE");
     
     auto setup_time = std::chrono::high_resolution_clock::now();
     auto setup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(setup_time - gen_time).count();
     std::cerr << "Setup complete: " << setup_ms << " ms\n";
     
-    // Step 3: COPY directly to atom table using EWKB geometry
-    std::cerr << "COPY to atom table (EWKB)...\n";
-    if (!copy_atoms_ewkb(conn, all_atoms)) {
+    // Step 3: COPY directly to atom table with lossless integer coordinates
+    std::cerr << "COPY to atom table (lossless integers)...\n";
+    if (!copy_atoms_lossless(conn, all_atoms)) {
         PQfinish(conn);
         return 1;
     }
@@ -372,6 +412,11 @@ int main(int argc, char* argv[]) {
     PQexec(conn, "CREATE INDEX idx_atom_category ON atom(category)");
     PQexec(conn, "CREATE INDEX idx_atom_letters ON atom(codepoint) WHERE category IN ('letter_upper', 'letter_lower', 'letter_titlecase', 'letter_other')");
     PQexec(conn, "CREATE INDEX idx_atom_digits ON atom(codepoint) WHERE category = 'digit'");
+    // New indexes on raw integer coordinates
+    PQexec(conn, "CREATE INDEX idx_atom_coord_x ON atom(coord_x)");
+    PQexec(conn, "CREATE INDEX idx_atom_coord_y ON atom(coord_y)");
+    PQexec(conn, "CREATE INDEX idx_atom_coord_z ON atom(coord_z)");
+    PQexec(conn, "CREATE INDEX idx_atom_coord_m ON atom(coord_m)");
     PQexec(conn, "ANALYZE atom");
     
     auto index_time = std::chrono::high_resolution_clock::now();

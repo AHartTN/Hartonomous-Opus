@@ -36,6 +36,10 @@ struct AtomRecord {
     Blake3Hash hash;
     int32_t codepoint;
     AtomCategory category;
+    // Raw 32-bit coordinates as signed int (same bit pattern as uint32)
+    // This is LOSSLESS storage - int32 and uint32 have same bits
+    int32_t coord_x, coord_y, coord_z, coord_m;
+    // PostGIS normalized double (for spatial queries only)
     double x, y, z, m;
     int64_t hilbert_lo, hilbert_hi;
     
@@ -62,10 +66,20 @@ void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) 
         rec.hash = Blake3Hasher::hash_codepoint(cp);
         rec.codepoint = static_cast<int32_t>(cp);
         rec.category = CoordinateMapper::categorize(cp);
+        
+        // Store RAW 32-bit coordinates as signed int (LOSSLESS - same bit pattern as uint32)
+        // This is the authoritative coordinate storage
+        rec.coord_x = static_cast<int32_t>(coords.x);
+        rec.coord_y = static_cast<int32_t>(coords.y);
+        rec.coord_z = static_cast<int32_t>(coords.z);
+        rec.coord_m = static_cast<int32_t>(coords.m);
+        
+        // Also store PostGIS normalized double (for spatial queries only, may lose precision)
         rec.x = static_cast<double>(coords.x) * COORD_SCALE;
         rec.y = static_cast<double>(coords.y) * COORD_SCALE;
         rec.z = static_cast<double>(coords.z) * COORD_SCALE;
         rec.m = static_cast<double>(coords.m) * COORD_SCALE;
+        
         rec.hilbert_lo = static_cast<int64_t>(hilbert.lo);
         rec.hilbert_hi = static_cast<int64_t>(hilbert.hi);
         
@@ -103,8 +117,9 @@ bool copy_partition(const std::string& conninfo, int partition_id,
     }
     
     // COPY directly to atom table - no staging
+    // Include BOTH raw integer coordinates (lossless) AND PostGIS geometry (for spatial queries)
     std::string copy_cmd = 
-        "COPY atom (id, codepoint, category, coords, hilbert_lo, hilbert_hi) "
+        "COPY atom (id, codepoint, category, coords, coord_x, coord_y, coord_z, coord_m, hilbert_lo, hilbert_hi) "
         "FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')";
     
     PGresult* res = PQexec(conn, copy_cmd.c_str());
@@ -145,7 +160,7 @@ bool copy_partition(const std::string& conninfo, int partition_id,
         double_to_hex(a.z, ewkb + 42);
         double_to_hex(a.m, ewkb + 58);
         
-        // Build row
+        // Build row: id, codepoint, category, coords, coord_x, coord_y, coord_z, coord_m, hilbert_lo, hilbert_hi
         batch += "\\\\x";
         batch += a.hash.to_hex();
         batch += '\t';
@@ -158,6 +173,23 @@ bool copy_partition(const std::string& conninfo, int partition_id,
         batch += '\t';
         
         batch += ewkb;
+        batch += '\t';
+        
+        // Raw 32-bit integer coordinates (LOSSLESS)
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_x);
+        batch += num_buf;
+        batch += '\t';
+        
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_y);
+        batch += num_buf;
+        batch += '\t';
+        
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_z);
+        batch += num_buf;
+        batch += '\t';
+        
+        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_m);
+        batch += num_buf;
         batch += '\t';
         
         snprintf(num_buf, sizeof(num_buf), "%ld", a.hilbert_lo);
@@ -355,6 +387,11 @@ int main(int argc, char* argv[]) {
     PQexec(main_conn, "CREATE INDEX idx_atom_category ON atom(category)");
     PQexec(main_conn, "CREATE INDEX idx_atom_letters ON atom(codepoint) WHERE category IN ('letter_upper', 'letter_lower', 'letter_titlecase', 'letter_other')");
     PQexec(main_conn, "CREATE INDEX idx_atom_digits ON atom(codepoint) WHERE category = 'digit'");
+    // Integer coordinate indexes (for lossless queries)
+    PQexec(main_conn, "CREATE INDEX idx_atom_coord_x ON atom(coord_x)");
+    PQexec(main_conn, "CREATE INDEX idx_atom_coord_y ON atom(coord_y)");
+    PQexec(main_conn, "CREATE INDEX idx_atom_coord_z ON atom(coord_z)");
+    PQexec(main_conn, "CREATE INDEX idx_atom_coord_m ON atom(coord_m)");
     PQexec(main_conn, "ANALYZE atom");
     
     auto end_time = std::chrono::high_resolution_clock::now();

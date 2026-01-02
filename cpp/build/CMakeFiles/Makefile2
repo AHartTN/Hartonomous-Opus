@@ -74,6 +74,7 @@ all: CMakeFiles/seed_atoms_direct.dir/all
 all: CMakeFiles/seed_atoms_parallel.dir/all
 all: CMakeFiles/ingest_model.dir/all
 all: CMakeFiles/extract_embeddings.dir/all
+all: CMakeFiles/cpe_ingest.dir/all
 .PHONY : all
 
 # The main recursive "codegen" target.
@@ -88,6 +89,7 @@ codegen: CMakeFiles/seed_atoms_direct.dir/codegen
 codegen: CMakeFiles/seed_atoms_parallel.dir/codegen
 codegen: CMakeFiles/ingest_model.dir/codegen
 codegen: CMakeFiles/extract_embeddings.dir/codegen
+codegen: CMakeFiles/cpe_ingest.dir/codegen
 .PHONY : codegen
 
 # The main recursive "preinstall" target.
@@ -106,6 +108,7 @@ clean: CMakeFiles/seed_atoms_direct.dir/clean
 clean: CMakeFiles/seed_atoms_parallel.dir/clean
 clean: CMakeFiles/ingest_model.dir/clean
 clean: CMakeFiles/extract_embeddings.dir/clean
+clean: CMakeFiles/cpe_ingest.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -115,7 +118,7 @@ clean: CMakeFiles/extract_embeddings.dir/clean
 CMakeFiles/hypercube_core.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/hypercube_core.dir/build.make CMakeFiles/hypercube_core.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/hypercube_core.dir/build.make CMakeFiles/hypercube_core.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=5,6,7,8 "Built target hypercube_core"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=7,8,9,10 "Built target hypercube_core"
 .PHONY : CMakeFiles/hypercube_core.dir/all
 
 # Build rule for subdir invocation for target.
@@ -132,7 +135,7 @@ hypercube_core: CMakeFiles/hypercube_core.dir/rule
 # codegen rule for target.
 CMakeFiles/hypercube_core.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/hypercube_core.dir/build.make CMakeFiles/hypercube_core.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=5,6,7,8 "Finished codegen for target hypercube_core"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=7,8,9,10 "Finished codegen for target hypercube_core"
 .PHONY : CMakeFiles/hypercube_core.dir/codegen
 
 # clean rule for target.
@@ -147,7 +150,7 @@ CMakeFiles/hypercube_core.dir/clean:
 CMakeFiles/hypercube.dir/all: CMakeFiles/hypercube_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/hypercube.dir/build.make CMakeFiles/hypercube.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/hypercube.dir/build.make CMakeFiles/hypercube.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=3,4 "Built target hypercube"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=5,6 "Built target hypercube"
 .PHONY : CMakeFiles/hypercube.dir/all
 
 # Build rule for subdir invocation for target.
@@ -164,7 +167,7 @@ hypercube: CMakeFiles/hypercube.dir/rule
 # codegen rule for target.
 CMakeFiles/hypercube.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/hypercube.dir/build.make CMakeFiles/hypercube.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=3,4 "Finished codegen for target hypercube"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=5,6 "Finished codegen for target hypercube"
 .PHONY : CMakeFiles/hypercube.dir/codegen
 
 # clean rule for target.
@@ -179,7 +182,7 @@ CMakeFiles/hypercube.dir/clean:
 CMakeFiles/test_hilbert.dir/all: CMakeFiles/hypercube_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_hilbert.dir/build.make CMakeFiles/test_hilbert.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_hilbert.dir/build.make CMakeFiles/test_hilbert.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=21,22 "Built target test_hilbert"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=23,24 "Built target test_hilbert"
 .PHONY : CMakeFiles/test_hilbert.dir/all
 
 # Build rule for subdir invocation for target.
@@ -196,7 +199,7 @@ test_hilbert: CMakeFiles/test_hilbert.dir/rule
 # codegen rule for target.
 CMakeFiles/test_hilbert.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_hilbert.dir/build.make CMakeFiles/test_hilbert.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=21,22 "Finished codegen for target test_hilbert"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=23,24 "Finished codegen for target test_hilbert"
 .PHONY : CMakeFiles/test_hilbert.dir/codegen
 
 # clean rule for target.
@@ -211,7 +214,7 @@ CMakeFiles/test_hilbert.dir/clean:
 CMakeFiles/test_coordinates.dir/all: CMakeFiles/hypercube_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_coordinates.dir/build.make CMakeFiles/test_coordinates.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_coordinates.dir/build.make CMakeFiles/test_coordinates.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=19,20 "Built target test_coordinates"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=21,22 "Built target test_coordinates"
 .PHONY : CMakeFiles/test_coordinates.dir/all
 
 # Build rule for subdir invocation for target.
@@ -228,7 +231,7 @@ test_coordinates: CMakeFiles/test_coordinates.dir/rule
 # codegen rule for target.
 CMakeFiles/test_coordinates.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_coordinates.dir/build.make CMakeFiles/test_coordinates.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=19,20 "Finished codegen for target test_coordinates"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=21,22 "Finished codegen for target test_coordinates"
 .PHONY : CMakeFiles/test_coordinates.dir/codegen
 
 # clean rule for target.
@@ -243,7 +246,7 @@ CMakeFiles/test_coordinates.dir/clean:
 CMakeFiles/test_blake3.dir/all: CMakeFiles/hypercube_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_blake3.dir/build.make CMakeFiles/test_blake3.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_blake3.dir/build.make CMakeFiles/test_blake3.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=17,18 "Built target test_blake3"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=19,20 "Built target test_blake3"
 .PHONY : CMakeFiles/test_blake3.dir/all
 
 # Build rule for subdir invocation for target.
@@ -260,7 +263,7 @@ test_blake3: CMakeFiles/test_blake3.dir/rule
 # codegen rule for target.
 CMakeFiles/test_blake3.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_blake3.dir/build.make CMakeFiles/test_blake3.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=17,18 "Finished codegen for target test_blake3"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=19,20 "Finished codegen for target test_blake3"
 .PHONY : CMakeFiles/test_blake3.dir/codegen
 
 # clean rule for target.
@@ -275,7 +278,7 @@ CMakeFiles/test_blake3.dir/clean:
 CMakeFiles/test_semantic.dir/all: CMakeFiles/hypercube_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_semantic.dir/build.make CMakeFiles/test_semantic.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_semantic.dir/build.make CMakeFiles/test_semantic.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=23,24 "Built target test_semantic"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=25,26 "Built target test_semantic"
 .PHONY : CMakeFiles/test_semantic.dir/all
 
 # Build rule for subdir invocation for target.
@@ -292,7 +295,7 @@ test_semantic: CMakeFiles/test_semantic.dir/rule
 # codegen rule for target.
 CMakeFiles/test_semantic.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_semantic.dir/build.make CMakeFiles/test_semantic.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=23,24 "Finished codegen for target test_semantic"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=25,26 "Finished codegen for target test_semantic"
 .PHONY : CMakeFiles/test_semantic.dir/codegen
 
 # clean rule for target.
@@ -307,7 +310,7 @@ CMakeFiles/test_semantic.dir/clean:
 CMakeFiles/seed_atoms.dir/all: CMakeFiles/hypercube_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/seed_atoms.dir/build.make CMakeFiles/seed_atoms.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/seed_atoms.dir/build.make CMakeFiles/seed_atoms.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=11,12 "Built target seed_atoms"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=13,14 "Built target seed_atoms"
 .PHONY : CMakeFiles/seed_atoms.dir/all
 
 # Build rule for subdir invocation for target.
@@ -324,7 +327,7 @@ seed_atoms: CMakeFiles/seed_atoms.dir/rule
 # codegen rule for target.
 CMakeFiles/seed_atoms.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/seed_atoms.dir/build.make CMakeFiles/seed_atoms.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=11,12 "Finished codegen for target seed_atoms"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=13,14 "Finished codegen for target seed_atoms"
 .PHONY : CMakeFiles/seed_atoms.dir/codegen
 
 # clean rule for target.
@@ -339,7 +342,7 @@ CMakeFiles/seed_atoms.dir/clean:
 CMakeFiles/seed_atoms_direct.dir/all: CMakeFiles/hypercube_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/seed_atoms_direct.dir/build.make CMakeFiles/seed_atoms_direct.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/seed_atoms_direct.dir/build.make CMakeFiles/seed_atoms_direct.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=13,14 "Built target seed_atoms_direct"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=15,16 "Built target seed_atoms_direct"
 .PHONY : CMakeFiles/seed_atoms_direct.dir/all
 
 # Build rule for subdir invocation for target.
@@ -356,7 +359,7 @@ seed_atoms_direct: CMakeFiles/seed_atoms_direct.dir/rule
 # codegen rule for target.
 CMakeFiles/seed_atoms_direct.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/seed_atoms_direct.dir/build.make CMakeFiles/seed_atoms_direct.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=13,14 "Finished codegen for target seed_atoms_direct"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=15,16 "Finished codegen for target seed_atoms_direct"
 .PHONY : CMakeFiles/seed_atoms_direct.dir/codegen
 
 # clean rule for target.
@@ -371,7 +374,7 @@ CMakeFiles/seed_atoms_direct.dir/clean:
 CMakeFiles/seed_atoms_parallel.dir/all: CMakeFiles/hypercube_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/seed_atoms_parallel.dir/build.make CMakeFiles/seed_atoms_parallel.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/seed_atoms_parallel.dir/build.make CMakeFiles/seed_atoms_parallel.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=15,16 "Built target seed_atoms_parallel"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=17,18 "Built target seed_atoms_parallel"
 .PHONY : CMakeFiles/seed_atoms_parallel.dir/all
 
 # Build rule for subdir invocation for target.
@@ -388,7 +391,7 @@ seed_atoms_parallel: CMakeFiles/seed_atoms_parallel.dir/rule
 # codegen rule for target.
 CMakeFiles/seed_atoms_parallel.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/seed_atoms_parallel.dir/build.make CMakeFiles/seed_atoms_parallel.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=15,16 "Finished codegen for target seed_atoms_parallel"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=17,18 "Finished codegen for target seed_atoms_parallel"
 .PHONY : CMakeFiles/seed_atoms_parallel.dir/codegen
 
 # clean rule for target.
@@ -403,7 +406,7 @@ CMakeFiles/seed_atoms_parallel.dir/clean:
 CMakeFiles/ingest_model.dir/all: CMakeFiles/hypercube_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ingest_model.dir/build.make CMakeFiles/ingest_model.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ingest_model.dir/build.make CMakeFiles/ingest_model.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=9,10 "Built target ingest_model"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=11,12 "Built target ingest_model"
 .PHONY : CMakeFiles/ingest_model.dir/all
 
 # Build rule for subdir invocation for target.
@@ -420,7 +423,7 @@ ingest_model: CMakeFiles/ingest_model.dir/rule
 # codegen rule for target.
 CMakeFiles/ingest_model.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ingest_model.dir/build.make CMakeFiles/ingest_model.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=9,10 "Finished codegen for target ingest_model"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=11,12 "Finished codegen for target ingest_model"
 .PHONY : CMakeFiles/ingest_model.dir/codegen
 
 # clean rule for target.
@@ -435,7 +438,7 @@ CMakeFiles/ingest_model.dir/clean:
 CMakeFiles/extract_embeddings.dir/all: CMakeFiles/hypercube_core.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/extract_embeddings.dir/build.make CMakeFiles/extract_embeddings.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/extract_embeddings.dir/build.make CMakeFiles/extract_embeddings.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=1,2 "Built target extract_embeddings"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=3,4 "Built target extract_embeddings"
 .PHONY : CMakeFiles/extract_embeddings.dir/all
 
 # Build rule for subdir invocation for target.
@@ -452,13 +455,45 @@ extract_embeddings: CMakeFiles/extract_embeddings.dir/rule
 # codegen rule for target.
 CMakeFiles/extract_embeddings.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/extract_embeddings.dir/build.make CMakeFiles/extract_embeddings.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=1,2 "Finished codegen for target extract_embeddings"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=3,4 "Finished codegen for target extract_embeddings"
 .PHONY : CMakeFiles/extract_embeddings.dir/codegen
 
 # clean rule for target.
 CMakeFiles/extract_embeddings.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/extract_embeddings.dir/build.make CMakeFiles/extract_embeddings.dir/clean
 .PHONY : CMakeFiles/extract_embeddings.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/cpe_ingest.dir
+
+# All Build rule for target.
+CMakeFiles/cpe_ingest.dir/all: CMakeFiles/hypercube_core.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpe_ingest.dir/build.make CMakeFiles/cpe_ingest.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpe_ingest.dir/build.make CMakeFiles/cpe_ingest.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=1,2 "Built target cpe_ingest"
+.PHONY : CMakeFiles/cpe_ingest.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/cpe_ingest.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles 6
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/cpe_ingest.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles 0
+.PHONY : CMakeFiles/cpe_ingest.dir/rule
+
+# Convenience name for target.
+cpe_ingest: CMakeFiles/cpe_ingest.dir/rule
+.PHONY : cpe_ingest
+
+# codegen rule for target.
+CMakeFiles/cpe_ingest.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpe_ingest.dir/build.make CMakeFiles/cpe_ingest.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles --progress-num=1,2 "Finished codegen for target cpe_ingest"
+.PHONY : CMakeFiles/cpe_ingest.dir/codegen
+
+# clean rule for target.
+CMakeFiles/cpe_ingest.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cpe_ingest.dir/build.make CMakeFiles/cpe_ingest.dir/clean
+.PHONY : CMakeFiles/cpe_ingest.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

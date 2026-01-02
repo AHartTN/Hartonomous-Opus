@@ -9,6 +9,7 @@
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/seed_atoms_parallel.dir
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/ingest_model.dir
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/extract_embeddings.dir
+/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/cpe_ingest.dir
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/test.dir
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/edit_cache.dir
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/rebuild_cache.dir

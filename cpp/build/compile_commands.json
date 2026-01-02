@@ -76,5 +76,11 @@
   "command": "/usr/bin/g++-11  -I/home/ahart/Projects/Hartonomous-Opus/cpp/include -I/usr/include/postgresql -O3 -march=native -DNDEBUG -Wall -Wextra -std=c++20 -fPIE -o CMakeFiles/extract_embeddings.dir/src/extract_embeddings.cpp.o -c /home/ahart/Projects/Hartonomous-Opus/cpp/src/extract_embeddings.cpp",
   "file": "/home/ahart/Projects/Hartonomous-Opus/cpp/src/extract_embeddings.cpp",
   "output": "CMakeFiles/extract_embeddings.dir/src/extract_embeddings.cpp.o"
+},
+{
+  "directory": "/home/ahart/Projects/Hartonomous-Opus/cpp/build",
+  "command": "/usr/bin/g++-11  -I/home/ahart/Projects/Hartonomous-Opus/cpp/include -I/usr/include/postgresql -O3 -march=native -DNDEBUG -Wall -Wextra -std=c++20 -fPIE -o CMakeFiles/cpe_ingest.dir/src/cpe_ingest.cpp.o -c /home/ahart/Projects/Hartonomous-Opus/cpp/src/cpe_ingest.cpp",
+  "file": "/home/ahart/Projects/Hartonomous-Opus/cpp/src/cpe_ingest.cpp",
+  "output": "CMakeFiles/cpe_ingest.dir/src/cpe_ingest.cpp.o"
 }
 ]

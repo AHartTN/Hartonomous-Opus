@@ -96,19 +96,38 @@ ensure_database() {
 
 ensure_schema() {
     # Check if atom table exists
-    if psql -tAc "SELECT 1 FROM pg_tables WHERE tablename='atom'" | grep -q 1; then
-        return 0
+    if ! psql -tAc "SELECT 1 FROM pg_tables WHERE tablename='atom'" | grep -q 1; then
+        log_info "Applying schema..."
+        psql -q -f sql/001_schema.sql
+        log_ok "Schema applied"
     fi
     
-    log_info "Applying schema..."
-    psql -q -f sql/001_schema.sql
-    log_ok "Schema applied"
+    # Ensure lossless integer coordinate columns exist
+    if ! psql -tAc "SELECT 1 FROM information_schema.columns WHERE table_name='atom' AND column_name='coord_x'" | grep -q 1; then
+        log_info "Adding lossless coordinate columns..."
+        psql -q -c "ALTER TABLE atom ADD COLUMN IF NOT EXISTS coord_x INTEGER"
+        psql -q -c "ALTER TABLE atom ADD COLUMN IF NOT EXISTS coord_y INTEGER"
+        psql -q -c "ALTER TABLE atom ADD COLUMN IF NOT EXISTS coord_z INTEGER"
+        psql -q -c "ALTER TABLE atom ADD COLUMN IF NOT EXISTS coord_m INTEGER"
+        psql -q -c "ALTER TABLE relation ADD COLUMN IF NOT EXISTS coord_x INTEGER"
+        psql -q -c "ALTER TABLE relation ADD COLUMN IF NOT EXISTS coord_y INTEGER"
+        psql -q -c "ALTER TABLE relation ADD COLUMN IF NOT EXISTS coord_z INTEGER"
+        psql -q -c "ALTER TABLE relation ADD COLUMN IF NOT EXISTS coord_m INTEGER"
+        log_ok "Lossless columns added"
+    fi
 }
 
 ensure_atoms() {
+    # Check if atoms exist AND have integer coordinates populated
     local count=$(psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null || echo 0)
-    if [ "$count" -gt 1000000 ]; then
+    local with_coords=$(psql -tAc "SELECT COUNT(*) FROM atom WHERE coord_x IS NOT NULL" 2>/dev/null || echo 0)
+    
+    if [ "$count" -gt 1000000 ] && [ "$with_coords" -gt 1000000 ]; then
         return 0
+    fi
+    
+    if [ "$count" -gt 1000000 ] && [ "$with_coords" -eq 0 ]; then
+        log_warn "Atoms exist but missing integer coords - reseeding..."
     fi
     
     log_info "Seeding atoms (this takes ~30 seconds)..."
@@ -126,16 +145,21 @@ ensure_atoms() {
 }
 
 ensure_functions() {
-    # Check if key function exists
-    if psql -tAc "SELECT 1 FROM pg_proc WHERE proname='hypercube_ingest_text'" | grep -q 1; then
-        return 0
-    fi
-    
     log_info "Applying SQL functions..."
+    
+    # Always apply these (idempotent - uses CREATE OR REPLACE)
     psql -q -f sql/002_functions.sql 2>/dev/null || true
     psql -q -f sql/003_ingestion.sql 2>/dev/null || true
     psql -q -f sql/006_spatial_queries.sql 2>/dev/null || true
     psql -q -f sql/008_metadata.sql 2>/dev/null || true
+    psql -q -f sql/009_cascading_pair_encoding.sql 2>/dev/null || true
+    
+    # Apply lossless schema migration if needed
+    if ! psql -tAc "SELECT 1 FROM information_schema.columns WHERE table_name='atom' AND column_name='coord_x'" | grep -q 1; then
+        log_info "Adding lossless integer coordinate columns..."
+        psql -q -f sql/010_lossless_schema.sql 2>/dev/null || true
+    fi
+    
     log_ok "Functions applied"
 }
 
@@ -147,54 +171,57 @@ ensure_extension() {
     
     log_info "Installing hypercube extension..."
     
-    # Install .so file to PostgreSQL lib directory
     local pg_lib=$(pg_config --pkglibdir)
-    local ext_file="cpp/build/hypercube.so"
+    local pg_share=$(pg_config --sharedir)/extension
+    local ext_so="cpp/build/hypercube.so"
+    local ext_sql="cpp/sql/hypercube--1.0.sql"
     
-    if [ -f "$ext_file" ]; then
-        # Try sudo install, fall back to asking user
-        if sudo cp "$ext_file" "$pg_lib/hypercube.so" 2>/dev/null; then
-            sudo cp cpp/sql/hypercube--1.0.sql "$pg_lib/../share/postgresql/extension/" 2>/dev/null || true
-            
-            # Create extension control file
-            sudo tee "$pg_lib/../share/postgresql/extension/hypercube.control" > /dev/null << 'EOF'
+    # Check if extension files exist in build
+    if [ ! -f "$ext_so" ]; then
+        log_error "Extension not built: $ext_so"
+        log_info "Building now..."
+        ensure_build
+    fi
+    
+    # Check if we can write to extension directories (group permissions set up)
+    if [ -w "$pg_lib" ] && [ -w "$pg_share" ]; then
+        # We have write access - install without sudo
+        cp "$ext_so" "$pg_lib/hypercube.so"
+        cp "$ext_sql" "$pg_share/"
+        
+        cat > "$pg_share/hypercube.control" << 'EOF'
 comment = 'Hypercube 4D semantic substrate functions'
 default_version = '1.0'
 module_pathname = '$libdir/hypercube'
 relocatable = false
 EOF
-            
-            psql -c "CREATE EXTENSION IF NOT EXISTS hypercube;" || {
-                # Extension installation failed, try loading functions directly
-                log_warn "Extension registration failed, loading functions manually"
-                psql -c "CREATE OR REPLACE FUNCTION hypercube_blake3(bytea) RETURNS bytea AS '\$libdir/hypercube', 'hypercube_blake3' LANGUAGE C IMMUTABLE STRICT;"
-                psql -c "CREATE OR REPLACE FUNCTION hypercube_coords_to_hilbert(bigint, bigint, bigint, bigint) RETURNS TABLE(hilbert_lo bigint, hilbert_hi bigint) AS '\$libdir/hypercube', 'hypercube_coords_to_hilbert' LANGUAGE C IMMUTABLE STRICT;"
-            }
-            log_ok "Extension installed"
-        else
-            log_warn "Cannot install extension without sudo"
-            echo "Run: sudo cp $ext_file $pg_lib/hypercube.so"
-            echo "Then run './setup.sh init' again"
-            
-            # Try to use pgcrypto as fallback for hashing
-            log_info "Attempting pgcrypto fallback..."
-            psql -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" 2>/dev/null || true
-            
-            # Create wrapper function using SHA256 (not BLAKE3, but functional)
-            psql -c "
-            CREATE OR REPLACE FUNCTION hypercube_blake3(data bytea) RETURNS bytea AS \$\$
-                SELECT digest(data, 'sha256');
-            \$\$ LANGUAGE SQL IMMUTABLE STRICT;
-            " 2>/dev/null && log_ok "Using SHA256 fallback (pgcrypto)" || log_error "No hashing available"
-        fi
+        log_ok "Extension files installed"
+    elif [ -f "$pg_lib/hypercube.so" ]; then
+        # Already installed by someone else
+        log_ok "Extension files already present"
     else
-        log_error "Extension not built: $ext_file"
-        log_info "Run: cd cpp/build && cmake .. && make"
+        log_error "Cannot write to PostgreSQL directories"
+        echo ""
+        echo "Fix with these commands (one time setup):"
+        echo "  sudo groupadd postgres-extensions"
+        echo "  sudo usermod -aG postgres-extensions \$USER"
+        echo "  sudo chown -R root:postgres-extensions $pg_lib $pg_share"
+        echo "  sudo chmod -R 775 $pg_lib $pg_share"
+        echo "  # Then log out and back in for group to take effect"
+        echo ""
+        return 1
     fi
+    
+    # Create extension in database
+    psql -c "CREATE EXTENSION IF NOT EXISTS hypercube;" || {
+        log_error "Failed to create extension"
+        return 1
+    }
+    log_ok "Extension created in database"
 }
 
 ensure_build() {
-    if [ -x "cpp/build/seed_atoms_parallel" ] && [ -x "cpp/build/extract_embeddings" ]; then
+    if [ -x "cpp/build/seed_atoms_parallel" ] && [ -x "cpp/build/cpe_ingest" ]; then
         return 0
     fi
     
@@ -277,7 +304,7 @@ cmd_status() {
     SELECT 
         'compositions',
         count(*)::text,
-        'depth 1-' || max(depth)::text
+        'depth 1-' || COALESCE(max(depth)::text, '0')
     FROM relation
     UNION ALL
     SELECT 
@@ -286,6 +313,28 @@ cmd_status() {
         '-'
     FROM relation_edge;
     "
+    
+    # Show CPE depth distribution if we have compositions
+    local comp_count=$(psql -tAc "SELECT COUNT(*) FROM relation")
+    if [ "$comp_count" -gt 0 ]; then
+        echo ""
+        echo "=== Composition Depth Distribution ==="
+        psql -c "SELECT * FROM cpe_stats LIMIT 10;" 2>/dev/null || true
+    fi
+}
+
+cmd_tree() {
+    local text="$1"
+    [ -z "$text" ] && { log_error "Usage: ./setup.sh tree <text>"; exit 1; }
+    
+    local query_id
+    query_id=$(psql -tAc "SELECT encode(cpe_ingest_text('$text'), 'hex');")
+    
+    echo "Composition: $query_id"
+    echo "Structure:"
+    echo ""
+    
+    psql -c "SELECT * FROM cpe_show_tree(decode('$query_id', 'hex'), 10);"
 }
 
 cmd_ingest() {
@@ -301,58 +350,67 @@ cmd_ingest() {
         exit 1
     fi
     
-    ensure_functions
-    
-    if [ -d "$target" ]; then
-        # Directory - ingest all text files
-        log_info "Ingesting directory: $target"
-        
-        local count=0
-        find "$target" -type f \( -name "*.txt" -o -name "*.md" -o -name "*.json" \) | while read -r file; do
-            log_info "  $file"
-            ingest_file "$file"
-            count=$((count + 1))
-        done
-        
-        # Check for safetensors
-        find "$target" -type f -name "*.safetensors" | while read -r file; do
-            log_info "  Model: $file"
-            ingest_model "$file"
-        done
-        
-        log_ok "Directory ingested"
-        
-    elif [[ "$target" == *.safetensors ]]; then
-        ingest_model "$target"
-        
-    else
-        ingest_file "$target"
+    # Ensure C++ ingester is built
+    if [ ! -x "cpp/build/cpe_ingest" ]; then
+        ensure_build
     fi
     
+    log_info "Ingesting: $target"
+    
+    # Use C++ CPE ingester (fast)
+    ./cpp/build/cpe_ingest \
+        -d "$PGDATABASE" \
+        -U "$PGUSER" \
+        -h "$PGHOST" \
+        "$target"
+    
+    echo ""
     cmd_status
 }
 
 ingest_file() {
     local file="$1"
-    local batch=""
-    local count=0
+    local size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null || echo 0)
+    local start_time=$(date +%s)
     
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ -z "$line" ]] && continue
-        [[ "$line" =~ ^\[.*\]$ ]] && continue  # Skip special tokens
-        
-        escaped="${line//\'/\'\'}"
-        batch="${batch}SELECT hypercube_ingest_text('${escaped}');"
-        count=$((count + 1))
-        
-        if [ $((count % 500)) -eq 0 ]; then
-            echo "$batch" | psql -q
-            batch=""
-        fi
-    done < "$file"
+    # Skip binary files and very large files
+    if file "$file" | grep -q "binary\|executable\|data"; then
+        log_warn "Skipping binary file: $file"
+        return 0
+    fi
     
-    [ -n "$batch" ] && echo "$batch" | psql -q
-    log_ok "Ingested $count items from $file"
+    if [ "$size" -gt 10485760 ]; then  # 10MB limit
+        log_warn "Skipping large file (>10MB): $file"
+        return 0
+    fi
+    
+    # Read entire file content
+    local content
+    content=$(cat "$file" 2>/dev/null) || {
+        log_warn "Cannot read: $file"
+        return 0
+    }
+    
+    # Skip empty files
+    if [ -z "$content" ]; then
+        return 0
+    fi
+    
+    # Escape for SQL (double single quotes)
+    local escaped="${content//\'/\'\'}"
+    
+    # Ingest as a single document using CPE
+    local result
+    result=$(psql -tAc "SELECT encode(cpe_ingest_document('${escaped}'), 'hex');" 2>&1)
+    
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+    
+    if [[ "$result" =~ ^[a-f0-9]{64}$ ]]; then
+        log_ok "Ingested $file (${size} bytes, ${duration}s) → ${result:0:16}..."
+    else
+        log_warn "Failed to ingest $file: ${result:0:100}"
+    fi
 }
 
 ingest_model() {
@@ -388,14 +446,44 @@ cmd_query() {
     local text="$1"
     [ -z "$text" ] && { log_error "Usage: ./setup.sh query <text>"; exit 1; }
     
-    psql -c "SELECT encode(hypercube_ingest_text('$text'), 'hex') as composition_id;"
+    psql -c "SELECT encode(cpe_ingest_text('$text'), 'hex') as composition_id;"
 }
 
 cmd_similar() {
     local text="$1"
     [ -z "$text" ] && { log_error "Usage: ./setup.sh similar <text>"; exit 1; }
     
-    psql -c "SELECT * FROM hypercube_find_similar('$text', 10);"
+    # First ingest the query text, then find similar
+    local query_id
+    query_id=$(psql -tAc "SELECT encode(cpe_ingest_text('$text'), 'hex');")
+    
+    echo "Query composition: $query_id"
+    echo ""
+    
+    # Find compositions with similar centroids using Hilbert distance (lossless integer coords)
+    psql -c "
+    WITH query AS (
+        SELECT coord_x, coord_y, coord_z, coord_m, hilbert_hi, hilbert_lo
+        FROM relation WHERE id = decode('$query_id', 'hex')
+    )
+    SELECT 
+        encode(r.id, 'hex') as id,
+        r.depth,
+        r.atom_count,
+        -- Euclidean distance in 4D using raw integer coords
+        sqrt(
+            power((int32_to_uint32(r.coord_x) - int32_to_uint32(q.coord_x))::numeric, 2) +
+            power((int32_to_uint32(r.coord_y) - int32_to_uint32(q.coord_y))::numeric, 2) +
+            power((int32_to_uint32(r.coord_z) - int32_to_uint32(q.coord_z))::numeric, 2) +
+            power((int32_to_uint32(r.coord_m) - int32_to_uint32(q.coord_m))::numeric, 2)
+        )::numeric(20,0) as distance
+    FROM relation r, query q
+    WHERE r.id != decode('$query_id', 'hex')
+    ORDER BY 
+        abs(r.hilbert_hi - q.hilbert_hi),
+        abs(r.hilbert_lo - q.hilbert_lo)
+    LIMIT 10;
+    "
 }
 
 cmd_reset() {
@@ -420,23 +508,43 @@ USAGE:
 COMMANDS:
     init                    Initialize database, build tools, seed atoms
     status                  Show database statistics
-    ingest <path>           Ingest file or directory
+    ingest <path>           Ingest file or directory (whole files, not lines)
     query <text>            Get composition ID for text
-    similar <text>          Find similar compositions
+    similar <text>          Find similar compositions by centroid distance
+    tree <text>             Show the Merkle DAG structure of a text
     reset                   Drop and reset database
 
 EXAMPLES:
     # First time setup
     ./setup.sh init
     
-    # Ingest a model
-    ./setup.sh ingest ./test-data/embedding_models/models--sentence-transformers--all-MiniLM-L6-v2/
-    
-    # Ingest documents
+    # Ingest a directory of documents
     ./setup.sh ingest ~/Documents/notes/
     
-    # Query similarity
+    # Ingest a model
+    ./setup.sh ingest ./test-data/embedding_models/
+    
+    # Query and visualize
+    ./setup.sh query "Hello World"
+    ./setup.sh tree "Mississippi"
     ./setup.sh similar "machine learning"
+
+HOW IT WORKS:
+    Text is ingested using Cascading Pair Encoding (CPE):
+    
+    1. Characters → Atom IDs (from Unicode seed)
+    2. Pairs merged → Binary compositions (a,b) → ab
+    3. Cascade → Each pass halves the count until single root
+    4. Documents → Split on paragraphs, ingest each, cascade roots
+    
+    Example: "Hello" (5 chars) becomes:
+        H + e → He
+        l + l → ll  
+        He + ll → Hell
+        Hell + o → Hello  (root composition)
+    
+    Each composition is content-addressed (BLAKE3 hash of children).
+    Identical substrings across documents share the same hash.
 
 CONFIGURATION:
     Set environment variables or create .env file:
@@ -460,6 +568,7 @@ case "${1:-help}" in
     ingest)     shift; cmd_ingest "$@" ;;
     query)      shift; cmd_query "$@" ;;
     similar)    shift; cmd_similar "$@" ;;
+    tree)       shift; cmd_tree "$@" ;;
     reset)      cmd_reset ;;
     help|--help|-h) cmd_help ;;
     *)

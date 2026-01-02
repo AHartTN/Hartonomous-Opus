@@ -1,6 +1,8 @@
 # Hartonomous-Opus: 4D Hypercube Semantic Substrate
 
-A geometry-first semantic substrate that maps all digital content (text, data, AI models) into a 4D hypercube coordinate system with Hilbert curve indexing for efficient spatial queries.
+A **deterministic, lossless, content-addressable geometric semantic substrate** that maps all digital content into a 4D hypercube coordinate system with Hilbert curve indexing for efficient spatial queries.
+
+**See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed technical specification.**
 
 ## Quick Start
 
@@ -12,11 +14,11 @@ cp .env.example .env
 # Initialize everything (builds tools, creates database, seeds 1.1M atoms)
 ./setup.sh init
 
-# Ingest an AI model (vocab + semantic edges)
-./setup.sh ingest ./test-data/embedding_models/models--sentence-transformers--all-MiniLM-L6-v2/
-
 # Ingest any directory of text files
 ./setup.sh ingest ~/Documents/notes/
+
+# Visualize the CPE tree structure
+./setup.sh tree "Mississippi"
 
 # Query similarity
 ./setup.sh similar "machine learning"
@@ -31,9 +33,10 @@ cp .env.example .env
 |---------|-------------|
 | `./setup.sh init` | Initialize database, build tools, seed atoms |
 | `./setup.sh status` | Show database statistics |
-| `./setup.sh ingest <path>` | Ingest file, directory, or model |
+| `./setup.sh ingest <path>` | Ingest file or directory using CPE |
 | `./setup.sh query <text>` | Get composition ID for text |
 | `./setup.sh similar <text>` | Find similar compositions |
+| `./setup.sh tree <text>` | Show CPE Merkle DAG structure |
 | `./setup.sh reset` | Drop and reset database |
 
 ## Configuration
@@ -52,38 +55,50 @@ PGDATABASE=hypercube
 
 ### Core Concepts
 
-1. **Atoms**: Unicode codepoints as fundamental constants
-   - Each codepoint → 4D coordinate (32 bits per dimension)
+1. **Atoms**: Unicode codepoints as fundamental constants (perimeter landmarks)
+   - Each codepoint → 4D coordinate (32 bits per dimension, stored as INTEGER)
    - BLAKE3 hash as content-addressed ID
    - Hilbert curve index (128-bit) for spatial ordering
    - All atoms distributed on the 3-sphere surface (S³ in 4D)
-   - Semantically related characters (A/a/À) are geometrically adjacent
+   - **Lossless**: Coordinates stored as raw 32-bit integers, not PostGIS floats
 
-2. **Semantic Clustering**
-   - Case pairs (A/a) are extremely close in space
-   - Accented variants (A/À/Á) are near their base letter
-   - Different categories (letters/digits/punctuation) are separated
-   - Hilbert curve ordering preserves spatial locality
+2. **Edges**: Transitions between atoms/compositions
+   - Record the sequence order (ordinal)
+   - Enable bit-perfect reconstruction via DFS traversal
+   - Same edge (a→b) is never duplicated
 
-3. **Compositions**: Merkle DAG of atoms
-   - N-grams, words, sentences, documents
-   - LINESTRINGZM trajectories through 4D space
-   - Centroids move toward the interior as complexity increases
-   - Content-addressed deduplication via BLAKE3
+3. **Compositions**: Merkle DAG via Cascading Pair Encoding (CPE)
+   - Binary tree structure - each composition has exactly 2 children
+   - Characters cascade: `N chars → N/2 pairs → N/4 → ... → 1 root`
+   - Total compositions ≈ 2N (geometric series, NOT O(n²))
+   - Content-addressed deduplication: "the" from any document = same ID
+   - Centroid = integer average of child coordinates (lossless)
 
-4. **Spatial Operators**: PostGIS for semantic queries
-   - `ST_Distance` - semantic distance
-   - `ST_FrechetDistance` - trajectory similarity
-   - `ST_Intersects` - conceptual overlap
-   - `ST_ConvexHull` - semantic envelope
+4. **Global Deduplication**
+   - First ingest creates patterns; subsequent ingests only add edge references
+   - The more content ingested, the more deduplication occurs
+   - ~83% deduplication on typical text corpora
 
 ### Performance
 
 | Operation | Time | Rate |
 |-----------|------|------|
 | Atom generation (1.1M) | ~200ms | 5.5M atoms/sec |
-| Full database seeding | ~10s | 110K atoms/sec |
-| Spatial index queries | O(log N) | Sub-millisecond |
+| Full database seeding | ~30s | 37K atoms/sec |
+| CPE file processing | - | ~1 MB/s |
+| CPE DB insert | - | ~14K comps/sec |
+| Hilbert range queries | O(log N) | Sub-millisecond |
+
+### Type System (Critical for Losslessness)
+
+| Field | PostgreSQL Type | Interpretation |
+|-------|----------------|----------------|
+| coord_x/y/z/m | INTEGER | Signed 32-bit (bit pattern = uint32) |
+| hilbert_lo/hi | BIGINT | Unsigned 64-bit (stored as signed) |
+| id | BYTEA(32) | 256-bit BLAKE3 hash |
+
+**No PostGIS for relation centroids** - PostGIS normalizes to floats, losing precision.
+Spatial queries on atoms use PostGIS; relations use integer coordinates directly.
 
 ## Building
 
@@ -105,120 +120,160 @@ PGDATABASE=hypercube
 
 ## Database Schema
 
-### atom table
+### atom table (perimeter landmarks)
 ```sql
 CREATE TABLE atom (
-    id              blake3_hash PRIMARY KEY,  -- 32-byte BLAKE3 hash
+    id              BYTEA(32) PRIMARY KEY,    -- BLAKE3 hash
     codepoint       INTEGER NOT NULL UNIQUE,  -- Unicode codepoint
     category        atom_category NOT NULL,   -- Semantic category
-    coords          GEOMETRY(POINTZM, 0),     -- 4D coordinates
-    hilbert_lo      BIGINT NOT NULL,          -- Hilbert index (lower 64 bits)
-    hilbert_hi      BIGINT NOT NULL           -- Hilbert index (upper 64 bits)
+    
+    -- Lossless 4D coordinates (source of truth)
+    coord_x         INTEGER NOT NULL,         -- Signed int32 (bit pattern = uint32)
+    coord_y         INTEGER NOT NULL,
+    coord_z         INTEGER NOT NULL,
+    coord_m         INTEGER NOT NULL,
+    
+    -- 128-bit Hilbert index
+    hilbert_lo      BIGINT NOT NULL,
+    hilbert_hi      BIGINT NOT NULL,
+    
+    -- PostGIS for spatial queries (derived, atoms only)
+    coords          GEOMETRY(POINTZM, 0)
 );
 ```
 
-### relation table
+### relation table (compositions)
 ```sql
 CREATE TABLE relation (
-    id              blake3_hash PRIMARY KEY,  -- Merkle root hash
-    coords          GEOMETRY(POINTZM, 0),     -- Centroid in 4D
+    id              BYTEA(32) PRIMARY KEY,    -- BLAKE3(ordinal||child_hash||...)
+    
+    -- Lossless centroid coordinates (NO PostGIS)
+    coord_x         INTEGER NOT NULL,
+    coord_y         INTEGER NOT NULL,
+    coord_z         INTEGER NOT NULL,
+    coord_m         INTEGER NOT NULL,
+    
+    -- 128-bit Hilbert index of centroid
     hilbert_lo      BIGINT NOT NULL,
     hilbert_hi      BIGINT NOT NULL,
-    depth           INTEGER NOT NULL,         -- DAG depth
-    child_count     INTEGER NOT NULL,
+    
+    depth           INTEGER NOT NULL,         -- DAG depth from atoms
+    child_count     INTEGER NOT NULL,         -- Always 2 for CPE
     atom_count      BIGINT NOT NULL           -- Total atoms in subtree
+);
+```
+
+### relation_edge table (Merkle DAG edges)
+```sql
+CREATE TABLE relation_edge (
+    parent_id       BYTEA(32) REFERENCES relation(id),
+    child_id        BYTEA(32),                -- References atom OR relation
+    ordinal         INTEGER,                  -- Position (0=left, 1=right)
+    is_atom         BOOLEAN,
+    PRIMARY KEY (parent_id, ordinal)
 );
 ```
 
 ## Usage Examples
 
+### Ingest and visualize CPE tree
+```bash
+./setup.sh tree "Mississippi"
+# Shows binary tree structure:
+#   Mississippi
+#   ├── Missi
+#   │   ├── Mi
+#   │   └── ss + i merged
+#   └── ssippi
+#       └── ...
+```
+
 ### Query atoms by codepoint
 ```sql
-SELECT codepoint, chr(codepoint), category, ST_AsText(coords)
+SELECT codepoint, chr(codepoint), category,
+       coord_x, coord_y, coord_z, coord_m
 FROM atom WHERE codepoint IN (65, 97, 192);
 ```
 
-### Find semantically similar atoms
+### Find similar compositions (lossless integer distance)
 ```sql
-SELECT b.codepoint, chr(b.codepoint), ST_3DDistance(a.coords, b.coords) as dist
-FROM atom a, atom b
-WHERE a.codepoint = 65  -- 'A'
-  AND b.codepoint != 65
-ORDER BY ST_3DDistance(a.coords, b.coords)
-LIMIT 10;
+SELECT encode(r.id, 'hex'),
+       sqrt(
+           power((r.coord_x - q.coord_x)::numeric, 2) +
+           power((r.coord_y - q.coord_y)::numeric, 2) +
+           power((r.coord_z - q.coord_z)::numeric, 2) +
+           power((r.coord_m - q.coord_m)::numeric, 2)
+       ) as distance
+FROM relation r, (SELECT * FROM relation WHERE id = $query_id) q
+ORDER BY distance LIMIT 10;
 ```
 
-### Convert text to trajectory
+### Reconstruct original content from composition
 ```sql
-SELECT hypercube_text_to_linestring('Hello');
--- Returns LINESTRINGZM with 5 points
-```
-
-### Semantic trajectory distance
-```sql
-SELECT ST_FrechetDistance(
-    hypercube_text_to_linestring('hello'),
-    hypercube_text_to_linestring('hallo')
-);
--- Returns small distance (similar spelling)
+WITH RECURSIVE dag AS (
+    SELECT id, false as is_atom, ARRAY[]::int[] as path
+    FROM relation WHERE id = $root_id
+    UNION ALL
+    SELECT e.child_id, e.is_atom, d.path || e.ordinal
+    FROM dag d JOIN relation_edge e ON e.parent_id = d.id
+    WHERE NOT d.is_atom
+)
+SELECT string_agg(chr(a.codepoint), '' ORDER BY d.path)
+FROM dag d JOIN atom a ON a.id = d.id WHERE d.is_atom;
 ```
 
 ## File Structure
 
 ```
-cpp/
-├── include/hypercube/
-│   ├── types.hpp       # Core types (Point4D, HilbertIndex, Blake3Hash)
-│   ├── hilbert.hpp     # 4D Hilbert curve (128-bit index)
-│   ├── coordinates.hpp # Hopf fibration + semantic ordering
-│   └── blake3.hpp      # BLAKE3 hashing
-├── src/
-│   ├── hilbert.cpp     # Skilling's algorithm, optimized
-│   ├── coordinates.cpp # Category-based surface projection
-│   ├── blake3_pg.cpp   # BLAKE3 implementation
-│   ├── hypercube.cpp   # PostgreSQL extension
-│   ├── seed_atoms.cpp  # Parallel atom generator (EWKB output)
-│   └── seed_atoms_direct.cpp  # Direct database seeder
-├── tests/
-│   ├── test_hilbert.cpp
-│   ├── test_coordinates.cpp
-│   ├── test_blake3.cpp
-│   └── test_semantic.cpp  # Full semantic validation
-└── sql/
-    └── hypercube--1.0.sql
-
-sql/
-├── 001_schema.sql      # Core tables (atom, relation, relation_edge)
-├── 002_functions.sql   # Spatial query functions
-└── 003_ingestion.sql   # Text ingestion and composition
-
-scripts/
-├── build.sh            # Build C++ components
-├── deploy.sh           # Full deployment
-├── seed_atoms.sh       # Seed database with all Unicode atoms
-└── test.sh             # Run all tests
-
-tests/
-└── test_semantic_validation.sql  # SQL integration tests
+Hartonomous-Opus/
+├── ARCHITECTURE.md           # Canonical technical specification
+├── README.md                 # This file
+├── setup.sh                  # Single entry point for all operations
+├── .env.example              # Configuration template
+│
+├── cpp/
+│   ├── include/hypercube/
+│   │   ├── types.hpp         # Core types (Point4D, HilbertIndex, Blake3Hash)
+│   │   ├── hilbert.hpp       # 4D Hilbert curve (128-bit index)
+│   │   ├── coordinates.hpp   # Coordinate utilities
+│   │   └── blake3.hpp        # BLAKE3 hashing
+│   ├── src/
+│   │   ├── cpe_ingest.cpp    # CPE ingester (main workhorse)
+│   │   ├── seed_atoms_parallel.cpp  # Unicode seeder
+│   │   ├── hypercube.cpp     # PostgreSQL extension
+│   │   ├── blake3_pg.cpp     # BLAKE3 for PostgreSQL
+│   │   ├── hilbert.cpp       # Skilling's algorithm
+│   │   └── coordinates.cpp   # Coordinate utilities
+│   └── sql/
+│       └── hypercube--1.0.sql
+│
+├── sql/
+│   ├── 001_schema.sql        # Core tables (atom, relation, relation_edge)
+│   ├── 002_functions.sql     # Utility functions
+│   ├── 009_cascading_pair_encoding.sql  # SQL CPE (reference impl)
+│   └── 010_lossless_schema.sql  # Lossless coordinate migration
+│
+├── scripts/                  # Build and deployment scripts
+└── tests/                    # Test suites
 ```
 
 ## Technical Details
 
-### 4D Coordinate System (Hopf Fibration)
+### Cascading Pair Encoding (CPE)
 
-All 1.1M Unicode codepoints are distributed on the surface of a 3-sphere (S³) in 4D using the Hopf fibration:
+CPE is NOT sliding n-grams (which explodes to O(n²)). It's a binary tree merge:
 
-- **Uniform distribution**: Every atom is on the surface (r² ≈ 1.0)
-- **Semantic ordering**: Adjacent sequence indices → adjacent positions
-- **Hierarchical decomposition**: Base-33 digits map to hyperspherical angles
+```
+"Hello" (5 chars)
+  Pass 1: [H,e,l,l,o] → [(H,e), (l,l), o] = 3 nodes
+  Pass 2: [He, ll, o] → [(He,ll), o] = 2 nodes  
+  Pass 3: [Hell, o] → [(Hell,o)] = 1 node (root)
 
-### Semantic Ordering
+Total compositions: 5-1 = 4 (always N-1 for binary tree)
+```
 
-Characters are ordered by semantic category before mapping to 3-sphere positions:
-- Latin letters grouped by base (A/a/À/Á... then B/b/...)
-- Digits grouped together
-- Punctuation, symbols, control characters in separate regions
-- CJK, Hangul, and other scripts in dedicated ranges
+Each composition hash = BLAKE3(ordinal||left_hash || ordinal||right_hash)
+Centroid = integer average of child coordinates (lossless)
 
 ### Hilbert Curve
 
@@ -227,11 +282,20 @@ Characters are ordered by semantic category before mapping to 3-sphere positions
 - Based on Skilling's compact algorithm with gray code optimization
 - Lossless roundtrip: coords → index → coords
 
-### BLAKE3 Hashing
+### Content-Addressed Deduplication
 
-- 256-bit content-addressed IDs
-- Deterministic: same content = same hash
-- Merkle tree composition for hierarchical structures
+- Same bytes → same hash, regardless of source file
+- "the" from Moby Dick = "the" from children's book = same composition ID
+- First ingest creates patterns; subsequent ingests just add references
+- Documents are DAG roots pointing to shared substructure
+
+### Bit-Perfect Reconstruction
+
+DFS traversal of edges in ordinal order reconstructs original bytes:
+1. Start at root composition
+2. Follow edges to children (ordinal 0 first, then ordinal 1)
+3. When reaching atoms, emit the codepoint
+4. Concatenate = original content
 
 ## Tests
 

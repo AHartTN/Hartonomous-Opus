@@ -67,7 +67,7 @@ if [ "$INSTALL_EXTENSION" = true ]; then
     echo ""
     echo "=== Step 4: Installing PostgreSQL Extension ==="
     cd "$PROJECT_ROOT/cpp/build"
-    sudo make install
+    make install
     psql -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS hypercube;"
 fi
 
