@@ -5,28 +5,47 @@ A geometry-first semantic substrate that maps all digital content (text, data, A
 ## Quick Start
 
 ```bash
-# Build everything
-./scripts/build.sh
+# Configure database credentials
+cp .env.example .env
+# Edit .env with your PostgreSQL credentials
 
-# Create database and seed all Unicode atoms (~10 seconds)
-./scripts/seed_atoms.sh hypercube --force
+# Initialize everything (builds tools, creates database, seeds 1.1M atoms)
+./setup.sh init
 
-# Run all tests
-./scripts/test.sh
+# Ingest an AI model (vocab + semantic edges)
+./setup.sh ingest ./test-data/embedding_models/models--sentence-transformers--all-MiniLM-L6-v2/
 
-# Verify semantic clustering
-psql -d hypercube -c "
-SELECT 
-    'A-a' as pair,
-    sqrt(power(ST_X(a.coords) - ST_X(b.coords), 2) +
-         power(ST_Y(a.coords) - ST_Y(b.coords), 2) +
-         power(ST_Z(a.coords) - ST_Z(b.coords), 2) +
-         power(ST_M(a.coords) - ST_M(b.coords), 2)) as distance_4d
-FROM atom a, atom b
-WHERE a.codepoint = 65 AND b.codepoint = 97;
-"
--- A-a: ~0.00009 (very close - same letter, different case)
--- A-Z: ~0.076 (much farther - different letters)
+# Ingest any directory of text files
+./setup.sh ingest ~/Documents/notes/
+
+# Query similarity
+./setup.sh similar "machine learning"
+
+# Check status
+./setup.sh status
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `./setup.sh init` | Initialize database, build tools, seed atoms |
+| `./setup.sh status` | Show database statistics |
+| `./setup.sh ingest <path>` | Ingest file, directory, or model |
+| `./setup.sh query <text>` | Get composition ID for text |
+| `./setup.sh similar <text>` | Find similar compositions |
+| `./setup.sh reset` | Drop and reset database |
+
+## Configuration
+
+Create a `.env` file (or set environment variables):
+
+```bash
+PGHOST=localhost
+PGPORT=5432
+PGUSER=hartonomous
+PGPASSWORD=hartonomous
+PGDATABASE=hypercube
 ```
 
 ## Architecture

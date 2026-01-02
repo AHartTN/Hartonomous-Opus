@@ -441,11 +441,12 @@ int main(int argc, char* argv[]) {
 
     std::cerr << "Loaded " << embeddings.size() << " floats\n";
 
-    // Connect to database
+    // Connect to database (PGPASSWORD env var is picked up automatically by libpq)
     std::string conninfo = "dbname=" + dbname;
     if (!host.empty()) conninfo += " host=" + host;
     if (!user.empty()) conninfo += " user=" + user;
-
+    
+    // libpq reads PGPASSWORD from environment automatically
     PGconn* conn = PQconnectdb(conninfo.c_str());
     if (PQstatus(conn) != CONNECTION_OK) {
         std::cerr << "Connection failed: " << PQerrorMessage(conn) << std::endl;
