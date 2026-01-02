@@ -316,11 +316,17 @@ TEST(test_srid_zero) {
 int main() {
     std::cout << "=== Hartonomous Query API Tests ===" << std::endl;
     
-    const char* host = std::getenv("PGHOST") ? std::getenv("PGHOST") : "localhost";
-    const char* port = std::getenv("PGPORT") ? std::getenv("PGPORT") : "5432";
-    const char* user = std::getenv("PGUSER") ? std::getenv("PGUSER") : "hartonomous";
-    const char* pass = std::getenv("PGPASSWORD") ? std::getenv("PGPASSWORD") : "hartonomous";
-    const char* db = std::getenv("PGDATABASE") ? std::getenv("PGDATABASE") : "hypercube";
+    // Check HC_* (new) first, then PG* (legacy) for backwards compatibility
+    const char* host = std::getenv("HC_DB_HOST") ? std::getenv("HC_DB_HOST") :
+                       std::getenv("PGHOST") ? std::getenv("PGHOST") : "localhost";
+    const char* port = std::getenv("HC_DB_PORT") ? std::getenv("HC_DB_PORT") :
+                       std::getenv("PGPORT") ? std::getenv("PGPORT") : "5432";
+    const char* user = std::getenv("HC_DB_USER") ? std::getenv("HC_DB_USER") :
+                       std::getenv("PGUSER") ? std::getenv("PGUSER") : "hartonomous";
+    const char* pass = std::getenv("HC_DB_PASS") ? std::getenv("HC_DB_PASS") :
+                       std::getenv("PGPASSWORD") ? std::getenv("PGPASSWORD") : "hartonomous";
+    const char* db = std::getenv("HC_DB_NAME") ? std::getenv("HC_DB_NAME") :
+                     std::getenv("PGDATABASE") ? std::getenv("PGDATABASE") : "hypercube";
     
     std::string conninfo = "host=" + std::string(host) +
                            " port=" + std::string(port) +
@@ -328,7 +334,7 @@ int main() {
                            " password=" + std::string(pass) +
                            " dbname=" + std::string(db);
     
-    std::cout << "Connecting to: " << db << "@" << host << ":" << port << std::endl;
+    std::cout << "Connecting to: " << user << "@" << host << ":" << port << "/" << db << std::endl;
     
     g_conn = PQconnectdb(conninfo.c_str());
     if (PQstatus(g_conn) != CONNECTION_OK) {

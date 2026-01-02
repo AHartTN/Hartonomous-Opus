@@ -32,17 +32,31 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Load .env if it exists
+# Load config from scripts/config.env first (new preferred location)
+if [ -f scripts/config.env ]; then
+    export $(grep -v '^#' scripts/config.env | xargs)
+fi
+
+# Fall back to .env for backwards compatibility
 if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-# Defaults
-export PGHOST="${PGHOST:-localhost}"
-export PGPORT="${PGPORT:-5432}"
-export PGUSER="${PGUSER:-hartonomous}"
-export PGPASSWORD="${PGPASSWORD:-hartonomous}"
-export PGDATABASE="${PGDATABASE:-hypercube}"
+# Support both HC_* (new) and PG* (legacy) variable names
+export PGHOST="${HC_DB_HOST:-${PGHOST:-localhost}}"
+export PGPORT="${HC_DB_PORT:-${PGPORT:-5432}}"
+export PGUSER="${HC_DB_USER:-${PGUSER:-hartonomous}}"
+export PGPASSWORD="${HC_DB_PASS:-${PGPASSWORD:-hartonomous}}"
+export PGDATABASE="${HC_DB_NAME:-${PGDATABASE:-hypercube}}"
+
+# Also set HC_* for new scripts
+export HC_DB_HOST="$PGHOST"
+export HC_DB_PORT="$PGPORT"
+export HC_DB_USER="$PGUSER"
+export HC_DB_PASS="$PGPASSWORD"
+export HC_DB_NAME="$PGDATABASE"
+export HC_PROJECT_ROOT="$SCRIPT_DIR"
+export HC_BUILD_DIR="$SCRIPT_DIR/cpp/build"
 
 # Colors
 RED='\033[0;31m'
