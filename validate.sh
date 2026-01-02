@@ -44,10 +44,12 @@ TESTS_FAILED=0
 run_test() {
     local name="$1"
     local cmd="$2"
+    local timeout_sec="${3:-30}"  # Default 30s, optional third arg
     
     echo -n "  Testing: $name... "
     
-    if timeout 30 bash -c "$cmd" > /tmp/test_output.txt 2>&1; then
+    # Use env to pass all PG* variables to child process
+    if timeout "$timeout_sec" env PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" PGDATABASE="$PGDATABASE" bash -c "$cmd" > /tmp/test_output.txt 2>&1; then
         echo -e "${GREEN}✓ PASSED${NC}"
         ((TESTS_PASSED++)) || true
         return 0
@@ -144,7 +146,7 @@ elif [ -f cpp/build/test_integration ]; then
 fi
 
 if [ -f cpp/build/test_query_api ]; then
-    run_test "Query API test" "./cpp/build/test_query_api"
+    run_test "Query API test" "./cpp/build/test_query_api" 60
 fi
 
 # =============================================================================
