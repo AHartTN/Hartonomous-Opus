@@ -1,0 +1,1 @@
+/usr/bin/g++-11 -O3 -march=native -DNDEBUG -Wall -Wextra CMakeFiles/cpe_ingest.dir/src/cpe_ingest.cpp.o -o cpe_ingest  libhypercube_core.a /usr/lib/x86_64-linux-gnu/libpq.so -lpthread

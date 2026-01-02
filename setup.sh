@@ -95,71 +95,57 @@ ensure_database() {
 }
 
 ensure_schema() {
-    # Check if atom table exists
-    if ! psql -tAc "SELECT 1 FROM pg_tables WHERE tablename='atom'" | grep -q 1; then
-        log_info "Applying schema..."
-        psql -q -f sql/001_schema.sql
-        log_ok "Schema applied"
+    # Check if unified atom table exists with new schema (has 'children' column)
+    if psql -tAc "SELECT 1 FROM information_schema.columns WHERE table_name='atom' AND column_name='children'" | grep -q 1; then
+        return 0  # Already using unified schema
     fi
-    
-    # Ensure lossless integer coordinate columns exist
-    if ! psql -tAc "SELECT 1 FROM information_schema.columns WHERE table_name='atom' AND column_name='coord_x'" | grep -q 1; then
-        log_info "Adding lossless coordinate columns..."
-        psql -q -c "ALTER TABLE atom ADD COLUMN IF NOT EXISTS coord_x INTEGER"
-        psql -q -c "ALTER TABLE atom ADD COLUMN IF NOT EXISTS coord_y INTEGER"
-        psql -q -c "ALTER TABLE atom ADD COLUMN IF NOT EXISTS coord_z INTEGER"
-        psql -q -c "ALTER TABLE atom ADD COLUMN IF NOT EXISTS coord_m INTEGER"
-        psql -q -c "ALTER TABLE relation ADD COLUMN IF NOT EXISTS coord_x INTEGER"
-        psql -q -c "ALTER TABLE relation ADD COLUMN IF NOT EXISTS coord_y INTEGER"
-        psql -q -c "ALTER TABLE relation ADD COLUMN IF NOT EXISTS coord_z INTEGER"
-        psql -q -c "ALTER TABLE relation ADD COLUMN IF NOT EXISTS coord_m INTEGER"
-        log_ok "Lossless columns added"
+
+    # Drop old tables if they exist (migration to unified schema)
+    if psql -tAc "SELECT 1 FROM pg_tables WHERE tablename='relation_edge'" | grep -q 1; then
+        log_info "Migrating from old schema to unified schema..."
+        psql -q -c "DROP TABLE IF EXISTS relation_edge CASCADE;"
+        psql -q -c "DROP TABLE IF EXISTS relation CASCADE;"
+        psql -q -c "DROP TABLE IF EXISTS atom CASCADE;"
+        psql -q -c "DROP TYPE IF EXISTS atom_category CASCADE;"
+        psql -q -c "DROP DOMAIN IF EXISTS blake3_hash CASCADE;"
     fi
+
+    log_info "Applying unified schema..."
+    psql -q -f sql/011_unified_atom.sql
+    log_ok "Unified schema applied"
 }
 
 ensure_atoms() {
-    # Check if atoms exist AND have integer coordinates populated
-    local count=$(psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null || echo 0)
-    local with_coords=$(psql -tAc "SELECT COUNT(*) FROM atom WHERE coord_x IS NOT NULL" 2>/dev/null || echo 0)
-    
-    if [ "$count" -gt 1000000 ] && [ "$with_coords" -gt 1000000 ]; then
+    # Check if atoms exist (unified schema: depth=0 rows with codepoint)
+    local count=$(psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0" 2>/dev/null || echo 0)
+
+    if [ "$count" -gt 1000000 ]; then
         return 0
     fi
-    
-    if [ "$count" -gt 1000000 ] && [ "$with_coords" -eq 0 ]; then
-        log_warn "Atoms exist but missing integer coords - reseeding..."
-    fi
-    
+
     log_info "Seeding atoms (this takes ~30 seconds)..."
-    
+
     # Build seed tool if needed
     if [ ! -x "cpp/build/seed_atoms_parallel" ]; then
         ensure_build
     fi
-    
+
     # Run parallel seeder
     ./cpp/build/seed_atoms_parallel -d "$PGDATABASE" -U "$PGUSER" -h "$PGHOST" 2>&1 | \
         grep -E "(Complete|Rate|atoms)" || true
-    
+
     log_ok "Atoms seeded"
 }
 
 ensure_functions() {
-    log_info "Applying SQL functions..."
-    
-    # Always apply these (idempotent - uses CREATE OR REPLACE)
-    psql -q -f sql/002_functions.sql 2>/dev/null || true
-    psql -q -f sql/003_ingestion.sql 2>/dev/null || true
-    psql -q -f sql/006_spatial_queries.sql 2>/dev/null || true
-    psql -q -f sql/008_metadata.sql 2>/dev/null || true
-    psql -q -f sql/009_cascading_pair_encoding.sql 2>/dev/null || true
-    
-    # Apply lossless schema migration if needed
-    if ! psql -tAc "SELECT 1 FROM information_schema.columns WHERE table_name='atom' AND column_name='coord_x'" | grep -q 1; then
-        log_info "Adding lossless integer coordinate columns..."
-        psql -q -f sql/010_lossless_schema.sql 2>/dev/null || true
+    # Unified schema has all functions built-in (011_unified_atom.sql)
+    # Just verify they exist
+    if psql -tAc "SELECT 1 FROM pg_proc WHERE proname='atom_reconstruct'" | grep -q 1; then
+        return 0
     fi
-    
+
+    log_info "Re-applying unified schema functions..."
+    psql -q -f sql/011_unified_atom.sql 2>/dev/null || true
     log_ok "Functions applied"
 }
 
@@ -265,8 +251,8 @@ cmd_init() {
     
     ensure_database
     ensure_build
-    ensure_schema
-    ensure_extension
+    ensure_schema      # Creates PostGIS extension first
+    ensure_extension   # Hypercube extension requires PostGIS
     ensure_atoms
     ensure_functions
     
@@ -282,59 +268,79 @@ cmd_status() {
     echo "=== Hypercube Status ==="
     echo "Database: $PGDATABASE @ $PGHOST"
     echo ""
-    
+
     if ! check_connection; then
         log_error "Cannot connect to PostgreSQL"
         return 1
     fi
-    
+
     if ! check_db_exists; then
         log_warn "Database '$PGDATABASE' does not exist"
         echo "Run './setup.sh init' to initialize"
         return 1
     fi
-    
+
+    # Unified schema: single atom table with depth column
     psql -c "
-    SELECT 
-        'atoms' as entity,
+    SELECT
+        CASE WHEN depth = 0 THEN 'atoms (leaves)' ELSE 'compositions' END as entity,
         count(*)::text as count,
-        '-' as info
+        CASE WHEN depth = 0 THEN '-' ELSE 'depth 1-' || max(depth)::text END as info
     FROM atom
-    UNION ALL
-    SELECT 
-        'compositions',
-        count(*)::text,
-        'depth 1-' || COALESCE(max(depth)::text, '0')
-    FROM relation
-    UNION ALL
-    SELECT 
-        'edges',
-        count(*)::text,
-        '-'
-    FROM relation_edge;
+    GROUP BY (depth = 0)
+    ORDER BY (depth = 0) DESC;
     "
-    
-    # Show CPE depth distribution if we have compositions
-    local comp_count=$(psql -tAc "SELECT COUNT(*) FROM relation")
+
+    # Show depth distribution if we have compositions
+    local comp_count=$(psql -tAc "SELECT COUNT(*) FROM atom WHERE depth > 0")
     if [ "$comp_count" -gt 0 ]; then
         echo ""
         echo "=== Composition Depth Distribution ==="
-        psql -c "SELECT * FROM cpe_stats LIMIT 10;" 2>/dev/null || true
+        psql -c "SELECT * FROM atom_stats LIMIT 10;" 2>/dev/null || true
     fi
 }
 
 cmd_tree() {
     local text="$1"
     [ -z "$text" ] && { log_error "Usage: ./setup.sh tree <text>"; exit 1; }
-    
-    local query_id
-    query_id=$(psql -tAc "SELECT encode(cpe_ingest_text('$text'), 'hex');")
-    
-    echo "Composition: $query_id"
+
+    # Write text to temp file and ingest with C++ tool
+    local tmpfile=$(mktemp)
+    echo -n "$text" > "$tmpfile"
+
+    log_info "Ingesting text..."
+    local root_id
+    root_id=$(./cpp/build/cpe_ingest -d "$PGDATABASE" -U "$PGUSER" -h "$PGHOST" "$tmpfile" 2>/dev/null)
+    rm -f "$tmpfile"
+
+    if [ -z "$root_id" ]; then
+        log_error "Failed to ingest text"
+        return 1
+    fi
+
+    echo "Composition: $root_id"
     echo "Structure:"
     echo ""
-    
-    psql -c "SELECT * FROM cpe_show_tree(decode('$query_id', 'hex'), 10);"
+
+    # Show tree structure using recursive CTE
+    psql -c "
+    WITH RECURSIVE tree AS (
+        SELECT id, children, value, depth, 0 as level, ARRAY[]::INTEGER[] as path
+        FROM atom WHERE id = decode('$root_id', 'hex')
+        UNION ALL
+        SELECT a.id, a.children, a.value, a.depth, t.level + 1, t.path || c.ordinal::INTEGER
+        FROM tree t
+        CROSS JOIN LATERAL unnest(t.children) WITH ORDINALITY AS c(child_id, ordinal)
+        JOIN atom a ON a.id = c.child_id
+        WHERE t.children IS NOT NULL AND t.level < 10
+    )
+    SELECT
+        repeat('  ', level) || CASE WHEN value IS NOT NULL THEN convert_from(value, 'UTF8') ELSE '...' END as node,
+        encode(id, 'hex')::text as id,
+        depth
+    FROM tree
+    ORDER BY path;
+    "
 }
 
 cmd_ingest() {
@@ -445,43 +451,62 @@ ingest_model() {
 cmd_query() {
     local text="$1"
     [ -z "$text" ] && { log_error "Usage: ./setup.sh query <text>"; exit 1; }
-    
-    psql -c "SELECT encode(cpe_ingest_text('$text'), 'hex') as composition_id;"
+
+    # Write text to temp file and ingest with C++ tool
+    local tmpfile=$(mktemp)
+    echo -n "$text" > "$tmpfile"
+
+    local root_id
+    root_id=$(./cpp/build/cpe_ingest -d "$PGDATABASE" -U "$PGUSER" -h "$PGHOST" "$tmpfile" 2>/dev/null)
+    rm -f "$tmpfile"
+
+    echo "composition_id"
+    echo "----------------------------------------------------------------"
+    echo "$root_id"
 }
 
 cmd_similar() {
     local text="$1"
     [ -z "$text" ] && { log_error "Usage: ./setup.sh similar <text>"; exit 1; }
-    
-    # First ingest the query text, then find similar
+
+    # Write text to temp file and ingest with C++ tool
+    local tmpfile=$(mktemp)
+    echo -n "$text" > "$tmpfile"
+
     local query_id
-    query_id=$(psql -tAc "SELECT encode(cpe_ingest_text('$text'), 'hex');")
-    
+    query_id=$(./cpp/build/cpe_ingest -d "$PGDATABASE" -U "$PGUSER" -h "$PGHOST" "$tmpfile" 2>/dev/null)
+    rm -f "$tmpfile"
+
+    if [ -z "$query_id" ]; then
+        log_error "Failed to ingest text"
+        return 1
+    fi
+
     echo "Query composition: $query_id"
     echo ""
-    
-    # Find compositions with similar centroids using Hilbert distance (lossless integer coords)
+
+    # Find compositions with similar centroids using Hilbert distance
     psql -c "
     WITH query AS (
-        SELECT coord_x, coord_y, coord_z, coord_m, hilbert_hi, hilbert_lo
-        FROM relation WHERE id = decode('$query_id', 'hex')
+        SELECT
+            ST_X(ST_Centroid(geom)) as cx,
+            ST_Y(ST_Centroid(geom)) as cy,
+            ST_Z(ST_Centroid(geom)) as cz,
+            ST_M(ST_Centroid(geom)) as cm,
+            hilbert_hi, hilbert_lo
+        FROM atom WHERE id = decode('$query_id', 'hex')
     )
-    SELECT 
-        encode(r.id, 'hex') as id,
-        r.depth,
-        r.atom_count,
-        -- Euclidean distance in 4D using raw integer coords
-        sqrt(
-            power((int32_to_uint32(r.coord_x) - int32_to_uint32(q.coord_x))::numeric, 2) +
-            power((int32_to_uint32(r.coord_y) - int32_to_uint32(q.coord_y))::numeric, 2) +
-            power((int32_to_uint32(r.coord_z) - int32_to_uint32(q.coord_z))::numeric, 2) +
-            power((int32_to_uint32(r.coord_m) - int32_to_uint32(q.coord_m))::numeric, 2)
-        )::numeric(20,0) as distance
-    FROM relation r, query q
-    WHERE r.id != decode('$query_id', 'hex')
-    ORDER BY 
-        abs(r.hilbert_hi - q.hilbert_hi),
-        abs(r.hilbert_lo - q.hilbert_lo)
+    SELECT
+        encode(a.id, 'hex') as id,
+        a.depth,
+        a.atom_count,
+        ST_Distance(ST_Centroid(a.geom), ST_SetSRID(ST_MakePoint(q.cx, q.cy, q.cz, q.cm), 0))::numeric(10,6) as distance
+    FROM atom a, query q
+    WHERE a.id != decode('$query_id', 'hex')
+      AND a.depth > 0
+    ORDER BY
+        abs(a.hilbert_hi - q.hilbert_hi),
+        abs(a.hilbert_lo - q.hilbert_lo)
     LIMIT 10;
     "
 }

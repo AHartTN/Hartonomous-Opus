@@ -105,42 +105,71 @@ void partition_atoms(const std::vector<AtomRecord>& all,
     }
 }
 
-// COPY a partition directly to atom table
-bool copy_partition(const std::string& conninfo, int partition_id, 
+// Encode UTF-8 for a codepoint (returns escaped BYTEA format for COPY)
+std::string encode_utf8_value(uint32_t codepoint) {
+    std::string result = "\\\\x";
+    static const char hex_chars[] = "0123456789abcdef";
+
+    auto append_byte = [&](uint8_t b) {
+        result += hex_chars[b >> 4];
+        result += hex_chars[b & 0x0F];
+    };
+
+    if (codepoint < 0x80) {
+        append_byte(static_cast<uint8_t>(codepoint));
+    } else if (codepoint < 0x800) {
+        append_byte(0xC0 | (codepoint >> 6));
+        append_byte(0x80 | (codepoint & 0x3F));
+    } else if (codepoint < 0x10000) {
+        append_byte(0xE0 | (codepoint >> 12));
+        append_byte(0x80 | ((codepoint >> 6) & 0x3F));
+        append_byte(0x80 | (codepoint & 0x3F));
+    } else {
+        append_byte(0xF0 | (codepoint >> 18));
+        append_byte(0x80 | ((codepoint >> 12) & 0x3F));
+        append_byte(0x80 | ((codepoint >> 6) & 0x3F));
+        append_byte(0x80 | (codepoint & 0x3F));
+    }
+
+    return result;
+}
+
+// COPY a partition directly to unified atom table
+bool copy_partition(const std::string& conninfo, int partition_id,
                     const std::vector<AtomRecord>& atoms) {
     PGconn* conn = PQconnectdb(conninfo.c_str());
     if (PQstatus(conn) != CONNECTION_OK) {
-        std::cerr << "Partition " << partition_id << " connection failed: " 
+        std::cerr << "Partition " << partition_id << " connection failed: "
                   << PQerrorMessage(conn) << std::endl;
         PQfinish(conn);
         return false;
     }
-    
-    // COPY directly to atom table - no staging
-    // Include BOTH raw integer coordinates (lossless) AND PostGIS geometry (for spatial queries)
-    std::string copy_cmd = 
-        "COPY atom (id, codepoint, category, coords, coord_x, coord_y, coord_z, coord_m, hilbert_lo, hilbert_hi) "
+
+    // COPY to unified atom table
+    // Schema: id, geom, children, value, codepoint, hilbert_lo, hilbert_hi, depth, atom_count
+    std::string copy_cmd =
+        "COPY atom (id, geom, children, value, codepoint, hilbert_lo, hilbert_hi, depth, atom_count) "
         "FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')";
-    
+
     PGresult* res = PQexec(conn, copy_cmd.c_str());
     if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "Partition " << partition_id << " COPY start failed: " 
+        std::cerr << "Partition " << partition_id << " COPY start failed: "
                   << PQerrorMessage(conn) << std::endl;
         PQclear(res);
         PQfinish(conn);
         return false;
     }
     PQclear(res);
-    
+
     // Build batch buffer
     std::string batch;
     batch.reserve(1 << 20);  // 1MB
-    
+
     static const char hex_chars[] = "0123456789abcdef";
     char ewkb[75];
     std::memcpy(ewkb, "01010000c0", 10);  // POINTZM little-endian, SRID=0
     ewkb[74] = '\0';
-    
+
     auto double_to_hex = [&](double val, char* out) {
         uint64_t bits;
         std::memcpy(&bits, &val, sizeof(bits));
@@ -150,56 +179,56 @@ bool copy_partition(const std::string& conninfo, int partition_id,
             out[i * 2 + 1] = hex_chars[byte & 0x0F];
         }
     };
-    
+
     char num_buf[32];
-    
+
     for (const auto& a : atoms) {
-        // Build EWKB geometry
+        // Build EWKB geometry (POINTZM)
         double_to_hex(a.x, ewkb + 10);
         double_to_hex(a.y, ewkb + 26);
         double_to_hex(a.z, ewkb + 42);
         double_to_hex(a.m, ewkb + 58);
-        
-        // Build row: id, codepoint, category, coords, coord_x, coord_y, coord_z, coord_m, hilbert_lo, hilbert_hi
+
+        // id (BYTEA)
         batch += "\\\\x";
         batch += a.hash.to_hex();
         batch += '\t';
-        
+
+        // geom (POINTZM)
+        batch += ewkb;
+        batch += '\t';
+
+        // children (NULL for leaves)
+        batch += "\\N";
+        batch += '\t';
+
+        // value (UTF-8 bytes)
+        batch += encode_utf8_value(static_cast<uint32_t>(a.codepoint));
+        batch += '\t';
+
+        // codepoint
         snprintf(num_buf, sizeof(num_buf), "%d", a.codepoint);
         batch += num_buf;
         batch += '\t';
-        
-        batch += category_to_string(a.category);
-        batch += '\t';
-        
-        batch += ewkb;
-        batch += '\t';
-        
-        // Raw 32-bit integer coordinates (LOSSLESS)
-        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_x);
-        batch += num_buf;
-        batch += '\t';
-        
-        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_y);
-        batch += num_buf;
-        batch += '\t';
-        
-        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_z);
-        batch += num_buf;
-        batch += '\t';
-        
-        snprintf(num_buf, sizeof(num_buf), "%d", a.coord_m);
-        batch += num_buf;
-        batch += '\t';
-        
+
+        // hilbert_lo
         snprintf(num_buf, sizeof(num_buf), "%ld", a.hilbert_lo);
         batch += num_buf;
         batch += '\t';
-        
+
+        // hilbert_hi
         snprintf(num_buf, sizeof(num_buf), "%ld", a.hilbert_hi);
         batch += num_buf;
+        batch += '\t';
+
+        // depth (0 for atoms)
+        batch += "0";
+        batch += '\t';
+
+        // atom_count (1 for atoms)
+        batch += "1";
         batch += '\n';
-        
+
         // Send when buffer full
         if (batch.size() > (1 << 19)) {
             if (PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size())) != 1) {
@@ -211,7 +240,7 @@ bool copy_partition(const std::string& conninfo, int partition_id,
             batch.clear();
         }
     }
-    
+
     // Send remaining
     if (!batch.empty()) {
         if (PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size())) != 1) {
@@ -221,22 +250,22 @@ bool copy_partition(const std::string& conninfo, int partition_id,
             return false;
         }
     }
-    
+
     if (PQputCopyEnd(conn, nullptr) != 1) {
         std::cerr << "Partition " << partition_id << " COPY end failed\n";
         PQfinish(conn);
         return false;
     }
-    
+
     res = PQgetResult(conn);
     bool success = (PQresultStatus(res) == PGRES_COMMAND_OK);
     if (!success) {
-        std::cerr << "Partition " << partition_id << " result: " 
+        std::cerr << "Partition " << partition_id << " result: "
                   << PQerrorMessage(conn) << std::endl;
     }
     PQclear(res);
     PQfinish(conn);
-    
+
     return success;
 }
 
@@ -339,13 +368,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Drop all indexes for fast bulk insert
-    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_coords");
+    // Drop all indexes for fast bulk insert (unified schema)
+    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_geom");
     PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_hilbert");
-    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_category");
-    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_letters");
-    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_digits");
-    
+    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_depth");
+    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_codepoint");
+
     // Truncate for clean seed
     PQexec(main_conn, "TRUNCATE atom CASCADE");
     
@@ -379,19 +407,13 @@ int main(int argc, char* argv[]) {
     auto copy_ms = std::chrono::duration_cast<std::chrono::milliseconds>(copy_time - setup_time).count();
     std::cerr << "      Parallel COPY in " << copy_ms << " ms\n";
     
-    // === STEP 5: Rebuild indexes ===
+    // === STEP 5: Rebuild indexes (unified schema) ===
     std::cerr << "[5/5] Building indexes...\n";
-    
-    PQexec(main_conn, "CREATE INDEX idx_atom_coords ON atom USING GIST(coords)");
+
+    PQexec(main_conn, "CREATE INDEX idx_atom_geom ON atom USING GIST(geom)");
     PQexec(main_conn, "CREATE INDEX idx_atom_hilbert ON atom(hilbert_hi, hilbert_lo)");
-    PQexec(main_conn, "CREATE INDEX idx_atom_category ON atom(category)");
-    PQexec(main_conn, "CREATE INDEX idx_atom_letters ON atom(codepoint) WHERE category IN ('letter_upper', 'letter_lower', 'letter_titlecase', 'letter_other')");
-    PQexec(main_conn, "CREATE INDEX idx_atom_digits ON atom(codepoint) WHERE category = 'digit'");
-    // Integer coordinate indexes (for lossless queries)
-    PQexec(main_conn, "CREATE INDEX idx_atom_coord_x ON atom(coord_x)");
-    PQexec(main_conn, "CREATE INDEX idx_atom_coord_y ON atom(coord_y)");
-    PQexec(main_conn, "CREATE INDEX idx_atom_coord_z ON atom(coord_z)");
-    PQexec(main_conn, "CREATE INDEX idx_atom_coord_m ON atom(coord_m)");
+    PQexec(main_conn, "CREATE INDEX idx_atom_depth ON atom(depth)");
+    PQexec(main_conn, "CREATE INDEX idx_atom_codepoint ON atom(codepoint) WHERE codepoint IS NOT NULL");
     PQexec(main_conn, "ANALYZE atom");
     
     auto end_time = std::chrono::high_resolution_clock::now();
