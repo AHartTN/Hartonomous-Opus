@@ -137,7 +137,9 @@ fi
 echo ""
 echo -e "${BLUE}─── C++ Integration Tests ─────────────────────────────────${NC}"
 
-if [ -f cpp/build/test_integration ]; then
+if [ -f tests/test_integration ]; then
+    run_test "Integration test suite" "./tests/test_integration -h localhost"
+elif [ -f cpp/build/test_integration ]; then
     run_test "Integration test" "./cpp/build/test_integration"
 fi
 
