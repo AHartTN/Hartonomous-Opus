@@ -316,22 +316,26 @@ private:
         
         Rule* container = first->container;
         Symbol* prev = first->prev;
-        Symbol* after_second = first->next->next;
-        
+        Symbol* second = first->next;  // Save BEFORE any removal modifies pointers
+        Symbol* after_second = second->next;
+
         // Decrement use counts if non-terminals
         if (!first->is_terminal) {
             first->rule->use_count--;
             check_rule_utility(first->rule);
         }
-        if (!first->next->is_terminal) {
-            first->next->rule->use_count--;
-            check_rule_utility(first->next->rule);
+        if (!second->is_terminal) {
+            second->rule->use_count--;
+            check_rule_utility(second->rule);
         }
-        
-        // Remove both symbols
-        container->remove(first->next);
+
+        // Remove both symbols from container
+        // NOTE: remove() updates neighbor pointers, so we saved 'second' above
+        container->remove(second);
         container->remove(first);
-        delete first->next;
+
+        // Now safe to delete - we have independent pointers
+        delete second;
         delete first;
         
         // Insert rule reference
@@ -759,21 +763,21 @@ bool insert_rules_to_db(PGconn* conn, const std::vector<Rule*>& rules) {
         batch += '\t';
         
         // hilbert_lo, hilbert_hi
-        snprintf(num_buf, sizeof(num_buf), "%ld", r->hilbert_lo);
+        snprintf(num_buf, sizeof(num_buf), "%lld", static_cast<long long>(r->hilbert_lo));
         batch += num_buf;
         batch += '\t';
-        
-        snprintf(num_buf, sizeof(num_buf), "%ld", r->hilbert_hi);
+
+        snprintf(num_buf, sizeof(num_buf), "%lld", static_cast<long long>(r->hilbert_hi));
         batch += num_buf;
         batch += '\t';
-        
+
         // depth
         snprintf(num_buf, sizeof(num_buf), "%u", r->depth);
         batch += num_buf;
         batch += '\t';
-        
+
         // atom_count
-        snprintf(num_buf, sizeof(num_buf), "%lu", r->atom_count);
+        snprintf(num_buf, sizeof(num_buf), "%llu", static_cast<unsigned long long>(r->atom_count));
         batch += num_buf;
         batch += '\n';
         

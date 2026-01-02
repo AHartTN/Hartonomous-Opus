@@ -482,11 +482,11 @@ bool insert_compositions(PGconn* conn, const std::vector<CompositionRecord>& com
         batch += '\t';
 
         // hilbert_lo, hilbert_hi
-        snprintf(num_buf, sizeof(num_buf), "%ld", c.hilbert_lo);
+        snprintf(num_buf, sizeof(num_buf), "%lld", static_cast<long long>(c.hilbert_lo));
         batch += num_buf;
         batch += '\t';
 
-        snprintf(num_buf, sizeof(num_buf), "%ld", c.hilbert_hi);
+        snprintf(num_buf, sizeof(num_buf), "%lld", static_cast<long long>(c.hilbert_hi));
         batch += num_buf;
         batch += '\t';
 
@@ -496,7 +496,7 @@ bool insert_compositions(PGconn* conn, const std::vector<CompositionRecord>& com
         batch += '\t';
 
         // atom_count
-        snprintf(num_buf, sizeof(num_buf), "%lu", c.atom_count);
+        snprintf(num_buf, sizeof(num_buf), "%llu", static_cast<unsigned long long>(c.atom_count));
         batch += num_buf;
         batch += '\n';
 

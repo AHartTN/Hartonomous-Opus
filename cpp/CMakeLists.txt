@@ -12,9 +12,25 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Compiler flags
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -Wall -Wextra")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra -fsanitize=address,undefined")
+# Cross-platform threading support
+find_package(Threads REQUIRED)
+
+# Compiler flags - platform specific
+if(MSVC)
+    # Microsoft Visual C++
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG /W4 /EHsc")
+    set(CMAKE_CXX_FLAGS_DEBUG "/Od /DDEBUG /W4 /Zi /EHsc /RTC1")
+    # Disable some noisy warnings
+    add_compile_options(/wd4244 /wd4267 /wd4996)
+else()
+    # GCC/Clang
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -Wall -Wextra")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
+    # Only enable sanitizers on non-Windows (MSVC doesn't support them the same way)
+    if(NOT WIN32)
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address,undefined")
+    endif()
+endif()
 
 # Find PostgreSQL
 find_package(PostgreSQL)
@@ -155,22 +171,27 @@ if(PostgreSQL_FOUND)
     # Parallel partitioned atom seeder (12 partitions, fastest)
     add_executable(seed_atoms_parallel src/seed_atoms_parallel.cpp)
     target_include_directories(seed_atoms_parallel PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(seed_atoms_parallel hypercube_core ${PostgreSQL_LIBRARIES} pthread)
+    target_link_libraries(seed_atoms_parallel hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
 
     # CPE ingester (binary tree merging)
     add_executable(cpe_ingest src/cpe_ingest.cpp)
     target_include_directories(cpe_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(cpe_ingest hypercube_core ${PostgreSQL_LIBRARIES} pthread)
+    target_link_libraries(cpe_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
 
     # Sequitur grammar-based ingester (proper semantic composition)
     add_executable(sequitur_ingest src/sequitur_ingest.cpp)
     target_include_directories(sequitur_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(sequitur_ingest hypercube_core ${PostgreSQL_LIBRARIES} pthread)
+    target_link_libraries(sequitur_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
 
     # Safetensor package ingester (vocab, BPE merges, semantic edges)
     add_executable(ingest_safetensor src/ingest_safetensor.cpp)
     target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(ingest_safetensor hypercube_core ${PostgreSQL_LIBRARIES} pthread)
+    target_link_libraries(ingest_safetensor hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+
+    # Embedding extractor (pairwise cosine similarity → sparse edges)
+    add_executable(extract_embeddings src/extract_embeddings.cpp)
+    target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
 endif()
 
 # Summary

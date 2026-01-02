@@ -215,12 +215,12 @@ bool copy_partition(const std::string& conninfo, int partition_id,
         batch += '\t';
 
         // hilbert_lo
-        snprintf(num_buf, sizeof(num_buf), "%ld", a.hilbert_lo);
+        snprintf(num_buf, sizeof(num_buf), "%lld", static_cast<long long>(a.hilbert_lo));
         batch += num_buf;
         batch += '\t';
 
         // hilbert_hi
-        snprintf(num_buf, sizeof(num_buf), "%ld", a.hilbert_hi);
+        snprintf(num_buf, sizeof(num_buf), "%lld", static_cast<long long>(a.hilbert_hi));
         batch += num_buf;
         batch += '\t';
 
@@ -427,7 +427,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "\n=== Complete ===\n";
     std::cerr << "Total atoms: " << total << "\n";
     std::cerr << "Total time: " << total_ms << " ms (" << (total_ms / 1000.0) << " s)\n";
-    std::cerr << "Rate: " << (total * 1000 / std::max(total_ms, 1L)) << " atoms/sec\n";
+    std::cerr << "Rate: " << (total * 1000 / std::max(total_ms, 1LL)) << " atoms/sec\n";
     
     PQfinish(main_conn);
     return 0;
