@@ -23,7 +23,9 @@ struct Point4D {
     
     constexpr auto operator<=>(const Point4D&) const noexcept = default;
     
-    // Convert to doubles for PostGIS POINTZM (normalized to [0, 1])
+    // DEPRECATED: Do not use for storage - raw uint32 values are stored directly
+    // These were for old normalized [0,1] storage which loses precision
+    // Kept for compatibility with validation code only
     constexpr double x_normalized() const noexcept { 
         return static_cast<double>(x) / static_cast<double>(UINT32_MAX); 
     }
@@ -36,6 +38,13 @@ struct Point4D {
     constexpr double m_normalized() const noexcept { 
         return static_cast<double>(m) / static_cast<double>(UINT32_MAX); 
     }
+    
+    // Convert to raw doubles for PostGIS POINTZM storage
+    // PostGIS double has 53-bit mantissa, more than enough for 32-bit values
+    constexpr double x_raw() const noexcept { return static_cast<double>(x); }
+    constexpr double y_raw() const noexcept { return static_cast<double>(y); }
+    constexpr double z_raw() const noexcept { return static_cast<double>(z); }
+    constexpr double m_raw() const noexcept { return static_cast<double>(m); }
     
     // Check if on 3-sphere surface (r² ≈ 1 within quantization tolerance)
     // For atoms, all should be on surface; compositions are interior

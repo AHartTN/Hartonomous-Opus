@@ -134,6 +134,34 @@ CompositionRecord create_document(const std::vector<CompositionRef>& refs) {
 - **Inference** = walk the graph following edges
 - **Attention** = weighted edge traversal based on M coordinate
 
+## Case Insensitivity via ST_FrechetDistance
+
+**Key Insight**: We do NOT need to store both "King" and "king" or normalize case.
+
+The Fréchet distance measures **trajectory shape similarity**, not exact point matching:
+- "King" and "king" have different absolute coordinates (K≠k, I≠i, etc.)
+- BUT their **geometric trajectories** through 4D space are nearly identical
+- ST_FrechetDistance reveals this similarity at query time
+
+This means:
+1. **Storage is deterministic**: Each unique byte sequence gets exactly one hash
+2. **No preprocessing**: No case normalization, no loss of information
+3. **Query-time flexibility**: Use ST_FrechetDistance for fuzzy/case-insensitive matching
+4. **Semantic preservation**: "King" (proper noun) vs "king" (common noun) remain distinguishable when needed
+
+```sql
+-- Case-insensitive search using trajectory similarity
+SELECT id, atom_reconstruct_text(id),
+       ST_FrechetDistance(geom, query_geom) as shape_distance
+FROM atom 
+WHERE depth > 0
+  AND ST_FrechetDistance(geom, query_geom) < threshold
+ORDER BY shape_distance
+LIMIT 10;
+```
+
+This leverages PostGIS's optimized geometric algorithms instead of string manipulation.
+
 ## Queries for LLM-like Operations
 
 ```sql

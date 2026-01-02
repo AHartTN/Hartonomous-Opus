@@ -150,37 +150,22 @@ if(PostgreSQL_FOUND)
     add_test(NAME QueryAPITest COMMAND test_query_api)
 endif()
 
-# Standalone atom seeder tool (file-based)
-add_executable(seed_atoms src/seed_atoms.cpp)
-target_link_libraries(seed_atoms hypercube_core)
-target_compile_options(seed_atoms PRIVATE -pthread)
-target_link_options(seed_atoms PRIVATE -pthread)
-
-# Direct PostgreSQL atom seeder (libpq-based, fastest)
+# PostgreSQL tools (require libpq)
 if(PostgreSQL_FOUND)
-    add_executable(seed_atoms_direct src/seed_atoms_direct.cpp)
-    target_include_directories(seed_atoms_direct PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(seed_atoms_direct hypercube_core ${PostgreSQL_LIBRARIES} pthread)
-    
     # Parallel partitioned atom seeder (12 partitions, fastest)
     add_executable(seed_atoms_parallel src/seed_atoms_parallel.cpp)
     target_include_directories(seed_atoms_parallel PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(seed_atoms_parallel hypercube_core ${PostgreSQL_LIBRARIES} pthread)
-    
-    # Model vocabulary ingestion tool
-    add_executable(ingest_model src/ingest_model.cpp)
-    target_include_directories(ingest_model PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(ingest_model hypercube_core ${PostgreSQL_LIBRARIES} pthread)
 
-    # Safetensor embedding extractor (sparse semantic edges)
-    add_executable(extract_embeddings src/extract_embeddings.cpp)
-    target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} pthread)
-
-    # CPE ingester (high-performance file/directory ingestion)
+    # CPE ingester (binary tree merging)
     add_executable(cpe_ingest src/cpe_ingest.cpp)
     target_include_directories(cpe_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(cpe_ingest hypercube_core ${PostgreSQL_LIBRARIES} pthread)
+
+    # Sequitur grammar-based ingester (proper semantic composition)
+    add_executable(sequitur_ingest src/sequitur_ingest.cpp)
+    target_include_directories(sequitur_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(sequitur_ingest hypercube_core ${PostgreSQL_LIBRARIES} pthread)
 
     # Safetensor package ingester (vocab, BPE merges, semantic edges)
     add_executable(ingest_safetensor src/ingest_safetensor.cpp)

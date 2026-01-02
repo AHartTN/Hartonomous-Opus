@@ -86,15 +86,17 @@ AS 'hypercube', 'hypercube_hilbert_distance'
 LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Convenience function: create POINTZM from hypercube coordinates
+-- Stores raw uint32 values as doubles - NO normalization
+-- PostGIS double has 53-bit mantissa, more than enough for 32-bit values
 CREATE OR REPLACE FUNCTION hypercube_to_pointzm(
     x bigint, y bigint, z bigint, m bigint
 ) RETURNS geometry(POINTZM, 0)
 AS $$
     SELECT ST_MakePoint(
-        x::float8 / 4294967295.0,  -- Normalize to [0,1]
-        y::float8 / 4294967295.0,
-        z::float8 / 4294967295.0,
-        m::float8 / 4294967295.0
+        x::float8,  -- Raw uint32 value (no normalization)
+        y::float8,
+        z::float8,
+        m::float8
     )::geometry(POINTZM, 0);
 $$ LANGUAGE SQL IMMUTABLE STRICT PARALLEL SAFE;
 
