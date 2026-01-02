@@ -485,28 +485,22 @@ cmd_similar() {
     echo "Query composition: $query_id"
     echo ""
 
-    # Find compositions with similar centroids using Hilbert distance
+    # Find compositions with similar centroids using spatial distance
     psql -c "
     WITH query AS (
-        SELECT
-            ST_X(ST_Centroid(geom)) as cx,
-            ST_Y(ST_Centroid(geom)) as cy,
-            ST_Z(ST_Centroid(geom)) as cz,
-            ST_M(ST_Centroid(geom)) as cm,
-            hilbert_hi, hilbert_lo
+        SELECT ST_Centroid(geom) as centroid
         FROM atom WHERE id = decode('$query_id', 'hex')
     )
     SELECT
-        encode(a.id, 'hex') as id,
+        left(encode(a.id, 'hex'), 16) || '...' as id,
         a.depth,
-        a.atom_count,
-        ST_Distance(ST_Centroid(a.geom), ST_SetSRID(ST_MakePoint(q.cx, q.cy, q.cz, q.cm), 0))::numeric(10,6) as distance
+        a.atom_count as atoms,
+        ST_Distance(ST_Centroid(a.geom), q.centroid)::numeric(12,8) as distance,
+        atom_reconstruct_text(a.id) as content
     FROM atom a, query q
     WHERE a.id != decode('$query_id', 'hex')
       AND a.depth > 0
-    ORDER BY
-        abs(a.hilbert_hi - q.hilbert_hi),
-        abs(a.hilbert_lo - q.hilbert_lo)
+    ORDER BY ST_Distance(ST_Centroid(a.geom), q.centroid)
     LIMIT 10;
     "
 }
@@ -520,6 +514,66 @@ cmd_reset() {
         log_info "Run './setup.sh init' to reinitialize"
     else
         log_info "Cancelled"
+    fi
+}
+
+cmd_test() {
+    log_info "Running Hartonomous test suite..."
+    
+    # Build tests if needed
+    if [ ! -f cpp/build/test_integration ] || [ ! -f cpp/build/test_query_api ]; then
+        log_info "Building test executables..."
+        cd cpp/build
+        make -j4 test_blake3 test_coordinates test_hilbert test_integration test_query_api >/dev/null 2>&1
+        cd "$SCRIPT_DIR"
+    fi
+    
+    local total_passed=0
+    local total_failed=0
+    
+    echo
+    echo "=== Core Unit Tests ==="
+    for test in test_blake3 test_coordinates test_hilbert; do
+        if [ -f "cpp/build/$test" ]; then
+            if cpp/build/$test >/dev/null 2>&1; then
+                log_ok "$test"
+                ((total_passed++)) || true
+            else
+                log_error "$test"
+                ((total_failed++)) || true
+            fi
+        fi
+    done
+    
+    echo
+    echo "=== Integration Tests ==="
+    if cpp/build/test_integration 2>&1 | grep -q "Failed: 0"; then
+        local int_passed=$(cpp/build/test_integration 2>&1 | grep "Passed:" | awk '{print $2}')
+        log_ok "test_integration ($int_passed assertions)"
+        ((total_passed++)) || true
+    else
+        log_error "test_integration"
+        ((total_failed++)) || true
+    fi
+    
+    echo
+    echo "=== Query API Tests ==="
+    if cpp/build/test_query_api 2>&1 | grep -q "Failed: 0"; then
+        local api_passed=$(cpp/build/test_query_api 2>&1 | grep "Passed:" | awk '{print $2}')
+        log_ok "test_query_api ($api_passed assertions)"
+        ((total_passed++)) || true
+    else
+        log_error "test_query_api"
+        ((total_failed++)) || true
+    fi
+    
+    echo
+    echo "=============================================="
+    if [ $total_failed -eq 0 ]; then
+        log_ok "All $total_passed test suites passed!"
+    else
+        log_error "$total_failed test suite(s) failed"
+        exit 1
     fi
 }
 
@@ -537,6 +591,7 @@ COMMANDS:
     query <text>            Get composition ID for text
     similar <text>          Find similar compositions by centroid distance
     tree <text>             Show the Merkle DAG structure of a text
+    test                    Run the full test suite
     reset                   Drop and reset database
 
 EXAMPLES:
@@ -594,6 +649,7 @@ case "${1:-help}" in
     query)      shift; cmd_query "$@" ;;
     similar)    shift; cmd_similar "$@" ;;
     tree)       shift; cmd_tree "$@" ;;
+    test)       cmd_test ;;
     reset)      cmd_reset ;;
     help|--help|-h) cmd_help ;;
     *)

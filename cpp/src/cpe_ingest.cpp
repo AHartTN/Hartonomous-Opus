@@ -53,15 +53,15 @@ bool load_atom_cache(PGconn* conn) {
     auto start = std::chrono::high_resolution_clock::now();
 
     // Load atoms from unified schema using codepoint column
-    // Extract coordinates from POINTZM geometry (normalized to [0,1], scale back to uint32)
+    // Coordinates are stored as raw uint32 values in PostGIS double (no normalization)
     PGresult* res = PQexec(conn,
         "SELECT "
         "  codepoint, "
         "  id, "
-        "  ST_X(geom) * 4294967295, "
-        "  ST_Y(geom) * 4294967295, "
-        "  ST_Z(geom) * 4294967295, "
-        "  ST_M(geom) * 4294967295 "
+        "  ST_X(geom), "
+        "  ST_Y(geom), "
+        "  ST_Z(geom), "
+        "  ST_M(geom) "
         "FROM atom WHERE depth = 0 AND codepoint IS NOT NULL");
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -89,7 +89,7 @@ bool load_atom_cache(PGconn* conn) {
         if (hex[0] == '\\' && hex[1] == 'x') {
             info.hash = Blake3Hash::from_hex(std::string_view(hex + 2, 64));
         }
-        // Convert normalized double back to uint32 as int32
+        // Raw uint32 values stored in double (no normalization needed)
         info.coord_x = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 2))));
         info.coord_y = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 3))));
         info.coord_z = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 4))));
@@ -393,20 +393,21 @@ std::string build_linestringzm_ewkb(
         }
     };
 
-    // Convert int32 coords to normalized doubles [0, 1] for PostGIS
-    constexpr double COORD_SCALE = 1.0 / 4294967295.0;
+    // Store raw uint32 values as doubles (NO normalization)
+    // double has 53-bit mantissa, can exactly represent all uint32 values (2^32 < 2^53)
+    // Hilbert values are derived FROM these coordinates
 
     // Point 1
-    append_double(static_cast<double>(int32_to_uint32(x1)) * COORD_SCALE);
-    append_double(static_cast<double>(int32_to_uint32(y1)) * COORD_SCALE);
-    append_double(static_cast<double>(int32_to_uint32(z1)) * COORD_SCALE);
-    append_double(static_cast<double>(int32_to_uint32(m1)) * COORD_SCALE);
+    append_double(static_cast<double>(int32_to_uint32(x1)));
+    append_double(static_cast<double>(int32_to_uint32(y1)));
+    append_double(static_cast<double>(int32_to_uint32(z1)));
+    append_double(static_cast<double>(int32_to_uint32(m1)));
 
     // Point 2
-    append_double(static_cast<double>(int32_to_uint32(x2)) * COORD_SCALE);
-    append_double(static_cast<double>(int32_to_uint32(y2)) * COORD_SCALE);
-    append_double(static_cast<double>(int32_to_uint32(z2)) * COORD_SCALE);
-    append_double(static_cast<double>(int32_to_uint32(m2)) * COORD_SCALE);
+    append_double(static_cast<double>(int32_to_uint32(x2)));
+    append_double(static_cast<double>(int32_to_uint32(y2)));
+    append_double(static_cast<double>(int32_to_uint32(z2)));
+    append_double(static_cast<double>(int32_to_uint32(m2)));
 
     return ewkb;
 }

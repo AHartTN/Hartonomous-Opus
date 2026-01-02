@@ -52,7 +52,9 @@ struct AtomRecord {
 // Generate atoms for a codepoint range
 void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) {
     out.reserve(end - start);
-    constexpr double COORD_SCALE = 1.0 / 4294967295.0;
+    // NO normalization - store raw uint32 values as doubles
+    // PostGIS GEOMETRY stores float64, which can exactly represent all uint32 values
+    // (double has 53-bit mantissa, uint32 is 32-bit)
     
     for (uint32_t cp = start; cp < end; ++cp) {
         if (cp >= constants::SURROGATE_START && cp <= constants::SURROGATE_END) {
@@ -74,11 +76,12 @@ void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) 
         rec.coord_z = static_cast<int32_t>(coords.z);
         rec.coord_m = static_cast<int32_t>(coords.m);
         
-        // Also store PostGIS normalized double (for spatial queries only, may lose precision)
-        rec.x = static_cast<double>(coords.x) * COORD_SCALE;
-        rec.y = static_cast<double>(coords.y) * COORD_SCALE;
-        rec.z = static_cast<double>(coords.z) * COORD_SCALE;
-        rec.m = static_cast<double>(coords.m) * COORD_SCALE;
+        // Store raw uint32 as double - NO normalization, lossless
+        // double has 53-bit mantissa, can exactly represent all uint32 values
+        rec.x = static_cast<double>(coords.x);
+        rec.y = static_cast<double>(coords.y);
+        rec.z = static_cast<double>(coords.z);
+        rec.m = static_cast<double>(coords.m);
         
         rec.hilbert_lo = static_cast<int64_t>(hilbert.lo);
         rec.hilbert_hi = static_cast<int64_t>(hilbert.hi);

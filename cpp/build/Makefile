@@ -250,6 +250,32 @@ test_semantic/fast:
 .PHONY : test_semantic/fast
 
 #=============================================================================
+# Target rules for targets named test_integration
+
+# Build rule for target.
+test_integration: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_integration
+.PHONY : test_integration
+
+# fast build rule for target.
+test_integration/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_integration.dir/build.make CMakeFiles/test_integration.dir/build
+.PHONY : test_integration/fast
+
+#=============================================================================
+# Target rules for targets named test_query_api
+
+# Build rule for target.
+test_query_api: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_query_api
+.PHONY : test_query_api
+
+# fast build rule for target.
+test_query_api/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_query_api.dir/build.make CMakeFiles/test_query_api.dir/build
+.PHONY : test_query_api/fast
+
+#=============================================================================
 # Target rules for targets named seed_atoms
 
 # Build rule for target.
@@ -639,6 +665,54 @@ tests/test_hilbert.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_hilbert.dir/build.make CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.s
 .PHONY : tests/test_hilbert.cpp.s
 
+tests/test_integration.o: tests/test_integration.cpp.o
+.PHONY : tests/test_integration.o
+
+# target to build an object file
+tests/test_integration.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_integration.dir/build.make CMakeFiles/test_integration.dir/tests/test_integration.cpp.o
+.PHONY : tests/test_integration.cpp.o
+
+tests/test_integration.i: tests/test_integration.cpp.i
+.PHONY : tests/test_integration.i
+
+# target to preprocess a source file
+tests/test_integration.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_integration.dir/build.make CMakeFiles/test_integration.dir/tests/test_integration.cpp.i
+.PHONY : tests/test_integration.cpp.i
+
+tests/test_integration.s: tests/test_integration.cpp.s
+.PHONY : tests/test_integration.s
+
+# target to generate assembly for a file
+tests/test_integration.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_integration.dir/build.make CMakeFiles/test_integration.dir/tests/test_integration.cpp.s
+.PHONY : tests/test_integration.cpp.s
+
+tests/test_query_api.o: tests/test_query_api.cpp.o
+.PHONY : tests/test_query_api.o
+
+# target to build an object file
+tests/test_query_api.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_query_api.dir/build.make CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.o
+.PHONY : tests/test_query_api.cpp.o
+
+tests/test_query_api.i: tests/test_query_api.cpp.i
+.PHONY : tests/test_query_api.i
+
+# target to preprocess a source file
+tests/test_query_api.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_query_api.dir/build.make CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.i
+.PHONY : tests/test_query_api.cpp.i
+
+tests/test_query_api.s: tests/test_query_api.cpp.s
+.PHONY : tests/test_query_api.s
+
+# target to generate assembly for a file
+tests/test_query_api.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_query_api.dir/build.make CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.s
+.PHONY : tests/test_query_api.cpp.s
+
 tests/test_semantic.o: tests/test_semantic.cpp.o
 .PHONY : tests/test_semantic.o
 
@@ -687,6 +761,8 @@ help:
 	@echo "... test_blake3"
 	@echo "... test_coordinates"
 	@echo "... test_hilbert"
+	@echo "... test_integration"
+	@echo "... test_query_api"
 	@echo "... test_semantic"
 	@echo "... src/blake3_pg.o"
 	@echo "... src/blake3_pg.i"
@@ -727,6 +803,12 @@ help:
 	@echo "... tests/test_hilbert.o"
 	@echo "... tests/test_hilbert.i"
 	@echo "... tests/test_hilbert.s"
+	@echo "... tests/test_integration.o"
+	@echo "... tests/test_integration.i"
+	@echo "... tests/test_integration.s"
+	@echo "... tests/test_query_api.o"
+	@echo "... tests/test_query_api.i"
+	@echo "... tests/test_query_api.s"
 	@echo "... tests/test_semantic.o"
 	@echo "... tests/test_semantic.i"
 	@echo "... tests/test_semantic.s"

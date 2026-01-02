@@ -64,6 +64,8 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/test_coordinates.dir/DependInfo.cmake"
   "CMakeFiles/test_blake3.dir/DependInfo.cmake"
   "CMakeFiles/test_semantic.dir/DependInfo.cmake"
+  "CMakeFiles/test_integration.dir/DependInfo.cmake"
+  "CMakeFiles/test_query_api.dir/DependInfo.cmake"
   "CMakeFiles/seed_atoms.dir/DependInfo.cmake"
   "CMakeFiles/seed_atoms_direct.dir/DependInfo.cmake"
   "CMakeFiles/seed_atoms_parallel.dir/DependInfo.cmake"

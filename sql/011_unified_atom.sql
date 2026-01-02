@@ -102,13 +102,28 @@ RETURNS TABLE(child_id BYTEA, ordinal INTEGER) AS $$
 $$ LANGUAGE SQL STABLE;
 
 -- Get 4D centroid of any atom (works for POINT and LINESTRING)
+-- Get 4D centroid of an atom
+-- For POINTZM (leaves): returns the point coordinates directly
+-- For LINESTRINGZM (compositions): computes geometric centroid
 CREATE OR REPLACE FUNCTION atom_centroid(p_id BYTEA)
 RETURNS TABLE(x DOUBLE PRECISION, y DOUBLE PRECISION, z DOUBLE PRECISION, m DOUBLE PRECISION) AS $$
     SELECT
-        ST_X(ST_Centroid(geom)),
-        ST_Y(ST_Centroid(geom)),
-        ST_Z(ST_Centroid(geom)),
-        ST_M(ST_Centroid(geom))
+        CASE 
+            WHEN GeometryType(geom) = 'POINT' THEN ST_X(geom)
+            ELSE ST_X(ST_Centroid(geom))
+        END,
+        CASE 
+            WHEN GeometryType(geom) = 'POINT' THEN ST_Y(geom)
+            ELSE ST_Y(ST_Centroid(geom))
+        END,
+        CASE 
+            WHEN GeometryType(geom) = 'POINT' THEN ST_Z(geom)
+            ELSE (ST_Z(ST_StartPoint(geom)) + ST_Z(ST_EndPoint(geom))) / 2.0
+        END,
+        CASE 
+            WHEN GeometryType(geom) = 'POINT' THEN ST_M(geom)
+            ELSE (ST_M(ST_StartPoint(geom)) + ST_M(ST_EndPoint(geom))) / 2.0
+        END
     FROM atom WHERE id = p_id;
 $$ LANGUAGE SQL STABLE;
 
@@ -188,16 +203,17 @@ $$ LANGUAGE SQL STABLE;
 
 -- Find nearest neighbors by Hilbert index (fast)
 CREATE OR REPLACE FUNCTION atom_nearest_hilbert(p_id BYTEA, p_limit INTEGER DEFAULT 10)
-RETURNS TABLE(neighbor_id BYTEA, hilbert_distance BIGINT) AS $$
+RETURNS TABLE(neighbor_id BYTEA, hilbert_distance NUMERIC) AS $$
     WITH target AS (
         SELECT hilbert_lo, hilbert_hi FROM atom WHERE id = p_id
     )
     SELECT
         a.id,
-        ABS(a.hilbert_lo - t.hilbert_lo) + ABS(a.hilbert_hi - t.hilbert_hi) * 9223372036854775807
+        ABS(a.hilbert_lo::NUMERIC - t.hilbert_lo::NUMERIC) + 
+        ABS(a.hilbert_hi::NUMERIC - t.hilbert_hi::NUMERIC) * 9223372036854775808::NUMERIC
     FROM atom a, target t
     WHERE a.id != p_id
-    ORDER BY ABS(a.hilbert_hi - t.hilbert_hi), ABS(a.hilbert_lo - t.hilbert_lo)
+    ORDER BY ABS(a.hilbert_hi::NUMERIC - t.hilbert_hi::NUMERIC), ABS(a.hilbert_lo::NUMERIC - t.hilbert_lo::NUMERIC)
     LIMIT p_limit;
 $$ LANGUAGE SQL STABLE;
 

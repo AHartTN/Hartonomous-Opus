@@ -4,6 +4,8 @@
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/test_coordinates.dir
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/test_blake3.dir
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/test_semantic.dir
+/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/test_integration.dir
+/home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/test_query_api.dir
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/seed_atoms.dir
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/seed_atoms_direct.dir
 /home/ahart/Projects/Hartonomous-Opus/cpp/build/CMakeFiles/seed_atoms_parallel.dir
