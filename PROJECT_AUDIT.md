@@ -89,3 +89,21 @@ The system implements a **Semantic Web** using:
 1. Create comprehensive C++ test suite
 2. Create SQL function tests
 3. Create integration tests
+
+## Known Issues (as of 2024-01-02)
+
+### Sequitur Ingester Segfault
+- **Status**: BROKEN
+- **Issue**: Segfaults when input contains repeated digrams (e.g., "abab")
+- **Root cause**: Pointer management bug in `substitute_digram()` during rule creation
+- **Workaround**: Use `cpe_ingest` instead (binary pair encoding, works correctly)
+- **Priority**: Medium - CPE is functional, Sequitur would provide better grammar learning
+
+### CPE vs Sequitur Comparison
+| Feature | CPE | Sequitur |
+|---------|-----|----------|
+| Status | Working | Broken |
+| Composition style | Binary pairs | Variable-length grammar rules |
+| Natural boundaries | No (fixed binary tree) | Yes (discovers words/phrases) |
+| Deduplication | By content hash | By grammar rule reuse |
+

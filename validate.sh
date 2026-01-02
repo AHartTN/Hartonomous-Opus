@@ -161,6 +161,15 @@ run_test "atom_distance()" "psql -tAc \"SELECT atom_distance((SELECT id FROM ato
 run_test "atom_reconstruct_text()" "psql -tAc \"SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 65))\" | grep -q 'A'"
 
 # =============================================================================
+# Section 7b: Full SQL Test Suite
+# =============================================================================
+if [ -f tests/test_unified_schema_v2.sql ]; then
+    echo ""
+    echo -e "${BLUE}─── SQL Test Suite ────────────────────────────────────────${NC}"
+    run_test "Unified schema tests" "psql -f tests/test_unified_schema_v2.sql 2>&1 | grep -q 'All unified schema tests completed'" 90
+fi
+
+# =============================================================================
 # Section 8: Performance Tests
 # =============================================================================
 if [ "$QUICK_MODE" = false ]; then
