@@ -9,6 +9,38 @@ The system implements a **Semantic Web** using:
 - Cascading Pair Encoding (CPE) for universal content atomization
 - PostGIS GEOMETRYZM for spatial storage (POINTZM for atoms, LINESTRINGZM for compositions)
 
+## System Status
+
+### ✅ Working End-to-End
+| Component | Status | Notes |
+|-----------|--------|-------|
+| setup.sh init | ✅ Working | Creates DB, schema, seeds Unicode atoms |
+| setup.sh ingest | ✅ Working | CPE ingestion of files/directories |
+| setup.sh status | ✅ Working | Shows atom/composition counts |
+| setup.sh similar | ✅ Working | Finds similar compositions |
+| setup.sh tree | ✅ Working | Shows composition tree structure |
+| validate.sh | ✅ Working | 22 tests passing |
+| Unicode seeding | ✅ Working | 1.1M codepoints in ~30s |
+| CPE ingestion | ✅ Working | Binary pair encoding, deterministic |
+| Hilbert indexing | ✅ Working | 128-bit Hilbert curve |
+| Spatial queries | ✅ Working | GIST index on centroid |
+| AI/ML functions | ✅ Working | attention, transform, infer, generate |
+
+### ⚠️ Needs Work
+| Component | Status | Issue |
+|-----------|--------|-------|
+| Sequitur ingester | 🔴 Broken | Segfault on repeated digrams |
+| Safetensor ingestion | ⚠️ Untested | Needs llama4 test |
+| Case-insensitive queries | ⚠️ Partial | Frechet supports, not yet wired |
+
+### Database Stats (Current)
+- **Leaf atoms**: 1,112,064 (all Unicode codepoints)
+- **Compositions**: 516,073
+- **Max depth**: 21
+- **Table size**: ~2GB
+- **SRID**: 0 (raw 4D space, no normalization)
+- **Coordinate precision**: 32-bit per dimension (uint32 stored in double)
+
 ## File Status
 
 ### SQL Files - CURRENT
