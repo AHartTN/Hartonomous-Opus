@@ -181,6 +181,11 @@ if(PostgreSQL_FOUND)
     add_executable(cpe_ingest src/cpe_ingest.cpp)
     target_include_directories(cpe_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(cpe_ingest hypercube_core ${PostgreSQL_LIBRARIES} pthread)
+
+    # Safetensor package ingester (vocab, BPE merges, semantic edges)
+    add_executable(ingest_safetensor src/ingest_safetensor.cpp)
+    target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(ingest_safetensor hypercube_core ${PostgreSQL_LIBRARIES} pthread)
 endif()
 
 # Summary
