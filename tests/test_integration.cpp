@@ -507,6 +507,209 @@ bool test_register_model_function(PGconn* conn, std::string& msg) {
 }
 
 // =============================================================================
+// AI Operations Tests
+// =============================================================================
+
+bool test_attention_self(PGconn* conn, std::string& msg) {
+    PGresult* res;
+    // Get a composition to test with
+    if (!exec_query(conn, "SELECT id FROM atom WHERE depth = 2 LIMIT 1", &res)) {
+        msg = "Failed to get test composition";
+        PQclear(res);
+        return false;
+    }
+    
+    if (PQntuples(res) == 0) {
+        msg = "No depth-2 compositions found";
+        PQclear(res);
+        return false;
+    }
+    
+    std::string comp_id = PQgetvalue(res, 0, 0);
+    PQclear(res);
+    
+    std::string query = "SELECT COUNT(*) FROM attention_self('" + comp_id + "'::bytea, 3, 10)";
+    if (!exec_query(conn, query.c_str(), &res)) {
+        msg = "attention_self function failed: " + std::string(PQerrorMessage(conn));
+        PQclear(res);
+        return false;
+    }
+    
+    int64_t count = get_int64(res, 0, 0);
+    PQclear(res);
+    
+    if (count == 0) {
+        msg = "attention_self returned no results";
+        return false;
+    }
+    
+    msg = std::to_string(count) + " attention results";
+    return true;
+}
+
+bool test_attention_cross(PGconn* conn, std::string& msg) {
+    PGresult* res;
+    // Get two compositions to test cross-attention
+    if (!exec_query(conn, "SELECT array_agg(id) FROM (SELECT id FROM atom WHERE depth = 1 LIMIT 3) t", &res)) {
+        msg = "Failed to get test compositions";
+        PQclear(res);
+        return false;
+    }
+    
+    std::string ids_array = PQgetvalue(res, 0, 0);
+    PQclear(res);
+    
+    std::string query = "SELECT COUNT(*) FROM attention_cross('" + ids_array + "'::bytea[], 10)";
+    if (!exec_query(conn, query.c_str(), &res)) {
+        msg = "attention_cross function failed: " + std::string(PQerrorMessage(conn));
+        PQclear(res);
+        return false;
+    }
+    
+    int64_t count = get_int64(res, 0, 0);
+    PQclear(res);
+    
+    msg = std::to_string(count) + " cross-attention results";
+    return count > 0;
+}
+
+bool test_transform_analogy(PGconn* conn, std::string& msg) {
+    PGresult* res;
+    // Get three different compositions
+    if (!exec_query(conn, "SELECT id FROM atom WHERE depth = 1 LIMIT 3", &res)) {
+        msg = "Failed to get test compositions";
+        PQclear(res);
+        return false;
+    }
+    
+    if (PQntuples(res) < 3) {
+        msg = "Need at least 3 depth-1 compositions";
+        PQclear(res);
+        return false;
+    }
+    
+    std::string id_a = PQgetvalue(res, 0, 0);
+    std::string id_b = PQgetvalue(res, 1, 0);
+    std::string id_c = PQgetvalue(res, 2, 0);
+    PQclear(res);
+    
+    std::string query = "SELECT COUNT(*) FROM transform_analogy('" + id_a + "'::bytea, '" + 
+                        id_b + "'::bytea, '" + id_c + "'::bytea, 5)";
+    if (!exec_query(conn, query.c_str(), &res)) {
+        msg = "transform_analogy function failed: " + std::string(PQerrorMessage(conn));
+        PQclear(res);
+        return false;
+    }
+    
+    int64_t count = get_int64(res, 0, 0);
+    PQclear(res);
+    
+    msg = std::to_string(count) + " analogy results";
+    return count > 0;
+}
+
+bool test_infer_related(PGconn* conn, std::string& msg) {
+    PGresult* res;
+    // Get a composition with children
+    if (!exec_query(conn, "SELECT id FROM atom WHERE depth = 3 LIMIT 1", &res)) {
+        msg = "Failed to get test composition";
+        PQclear(res);
+        return false;
+    }
+    
+    if (PQntuples(res) == 0) {
+        msg = "No depth-3 compositions found";
+        PQclear(res);
+        return false;
+    }
+    
+    std::string comp_id = PQgetvalue(res, 0, 0);
+    PQclear(res);
+    
+    std::string query = "SELECT COUNT(*) FROM infer_related('" + comp_id + "'::bytea, 1, 20)";
+    if (!exec_query(conn, query.c_str(), &res)) {
+        msg = "infer_related function failed: " + std::string(PQerrorMessage(conn));
+        PQclear(res);
+        return false;
+    }
+    
+    int64_t count = get_int64(res, 0, 0);
+    PQclear(res);
+    
+    msg = std::to_string(count) + " related compositions";
+    return true;  // Zero results is OK if composition has unique children
+}
+
+bool test_generate_random_walk(PGconn* conn, std::string& msg) {
+    PGresult* res;
+    // Get a seed composition
+    if (!exec_query(conn, "SELECT id FROM atom WHERE depth = 2 LIMIT 1", &res)) {
+        msg = "Failed to get seed composition";
+        PQclear(res);
+        return false;
+    }
+    
+    if (PQntuples(res) == 0) {
+        msg = "No depth-2 compositions found";
+        PQclear(res);
+        return false;
+    }
+    
+    std::string seed_id = PQgetvalue(res, 0, 0);
+    PQclear(res);
+    
+    std::string query = "SELECT COUNT(*) FROM generate_random_walk('" + seed_id + "'::bytea, 5, 0.5)";
+    if (!exec_query(conn, query.c_str(), &res)) {
+        msg = "generate_random_walk function failed: " + std::string(PQerrorMessage(conn));
+        PQclear(res);
+        return false;
+    }
+    
+    int64_t count = get_int64(res, 0, 0);
+    PQclear(res);
+    
+    if (count == 0) {
+        msg = "generate_random_walk returned no steps";
+        return false;
+    }
+    
+    msg = std::to_string(count) + " walk steps";
+    return true;
+}
+
+bool test_generate_continuation(PGconn* conn, std::string& msg) {
+    PGresult* res;
+    // Get a composition to continue from
+    if (!exec_query(conn, "SELECT id FROM atom WHERE depth = 2 LIMIT 1", &res)) {
+        msg = "Failed to get prefix composition";
+        PQclear(res);
+        return false;
+    }
+    
+    if (PQntuples(res) == 0) {
+        msg = "No depth-2 compositions found";
+        PQclear(res);
+        return false;
+    }
+    
+    std::string prefix_id = PQgetvalue(res, 0, 0);
+    PQclear(res);
+    
+    std::string query = "SELECT COUNT(*) FROM generate_continuation('" + prefix_id + "'::bytea, 5)";
+    if (!exec_query(conn, query.c_str(), &res)) {
+        msg = "generate_continuation function failed: " + std::string(PQerrorMessage(conn));
+        PQclear(res);
+        return false;
+    }
+    
+    int64_t count = get_int64(res, 0, 0);
+    PQclear(res);
+    
+    msg = std::to_string(count) + " continuation items";
+    return count > 0;
+}
+
+// =============================================================================
 // Performance Tests
 // =============================================================================
 
@@ -620,6 +823,14 @@ int main(int argc, char* argv[]) {
     std::cout << "\nIndex Usage Tests:\n";
     suite.run_test("GIST index used for spatial", test_gist_index_used);
     suite.run_test("Hilbert index used for ordering", test_hilbert_index_used);
+    
+    std::cout << "\nAI Operations Tests:\n";
+    suite.run_test("attention_self()", test_attention_self);
+    suite.run_test("attention_cross()", test_attention_cross);
+    suite.run_test("transform_analogy()", test_transform_analogy);
+    suite.run_test("infer_related()", test_infer_related);
+    suite.run_test("generate_random_walk()", test_generate_random_walk);
+    suite.run_test("generate_continuation()", test_generate_continuation);
     
     std::cout << "\nPerformance Tests:\n";
     suite.run_test("COUNT performance", test_count_performance);
