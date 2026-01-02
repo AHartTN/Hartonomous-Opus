@@ -192,10 +192,13 @@ ORDER BY depth, geom_type;
 -- =============================================================================
 
 -- 4D Euclidean distance between two atoms (using centroids)
+-- 4D Euclidean distance between two atoms (using all 4 dimensions)
 CREATE OR REPLACE FUNCTION atom_distance(p_id1 BYTEA, p_id2 BYTEA) RETURNS DOUBLE PRECISION AS $$
-    SELECT ST_Distance(
-        ST_Centroid(a1.geom),
-        ST_Centroid(a2.geom)
+    SELECT sqrt(
+        power(ST_X(a1.geom) - ST_X(a2.geom), 2) +
+        power(ST_Y(a1.geom) - ST_Y(a2.geom), 2) +
+        power(ST_Z(a1.geom) - ST_Z(a2.geom), 2) +
+        power(ST_M(a1.geom) - ST_M(a2.geom), 2)
     )
     FROM atom a1, atom a2
     WHERE a1.id = p_id1 AND a2.id = p_id2;

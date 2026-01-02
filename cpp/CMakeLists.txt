@@ -90,6 +90,32 @@ if(BUILD_PG_EXTENSION)
         hypercube.control
         DESTINATION ${POSTGRESQL_SHAREDIR}/extension
     )
+    
+    # Semantic operations extension (high-performance AI/ML queries)
+    add_library(semantic_ops SHARED
+        src/semantic_ops.cpp
+    )
+    
+    target_include_directories(semantic_ops PRIVATE
+        ${PostgreSQL_INCLUDE_DIRS}
+        ${POSTGRESQL_SERVER_INCLUDE}
+    )
+    
+    target_link_libraries(semantic_ops
+        hypercube_core
+    )
+    
+    set_target_properties(semantic_ops PROPERTIES PREFIX "")
+    
+    install(TARGETS semantic_ops
+        LIBRARY DESTINATION ${POSTGRESQL_PKGLIBDIR}
+    )
+    
+    install(FILES
+        sql/semantic_ops--1.0.sql
+        sql/semantic_ops.control
+        DESTINATION ${POSTGRESQL_SHAREDIR}/extension
+    )
 endif()
 
 # Tests (always build)

@@ -1,0 +1,5 @@
+comment = 'High-performance semantic query operations for AI/ML'
+default_version = '1.0'
+module_pathname = '$libdir/semantic_ops'
+relocatable = true
+requires = 'postgis'
