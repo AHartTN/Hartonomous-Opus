@@ -152,14 +152,17 @@ ensure_atoms() {
 }
 
 ensure_functions() {
-    # Unified schema has all functions built-in (011_unified_atom.sql)
-    # Just verify they exist
-    if psql -tAc "SELECT 1 FROM pg_proc WHERE proname='atom_reconstruct'" | grep -q 1; then
+    # Check if all functions exist
+    if psql -tAc "SELECT 1 FROM pg_proc WHERE proname='atom_reconstruct'" | grep -q 1 && \
+       psql -tAc "SELECT 1 FROM pg_proc WHERE proname='semantic_neighbors'" | grep -q 1; then
         return 0
     fi
 
-    log_info "Re-applying unified schema functions..."
-    psql -q -f sql/011_unified_atom.sql 2>/dev/null || true
+    log_info "Applying SQL schema and functions..."
+    for sqlfile in sql/01*.sql sql/016*.sql; do
+        [ -f "$sqlfile" ] || continue
+        psql -q -f "$sqlfile" 2>/dev/null || true
+    done
     log_ok "Functions applied"
 }
 

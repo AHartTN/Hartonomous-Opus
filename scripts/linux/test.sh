@@ -48,7 +48,7 @@ run_test() {
 # Section 1: C++ Unit Tests
 echo -e "${BLUE}─── C++ Unit Tests ────────────────────────────────────────${NC}"
 
-for test in test_hilbert test_coordinates test_blake3 test_semantic; do
+for test in test_hilbert test_coordinates test_blake3 test_semantic test_clustering; do
     if [ -f "$HC_BUILD_DIR/$test" ]; then
         run_test "$test" "$HC_BUILD_DIR/$test" || true
     else

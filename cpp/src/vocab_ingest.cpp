@@ -143,69 +143,130 @@ struct TokenComposition {
     uint64_t atom_count;
 };
 
-// Build a token composition from codepoints
+// Build a token composition using BINARY CASCADE (same as vocabulary_ingest)
+// This ensures "captain" from vocab and "captain" from content produce the SAME hash
 bool build_token_composition(const std::string& token, TokenComposition& out) {
     auto codepoints = decode_utf8(token);
     if (codepoints.empty()) return false;
-
-    // Collect child hashes and coordinates
-    std::vector<uint8_t> hash_input;
-    std::vector<double> xs, ys, zs, ms;
-
-    for (size_t i = 0; i < codepoints.size(); ++i) {
-        auto it = g_atom_cache.find(codepoints[i]);
+    
+    // Convert codepoints to atom hashes and coords
+    struct Node {
+        Blake3Hash hash;
+        double x, y, z, m;
+        uint32_t depth;
+        uint64_t atoms;
+    };
+    
+    std::vector<Node> nodes;
+    nodes.reserve(codepoints.size());
+    
+    for (uint32_t cp : codepoints) {
+        auto it = g_atom_cache.find(cp);
         if (it == g_atom_cache.end()) {
-            // Unknown codepoint - skip this token
-            return false;
+            return false;  // Unknown codepoint
         }
-
-        // Add to hash input: ordinal(4 bytes) + hash(32 bytes)
-        uint32_t ordinal = static_cast<uint32_t>(i);
-        hash_input.insert(hash_input.end(),
-            reinterpret_cast<uint8_t*>(&ordinal),
-            reinterpret_cast<uint8_t*>(&ordinal) + 4);
-        hash_input.insert(hash_input.end(),
-            it->second.hash.bytes.begin(),
-            it->second.hash.bytes.end());
-
-        out.children.push_back(it->second.hash);
-        xs.push_back(it->second.x);
-        ys.push_back(it->second.y);
-        zs.push_back(it->second.z);
-        ms.push_back(it->second.m);
+        Node n;
+        n.hash = it->second.hash;
+        n.x = it->second.x;
+        n.y = it->second.y;
+        n.z = it->second.z;
+        n.m = it->second.m;
+        n.depth = 0;
+        n.atoms = 1;
+        nodes.push_back(n);
     }
-
-    // Compute content-addressed hash
-    out.hash = Blake3Hasher::hash(std::span<const uint8_t>(hash_input));
+    
+    if (nodes.size() == 1) {
+        // Single character - just return the atom
+        out.hash = nodes[0].hash;
+        out.children.push_back(nodes[0].hash);
+        out.cx = nodes[0].x;
+        out.cy = nodes[0].y;
+        out.cz = nodes[0].z;
+        out.cm = nodes[0].m;
+        out.token = token;
+        out.depth = 0;
+        out.atom_count = 1;
+        
+        Point4D coords(static_cast<uint32_t>(out.cx), static_cast<uint32_t>(out.cy),
+                       static_cast<uint32_t>(out.cz), static_cast<uint32_t>(out.cm));
+        HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
+        out.hilbert_lo = static_cast<int64_t>(hilbert.lo);
+        out.hilbert_hi = static_cast<int64_t>(hilbert.hi);
+        return true;
+    }
+    
+    // Binary cascade: pair adjacent nodes until single root
+    while (nodes.size() > 1) {
+        std::vector<Node> next;
+        next.reserve((nodes.size() + 1) / 2);
+        
+        for (size_t i = 0; i + 1 < nodes.size(); i += 2) {
+            const Node& left = nodes[i];
+            const Node& right = nodes[i + 1];
+            
+            // Hash: ordinal(0) || left_hash || ordinal(1) || right_hash
+            std::vector<uint8_t> hash_input;
+            hash_input.reserve(72);
+            
+            uint32_t ord0 = 0;
+            hash_input.insert(hash_input.end(),
+                reinterpret_cast<uint8_t*>(&ord0),
+                reinterpret_cast<uint8_t*>(&ord0) + 4);
+            hash_input.insert(hash_input.end(),
+                left.hash.bytes.begin(), left.hash.bytes.end());
+            
+            uint32_t ord1 = 1;
+            hash_input.insert(hash_input.end(),
+                reinterpret_cast<uint8_t*>(&ord1),
+                reinterpret_cast<uint8_t*>(&ord1) + 4);
+            hash_input.insert(hash_input.end(),
+                right.hash.bytes.begin(), right.hash.bytes.end());
+            
+            Node merged;
+            merged.hash = Blake3Hasher::hash(std::span<const uint8_t>(hash_input));
+            merged.x = (left.x + right.x) / 2.0;
+            merged.y = (left.y + right.y) / 2.0;
+            merged.z = (left.z + right.z) / 2.0;
+            merged.m = (left.m + right.m) / 2.0;
+            merged.depth = std::max(left.depth, right.depth) + 1;
+            merged.atoms = left.atoms + right.atoms;
+            
+            next.push_back(merged);
+        }
+        
+        // Handle odd element
+        if (nodes.size() % 2 == 1) {
+            next.push_back(nodes.back());
+        }
+        
+        nodes = std::move(next);
+    }
+    
+    // Root node is the final composition
+    out.hash = nodes[0].hash;
+    out.cx = nodes[0].x;
+    out.cy = nodes[0].y;
+    out.cz = nodes[0].z;
+    out.cm = nodes[0].m;
+    out.depth = nodes[0].depth;
+    out.atom_count = nodes[0].atoms;
     out.token = token;
-
-    // Compute 4D centroid (average of children)
-    out.cx = 0; out.cy = 0; out.cz = 0; out.cm = 0;
-    for (size_t i = 0; i < xs.size(); ++i) {
-        out.cx += xs[i];
-        out.cy += ys[i];
-        out.cz += zs[i];
-        out.cm += ms[i];
+    
+    // Store original atoms as children (for LINESTRINGZM trajectory)
+    for (uint32_t cp : codepoints) {
+        auto it = g_atom_cache.find(cp);
+        if (it != g_atom_cache.end()) {
+            out.children.push_back(it->second.hash);
+        }
     }
-    double n = static_cast<double>(xs.size());
-    out.cx /= n;
-    out.cy /= n;
-    out.cz /= n;
-    out.cm /= n;
-
-    // Compute Hilbert index
-    uint32_t hx = static_cast<uint32_t>(out.cx);
-    uint32_t hy = static_cast<uint32_t>(out.cy);
-    uint32_t hz = static_cast<uint32_t>(out.cz);
-    uint32_t hm = static_cast<uint32_t>(out.cm);
-    Point4D coords(hx, hy, hz, hm);
+    
+    Point4D coords(static_cast<uint32_t>(out.cx), static_cast<uint32_t>(out.cy),
+                   static_cast<uint32_t>(out.cz), static_cast<uint32_t>(out.cm));
     HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
     out.hilbert_lo = static_cast<int64_t>(hilbert.lo);
     out.hilbert_hi = static_cast<int64_t>(hilbert.hi);
-
-    out.depth = 1;  // Word-level compositions are depth 1
-    out.atom_count = codepoints.size();
-
+    
     return true;
 }
 

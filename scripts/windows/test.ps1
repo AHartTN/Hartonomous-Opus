@@ -52,7 +52,7 @@ if (Test-Path $ReleaseDir) { $BuildDir = $ReleaseDir }
 # Section 1: C++ Unit Tests
 Write-Host "─── C++ Unit Tests ────────────────────────────────────────" -ForegroundColor Blue
 
-$unitTests = @("test_hilbert", "test_coordinates", "test_blake3", "test_semantic")
+$unitTests = @("test_hilbert", "test_coordinates", "test_blake3", "test_semantic", "test_clustering")
 foreach ($test in $unitTests) {
     $exe = "$BuildDir\$test.exe"
     if (Test-Path $exe) {

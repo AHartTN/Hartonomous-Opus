@@ -427,7 +427,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "\n=== Complete ===\n";
     std::cerr << "Total atoms: " << total << "\n";
     std::cerr << "Total time: " << total_ms << " ms (" << (total_ms / 1000.0) << " s)\n";
-    std::cerr << "Rate: " << (total * 1000 / std::max(total_ms, 1LL)) << " atoms/sec\n";
+    std::cerr << "Rate: " << (total * 1000 / std::max(static_cast<long long>(total_ms), 1LL)) << " atoms/sec\n";
     
     PQfinish(main_conn);
     return 0;

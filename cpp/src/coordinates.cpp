@@ -160,17 +160,90 @@ constexpr uint32_t get_latin_base(uint32_t cp) noexcept {
     return 26;  // Not a Latin letter with known base
 }
 
+// QWERTY keyboard layout proximity ordering
+// Returns a value 0-35 where adjacent keys have adjacent values
+// This puts Q-W-E-R-T adjacent, A-S-D-F-G adjacent, etc.
+constexpr uint32_t get_keyboard_proximity(uint32_t cp) noexcept {
+    // Normalize to lowercase for lookup
+    uint32_t lc = cp;
+    if (cp >= 'A' && cp <= 'Z') lc = cp - 'A' + 'a';
+    
+    // QWERTY rows linearized with adjacency preserved
+    switch (lc) {
+        // Top row: Q W E R T Y U I O P
+        case 'q': return 10;
+        case 'w': return 11;
+        case 'e': return 12;
+        case 'r': return 13;
+        case 't': return 14;
+        case 'y': return 15;
+        case 'u': return 16;
+        case 'i': return 17;
+        case 'o': return 18;
+        case 'p': return 19;
+        
+        // Home row: A S D F G H J K L
+        case 'a': return 20;
+        case 's': return 21;
+        case 'd': return 22;
+        case 'f': return 23;
+        case 'g': return 24;
+        case 'h': return 25;
+        case 'j': return 26;
+        case 'k': return 27;
+        case 'l': return 28;
+        
+        // Bottom row: Z X C V B N M
+        case 'z': return 29;
+        case 'x': return 30;
+        case 'c': return 31;
+        case 'v': return 32;
+        case 'b': return 33;
+        case 'n': return 34;
+        case 'm': return 35;
+        
+        default: return 40;
+    }
+}
+
+// Phonetic similarity grouping
+// Returns 0-5 grouping phonetically similar sounds
+constexpr uint32_t get_phonetic_group(uint32_t cp) noexcept {
+    uint32_t lc = cp;
+    if (cp >= 'A' && cp <= 'Z') lc = cp - 'A' + 'a';
+    
+    switch (lc) {
+        // Vowels
+        case 'a': case 'e': case 'i': case 'o': case 'u': case 'y':
+            return 0;
+        // Labials (lip sounds): B, P, M, V, F, W
+        case 'b': case 'p': case 'm': case 'v': case 'f': case 'w':
+            return 1;
+        // Dentals/Alveolars: T, D, N, S, Z, L, R
+        case 't': case 'd': case 'n': case 's': case 'z': case 'l': case 'r':
+            return 2;
+        // Velars: K, G, C, Q, X
+        case 'k': case 'g': case 'c': case 'q': case 'x':
+            return 3;
+        // Others: J, H
+        case 'j': case 'h':
+            return 4;
+        default:
+            return 5;
+    }
+}
+
 // Get sub-ordering within a base letter group (for case/variant ordering)
+// Keyboard proximity and phonetics are NOW encoded in the M coordinate separately
+// This function just handles case variants within a base letter
 constexpr uint32_t get_latin_variant_order(uint32_t cp) noexcept {
-    // Uppercase comes first, then lowercase, then variants
+    // Uppercase comes first, then lowercase, then accented variants
     if (cp >= 'A' && cp <= 'Z') return 0;   // ASCII uppercase: 0
     if (cp >= 'a' && cp <= 'z') return 1;   // ASCII lowercase: 1
-    // Accented uppercase: 2-31
-    // Accented lowercase: 32-63
-    // Other variants: 64+
     
-    // Check if uppercase (rough heuristic for Latin Extended)
+    // Accented uppercase: 2-31
     if (cp >= 0x00C0 && cp <= 0x00DE) return 2 + (cp - 0x00C0);
+    // Accented lowercase: 32-63
     if (cp >= 0x00DF && cp <= 0x00FF) return 32 + (cp - 0x00DF);
     
     // Latin Extended-A: even=upper, odd=lower

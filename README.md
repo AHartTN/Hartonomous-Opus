@@ -165,6 +165,55 @@ CREATE TABLE atom (
 );
 ```
 
+## Semantic Query API
+
+All queries work via PostgreSQL functions. Connect and query:
+
+```sql
+-- 1. EXACT CONTENT IDENTITY
+SELECT content_exists('whale');           -- Check if composition exists
+SELECT * FROM content_get('Captain');     -- Get full composition info
+
+-- 2. FUZZY SIMILARITY (Fréchet Distance)
+-- Handles case variance: "King" ≈ "king" (similar trajectories)
+-- Handles typos: "kinestringzm" ≈ "linestringzm" (differ by 1 char)
+SELECT * FROM similar('whale', 10);
+SELECT * FROM text_frechet_similar('Captain', 1e9, 20);
+
+-- 3. SEMANTIC NEIGHBORS (Centroid KNN)
+-- Find semantically related by 4D proximity
+SELECT * FROM neighbors('ocean', 10);
+SELECT * FROM semantic_neighbors('ship', 20);
+
+-- 4. EDGE WALKING (Co-occurrence)
+-- What commonly follows/co-occurs with this?
+SELECT * FROM follows('Captain', 10);
+SELECT * FROM semantic_walk('whale', 5);
+
+-- 5. ANALOGY (Vector Arithmetic)
+-- "man" is to "king" as "woman" is to ?
+SELECT * FROM analogy('man', 'king', 'woman', 5);
+
+-- 6. COMPOUND SIMILARITY
+-- Combine trajectory shape AND centroid proximity
+SELECT * FROM compound_similar('Moby', 20, 0.5, 0.5);
+
+-- 7. DIAGNOSTICS
+SELECT * FROM composition_info('whale');
+SELECT edge_count('Captain');
+SELECT * FROM stats();
+```
+
+### Query Return Types
+
+| Function | Returns |
+|----------|---------|
+| `similar(text, k)` | `(content, distance)` |
+| `neighbors(text, k)` | `(content, distance)` |
+| `follows(text, k)` | `(content, weight)` |
+| `analogy(a, b, c, k)` | `(answer, distance)` |
+| `walk(text, steps)` | `(step, content, weight)` |
+
 ## File Structure
 
 ```

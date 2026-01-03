@@ -341,6 +341,10 @@ add_executable(test_semantic tests/test_semantic.cpp)
 target_link_libraries(test_semantic hypercube_core)
 add_test(NAME SemanticTest COMMAND test_semantic)
 
+add_executable(test_clustering tests/test_clustering.cpp)
+target_link_libraries(test_clustering hypercube_core)
+add_test(NAME ClusteringTest COMMAND test_clustering)
+
 # ============================================================================
 # PostgreSQL Tools (require libpq client library)
 # ============================================================================
@@ -383,11 +387,17 @@ if(PostgreSQL_FOUND)
     target_include_directories(test_integration PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(test_integration hypercube_core ${PostgreSQL_LIBRARIES})
     add_test(NAME IntegrationTest COMMAND test_integration)
+    set_tests_properties(IntegrationTest PROPERTIES
+        ENVIRONMENT "HC_DB_NAME=hypercube;HC_DB_USER=hartonomous;HC_DB_PASS=hartonomous;HC_DB_HOST=localhost;HC_DB_PORT=5432"
+    )
     
     add_executable(test_query_api tests/test_query_api.cpp)
     target_include_directories(test_query_api PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(test_query_api hypercube_core ${PostgreSQL_LIBRARIES})
     add_test(NAME QueryAPITest COMMAND test_query_api)
+    set_tests_properties(QueryAPITest PROPERTIES
+        ENVIRONMENT "HC_DB_NAME=hypercube;HC_DB_USER=hartonomous;HC_DB_PASS=hartonomous;HC_DB_HOST=localhost;HC_DB_PORT=5432"
+    )
 else()
     message(STATUS "PostgreSQL client library not found - skipping tool builds")
     message(STATUS "To build tools, install libpq via: vcpkg install libpq:x64-windows")

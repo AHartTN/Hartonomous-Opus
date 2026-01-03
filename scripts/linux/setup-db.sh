@@ -1,6 +1,7 @@
 #!/bin/bash
 # Hartonomous Hypercube - Database Setup (Linux)
-# Creates database, applies schema, seeds Unicode atoms
+# Creates database, applies schema, loads extensions, seeds Unicode atoms
+# Fully idempotent - safe to run multiple times
 # Usage: ./scripts/linux/setup-db.sh [--reset]
 
 set -e
@@ -39,10 +40,27 @@ if [ "$DB_EXISTS" != "1" ]; then
 fi
 echo "Database exists"
 
-# Apply schema
-echo -e "\nApplying unified schema..."
-hc_psql -f "$HC_PROJECT_ROOT/sql/011_unified_atom.sql"
-echo "Schema applied"
+# Apply ALL SQL schema files in order
+echo -e "\nApplying schema files..."
+for sqlfile in "$HC_PROJECT_ROOT"/sql/*.sql; do
+    [ -f "$sqlfile" ] || continue
+    filename=$(basename "$sqlfile")
+    echo -n "  $filename..."
+    if hc_psql -q -f "$sqlfile" 2>/dev/null; then
+        echo " OK"
+    else
+        echo " FAILED"
+    fi
+done
+
+# Load C++ extensions (idempotent - IF NOT EXISTS)
+echo -e "\nLoading C++ extensions..."
+if hc_psql -c "CREATE EXTENSION IF NOT EXISTS hypercube; CREATE EXTENSION IF NOT EXISTS semantic_ops;" 2>/dev/null; then
+    echo "C++ extensions loaded"
+else
+    echo "Warning: C++ extensions not available (run build.sh first)"
+    echo "  Continuing without extensions - some functions may be slower"
+fi
 
 # Check atom count
 ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0" | tr -d '[:space:]')
@@ -67,4 +85,6 @@ echo -e "\n=== Setup Complete ==="
 
 # Show stats
 echo -e "\nDatabase Statistics:"
-hc_psql -c "SELECT * FROM atom_stats"
+hc_psql -c "SELECT COUNT(*) as leaf_atoms FROM atom WHERE depth = 0; SELECT COUNT(*) as compositions FROM atom WHERE depth > 0; SELECT MAX(depth) as max_depth FROM atom;" 2>/dev/null || \
+hc_psql -c "SELECT * FROM atom_stats" 2>/dev/null || \
+echo "(stats view not available)"

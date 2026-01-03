@@ -44,10 +44,36 @@ The `children BYTEA[]` column stores child hash references for compositions.
 - The more you ingest, the more deduplication occurs
 
 ### 4. Cascading Pair Encoding (CPE)
-- NOT n-gram sliding windows (that explodes to O(n²))
-- Binary tree merge: `N chars → N/2 pairs → N/4 → ... → 1 root`
-- Total compositions ≈ 2N (geometric series)
-- Run-length candidates: self-loops (s→s) become merged pairs
+
+**Level 0 → Level 1: Overlapping Sliding Window**
+- Every adjacent atom pair becomes a composition
+- "Captain" → Ca, ap, pt, ta, ai, in (6 bigrams from 7 atoms)
+- Captures **complete sequential structure** at atomic level
+
+**Level 1+: Binary Cascade**  
+- Non-overlapping pairs for efficiency
+- (Ca,ap), (pt,ta), (ai,in) → higher compositions
+- O(log N) levels after the first
+
+**Total compositions ≈ 2N** (N-1 from overlapping + ~N from cascade)
+
+### 5. Emergent Topology as Semantics
+
+**The structure IS the meaning.** This is fundamentally different from:
+- Vector embeddings (opaque dimensions)
+- Probability distributions (training artifacts)
+- Learned projections (black box)
+
+Semantic signal emerges from:
+- **Connectivity**: How many edges does this node have?
+- **Trajectory shape**: What path through 4D space? (Fréchet distance)
+- **Neighborhood density**: How clustered are connections?
+- **Path multiplicity**: How many ways to reach X from Y?
+
+Edge weight is just a hint ("how often"). The graph topology itself speaks:
+- "ap" connects Captain, happy, trap, apple,eraptor...
+- The intersection of neighborhoods = semantic relationship
+- No training, no loss function, no gradients
 
 ---
 
