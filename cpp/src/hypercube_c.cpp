@@ -15,6 +15,13 @@
 #include <vector>
 #include <thread>
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <unordered_set>
+
+#if defined(__AVX2__)
+#include <immintrin.h>
+#endif
 
 using namespace hypercube;
 
@@ -449,7 +456,7 @@ uint32_t hc_next_codepoint(uint32_t current) {
  * Content Hash (CPE Cascade)
  * ============================================================================ */
 
-hc_hash_t hc_content_hash_codepoints(const uint32_t* codepoints, size_t count,
+hc_hash_t hc_content_hash_codepoints(const uint32_t* /* codepoints */, size_t count,
                                       const hc_hash_t* atom_hashes) {
     hc_hash_t result;
     std::memset(result.bytes, 0, 32);
@@ -494,7 +501,7 @@ hc_hash_t hc_content_hash_codepoints(const uint32_t* codepoints, size_t count,
     return hashes[0];
 }
 
-hc_hash_t hc_content_hash(const uint8_t* text, size_t len,
+hc_hash_t hc_content_hash(const uint8_t* /* text */, size_t /* len */,
                            const hc_hash_t* atom_hashes, size_t atom_count) {
     // This function expects atom_hashes to already be in codepoint order
     // The caller must have decoded UTF-8 and looked up atom hashes
@@ -511,6 +518,181 @@ void* hc_alloc(size_t size) {
 
 void hc_free(void* ptr) {
     std::free(ptr);
+}
+
+/* ============================================================================
+ * Optimized Batch Operations (SIMD + Threading)
+ * ============================================================================ */
+
+void hc_batch_distances(const double* target, const double* points,
+                        size_t count, double* distances_out) {
+    if (target == nullptr || points == nullptr || distances_out == nullptr || count == 0) {
+        return;
+    }
+    
+#if defined(__AVX2__)
+    // AVX2: Process 4 points at a time (each point has 4 coords)
+    __m256d t = _mm256_loadu_pd(target);
+    
+    size_t i = 0;
+    for (; i + 4 <= count; i += 4) {
+        __m256d p0 = _mm256_loadu_pd(&points[(i + 0) * 4]);
+        __m256d p1 = _mm256_loadu_pd(&points[(i + 1) * 4]);
+        __m256d p2 = _mm256_loadu_pd(&points[(i + 2) * 4]);
+        __m256d p3 = _mm256_loadu_pd(&points[(i + 3) * 4]);
+        
+        __m256d d0 = _mm256_sub_pd(p0, t);
+        __m256d d1 = _mm256_sub_pd(p1, t);
+        __m256d d2 = _mm256_sub_pd(p2, t);
+        __m256d d3 = _mm256_sub_pd(p3, t);
+        
+        d0 = _mm256_mul_pd(d0, d0);
+        d1 = _mm256_mul_pd(d1, d1);
+        d2 = _mm256_mul_pd(d2, d2);
+        d3 = _mm256_mul_pd(d3, d3);
+        
+        __m256d s01 = _mm256_hadd_pd(d0, d1);
+        __m256d s23 = _mm256_hadd_pd(d2, d3);
+        
+        __m256d lo = _mm256_permute2f128_pd(s01, s23, 0x20);
+        __m256d hi = _mm256_permute2f128_pd(s01, s23, 0x31);
+        __m256d sums = _mm256_add_pd(lo, hi);
+        
+        __m256d result = _mm256_sqrt_pd(sums);
+        _mm256_storeu_pd(&distances_out[i], result);
+    }
+    
+    // Handle remainder
+    for (; i < count; ++i) {
+        double sum = 0;
+        for (int d = 0; d < 4; ++d) {
+            double diff = points[i * 4 + d] - target[d];
+            sum += diff * diff;
+        }
+        distances_out[i] = std::sqrt(sum);
+    }
+#else
+    // Portable fallback
+    for (size_t i = 0; i < count; ++i) {
+        double sum = 0;
+        for (int d = 0; d < 4; ++d) {
+            double diff = points[i * 4 + d] - target[d];
+            sum += diff * diff;
+        }
+        distances_out[i] = std::sqrt(sum);
+    }
+#endif
+}
+
+size_t hc_find_knn(const double* distances, size_t count, size_t k,
+                   size_t* out_indices, double* out_distances) {
+    if (distances == nullptr || out_indices == nullptr || out_distances == nullptr || count == 0) {
+        return 0;
+    }
+    
+    // Build index-distance pairs
+    std::vector<std::pair<size_t, double>> pairs;
+    pairs.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+        pairs.push_back({i, distances[i]});
+    }
+    
+    // Partial sort for k smallest
+    size_t actual_k = std::min(k, count);
+    std::partial_sort(pairs.begin(), pairs.begin() + actual_k, pairs.end(),
+        [](const auto& a, const auto& b) { return a.second < b.second; });
+    
+    // Copy results
+    for (size_t i = 0; i < actual_k; ++i) {
+        out_indices[i] = pairs[i].first;
+        out_distances[i] = pairs[i].second;
+    }
+    
+    return actual_k;
+}
+
+double hc_frechet_distance(const double* traj1, size_t n1,
+                           const double* traj2, size_t n2) {
+    if (traj1 == nullptr || traj2 == nullptr || n1 == 0 || n2 == 0) {
+        return 0.0;
+    }
+    
+    // DP table
+    std::vector<double> dp(n1 * n2, std::numeric_limits<double>::max());
+    
+    auto point_dist = [&](size_t i, size_t j) {
+        double sum = 0;
+        for (int d = 0; d < 4; ++d) {
+            double diff = traj1[i * 4 + d] - traj2[j * 4 + d];
+            sum += diff * diff;
+        }
+        return std::sqrt(sum);
+    };
+    
+    dp[0] = point_dist(0, 0);
+    
+    for (size_t j = 1; j < n2; ++j) {
+        dp[j] = std::max(dp[j - 1], point_dist(0, j));
+    }
+    
+    for (size_t i = 1; i < n1; ++i) {
+        dp[i * n2] = std::max(dp[(i - 1) * n2], point_dist(i, 0));
+    }
+    
+    for (size_t i = 1; i < n1; ++i) {
+        for (size_t j = 1; j < n2; ++j) {
+            double d = point_dist(i, j);
+            double prev = std::min({
+                dp[(i - 1) * n2 + j],
+                dp[i * n2 + j - 1],
+                dp[(i - 1) * n2 + j - 1]
+            });
+            dp[i * n2 + j] = std::max(d, prev);
+        }
+    }
+    
+    return dp[n1 * n2 - 1];
+}
+
+double hc_jaccard_similarity(const hc_hash_t* set1, size_t count1,
+                             const hc_hash_t* set2, size_t count2) {
+    if (set1 == nullptr || set2 == nullptr || count1 == 0 || count2 == 0) {
+        return 0.0;
+    }
+    
+    // Build hash set from first array
+    std::unordered_set<std::string> s1;
+    for (size_t i = 0; i < count1; ++i) {
+        s1.insert(std::string(reinterpret_cast<const char*>(set1[i].bytes), 32));
+    }
+    
+    // Count intersection
+    size_t intersection = 0;
+    for (size_t i = 0; i < count2; ++i) {
+        if (s1.count(std::string(reinterpret_cast<const char*>(set2[i].bytes), 32))) {
+            ++intersection;
+        }
+    }
+    
+    size_t union_size = count1 + count2 - intersection;
+    return union_size > 0 ? static_cast<double>(intersection) / union_size : 0.0;
+}
+
+void hc_analogy_vector(const double* a, const double* b, 
+                       const double* c, double* out_d) {
+    if (a == nullptr || b == nullptr || c == nullptr || out_d == nullptr) {
+        return;
+    }
+    
+    // D = C + B - A
+    for (int i = 0; i < 4; ++i) {
+        out_d[i] = c[i] + b[i] - a[i];
+    }
+}
+
+size_t hc_thread_count(void) {
+    size_t count = std::thread::hardware_concurrency();
+    return count > 0 ? count : 4;
 }
 
 } // extern "C"

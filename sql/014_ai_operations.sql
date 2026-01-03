@@ -92,83 +92,22 @@ RETURNS TABLE(result_id BYTEA, similarity DOUBLE PRECISION) AS $$
 $$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
--- Random Walk (SQL fallback - C version is much faster)
+-- Random Walk - USE C++ EXTENSION
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION random_walk(p_seed BYTEA, p_steps INTEGER DEFAULT 10)
 RETURNS TABLE(step INTEGER, node_id BYTEA) AS $$
-DECLARE
-    v_current BYTEA := p_seed;
-    v_visited BYTEA[] := ARRAY[p_seed];
-    v_step INTEGER := 0;
-BEGIN
-    WHILE v_step < p_steps LOOP
-        step := v_step;
-        node_id := v_current;
-        RETURN NEXT;
-        
-        -- Pick random neighbor
-        SELECT n.neighbor_id INTO v_current
-        FROM semantic_neighbors(v_current, 50) n
-        WHERE NOT (n.neighbor_id = ANY(v_visited))
-        ORDER BY random() * (1.0 + n.weight)
-        LIMIT 1;
-        
-        IF v_current IS NULL THEN EXIT; END IF;
-        v_visited := array_append(v_visited, v_current);
-        v_step := v_step + 1;
-    END LOOP;
-END;
-$$ LANGUAGE plpgsql STABLE;
+    SELECT step, atom_id FROM hypercube_semantic_walk(p_seed, p_steps);
+$$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
--- Path Finding (SQL fallback - use C for production)
+-- Path Finding - USE C++ EXTENSION
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION semantic_path(p_from BYTEA, p_to BYTEA, p_max_depth INTEGER DEFAULT 6)
 RETURNS TABLE(step INTEGER, node_id BYTEA) AS $$
-DECLARE
-    v_frontier BYTEA[];
-    v_parents BYTEA[];
-    v_visited BYTEA[];
-    v_depth INTEGER := 0;
-    v_found BOOLEAN := FALSE;
-    v_next BYTEA;
-    v_current BYTEA;
-BEGIN
-    v_frontier := ARRAY[p_from];
-    v_parents := ARRAY[p_from];
-    v_visited := ARRAY[p_from];
-    
-    WHILE v_depth < p_max_depth AND NOT v_found LOOP
-        FOR i IN 1..array_length(v_frontier, 1) LOOP
-            v_current := v_frontier[i];
-            
-            FOR v_next IN 
-                SELECT n.neighbor_id 
-                FROM semantic_neighbors(v_current, 100) n
-                WHERE NOT (n.neighbor_id = ANY(v_visited))
-            LOOP
-                IF v_next = p_to THEN
-                    v_found := TRUE;
-                    EXIT;
-                END IF;
-                v_visited := array_append(v_visited, v_next);
-            END LOOP;
-            
-            IF v_found THEN EXIT; END IF;
-        END LOOP;
-        
-        v_depth := v_depth + 1;
-    END LOOP;
-    
-    -- Return simple path (start and end)
-    step := 0; node_id := p_from; RETURN NEXT;
-    IF v_found THEN
-        step := v_depth; node_id := p_to; RETURN NEXT;
-    END IF;
-END;
-$$ LANGUAGE plpgsql STABLE;
+    SELECT step, atom_id FROM hypercube_semantic_path(p_from, p_to, p_max_depth);
+$$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
 -- Shared Children (Relationship Inference)
@@ -188,27 +127,21 @@ RETURNS TABLE(related_id BYTEA, shared_count INTEGER) AS $$
 $$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
--- Jaccard Similarity
+-- Jaccard Similarity - optimized SQL using set operations
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION semantic_jaccard(p_a BYTEA, p_b BYTEA)
 RETURNS DOUBLE PRECISION AS $$
-DECLARE
-    v_n1 BYTEA[];
-    v_n2 BYTEA[];
-    v_inter INTEGER;
-    v_union INTEGER;
-BEGIN
-    SELECT array_agg(neighbor_id) INTO v_n1 FROM semantic_neighbors(p_a, 100);
-    SELECT array_agg(neighbor_id) INTO v_n2 FROM semantic_neighbors(p_b, 100);
-    
-    IF v_n1 IS NULL OR v_n2 IS NULL THEN RETURN 0.0; END IF;
-    
-    SELECT COUNT(*) INTO v_inter FROM unnest(v_n1) n WHERE n = ANY(v_n2);
-    v_union := array_length(v_n1, 1) + array_length(v_n2, 1) - v_inter;
-    
-    RETURN CASE WHEN v_union = 0 THEN 0.0 ELSE v_inter::DOUBLE PRECISION / v_union END;
-END;
-$$ LANGUAGE plpgsql STABLE;
+    WITH 
+    n1 AS (SELECT neighbor_id FROM semantic_neighbors(p_a, 100)),
+    n2 AS (SELECT neighbor_id FROM semantic_neighbors(p_b, 100)),
+    inter AS (SELECT COUNT(*) AS cnt FROM n1 WHERE neighbor_id IN (SELECT neighbor_id FROM n2)),
+    sizes AS (SELECT (SELECT COUNT(*) FROM n1) AS s1, (SELECT COUNT(*) FROM n2) AS s2)
+    SELECT CASE 
+        WHEN s1 = 0 OR s2 = 0 THEN 0.0 
+        ELSE inter.cnt::DOUBLE PRECISION / (s1 + s2 - inter.cnt)
+    END
+    FROM inter, sizes;
+$$ LANGUAGE SQL STABLE;
 
 COMMIT;

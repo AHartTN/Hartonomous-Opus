@@ -95,6 +95,7 @@ add_library(hypercube_core STATIC
     src/hilbert.cpp
     src/coordinates.cpp
     src/blake3_pg.cpp
+    src/ops.cpp
 )
 
 target_include_directories(hypercube_core PUBLIC 

@@ -273,7 +273,7 @@ TEST(test_similarity_query) {
 TEST(test_bounding_box_query) {
     // Get centroid of 'A' and find atoms nearby
     // Radius is ~1% of coordinate space (0.01 * 4294967295 ≈ 43 million)
-    constexpr double RADIUS = 50000000.0;  // ~1% of uint32 range
+    // constexpr double RADIUS = 50000000.0;  // ~1% of uint32 range (used in query)
     int count = query_int(
         "WITH target AS ("
         "  SELECT ST_X(geom) as x, ST_Y(geom) as y, ST_Z(geom) as z, ST_M(geom) as m "

@@ -412,7 +412,7 @@ std::vector<SemanticEdge> extract_safetensor_weights(const fs::path& safetensor_
             
             if (cosine > config.weight_threshold) {
                 top_k.push_back({cosine, j});
-                if (top_k.size() > config.top_k_per_token) {
+                if (top_k.size() > static_cast<size_t>(config.top_k_per_token)) {
                     std::sort(top_k.begin(), top_k.end(), std::greater<>());
                     top_k.resize(config.top_k_per_token);
                 }

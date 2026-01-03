@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 #include "pg_utils.h"
 
@@ -748,7 +749,278 @@ typedef struct {
 } KNNState;
 
 PG_FUNCTION_INFO_V1(hypercube_knn_batch);
-Datum hypercube_knn_batch(PG_FUNCTION_ARGS);
+Datum hypercube_knn_batch(PG_FUNCTION_ARGS)
+{
+    FuncCallContext *funcctx;
+    
+    if (SRF_IS_FIRSTCALL())
+    {
+        MemoryContext oldcontext;
+        funcctx = SRF_FIRSTCALL_INIT();
+        oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+        
+        bytea *target_bytea = PG_GETARG_BYTEA_PP(0);
+        int k = PG_NARGS() > 1 ? PG_GETARG_INT32(1) : 10;
+        int depth_filter = PG_NARGS() > 2 ? PG_GETARG_INT32(2) : -1;
+        
+        uint8 target_id[HASH_SIZE];
+        memcpy(target_id, VARDATA_ANY(target_bytea), HASH_SIZE);
+        
+        if (SPI_connect() != SPI_OK_CONNECT)
+            ereport(ERROR, (errmsg("SPI_connect failed")));
+        
+        /* Load target centroid */
+        char query[512];
+        snprintf(query, sizeof(query),
+            "SELECT ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
+            "FROM atom WHERE id = '\\x");
+        for (int i = 0; i < HASH_SIZE; i++)
+            snprintf(query + strlen(query), sizeof(query) - strlen(query), "%02x", target_id[i]);
+        strcat(query, "'::bytea");
+        
+        int ret = SPI_execute(query, true, 1);
+        if (ret != SPI_OK_SELECT || SPI_processed == 0)
+        {
+            SPI_finish();
+            MemoryContextSwitchTo(oldcontext);
+            funcctx->max_calls = 0;
+            SRF_RETURN_DONE(funcctx);
+        }
+        
+        bool isnull;
+        double tx = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
+        double ty = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull));
+        double tz = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 3, &isnull));
+        double tm = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 4, &isnull));
+        
+        /* Load all atoms and compute distances */
+        if (depth_filter >= 0)
+            snprintf(query, sizeof(query),
+                "SELECT id, ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
+                "FROM atom WHERE depth = %d LIMIT 100000", depth_filter);
+        else
+            snprintf(query, sizeof(query),
+                "SELECT id, ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
+                "FROM atom LIMIT 100000");
+        
+        ret = SPI_execute(query, true, 0);
+        if (ret != SPI_OK_SELECT)
+        {
+            SPI_finish();
+            MemoryContextSwitchTo(oldcontext);
+            funcctx->max_calls = 0;
+            SRF_RETURN_DONE(funcctx);
+        }
+        
+        int count = (int)SPI_processed;
+        KNNResult *results = palloc(count * sizeof(KNNResult));
+        int result_count = 0;
+        
+        for (int i = 0; i < count; i++)
+        {
+            HeapTuple tuple = SPI_tuptable->vals[i];
+            TupleDesc tupdesc = SPI_tuptable->tupdesc;
+            
+            bytea *id = DatumGetByteaP(SPI_getbinval(tuple, tupdesc, 1, &isnull));
+            if (isnull) continue;
+            
+            /* Skip self */
+            if (memcmp(VARDATA_ANY(id), target_id, HASH_SIZE) == 0) continue;
+            
+            double cx = DatumGetFloat8(SPI_getbinval(tuple, tupdesc, 2, &isnull));
+            double cy = DatumGetFloat8(SPI_getbinval(tuple, tupdesc, 3, &isnull));
+            double cz = DatumGetFloat8(SPI_getbinval(tuple, tupdesc, 4, &isnull));
+            double cm = DatumGetFloat8(SPI_getbinval(tuple, tupdesc, 5, &isnull));
+            
+            memcpy(results[result_count].id, VARDATA_ANY(id), HASH_SIZE);
+            results[result_count].dist = euclidean_4d(tx, ty, tz, tm, cx, cy, cz, cm);
+            result_count++;
+        }
+        
+        SPI_finish();
+        
+        /* Sort by distance */
+        qsort(results, result_count, sizeof(KNNResult), knn_compare);
+        
+        /* Keep only k results */
+        int final_count = result_count < k ? result_count : k;
+        
+        KNNState *state = palloc(sizeof(KNNState));
+        state->results = results;
+        state->count = final_count;
+        state->current = 0;
+        
+        TupleDesc tupdesc;
+        if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
+            ereport(ERROR, (errmsg("function must return composite")));
+        
+        funcctx->user_fctx = state;
+        funcctx->tuple_desc = BlessTupleDesc(tupdesc);
+        funcctx->max_calls = final_count;
+        
+        MemoryContextSwitchTo(oldcontext);
+    }
+    
+    funcctx = SRF_PERCALL_SETUP();
+    KNNState *state = (KNNState *)funcctx->user_fctx;
+    
+    if (state->current < state->count)
+    {
+        KNNResult *r = &state->results[state->current];
+        state->current++;
+        
+        Datum values[2];
+        bool nulls[2] = {false, false};
+        
+        bytea *id_bytea = palloc(VARHDRSZ + HASH_SIZE);
+        SET_VARSIZE(id_bytea, VARHDRSZ + HASH_SIZE);
+        memcpy(VARDATA(id_bytea), r->id, HASH_SIZE);
+        
+        values[0] = PointerGetDatum(id_bytea);
+        values[1] = Float8GetDatum(r->dist);
+        
+        HeapTuple tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
+        SRF_RETURN_NEXT(funcctx, HeapTupleGetDatum(tuple));
+    }
+    
+    SRF_RETURN_DONE(funcctx);
+}
 
 PG_FUNCTION_INFO_V1(hypercube_attention);
-Datum hypercube_attention(PG_FUNCTION_ARGS);
+Datum hypercube_attention(PG_FUNCTION_ARGS)
+{
+    FuncCallContext *funcctx;
+    
+    if (SRF_IS_FIRSTCALL())
+    {
+        MemoryContext oldcontext;
+        funcctx = SRF_FIRSTCALL_INIT();
+        oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+        
+        bytea *target_bytea = PG_GETARG_BYTEA_PP(0);
+        int k = PG_NARGS() > 1 ? PG_GETARG_INT32(1) : 10;
+        
+        uint8 target_id[HASH_SIZE];
+        memcpy(target_id, VARDATA_ANY(target_bytea), HASH_SIZE);
+        
+        if (SPI_connect() != SPI_OK_CONNECT)
+            ereport(ERROR, (errmsg("SPI_connect failed")));
+        
+        /* Load target centroid */
+        char query[512];
+        snprintf(query, sizeof(query),
+            "SELECT ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
+            "FROM atom WHERE id = '\\x");
+        for (int i = 0; i < HASH_SIZE; i++)
+            snprintf(query + strlen(query), sizeof(query) - strlen(query), "%02x", target_id[i]);
+        strcat(query, "'::bytea");
+        
+        int ret = SPI_execute(query, true, 1);
+        if (ret != SPI_OK_SELECT || SPI_processed == 0)
+        {
+            SPI_finish();
+            MemoryContextSwitchTo(oldcontext);
+            funcctx->max_calls = 0;
+            SRF_RETURN_DONE(funcctx);
+        }
+        
+        bool isnull;
+        double tx = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
+        double ty = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull));
+        double tz = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 3, &isnull));
+        double tm = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 4, &isnull));
+        
+        /* Load compositions and compute attention scores */
+        snprintf(query, sizeof(query),
+            "SELECT id, ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
+            "FROM atom WHERE depth > 0 LIMIT 100000");
+        
+        ret = SPI_execute(query, true, 0);
+        if (ret != SPI_OK_SELECT)
+        {
+            SPI_finish();
+            MemoryContextSwitchTo(oldcontext);
+            funcctx->max_calls = 0;
+            SRF_RETURN_DONE(funcctx);
+        }
+        
+        int count = (int)SPI_processed;
+        KNNResult *results = palloc(count * sizeof(KNNResult));
+        int result_count = 0;
+        
+        for (int i = 0; i < count; i++)
+        {
+            HeapTuple tuple = SPI_tuptable->vals[i];
+            TupleDesc tupdesc = SPI_tuptable->tupdesc;
+            
+            bytea *id = DatumGetByteaP(SPI_getbinval(tuple, tupdesc, 1, &isnull));
+            if (isnull) continue;
+            
+            /* Skip self */
+            if (memcmp(VARDATA_ANY(id), target_id, HASH_SIZE) == 0) continue;
+            
+            double cx = DatumGetFloat8(SPI_getbinval(tuple, tupdesc, 2, &isnull));
+            double cy = DatumGetFloat8(SPI_getbinval(tuple, tupdesc, 3, &isnull));
+            double cz = DatumGetFloat8(SPI_getbinval(tuple, tupdesc, 4, &isnull));
+            double cm = DatumGetFloat8(SPI_getbinval(tuple, tupdesc, 5, &isnull));
+            
+            double dist = euclidean_4d(tx, ty, tz, tm, cx, cy, cz, cm);
+            
+            memcpy(results[result_count].id, VARDATA_ANY(id), HASH_SIZE);
+            /* Attention score = 1 / (1 + distance) */
+            results[result_count].dist = 1.0 / (1.0 + dist);
+            result_count++;
+        }
+        
+        SPI_finish();
+        
+        /* Sort by attention score (descending - higher is better) */
+        /* We negate scores for sorting since knn_compare sorts ascending */
+        for (int i = 0; i < result_count; i++)
+            results[i].dist = -results[i].dist;
+        qsort(results, result_count, sizeof(KNNResult), knn_compare);
+        for (int i = 0; i < result_count; i++)
+            results[i].dist = -results[i].dist;
+        
+        int final_count = result_count < k ? result_count : k;
+        
+        KNNState *state = palloc(sizeof(KNNState));
+        state->results = results;
+        state->count = final_count;
+        state->current = 0;
+        
+        TupleDesc tupdesc;
+        if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
+            ereport(ERROR, (errmsg("function must return composite")));
+        
+        funcctx->user_fctx = state;
+        funcctx->tuple_desc = BlessTupleDesc(tupdesc);
+        funcctx->max_calls = final_count;
+        
+        MemoryContextSwitchTo(oldcontext);
+    }
+    
+    funcctx = SRF_PERCALL_SETUP();
+    KNNState *state = (KNNState *)funcctx->user_fctx;
+    
+    if (state->current < state->count)
+    {
+        KNNResult *r = &state->results[state->current];
+        state->current++;
+        
+        Datum values[2];
+        bool nulls[2] = {false, false};
+        
+        bytea *id_bytea = palloc(VARHDRSZ + HASH_SIZE);
+        SET_VARSIZE(id_bytea, VARHDRSZ + HASH_SIZE);
+        memcpy(VARDATA(id_bytea), r->id, HASH_SIZE);
+        
+        values[0] = PointerGetDatum(id_bytea);
+        values[1] = Float8GetDatum(r->dist);  /* This is actually the attention score */
+        
+        HeapTuple tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
+        SRF_RETURN_NEXT(funcctx, HeapTupleGetDatum(tuple));
+    }
+    
+    SRF_RETURN_DONE(funcctx);
+}

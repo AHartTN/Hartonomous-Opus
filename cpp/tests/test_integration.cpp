@@ -358,7 +358,7 @@ TEST(test_views) {
 // =============================================================================
 // MAIN
 // =============================================================================
-int main(int argc, char* argv[]) {
+int main(int /* argc */, char* /* argv */[]) {
     std::cout << "=== Hartonomous Integration Tests ===" << std::endl;
     
     // Build connection string from environment

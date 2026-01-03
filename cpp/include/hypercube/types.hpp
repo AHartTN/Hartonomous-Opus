@@ -105,6 +105,11 @@ struct Blake3Hash {
     
     constexpr Blake3Hash() noexcept : bytes{} {}
     
+    // Copy from raw pointer
+    explicit Blake3Hash(const uint8_t* data) noexcept {
+        std::memcpy(bytes.data(), data, 32);
+    }
+    
     explicit Blake3Hash(std::span<const uint8_t> data) noexcept {
         if (data.size() >= 32) {
             std::memcpy(bytes.data(), data.data(), 32);
@@ -150,6 +155,16 @@ struct Blake3Hash {
     constexpr bool is_zero() const noexcept {
         for (uint8_t b : bytes) if (b != 0) return false;
         return true;
+    }
+};
+
+// Hash functor for Blake3Hash (for use in std::unordered_map)
+struct Blake3HashHasher {
+    size_t operator()(const Blake3Hash& h) const noexcept {
+        // Use first 8 bytes as hash (already well-distributed)
+        uint64_t result;
+        std::memcpy(&result, h.bytes.data(), 8);
+        return static_cast<size_t>(result);
     }
 };
 

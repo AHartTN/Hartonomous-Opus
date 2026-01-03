@@ -359,6 +359,69 @@ HC_API void* hc_alloc(size_t size);
  */
 HC_API void hc_free(void* ptr);
 
+/* ============================================================================
+ * Optimized Batch Operations (SIMD + Threading)
+ * ============================================================================ */
+
+/**
+ * Batch 4D Euclidean distance calculation with SIMD
+ * @param target Target centroid (4 doubles: x, y, z, m)
+ * @param points Array of point centroids (N*4 doubles, interleaved XYZM)
+ * @param count Number of points
+ * @param distances_out Output distances (N doubles)
+ */
+HC_API void hc_batch_distances(const double* target, const double* points,
+                               size_t count, double* distances_out);
+
+/**
+ * Find k-nearest neighbors from distance array
+ * @param distances Array of distances
+ * @param count Number of distances
+ * @param k Number of neighbors to find
+ * @param out_indices Output indices (k elements)
+ * @param out_distances Output distances (k elements)
+ * @return Actual number of neighbors found (may be less than k)
+ */
+HC_API size_t hc_find_knn(const double* distances, size_t count, size_t k,
+                          size_t* out_indices, double* out_distances);
+
+/**
+ * Discrete Fréchet distance between two trajectories
+ * @param traj1 First trajectory (n1*4 doubles, interleaved XYZM)
+ * @param n1 Number of points in first trajectory
+ * @param traj2 Second trajectory (n2*4 doubles, interleaved XYZM)
+ * @param n2 Number of points in second trajectory
+ * @return Fréchet distance
+ */
+HC_API double hc_frechet_distance(const double* traj1, size_t n1,
+                                  const double* traj2, size_t n2);
+
+/**
+ * Jaccard similarity between two sets of neighbors
+ * @param set1 First set of hash IDs
+ * @param count1 Number of elements in first set
+ * @param set2 Second set of hash IDs
+ * @param count2 Number of elements in second set
+ * @return Jaccard similarity (0.0 to 1.0)
+ */
+HC_API double hc_jaccard_similarity(const hc_hash_t* set1, size_t count1,
+                                    const hc_hash_t* set2, size_t count2);
+
+/**
+ * Analogy vector arithmetic: D = C + B - A
+ * @param a Centroid of A (4 doubles)
+ * @param b Centroid of B (4 doubles)
+ * @param c Centroid of C (4 doubles)
+ * @param out_d Output centroid D (4 doubles)
+ */
+HC_API void hc_analogy_vector(const double* a, const double* b, 
+                              const double* c, double* out_d);
+
+/**
+ * Get number of hardware threads available
+ */
+HC_API size_t hc_thread_count(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -349,7 +349,7 @@ void compute_sparse_edges(
     size_t hidden_dim,
     float threshold,
     PGconn* conn,
-    const std::string& model_name,
+    const std::string& /* model_name */,
     const std::vector<std::string>& vocab  // Token strings for hash lookup
 ) {
     std::cerr << "Computing pairwise similarities for " << vocab_size << " tokens...\n";

@@ -189,7 +189,7 @@ void test_script_families() {
     Point4D alpha_upper = CoordinateMapper::map_codepoint(0x0391);  // Α
     Point4D alpha_lower = CoordinateMapper::map_codepoint(0x03B1);  // α
     Point4D omega_upper = CoordinateMapper::map_codepoint(0x03A9);  // Ω
-    Point4D omega_lower = CoordinateMapper::map_codepoint(0x03C9);  // ω
+    (void)CoordinateMapper::map_codepoint(0x03C9);  // ω - verify no crash
     
     double greek_case = distance(alpha_upper, alpha_lower);
     double greek_span = distance(alpha_upper, omega_upper);

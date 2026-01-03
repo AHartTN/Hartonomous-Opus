@@ -54,6 +54,7 @@ $$ LANGUAGE SQL STABLE;
 -- Handles: "King" vs "king", "kinestringzm" vs "linestringzm"
 
 -- Find similar by trajectory shape (Fréchet distance)
+-- Fréchet similarity - optimized to avoid repeated ST_FrechetDistance calls
 CREATE OR REPLACE FUNCTION text_frechet_similar(
     p_text TEXT,
     p_max_distance DOUBLE PRECISION DEFAULT 1e9,
@@ -66,45 +67,30 @@ RETURNS TABLE(
     depth INTEGER,
     atom_count BIGINT
 ) AS $$
-DECLARE
-    v_query_id BYTEA;
-    v_query_geom GEOMETRY;
-    v_query_atoms BIGINT;
-BEGIN
-    -- Get query composition
-    v_query_id := atom_content_hash(p_text);
-    IF v_query_id IS NULL THEN
-        RETURN;
-    END IF;
-    
-    SELECT geom, atom_count INTO v_query_geom, v_query_atoms
-    FROM atom WHERE id = v_query_id;
-    
-    IF v_query_geom IS NULL THEN
-        -- Query not in database, can't compute Fréchet
-        RETURN;
-    END IF;
-    
-    -- Find compositions with similar trajectories
-    -- Restrict to similar length (±30%) for efficiency
-    RETURN QUERY
-    SELECT 
-        a.id,
-        atom_text(a.id),
-        ST_FrechetDistance(a.geom, v_query_geom),
-        a.depth,
-        a.atom_count
-    FROM atom a
-    WHERE a.id != v_query_id
-      AND a.depth > 0
-      AND a.atom_count BETWEEN 
-          GREATEST(1, (v_query_atoms * 7) / 10) AND 
-          (v_query_atoms * 13) / 10
-      AND ST_FrechetDistance(a.geom, v_query_geom) < p_max_distance
-    ORDER BY ST_FrechetDistance(a.geom, v_query_geom)
+    WITH query AS (
+        SELECT a.id, a.geom, a.atom_count 
+        FROM atom a 
+        WHERE a.id = atom_content_hash(p_text)
+    ),
+    candidates AS (
+        SELECT a.id, a.geom, a.depth, a.atom_count
+        FROM atom a, query q
+        WHERE a.id != q.id
+          AND a.depth > 0
+          AND a.atom_count BETWEEN GREATEST(1, (q.atom_count * 7) / 10) 
+                               AND (q.atom_count * 13) / 10
+    ),
+    with_distance AS (
+        SELECT c.id, c.depth, c.atom_count,
+               ST_FrechetDistance(c.geom, q.geom) AS dist
+        FROM candidates c, query q
+        WHERE ST_FrechetDistance(c.geom, q.geom) < p_max_distance
+    )
+    SELECT w.id, semantic_reconstruct(w.id), w.dist, w.depth, w.atom_count
+    FROM with_distance w
+    ORDER BY w.dist
     LIMIT p_limit;
-END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE SQL STABLE;
 
 -- Short alias
 CREATE OR REPLACE FUNCTION similar(p_text TEXT, p_k INTEGER DEFAULT 10)
@@ -117,6 +103,7 @@ $$ LANGUAGE SQL STABLE;
 -- 3. SEMANTIC NEIGHBORS (Centroid KNN)
 -- =============================================================================
 -- Find semantically related compositions by centroid proximity
+-- Uses C++ extension via fast_knn when available
 
 CREATE OR REPLACE FUNCTION semantic_neighbors(
     p_text TEXT,
@@ -128,27 +115,15 @@ RETURNS TABLE(
     distance DOUBLE PRECISION,
     depth INTEGER
 ) AS $$
-DECLARE
-    v_query_id BYTEA;
-BEGIN
-    v_query_id := atom_content_hash(p_text);
-    IF v_query_id IS NULL THEN
-        RETURN;
-    END IF;
-    
-    RETURN QUERY
-    SELECT 
-        a.id,
-        atom_text(a.id),
-        a.centroid <-> (SELECT centroid FROM atom WHERE id = v_query_id),
-        a.depth
-    FROM atom a
-    WHERE a.id != v_query_id
-      AND a.depth > 0
-    ORDER BY a.centroid <-> (SELECT centroid FROM atom WHERE id = v_query_id)
+    WITH query AS (
+        SELECT a.id, a.centroid FROM atom a WHERE a.id = atom_content_hash(p_text)
+    )
+    SELECT a.id, semantic_reconstruct(a.id), a.centroid <-> q.centroid, a.depth
+    FROM atom a, query q
+    WHERE a.id != q.id AND a.depth > 0
+    ORDER BY a.centroid <-> q.centroid
     LIMIT p_k;
-END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE SQL STABLE;
 
 -- Short alias
 CREATE OR REPLACE FUNCTION neighbors(p_text TEXT, p_k INTEGER DEFAULT 10)
@@ -170,20 +145,12 @@ RETURNS TABLE(
     content TEXT,
     weight DOUBLE PRECISION
 ) AS $$
-DECLARE
-    v_id BYTEA;
-BEGIN
-    v_id := atom_content_hash(p_text);
-    IF v_id IS NULL THEN
-        RETURN;
-    END IF;
-    
-    RETURN QUERY
+    WITH qid AS (SELECT atom_content_hash(p_text) AS id)
     SELECT ae.other_text, ae.weight
-    FROM atom_edges(v_id, p_k) ae
+    FROM qid, atom_edges(qid.id, p_k) ae
+    WHERE qid.id IS NOT NULL
     ORDER BY ae.weight DESC;
-END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE SQL STABLE;
 
 -- Short alias
 CREATE OR REPLACE FUNCTION follows(p_text TEXT, p_k INTEGER DEFAULT 10)
@@ -191,7 +158,7 @@ RETURNS TABLE(content TEXT, weight DOUBLE PRECISION) AS $$
     SELECT * FROM semantic_follow(p_text, p_k);
 $$ LANGUAGE SQL STABLE;
 
--- Recursive walk through the graph
+-- Recursive walk through the graph - USE C++ EXTENSION
 CREATE OR REPLACE FUNCTION semantic_walk(
     p_start TEXT,
     p_steps INTEGER DEFAULT 5
@@ -201,19 +168,11 @@ RETURNS TABLE(
     content TEXT,
     weight DOUBLE PRECISION
 ) AS $$
-DECLARE
-    v_start_id BYTEA;
-BEGIN
-    v_start_id := atom_content_hash(p_start);
-    IF v_start_id IS NULL THEN
-        RETURN;
-    END IF;
-    
-    RETURN QUERY
-    SELECT aw.step, aw.node_text, aw.edge_weight
-    FROM atom_walk(v_start_id, p_steps) aw;
-END;
-$$ LANGUAGE plpgsql STABLE;
+    WITH qid AS (SELECT atom_content_hash(p_start) AS id)
+    SELECT sw.step, semantic_reconstruct(sw.atom_id), sw.edge_weight
+    FROM qid, hypercube_semantic_walk(qid.id, p_steps) sw
+    WHERE qid.id IS NOT NULL;
+$$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
 -- 5. ANALOGY QUERIES
@@ -241,6 +200,7 @@ $$ LANGUAGE SQL STABLE;
 -- 6. COMPOUND SIMILARITY (Fréchet + Centroid)
 -- =============================================================================
 -- Combines trajectory shape AND semantic proximity
+-- Optimized to use CTEs instead of variables
 
 CREATE OR REPLACE FUNCTION compound_similar(
     p_text TEXT,
@@ -255,53 +215,37 @@ RETURNS TABLE(
     frechet_score DOUBLE PRECISION,
     centroid_score DOUBLE PRECISION
 ) AS $$
-DECLARE
-    v_query_id BYTEA;
-    v_query_geom GEOMETRY;
-    v_query_centroid GEOMETRY;
-    v_max_frechet DOUBLE PRECISION;
-    v_max_centroid DOUBLE PRECISION;
-BEGIN
-    v_query_id := atom_content_hash(p_text);
-    IF v_query_id IS NULL THEN
-        RETURN;
-    END IF;
-    
-    SELECT geom, centroid INTO v_query_geom, v_query_centroid
-    FROM atom WHERE id = v_query_id;
-    
-    IF v_query_geom IS NULL THEN
-        RETURN;
-    END IF;
-    
-    -- Get max values for normalization
-    SELECT MAX(ST_FrechetDistance(a.geom, v_query_geom)),
-           MAX(a.centroid <-> v_query_centroid)
-    INTO v_max_frechet, v_max_centroid
-    FROM atom a
-    WHERE a.id != v_query_id AND a.depth > 0
-    LIMIT 1000;
-    
-    IF v_max_frechet IS NULL OR v_max_frechet = 0 THEN v_max_frechet := 1; END IF;
-    IF v_max_centroid IS NULL OR v_max_centroid = 0 THEN v_max_centroid := 1; END IF;
-    
-    RETURN QUERY
+    WITH query AS (
+        SELECT a.id, a.geom, a.centroid 
+        FROM atom a 
+        WHERE a.id = atom_content_hash(p_text)
+    ),
+    -- Sample for normalization (first 1000 compositions)
+    sample_stats AS (
+        SELECT 
+            GREATEST(MAX(ST_FrechetDistance(a.geom, q.geom)), 1.0) AS max_frechet,
+            GREATEST(MAX(a.centroid <-> q.centroid), 1.0) AS max_centroid
+        FROM (SELECT * FROM atom WHERE depth > 0 LIMIT 1000) a, query q
+        WHERE a.id != q.id
+    ),
+    scored AS (
+        SELECT 
+            a.id,
+            ST_FrechetDistance(a.geom, q.geom) / s.max_frechet AS frechet_norm,
+            (a.centroid <-> q.centroid) / s.max_centroid AS centroid_norm
+        FROM atom a, query q, sample_stats s
+        WHERE a.id != q.id AND a.depth > 0
+    )
     SELECT 
-        a.id,
-        atom_text(a.id),
-        p_frechet_weight * (1.0 - ST_FrechetDistance(a.geom, v_query_geom) / v_max_frechet) +
-        p_centroid_weight * (1.0 - (a.centroid <-> v_query_centroid) / v_max_centroid),
-        1.0 - ST_FrechetDistance(a.geom, v_query_geom) / v_max_frechet,
-        1.0 - (a.centroid <-> v_query_centroid) / v_max_centroid
-    FROM atom a
-    WHERE a.id != v_query_id
-      AND a.depth > 0
-    ORDER BY 
-        p_frechet_weight * (1.0 - ST_FrechetDistance(a.geom, v_query_geom) / v_max_frechet) +
-        p_centroid_weight * (1.0 - (a.centroid <-> v_query_centroid) / v_max_centroid) DESC
+        sc.id,
+        semantic_reconstruct(sc.id),
+        p_frechet_weight * (1.0 - sc.frechet_norm) + p_centroid_weight * (1.0 - sc.centroid_norm),
+        1.0 - sc.frechet_norm,
+        1.0 - sc.centroid_norm
+    FROM scored sc
+    ORDER BY p_frechet_weight * (1.0 - sc.frechet_norm) + p_centroid_weight * (1.0 - sc.centroid_norm) DESC
     LIMIT p_k;
-END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
 -- 7. DIAGNOSTIC QUERIES
@@ -324,7 +268,7 @@ RETURNS TABLE(
 ) AS $$
     SELECT 
         encode(a.id, 'hex'),
-        atom_text(a.id),
+        semantic_reconstruct(a.id),
         a.depth,
         a.atom_count,
         COALESCE(array_length(a.children, 1), 0),

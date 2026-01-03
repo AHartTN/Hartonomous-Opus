@@ -91,11 +91,12 @@ void test_centroid() {
         {100, 100, 100, 100},
     };
     
-    Point4D centroid = CoordinateMapper::centroid(points);
-    assert(centroid.x == 50);
-    assert(centroid.y == 50);
-    assert(centroid.z == 50);
-    assert(centroid.m == 50);
+    Point4D simple_centroid = CoordinateMapper::centroid(points);
+    assert(simple_centroid.x == 50);
+    assert(simple_centroid.y == 50);
+    assert(simple_centroid.z == 50);
+    assert(simple_centroid.m == 50);
+    (void)simple_centroid;  // Mark as used
     
     std::cout << "  Simple centroid: PASS" << std::endl;
     
@@ -120,8 +121,9 @@ void test_euclidean_distance() {
     Point4D a(0, 0, 0, 0);
     Point4D b(3, 4, 0, 0);
     
-    double dist = CoordinateMapper::euclidean_distance(a, b);
-    assert(std::abs(dist - 5.0) < 0.0001);
+    double dist_result = CoordinateMapper::euclidean_distance(a, b);
+    assert(std::abs(dist_result - 5.0) < 0.0001);
+    (void)dist_result;  // Mark as used
     
     std::cout << "  Euclidean distance: PASS" << std::endl;
 }
@@ -165,12 +167,13 @@ void test_hilbert_integration() {
     for (uint32_t cp = 'A'; cp <= 'Z'; ++cp) {
         Point4D coords = CoordinateMapper::map_codepoint(cp);
         HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
-        Point4D recovered = HilbertCurve::index_to_coords(hilbert);
+        Point4D coords_recovered = HilbertCurve::index_to_coords(hilbert);
         
-        assert(coords.x == recovered.x);
-        assert(coords.y == recovered.y);
-        assert(coords.z == recovered.z);
-        assert(coords.m == recovered.m);
+        assert(coords.x == coords_recovered.x);
+        assert(coords.y == coords_recovered.y);
+        assert(coords.z == coords_recovered.z);
+        assert(coords.m == coords_recovered.m);
+        (void)coords_recovered;  // Mark as used
     }
     
     std::cout << "  Hilbert integration: PASS" << std::endl;

@@ -77,7 +77,7 @@ void test_locality() {
     HilbertIndex far1_idx = HilbertCurve::coords_to_index(far1);
     
     HilbertIndex dist_near1 = HilbertCurve::distance(base_idx, near1_idx);
-    HilbertIndex dist_near2 = HilbertCurve::distance(base_idx, near2_idx);
+    (void)HilbertCurve::distance(base_idx, near2_idx);  // Verify no crash
     HilbertIndex dist_far1 = HilbertCurve::distance(base_idx, far1_idx);
     
     // Near points should have smaller Hilbert distance than far points
@@ -115,17 +115,19 @@ void test_arithmetic() {
     
     HilbertIndex a(UINT64_MAX, 0);
     HilbertIndex b(1, 0);
-    HilbertIndex sum = a + b;
+    HilbertIndex sum_result = a + b;
     
-    assert(sum.lo == 0);
-    assert(sum.hi == 1);
+    assert(sum_result.lo == 0);
+    assert(sum_result.hi == 1);
+    (void)sum_result;  // Mark as used
     
     HilbertIndex c(100, 5);
     HilbertIndex d(50, 3);
-    HilbertIndex diff = c - d;
+    HilbertIndex diff_result = c - d;
     
-    assert(diff.lo == 50);
-    assert(diff.hi == 2);
+    assert(diff_result.lo == 50);
+    assert(diff_result.hi == 2);
+    (void)diff_result;  // Mark as used
     
     std::cout << "  Arithmetic: PASS" << std::endl;
 }

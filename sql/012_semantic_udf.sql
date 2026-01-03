@@ -52,88 +52,50 @@ $$ LANGUAGE SQL STABLE;
 -- Text Reconstruction
 -- =============================================================================
 
--- Reconstruct bytes from composition (recursive)
--- Reconstruct bytes from composition (recursive, handles RLE)
--- RLE compositions have 1 child but atom_count > 1, meaning child is repeated
+-- Reconstruct bytes from composition - USE C++ EXTENSION
+-- Falls back to recursive CTE only if extension not available
 CREATE OR REPLACE FUNCTION atom_reconstruct(p_id BYTEA) RETURNS BYTEA AS $$
-WITH RECURSIVE tree AS (
-    -- Base case: start with the root
-    SELECT 
-        id, 
-        children, 
-        value, 
-        atom_count,
-        ARRAY[]::INTEGER[] AS path,
-        1 AS repeat_idx,
-        -- RLE: if 1 child but atom_count > 1, need to repeat
-        CASE 
-            WHEN array_length(children, 1) = 1 AND atom_count > 1 
-            THEN atom_count 
-            ELSE 1 
-        END AS repeat_count
-    FROM atom WHERE id = p_id
-    
-    UNION ALL
-    
-    -- Recursive: expand children, handling RLE repetition
-    SELECT 
-        a.id, 
-        a.children, 
-        a.value,
-        a.atom_count,
-        t.path || c.ord::INTEGER,
-        1 AS repeat_idx,
-        CASE 
-            WHEN array_length(a.children, 1) = 1 AND a.atom_count > 1 
-            THEN a.atom_count 
-            ELSE 1 
-        END AS repeat_count
-    FROM tree t
-    CROSS JOIN LATERAL (
-        -- For RLE (1 child, atom_count > 1), repeat the child atom_count times
-        SELECT t.children[1] AS child_id, g.n AS ord
-        FROM generate_series(1, 
-            CASE 
-                WHEN array_length(t.children, 1) = 1 AND t.atom_count > 1 
-                THEN t.atom_count::INTEGER
-                ELSE array_length(t.children, 1) 
-            END
-        ) g(n)
-        WHERE array_length(t.children, 1) = 1 AND t.atom_count > 1
-        
-        UNION ALL
-        
-        -- Normal: unnest children as usual
-        SELECT child_id, ord::INTEGER
-        FROM unnest(t.children) WITH ORDINALITY AS u(child_id, ord)
-        WHERE array_length(t.children, 1) != 1 OR t.atom_count = 1
-    ) c
-    JOIN atom a ON a.id = c.child_id
-    WHERE t.children IS NOT NULL
-)
-SELECT string_agg(value, ''::BYTEA ORDER BY path)
-FROM tree WHERE value IS NOT NULL;
-$$ LANGUAGE SQL STABLE;
-
--- Reconstruct as UTF-8 text
-CREATE OR REPLACE FUNCTION atom_text(p_id BYTEA) RETURNS TEXT AS $$
-DECLARE
-    v_bytes BYTEA;
 BEGIN
-    v_bytes := atom_reconstruct(p_id);
-    IF v_bytes IS NULL THEN RETURN NULL; END IF;
-    
-    BEGIN
-        RETURN convert_from(v_bytes, 'UTF8');
-    EXCEPTION WHEN OTHERS THEN
-        RETURN encode(v_bytes, 'hex');
-    END;
+    -- Try C++ extension first (10x+ faster)
+    RETURN (SELECT convert_to(semantic_reconstruct(p_id), 'UTF8'));
+EXCEPTION WHEN undefined_function THEN
+    -- Fallback to recursive CTE (slow)
+    RETURN (
+        WITH RECURSIVE tree AS (
+            SELECT id, children, value, atom_count, ARRAY[]::INTEGER[] AS path
+            FROM atom WHERE id = p_id
+            UNION ALL
+            SELECT a.id, a.children, a.value, a.atom_count, t.path || c.ord::INTEGER
+            FROM tree t
+            CROSS JOIN LATERAL (
+                SELECT t.children[1] AS child_id, g.n AS ord
+                FROM generate_series(1, 
+                    CASE WHEN array_length(t.children, 1) = 1 AND t.atom_count > 1 
+                    THEN t.atom_count::INTEGER ELSE array_length(t.children, 1) END
+                ) g(n)
+                WHERE array_length(t.children, 1) = 1 AND t.atom_count > 1
+                UNION ALL
+                SELECT child_id, ord::INTEGER
+                FROM unnest(t.children) WITH ORDINALITY AS u(child_id, ord)
+                WHERE array_length(t.children, 1) != 1 OR t.atom_count = 1
+            ) c
+            JOIN atom a ON a.id = c.child_id
+            WHERE t.children IS NOT NULL
+        )
+        SELECT string_agg(value, ''::BYTEA ORDER BY path)
+        FROM tree WHERE value IS NOT NULL
+    );
 END;
 $$ LANGUAGE plpgsql STABLE;
 
+-- Reconstruct as UTF-8 text - USE C++ EXTENSION DIRECTLY
+CREATE OR REPLACE FUNCTION atom_text(p_id BYTEA) RETURNS TEXT AS $$
+    SELECT semantic_reconstruct(p_id);
+$$ LANGUAGE SQL STABLE;
+
 -- Alias for backwards compatibility
 CREATE OR REPLACE FUNCTION atom_reconstruct_text(p_id BYTEA) RETURNS TEXT AS $$
-    SELECT atom_text(p_id);
+    SELECT semantic_reconstruct(p_id);
 $$ LANGUAGE SQL STABLE;
 
 -- =============================================================================

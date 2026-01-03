@@ -28,11 +28,13 @@ void test_basic_hashing() {
     // Different inputs should produce different hashes
     Blake3Hash world_hash = Blake3Hasher::hash("world");
     assert(hello_hash != world_hash);
+    (void)world_hash;  // Mark as used for release builds
     std::cout << "  Different inputs: PASS" << std::endl;
     
     // Same input should produce same hash
     Blake3Hash hello2_hash = Blake3Hasher::hash("hello");
     assert(hello_hash == hello2_hash);
+    (void)hello2_hash;  // Mark as used for release builds
     std::cout << "  Deterministic: PASS" << std::endl;
 }
 
@@ -43,6 +45,7 @@ void test_codepoint_hashing() {
     Blake3Hash a_hash = Blake3Hasher::hash_codepoint('A');
     Blake3Hash b_hash = Blake3Hasher::hash_codepoint('B');
     assert(a_hash != b_hash);
+    (void)a_hash; (void)b_hash;  // Mark as used
     
     // UTF-8 encoding verification
     auto utf8 = Blake3Hasher::encode_utf8('A');
@@ -80,6 +83,7 @@ void test_merkle_hashing() {
     std::vector<Blake3Hash> children_reordered = {h2, h1, h3};
     Blake3Hash parent_reordered = Blake3Hasher::hash_children(children_reordered);
     assert(parent != parent_reordered);
+    (void)parent; (void)parent_reordered;  // Mark as used
     
     // Ordered hashing includes position
     Blake3Hash ordered1 = Blake3Hasher::hash_children_ordered(children);
@@ -88,6 +92,7 @@ void test_merkle_hashing() {
     
     Blake3Hash ordered_reordered = Blake3Hasher::hash_children_ordered(children_reordered);
     assert(ordered1 != ordered_reordered);
+    (void)ordered1; (void)ordered2; (void)ordered_reordered;  // Mark as used
     
     std::cout << "  Merkle hashing: PASS" << std::endl;
 }
@@ -106,6 +111,7 @@ void test_incremental_hashing() {
     Blake3Hash inc_hash = inc.finalize();
     
     assert(full_hash == inc_hash);
+    (void)inc_hash;  // Mark as used
     std::cout << "  Incremental hashing: PASS" << std::endl;
     
     // Reset and reuse
@@ -113,6 +119,7 @@ void test_incremental_hashing() {
     inc.update("different data");
     Blake3Hash reset_hash = inc.finalize();
     assert(reset_hash != full_hash);
+    (void)full_hash; (void)reset_hash;  // Mark as used
     std::cout << "  Reset: PASS" << std::endl;
 }
 
@@ -126,6 +133,7 @@ void test_hex_conversion() {
     
     Blake3Hash recovered = Blake3Hash::from_hex(hex);
     assert(original == recovered);
+    (void)recovered;  // Mark as used
     
     std::cout << "  Hex conversion: PASS" << std::endl;
 }
@@ -143,6 +151,7 @@ void test_keyed_hashing() {
     
     Blake3Hash unkeyed = Blake3Hasher::hash("message");
     assert(keyed != unkeyed);
+    (void)keyed; (void)unkeyed;  // Mark as used
     
     std::cout << "  Keyed hashing: PASS" << std::endl;
 }
@@ -159,11 +168,13 @@ void test_key_derivation() {
     
     // Different contexts should produce different keys
     assert(derived1 != derived2);
+    (void)derived2;  // Mark as used
     
     // Same context and key material should produce same key
     Blake3Hash derived1_again = Blake3Hasher::derive_key("context1",
         std::span<const uint8_t>(key_material, 16));
     assert(derived1 == derived1_again);
+    (void)derived1; (void)derived1_again;  // Mark as used
     
     std::cout << "  Key derivation: PASS" << std::endl;
 }
