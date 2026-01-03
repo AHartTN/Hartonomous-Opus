@@ -76,12 +76,13 @@ void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) 
         rec.coord_z = static_cast<int32_t>(coords.z);
         rec.coord_m = static_cast<int32_t>(coords.m);
         
-        // Store raw uint32 as double - NO normalization, lossless
-        // double has 53-bit mantissa, can exactly represent all uint32 values
-        rec.x = static_cast<double>(coords.x);
-        rec.y = static_cast<double>(coords.y);
-        rec.z = static_cast<double>(coords.z);
-        rec.m = static_cast<double>(coords.m);
+        // Store as CENTER-ORIGIN signed int32 (interpreted from uint32 bit pattern)
+        // This gives coordinates with 0 at center, ±2^31 at surface
+        // double can exactly represent all int32 values
+        rec.x = static_cast<double>(static_cast<int32_t>(coords.x));
+        rec.y = static_cast<double>(static_cast<int32_t>(coords.y));
+        rec.z = static_cast<double>(static_cast<int32_t>(coords.z));
+        rec.m = static_cast<double>(static_cast<int32_t>(coords.m));
         
         rec.hilbert_lo = static_cast<int64_t>(hilbert.lo);
         rec.hilbert_hi = static_cast<int64_t>(hilbert.hi);

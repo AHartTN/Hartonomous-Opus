@@ -93,8 +93,16 @@ void HilbertCurve::axes_to_transpose(uint32_t* x, uint32_t n, uint32_t bits) noe
 }
 
 HilbertIndex HilbertCurve::coords_to_index(const Point4D& point) noexcept {
-    // Copy and transform to Hilbert space
-    uint32_t X[4] = {point.x, point.y, point.z, point.m};
+    // Coordinates are center-origin (int32 stored as uint32 bit pattern)
+    // Hilbert needs corner-origin (0 to 2^32-1)
+    // XOR with 0x80000000 converts: signed 0 → unsigned 2^31 (center of space)
+    constexpr uint32_t CENTER_TO_CORNER = 0x80000000U;
+    uint32_t X[4] = {
+        point.x ^ CENTER_TO_CORNER,
+        point.y ^ CENTER_TO_CORNER,
+        point.z ^ CENTER_TO_CORNER,
+        point.m ^ CENTER_TO_CORNER
+    };
     axes_to_transpose(X, 4, 32);
     
     // Interleave the 4 transposed coordinates into 128-bit index
@@ -138,10 +146,17 @@ Point4D HilbertCurve::index_to_coords(const HilbertIndex& index) noexcept {
         X[3] |= ((nibble >> 3) & 1) << bit;
     }
     
-    // Transform back to Cartesian
+    // Transform back to Cartesian (corner-origin)
     transpose_to_axes(X, 4, 32);
-    
-    return Point4D(X[0], X[1], X[2], X[3]);
+
+    // Convert back to center-origin
+    constexpr uint32_t CORNER_TO_CENTER = 0x80000000U;
+    return Point4D(
+        X[0] ^ CORNER_TO_CENTER,
+        X[1] ^ CORNER_TO_CENTER,
+        X[2] ^ CORNER_TO_CENTER,
+        X[3] ^ CORNER_TO_CENTER
+    );
 }
 
 HilbertIndex HilbertCurve::distance(const HilbertIndex& a, const HilbertIndex& b) noexcept {

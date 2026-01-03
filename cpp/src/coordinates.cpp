@@ -621,16 +621,25 @@ Point4D CoordinateMapper::map_codepoint(uint32_t codepoint) noexcept {
     const double um = sin_psi1 * sin_psi2 * std::sin(psi3_fine);
     
     // === SCALE TO 32-BIT INTEGER COORDINATES ===
-    // Map [-1, 1] to [0, UINT32_MAX]
+    // Map [-1, 1] to full signed int32 range
+    // Center of hypersphere (0,0,0,0) maps to coordinate 0
+    // Surface atoms have large absolute values (near ±2^31)
+    // Compositions average inward toward center (toward 0)
+    //
+    // Storage: signed int32 values stored via uint32 bit pattern
+    // PostGIS stores as double, which preserves the full range
     auto to_coord = [](double unit_val) -> Coord32 {
-        // unit_val is in [-1, 1], map to [0, 1]
-        double normalized = (unit_val + 1.0) * 0.5;
-        // Clamp to avoid floating point edge cases
-        normalized = std::clamp(normalized, 0.0, 1.0);
-        // Scale to full 32-bit range
-        return static_cast<Coord32>(normalized * static_cast<double>(UINT32_MAX));
+        // unit_val is in [-1, 1], scale to [-2^31, 2^31-1]
+        double scaled = unit_val * static_cast<double>(INT32_MAX);
+        scaled = std::clamp(scaled, static_cast<double>(INT32_MIN), static_cast<double>(INT32_MAX));
+        int32_t signed_val = static_cast<int32_t>(scaled);
+        // Store signed value directly - will be interpreted correctly
+        // Bit pattern is preserved through uint32 cast
+        uint32_t bits;
+        std::memcpy(&bits, &signed_val, sizeof(bits));
+        return bits;
     };
-    
+
     return Point4D(to_coord(ux), to_coord(uy), to_coord(uz), to_coord(um));
 }
 

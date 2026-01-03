@@ -11,7 +11,24 @@
       "Bash(powershell.exe:*)",
       "Bash(powershell -Command:*)",
       "Bash(pwsh:*)",
-      "Bash(Select-String -Pattern \"Testing:|PASSED|FAILED|tests passed\")"
+      "Bash(Select-String -Pattern \"Testing:|PASSED|FAILED|tests passed\")",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(psql:*)",
+      "Bash(PGPASSWORD=hartonomous psql:*)",
+      "Bash(ls:*)",
+      "Bash(./test_hilbert)",
+      "Bash(./test_coordinates)",
+      "Bash(./test_blake3:*)",
+      "Bash(./test_semantic:*)",
+      "Bash(./test_clustering:*)",
+      "Bash(cmake:*)",
+      "Bash(PGPASSWORD=hartonomous ./grammar_ingest:*)",
+      "WebSearch",
+      "Bash(make cpe_ingest:*)",
+      "Bash(PGPASSWORD=hartonomous ./cpe_ingest:*)",
+      "Bash(make:*)",
+      "Bash(bash scripts/linux/setup-db.sh:*)"
     ]
   }
 }

@@ -105,32 +105,39 @@ static std::unordered_map<std::string, GrammarComposition> g_compositions;  // h
 // =============================================================================
 
 bool load_atom_cache(PGconn* conn) {
+    // Load atoms using geom column (raw uint32 coords stored as double)
     PGresult* res = PQexec(conn,
         "SELECT encode(id, 'hex'), codepoint, "
-        "ST_X(centroid)::bigint, ST_Y(centroid)::bigint, "
-        "ST_Z(centroid)::bigint, ST_M(centroid)::bigint "
+        "ST_X(geom), ST_Y(geom), ST_Z(geom), ST_M(geom) "
         "FROM atom WHERE depth = 0 AND codepoint IS NOT NULL");
-    
+
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         std::cerr << "Failed to load atoms: " << PQerrorMessage(conn) << std::endl;
         PQclear(res);
         return false;
     }
-    
+
     int rows = PQntuples(res);
+    if (rows == 0) {
+        std::cerr << "ERROR: No atoms found! Run setup-db.sh first.\n";
+        PQclear(res);
+        return false;
+    }
+
     g_atom_cache.reserve(rows);
-    
+
     for (int i = 0; i < rows; i++) {
         uint32_t cp = static_cast<uint32_t>(atoi(PQgetvalue(res, i, 1)));
         AtomInfo info;
         info.hash = Blake3Hash::from_hex(std::string_view(PQgetvalue(res, i, 0), 64));
-        info.coord_x = static_cast<int32_t>(atoll(PQgetvalue(res, i, 2)));
-        info.coord_y = static_cast<int32_t>(atoll(PQgetvalue(res, i, 3)));
-        info.coord_z = static_cast<int32_t>(atoll(PQgetvalue(res, i, 4)));
-        info.coord_m = static_cast<int32_t>(atoll(PQgetvalue(res, i, 5)));
+        // Coordinates: stored as double (representing uint32), convert to int32 (same bit pattern)
+        info.coord_x = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 2))));
+        info.coord_y = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 3))));
+        info.coord_z = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 4))));
+        info.coord_m = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 5))));
         g_atom_cache[cp] = info;
     }
-    
+
     PQclear(res);
     std::cerr << "[CACHE] Loaded " << g_atom_cache.size() << " atoms\n";
     return true;
@@ -211,6 +218,16 @@ Blake3Hash compute_rle_hash(const Blake3Hash& child, uint32_t run_length) {
 // Re-Pair Grammar Inference
 // =============================================================================
 
+// Reinterpret int32 as uint32 (same bit pattern)
+inline uint32_t as_uint32(int32_t v) {
+    return static_cast<uint32_t>(v);
+}
+
+// Reinterpret uint32 as int32 (same bit pattern)
+inline int32_t as_int32(uint32_t v) {
+    return static_cast<int32_t>(v);
+}
+
 // Create composition from two symbols
 GrammarComposition create_composition(const Symbol& left, const Symbol& right) {
     GrammarComposition comp;
@@ -220,211 +237,152 @@ GrammarComposition create_composition(const Symbol& left, const Symbol& right) {
         {right.cx, right.cy, right.cz, right.cm}
     };
     comp.hash = compute_composition_hash(comp.children);
-    
-    comp.centroid_x = (left.cx + right.cx) / 2;
-    comp.centroid_y = (left.cy + right.cy) / 2;
-    comp.centroid_z = (left.cz + right.cz) / 2;
-    comp.centroid_m = (left.cm + right.cm) / 2;
+
+    // Centroid: average using uint64 to prevent overflow
+    // Coordinates are stored as int32 but represent uint32 values
+    uint64_t sum_x = static_cast<uint64_t>(as_uint32(left.cx)) + static_cast<uint64_t>(as_uint32(right.cx));
+    uint64_t sum_y = static_cast<uint64_t>(as_uint32(left.cy)) + static_cast<uint64_t>(as_uint32(right.cy));
+    uint64_t sum_z = static_cast<uint64_t>(as_uint32(left.cz)) + static_cast<uint64_t>(as_uint32(right.cz));
+    uint64_t sum_m = static_cast<uint64_t>(as_uint32(left.cm)) + static_cast<uint64_t>(as_uint32(right.cm));
+
+    comp.centroid_x = as_int32(static_cast<uint32_t>(sum_x / 2));
+    comp.centroid_y = as_int32(static_cast<uint32_t>(sum_y / 2));
+    comp.centroid_z = as_int32(static_cast<uint32_t>(sum_z / 2));
+    comp.centroid_m = as_int32(static_cast<uint32_t>(sum_m / 2));
     
     comp.depth = std::max(left.depth, right.depth) + 1;
     comp.atom_count = left.atom_count + right.atom_count;
-    
-    auto uint32_from_int32 = [](int32_t v) -> uint32_t {
-        return static_cast<uint32_t>(static_cast<int64_t>(v) + INT32_MAX + 1);
-    };
+
+    // Coordinates are already corner-origin (stored as uint32 bit pattern in int32)
+    // Hilbert uses these directly - no transformation needed
     Point4D coords(
-        uint32_from_int32(comp.centroid_x),
-        uint32_from_int32(comp.centroid_y),
-        uint32_from_int32(comp.centroid_z),
-        uint32_from_int32(comp.centroid_m)
+        as_uint32(comp.centroid_x),
+        as_uint32(comp.centroid_y),
+        as_uint32(comp.centroid_z),
+        as_uint32(comp.centroid_m)
     );
     HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
     comp.hilbert_lo = static_cast<int64_t>(hilbert.lo);
     comp.hilbert_hi = static_cast<int64_t>(hilbert.hi);
-    
+
     return comp;
 }
 
 // =============================================================================
-// Efficient Re-Pair using linked list + incremental digram tracking
+// Fast Binary Cascade - O(n log n)
 // =============================================================================
 
-// Linked list node for efficient modification
-struct LLNode {
-    Symbol symbol;
-    size_t prev;  // index or SIZE_MAX for null
-    size_t next;
-};
-
-struct DigramOccurrence {
-    size_t first_idx;  // Index of first symbol in pair
-};
-
-// Efficient Re-Pair with incremental digram updates
-std::vector<GrammarComposition> repair_grammar(
+// Binary cascade: reduce sequence to single root via pairwise merging
+// This is fast (O(n log n)) and deterministic
+Symbol binary_cascade(
     std::vector<Symbol>& sequence,
     std::vector<GrammarComposition>& new_compositions
 ) {
-    if (sequence.size() < 2) return new_compositions;
-    
-    auto start = std::chrono::high_resolution_clock::now();
-    size_t iterations = 0;
-    
-    // Build linked list from sequence
-    std::vector<LLNode> nodes;
-    nodes.reserve(sequence.size());
-    for (size_t i = 0; i < sequence.size(); i++) {
-        LLNode node;
-        node.symbol = sequence[i];
-        node.prev = (i > 0) ? i - 1 : SIZE_MAX;
-        node.next = (i + 1 < sequence.size()) ? i + 1 : SIZE_MAX;
-        nodes.push_back(node);
-    }
-    
-    size_t head = 0;  // First live node
-    
-    // Build initial digram counts
-    std::unordered_map<Digram, std::vector<size_t>, DigramHash> digram_occurrences;
-    for (size_t i = head; nodes[i].next != SIZE_MAX; ) {
-        size_t j = nodes[i].next;
-        Digram d{nodes[i].symbol.hash, nodes[j].symbol.hash};
-        digram_occurrences[d].push_back(i);
-        i = j;
-    }
-    
-    // Symbol lookup
-    std::unordered_map<std::string, Symbol> symbol_map;
-    for (const auto& s : sequence) {
-        symbol_map[s.hash.to_hex()] = s;
-    }
-    
-    // Limit iterations to avoid pathological cases
-    const size_t max_iterations = sequence.size();  // At most n-1 merges possible
-    
-    while (iterations < max_iterations) {
-        // Find most frequent digram
-        Digram best;
-        size_t best_count = 0;
-        for (const auto& [d, occs] : digram_occurrences) {
-            // Filter out stale occurrences (where nodes are deleted)
-            size_t valid_count = 0;
-            for (size_t idx : occs) {
-                if (nodes[idx].prev != SIZE_MAX || idx == head) {
-                    if (nodes[idx].next != SIZE_MAX) {
-                        size_t next_idx = nodes[idx].next;
-                        if (nodes[idx].symbol.hash == d.first && 
-                            nodes[next_idx].symbol.hash == d.second) {
-                            valid_count++;
-                        }
-                    }
+    if (sequence.empty()) return Symbol{};
+    if (sequence.size() == 1) return sequence[0];
+
+    while (sequence.size() > 1) {
+        std::vector<Symbol> merged;
+        merged.reserve((sequence.size() + 1) / 2);
+
+        for (size_t i = 0; i < sequence.size(); i += 2) {
+            if (i + 1 < sequence.size()) {
+                // Merge pair
+                const Symbol& left = sequence[i];
+                const Symbol& right = sequence[i + 1];
+
+                GrammarComposition comp = create_composition(left, right);
+                std::string hash_hex = comp.hash.to_hex();
+
+                if (g_compositions.find(hash_hex) == g_compositions.end()) {
+                    g_compositions[hash_hex] = comp;
+                    new_compositions.push_back(comp);
                 }
-            }
-            if (valid_count > best_count) {
-                best = d;
-                best_count = valid_count;
-            }
-        }
-        
-        if (best_count <= 1) break;
-        
-        // Get symbols for digram
-        Symbol left = symbol_map[best.first.to_hex()];
-        Symbol right = symbol_map[best.second.to_hex()];
-        
-        // Create new composition
-        GrammarComposition comp = create_composition(left, right);
-        std::string hash_hex = comp.hash.to_hex();
-        
-        if (g_compositions.find(hash_hex) == g_compositions.end()) {
-            g_compositions[hash_hex] = comp;
-            new_compositions.push_back(comp);
-        }
-        
-        // Create replacement symbol
-        Symbol replacement;
-        replacement.hash = comp.hash;
-        replacement.cx = comp.centroid_x;
-        replacement.cy = comp.centroid_y;
-        replacement.cz = comp.centroid_z;
-        replacement.cm = comp.centroid_m;
-        replacement.depth = comp.depth;
-        replacement.atom_count = comp.atom_count;
-        symbol_map[hash_hex] = replacement;
-        
-        // Replace all valid occurrences
-        auto& occs = digram_occurrences[best];
-        for (size_t idx : occs) {
-            // Check if this occurrence is still valid
-            if (nodes[idx].next == SIZE_MAX) continue;
-            size_t next_idx = nodes[idx].next;
-            if (nodes[idx].symbol.hash != best.first) continue;
-            if (nodes[next_idx].symbol.hash != best.second) continue;
-            
-            // Replace first node with merged symbol
-            nodes[idx].symbol = replacement;
-            
-            // Remove second node from list
-            size_t after = nodes[next_idx].next;
-            nodes[idx].next = after;
-            if (after != SIZE_MAX) {
-                nodes[after].prev = idx;
-            }
-            nodes[next_idx].prev = SIZE_MAX;
-            nodes[next_idx].next = SIZE_MAX;
-        }
-        
-        // Remove stale digram
-        digram_occurrences.erase(best);
-        
-        // Rebuild affected digrams (simplified - just rebuild all)
-        // A proper implementation would do incremental updates
-        digram_occurrences.clear();
-        for (size_t i = head; nodes[i].next != SIZE_MAX; ) {
-            // Skip deleted nodes
-            while (i != SIZE_MAX && nodes[i].prev == SIZE_MAX && i != head) {
-                i = nodes[i].next;
-            }
-            if (i == SIZE_MAX) break;
-            
-            size_t j = nodes[i].next;
-            if (j != SIZE_MAX) {
-                Digram d{nodes[i].symbol.hash, nodes[j].symbol.hash};
-                digram_occurrences[d].push_back(i);
-                i = j;
+
+                Symbol sym;
+                sym.hash = comp.hash;
+                sym.cx = comp.centroid_x;
+                sym.cy = comp.centroid_y;
+                sym.cz = comp.centroid_z;
+                sym.cm = comp.centroid_m;
+                sym.depth = comp.depth;
+                sym.atom_count = comp.atom_count;
+                merged.push_back(sym);
             } else {
-                break;
+                // Odd element - carry forward
+                merged.push_back(sequence[i]);
             }
         }
-        
-        iterations++;
-        
-        // Progress every 1000 iterations
-        if (iterations % 1000 == 0) {
-            size_t live_count = 0;
-            for (size_t i = head; i != SIZE_MAX; i = nodes[i].next) {
-                live_count++;
-                if (live_count > sequence.size()) break;  // Safety
-            }
-            std::cerr << "\r[REPAIR] iter " << iterations 
-                      << ", " << live_count << " symbols, "
-                      << new_compositions.size() << " compositions   " << std::flush;
+        sequence = std::move(merged);
+    }
+
+    return sequence[0];
+}
+
+// =============================================================================
+// Token-aware Cascade - respects natural boundaries
+// =============================================================================
+
+// Check if codepoint is a word boundary (whitespace or punctuation)
+inline bool is_boundary(uint32_t cp) {
+    // Whitespace
+    if (cp == ' ' || cp == '\t' || cp == '\n' || cp == '\r') return true;
+    // Common punctuation
+    if (cp >= 0x21 && cp <= 0x2F) return true;  // !"#$%&'()*+,-./
+    if (cp >= 0x3A && cp <= 0x40) return true;  // :;<=>?@
+    if (cp >= 0x5B && cp <= 0x60) return true;  // [\]^_`
+    if (cp >= 0x7B && cp <= 0x7E) return true;  // {|}~
+    return false;
+}
+
+// Tokenize into words and boundaries, cascade each, then cascade all
+void tokenize_and_cascade(
+    const std::vector<Symbol>& sequence,
+    std::vector<GrammarComposition>& new_compositions,
+    std::vector<Symbol>& token_symbols
+) {
+    if (sequence.empty()) return;
+
+    std::vector<Symbol> current_token;
+    size_t token_count = 0;
+    size_t boundary_count = 0;
+
+    auto flush_token = [&]() {
+        if (current_token.empty()) return;
+
+        if (current_token.size() == 1) {
+            token_symbols.push_back(current_token[0]);
+        } else {
+            // Binary cascade the token
+            Symbol root = binary_cascade(current_token, new_compositions);
+            token_symbols.push_back(root);
+        }
+        token_count++;
+        current_token.clear();
+    };
+
+    // Process symbols, grouping by word boundaries
+    for (const auto& sym : sequence) {
+        // Check if this is a boundary character
+        // We need the codepoint, but we only have the hash
+        // For efficiency, treat single-atom symbols specially
+        bool is_bound = (sym.atom_count == 1);  // Single atoms might be boundaries
+
+        if (is_bound && sym.depth == 0) {
+            // This is a leaf atom - could be boundary
+            // Flush current token, add boundary as separate symbol
+            flush_token();
+            token_symbols.push_back(sym);
+            boundary_count++;
+        } else {
+            current_token.push_back(sym);
         }
     }
-    
-    // Reconstruct sequence from linked list
-    sequence.clear();
-    for (size_t i = head; i != SIZE_MAX; i = nodes[i].next) {
-        sequence.push_back(nodes[i].symbol);
-        if (sequence.size() > nodes.size()) break;  // Safety
-    }
-    
-    auto end = std::chrono::high_resolution_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cerr << "\n[REPAIR] " << iterations << " iterations, " 
-              << new_compositions.size() << " new compositions, "
-              << sequence.size() << " final symbols, " << ms << " ms\n";
-    
-    return new_compositions;
+    flush_token();
+
+    std::cerr << "[TOKENIZE] " << token_count << " word tokens, "
+              << boundary_count << " boundary tokens, "
+              << token_symbols.size() << " total\n";
 }
 
 // =============================================================================
