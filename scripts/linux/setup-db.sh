@@ -40,27 +40,30 @@ if [ "$DB_EXISTS" != "1" ]; then
 fi
 echo "Database exists"
 
+# Load C++ extensions FIRST (some SQL depends on them)
+echo -e "\nLoading C++ extensions..."
+if output=$(hc_psql -c "CREATE EXTENSION IF NOT EXISTS hypercube CASCADE; CREATE EXTENSION IF NOT EXISTS semantic_ops CASCADE; CREATE EXTENSION IF NOT EXISTS hypercube_ops CASCADE;" 2>&1); then
+    echo "C++ extensions loaded"
+else
+    echo "Warning: C++ extensions not available (run build.sh first)"
+    echo "$output" | grep -E "ERROR|FATAL" | head -3
+    echo "  Continuing without extensions - some functions may be slower"
+fi
+
 # Apply ALL SQL schema files in order
 echo -e "\nApplying schema files..."
 for sqlfile in "$HC_PROJECT_ROOT"/sql/*.sql; do
     [ -f "$sqlfile" ] || continue
     filename=$(basename "$sqlfile")
     echo -n "  $filename..."
-    if hc_psql -q -f "$sqlfile" 2>/dev/null; then
+    if output=$(hc_psql -f "$sqlfile" 2>&1); then
         echo " OK"
     else
         echo " FAILED"
+        echo "$output" | grep -E "ERROR|FATAL" | head -3
+        exit 1
     fi
 done
-
-# Load C++ extensions (idempotent - IF NOT EXISTS)
-echo -e "\nLoading C++ extensions..."
-if hc_psql -c "CREATE EXTENSION IF NOT EXISTS hypercube; CREATE EXTENSION IF NOT EXISTS semantic_ops;" 2>/dev/null; then
-    echo "C++ extensions loaded"
-else
-    echo "Warning: C++ extensions not available (run build.sh first)"
-    echo "  Continuing without extensions - some functions may be slower"
-fi
 
 # Check atom count using canonical function
 ATOM_COUNT=$(hc_psql -tAc "SELECT leaf_atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]')

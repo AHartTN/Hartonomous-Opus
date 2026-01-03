@@ -95,10 +95,10 @@ PGDATABASE=hypercube
    - **Lossless**: PostGIS GEOMETRY stores full double precision (2^53 mantissa)
 
 2. **Compositions**: Merkle DAG via Cascading Pair Encoding (CPE)
-   - Binary tree structure - each composition has exactly 2 children
-   - Characters cascade: `N chars → N/2 pairs → N/4 → ... → 1 root`
-   - Total compositions ≈ 2N (geometric series, NOT O(n²))
-   - Content-addressed deduplication: "the" from any document = same ID
+   - Sliding window at ALL tiers - captures ALL n-grams
+   - "Hello" → He,el,ll,lo → Hel,ell,llo → Hell,ello → Hello
+   - O(n²) compositions but globally deduplicated across all content
+   - Content-addressed: "the" from any document = same ID
    - Geometry = LINESTRINGZM trajectory through child centroids
 
 3. **Unified Single Table Model**
@@ -249,16 +249,21 @@ Hartonomous-Opus/
 
 ### Cascading Pair Encoding (CPE)
 
-CPE is NOT sliding n-grams (which explodes to O(n²)). It's a binary tree merge:
+CPE uses sliding window pairing at ALL tiers to capture ALL n-grams:
 
 ```
 "Hello" (5 chars)
-  Pass 1: [H,e,l,l,o] → [(H,e), (l,l), o] = 3 nodes
-  Pass 2: [He, ll, o] → [(He,ll), o] = 2 nodes  
-  Pass 3: [Hell, o] → [(Hell,o)] = 1 node (root)
+  Tier 0: [H, e, l, l, o] = 5 codepoints (atoms)
+  Tier 1: [He, el, ll, lo] = 4 bigrams (sliding pairs)
+  Tier 2: [Hel, ell, llo] = 3 trigrams (sliding pairs of bigrams)
+  Tier 3: [Hell, ello] = 2 4-grams
+  Tier 4: [Hello] = 1 root (5-gram)
 
-Total compositions: 5-1 = 4 (always N-1 for binary tree)
+Total compositions: 4+3+2+1 = 10 = O(n²/2)
 ```
+
+This is NOT a binary tree - sliding window preserves ALL adjacencies.
+Global deduplication means the vocabulary grows sublinearly with corpus size.
 
 Each composition hash = BLAKE3(child_hashes in order)
 Centroid = average of child 4D coordinates

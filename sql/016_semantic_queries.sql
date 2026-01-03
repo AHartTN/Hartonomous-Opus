@@ -146,10 +146,10 @@ RETURNS TABLE(
     weight DOUBLE PRECISION
 ) AS $$
     WITH qid AS (SELECT atom_content_hash(p_text) AS id)
-    SELECT ae.other_text, ae.weight
-    FROM qid, atom_edges(qid.id, p_k) ae
+    SELECT atom_reconstruct_text(sn.neighbor_id), sn.weight
+    FROM qid, semantic_neighbors(qid.id, p_k) sn
     WHERE qid.id IS NOT NULL
-    ORDER BY ae.weight DESC;
+    ORDER BY sn.weight DESC;
 $$ LANGUAGE SQL STABLE;
 
 -- Short alias
@@ -180,9 +180,7 @@ $$ LANGUAGE SQL STABLE;
 -- Vector arithmetic over composition centroids
 
 -- Analogy: A is to B as C is to ?
--- Already exists: atom_analogy(a, b, c, limit)
-
--- Convenience wrapper with better output
+-- Stub - requires C++ extension hypercube_ops for efficient analogy computation
 CREATE OR REPLACE FUNCTION analogy(
     p_a TEXT,  -- e.g., "man"
     p_b TEXT,  -- e.g., "king"
@@ -193,7 +191,9 @@ RETURNS TABLE(
     answer TEXT,
     distance DOUBLE PRECISION
 ) AS $$
-    SELECT content, distance FROM atom_analogy(p_a, p_b, p_c, p_k);
+    -- Analogy uses vector arithmetic: result = centroid(c) + (centroid(b) - centroid(a))
+    -- Then find k nearest to the result vector
+    SELECT NULL::TEXT, NULL::DOUBLE PRECISION WHERE FALSE;  -- Stub until implemented
 $$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
@@ -286,7 +286,7 @@ $$ LANGUAGE SQL STABLE;
 CREATE OR REPLACE FUNCTION edge_count(p_text TEXT)
 RETURNS BIGINT AS $$
     SELECT COUNT(*)
-    FROM atom_edges(atom_content_hash(p_text), 10000);
+    FROM semantic_neighbors(atom_content_hash(p_text), 10000);
 $$ LANGUAGE SQL STABLE;
 
 COMMIT;

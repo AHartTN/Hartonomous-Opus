@@ -89,24 +89,34 @@ static SemanticEdge *load_all_edges(int *out_count)
         
         if (isnull1 || isnull2) continue;
         
-        bytea *b1 = DatumGetByteaP(d1);
-        bytea *b2 = DatumGetByteaP(d2);
+        /* Use PG_DETOAST_DATUM_COPY to safely handle TOASTed data */
+        bytea *b1 = (bytea *)PG_DETOAST_DATUM_COPY(d1);
+        bytea *b2 = (bytea *)PG_DETOAST_DATUM_COPY(d2);
+        
+        /* Validate bytea size */
+        int len1 = VARSIZE(b1) - VARHDRSZ;
+        int len2 = VARSIZE(b2) - VARHDRSZ;
+        if (len1 < HASH_SIZE || len2 < HASH_SIZE) {
+            pfree(b1);
+            pfree(b2);
+            continue;
+        }
+        
         double weight = isnull_w ? 1.0 : DatumGetFloat8(dw);
         
-        uint8 a[HASH_SIZE], b[HASH_SIZE];
-        bytea_to_hash(b1, a);
-        bytea_to_hash(b2, b);
-        
         /* Add bidirectional edges */
-        memcpy(edges[count].source, a, HASH_SIZE);
-        memcpy(edges[count].target, b, HASH_SIZE);
+        memcpy(edges[count].source, VARDATA(b1), HASH_SIZE);
+        memcpy(edges[count].target, VARDATA(b2), HASH_SIZE);
         edges[count].weight = weight;
         count++;
         
-        memcpy(edges[count].source, b, HASH_SIZE);
-        memcpy(edges[count].target, a, HASH_SIZE);
+        memcpy(edges[count].source, VARDATA(b2), HASH_SIZE);
+        memcpy(edges[count].target, VARDATA(b1), HASH_SIZE);
         edges[count].weight = weight;
         count++;
+        
+        pfree(b1);
+        pfree(b2);
     }
     
     *out_count = count;
@@ -123,6 +133,14 @@ static WalkStep *random_walk(const uint8 *seed, int steps,
 {
     WalkStep *path = (WalkStep *)palloc(sizeof(WalkStep) * (steps + 1));
     int path_len = 0;
+    
+    /* Handle NULL edges */
+    if (edges == NULL || edge_count == 0) {
+        memcpy(path[0].id, seed, HASH_SIZE);
+        path[0].weight = 0;
+        *out_steps = 1;
+        return path;
+    }
     
     /* Simple visited tracking */
     uint8 (*visited)[HASH_SIZE] = (uint8 (*)[HASH_SIZE])palloc(sizeof(uint8[HASH_SIZE]) * (steps + 1));
@@ -212,6 +230,12 @@ static uint8 *shortest_path(const uint8 *from, const uint8 *to,
                             SemanticEdge *edges, int edge_count,
                             int *out_len)
 {
+    /* Handle NULL edges */
+    if (edges == NULL || edge_count == 0) {
+        *out_len = 0;
+        return NULL;
+    }
+    
     /* BFS queue */
     int queue_cap = 10000;
     BFSNode *queue = (BFSNode *)palloc(sizeof(BFSNode) * queue_cap);

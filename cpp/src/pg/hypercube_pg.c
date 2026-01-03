@@ -396,12 +396,13 @@ Datum hypercube_content_hash(PG_FUNCTION_ARGS)
         if (nulls[i]) {
             memset(atom_hashes[i].bytes, 0, HC_HASH_SIZE);
         } else {
-            bytea *b = DatumGetByteaP(elems[i]);
+            bytea *b = (bytea *)PG_DETOAST_DATUM_COPY(elems[i]);
             if (VARSIZE(b) - VARHDRSZ >= HC_HASH_SIZE) {
                 memcpy(atom_hashes[i].bytes, VARDATA(b), HC_HASH_SIZE);
             } else {
                 memset(atom_hashes[i].bytes, 0, HC_HASH_SIZE);
             }
+            pfree(b);
         }
     }
     

@@ -36,6 +36,10 @@ cmake .. -DCMAKE_BUILD_TYPE="$HC_BUILD_TYPE"
 echo -e "\nBuilding..."
 make -j"$HC_PARALLEL_JOBS"
 
+# Always install extensions (required for PostgreSQL to load them)
+echo -e "\n=== Installing PostgreSQL Extensions ==="
+make install
+
 echo -e "\n=== Build Complete ==="
 
 # Show built artifacts

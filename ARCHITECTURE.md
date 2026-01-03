@@ -45,17 +45,21 @@ The `children BYTEA[]` column stores child hash references for compositions.
 
 ### 4. Cascading Pair Encoding (CPE)
 
-**Level 0 → Level 1: Overlapping Sliding Window**
-- Every adjacent atom pair becomes a composition
-- "Captain" → Ca, ap, pt, ta, ai, in (6 bigrams from 7 atoms)
-- Captures **complete sequential structure** at atomic level
+**Sliding Window at ALL Tiers**
+- Every adjacent pair becomes a composition - at every level
+- "Hello" → He,el,ll,lo (tier 1: 4 bigrams)
+- Hel,ell,llo (tier 2: 3 trigrams from adjacent bigram pairs)
+- Hell,ello (tier 3: 2 4-grams)
+- Hello (tier 4: root)
+- Captures **ALL n-grams** naturally via sliding window cascade
 
-**Level 1+: Binary Cascade**  
-- Non-overlapping pairs for efficiency
-- (Ca,ap), (pt,ta), (ai,in) → higher compositions
-- O(log N) levels after the first
+**NOT a Binary Tree** - sliding window preserves all adjacencies:
+- Binary tree (WRONG): (He,ll) → loses "el" adjacency
+- Sliding window (CORRECT): He+el, el+ll, ll+lo → preserves everything
 
-**Total compositions ≈ 2N** (N-1 from overlapping + ~N from cascade)
+**Total compositions = O(n²)** but globally deduplicated:
+- "the" appears once, shared by all documents containing "the"
+- N-gram vocabulary grows sublinearly as corpus grows
 
 ### 5. Emergent Topology as Semantics
 

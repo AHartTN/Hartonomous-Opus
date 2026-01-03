@@ -52,50 +52,41 @@ $$ LANGUAGE SQL STABLE;
 -- Text Reconstruction
 -- =============================================================================
 
--- Reconstruct bytes from composition - USE C++ EXTENSION
--- Falls back to recursive CTE only if extension not available
+-- Reconstruct bytes from composition using recursive CTE
 CREATE OR REPLACE FUNCTION atom_reconstruct(p_id BYTEA) RETURNS BYTEA AS $$
-BEGIN
-    -- Try C++ extension first (10x+ faster)
-    RETURN (SELECT convert_to(semantic_reconstruct(p_id), 'UTF8'));
-EXCEPTION WHEN undefined_function THEN
-    -- Fallback to recursive CTE (slow)
-    RETURN (
-        WITH RECURSIVE tree AS (
-            SELECT id, children, value, atom_count, ARRAY[]::INTEGER[] AS path
-            FROM atom WHERE id = p_id
+    WITH RECURSIVE tree AS (
+        SELECT id, children, value, atom_count, ARRAY[]::INTEGER[] AS path
+        FROM atom WHERE id = p_id
+        UNION ALL
+        SELECT a.id, a.children, a.value, a.atom_count, t.path || c.ord::INTEGER
+        FROM tree t
+        CROSS JOIN LATERAL (
+            SELECT t.children[1] AS child_id, g.n AS ord
+            FROM generate_series(1, 
+                CASE WHEN array_length(t.children, 1) = 1 AND t.atom_count > 1 
+                THEN t.atom_count::INTEGER ELSE array_length(t.children, 1) END
+            ) g(n)
+            WHERE array_length(t.children, 1) = 1 AND t.atom_count > 1
             UNION ALL
-            SELECT a.id, a.children, a.value, a.atom_count, t.path || c.ord::INTEGER
-            FROM tree t
-            CROSS JOIN LATERAL (
-                SELECT t.children[1] AS child_id, g.n AS ord
-                FROM generate_series(1, 
-                    CASE WHEN array_length(t.children, 1) = 1 AND t.atom_count > 1 
-                    THEN t.atom_count::INTEGER ELSE array_length(t.children, 1) END
-                ) g(n)
-                WHERE array_length(t.children, 1) = 1 AND t.atom_count > 1
-                UNION ALL
-                SELECT child_id, ord::INTEGER
-                FROM unnest(t.children) WITH ORDINALITY AS u(child_id, ord)
-                WHERE array_length(t.children, 1) != 1 OR t.atom_count = 1
-            ) c
-            JOIN atom a ON a.id = c.child_id
-            WHERE t.children IS NOT NULL
-        )
-        SELECT string_agg(value, ''::BYTEA ORDER BY path)
-        FROM tree WHERE value IS NOT NULL
-    );
-END;
-$$ LANGUAGE plpgsql STABLE;
-
--- Reconstruct as UTF-8 text - USE C++ EXTENSION DIRECTLY
-CREATE OR REPLACE FUNCTION atom_text(p_id BYTEA) RETURNS TEXT AS $$
-    SELECT semantic_reconstruct(p_id);
+            SELECT child_id, ord::INTEGER
+            FROM unnest(t.children) WITH ORDINALITY AS u(child_id, ord)
+            WHERE array_length(t.children, 1) != 1 OR t.atom_count = 1
+        ) c
+        JOIN atom a ON a.id = c.child_id
+        WHERE t.children IS NOT NULL
+    )
+    SELECT string_agg(value, ''::BYTEA ORDER BY path)
+    FROM tree WHERE value IS NOT NULL;
 $$ LANGUAGE SQL STABLE;
 
--- Alias for backwards compatibility
+-- Reconstruct as UTF-8 text
+CREATE OR REPLACE FUNCTION atom_text(p_id BYTEA) RETURNS TEXT AS $$
+    SELECT convert_from(COALESCE(atom_reconstruct(p_id), ''::BYTEA), 'UTF8');
+$$ LANGUAGE SQL STABLE;
+
+-- Alias for backwards compatibility  
 CREATE OR REPLACE FUNCTION atom_reconstruct_text(p_id BYTEA) RETURNS TEXT AS $$
-    SELECT semantic_reconstruct(p_id);
+    SELECT atom_text(p_id);
 $$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
@@ -243,10 +234,16 @@ $$ LANGUAGE SQL STABLE;
 -- Find nearest neighbors by spatial distance (accurate)
 CREATE OR REPLACE FUNCTION atom_nearest_spatial(p_id BYTEA, p_limit INTEGER DEFAULT 10)
 RETURNS TABLE(neighbor_id BYTEA, distance DOUBLE PRECISION) AS $$
-    SELECT a.id, a.centroid <-> t.centroid
+    SELECT a.id, 
+           sqrt(
+               power(ST_X(t.centroid) - ST_X(a.centroid), 2) + 
+               power(ST_Y(t.centroid) - ST_Y(a.centroid), 2) + 
+               power(ST_Z(t.centroid) - ST_Z(a.centroid), 2) + 
+               power(ST_M(t.centroid) - ST_M(a.centroid), 2)
+           ) as dist
     FROM atom a, (SELECT centroid FROM atom WHERE id = p_id) t
     WHERE a.id != p_id
-    ORDER BY a.centroid <-> t.centroid
+    ORDER BY dist
     LIMIT p_limit;
 $$ LANGUAGE SQL STABLE;
 
