@@ -1,9 +1,22 @@
 cmake_minimum_required(VERSION 3.20)
 project(hypercube VERSION 1.0.0 LANGUAGES CXX C)
 
+# ============================================================================
+# Build Architecture:
+#   1. hypercube_core   - Pure C++ library (no PostgreSQL headers)
+#   2. hypercube_c      - C API bridge (extern "C" wrappers)
+#   3. hypercube        - PostgreSQL extension (pure C, links hypercube_c)
+#   4. semantic_ops     - PostgreSQL extension (pure C, links hypercube_c)
+#
+# This architecture solves the PostgreSQL header incompatibility with C++20
+# by ensuring that PostgreSQL headers are only included in pure C files.
+# ============================================================================
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -15,165 +28,260 @@ endif()
 # Cross-platform threading support
 find_package(Threads REQUIRED)
 
-# Compiler flags - platform specific
-if(MSVC OR (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
-    # Microsoft Visual C++ or Clang-CL on Windows
+# ============================================================================
+# Compiler Detection and Flags
+# ============================================================================
+
+if(MSVC)
+    message(STATUS "Compiler: MSVC ${CMAKE_CXX_COMPILER_VERSION}")
     set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG /W3 /EHsc")
     set(CMAKE_CXX_FLAGS_DEBUG "/Od /DDEBUG /W3 /Zi /EHsc")
-    add_compile_options(/wd4244 /wd4267 /wd4996 /wd4005)
-    set(CMAKE_CXX_COMPILER_ID "MSVC")
-else()
-    # GCC/Clang on Unix
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -Wall -Wextra")
+    set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG /W3")
+    set(CMAKE_C_FLAGS_DEBUG "/Od /DDEBUG /W3 /Zi")
+    add_compile_options(/wd4244 /wd4267 /wd4996 /wd4005 /wd4200)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(STATUS "Compiler: Clang ${CMAKE_CXX_COMPILER_VERSION}")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra")
     set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
+    set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra")
+    set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
     if(NOT WIN32)
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address,undefined")
     endif()
+    add_compile_options(-Wno-unused-parameter -Wno-sign-compare)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    message(STATUS "Compiler: GCC ${CMAKE_CXX_COMPILER_VERSION}")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -Wall -Wextra")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra -fsanitize=address,undefined")
+    set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -Wall -Wextra")
+    set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
+else()
+    message(WARNING "Unknown compiler: ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
-# Find PostgreSQL
-find_package(PostgreSQL)
-if(PostgreSQL_FOUND)
-    execute_process(
-        COMMAND pg_config --pkglibdir
-        OUTPUT_VARIABLE POSTGRESQL_PKGLIBDIR
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    execute_process(
-        COMMAND pg_config --sharedir
-        OUTPUT_VARIABLE POSTGRESQL_SHAREDIR
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    execute_process(
-        COMMAND pg_config --includedir-server
-        OUTPUT_VARIABLE POSTGRESQL_SERVER_INCLUDE
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    message(STATUS "PostgreSQL found: ${PostgreSQL_VERSION_STRING}")
-    message(STATUS "PostgreSQL pkglibdir: ${POSTGRESQL_PKGLIBDIR}")
-    message(STATUS "PostgreSQL server include: ${POSTGRESQL_SERVER_INCLUDE}")
+# ============================================================================
+# PostgreSQL Configuration
+# ============================================================================
+
+find_program(PG_CONFIG pg_config)
+if(PG_CONFIG)
+    execute_process(COMMAND ${PG_CONFIG} --includedir-server OUTPUT_VARIABLE PG_INCLUDEDIR_SERVER OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${PG_CONFIG} --includedir OUTPUT_VARIABLE PG_INCLUDEDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${PG_CONFIG} --pkglibdir OUTPUT_VARIABLE PG_PKGLIBDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${PG_CONFIG} --sharedir OUTPUT_VARIABLE PG_SHAREDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${PG_CONFIG} --libdir OUTPUT_VARIABLE PG_LIBDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${PG_CONFIG} --version OUTPUT_VARIABLE PG_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
+    
+    message(STATUS "PostgreSQL: ${PG_VERSION}")
+    message(STATUS "PostgreSQL server includes: ${PG_INCLUDEDIR_SERVER}")
+    message(STATUS "PostgreSQL pkglibdir: ${PG_PKGLIBDIR}")
     set(BUILD_PG_EXTENSION ON)
 else()
-    message(WARNING "PostgreSQL not found - building without extension support")
+    message(WARNING "pg_config not found - building without PostgreSQL extension support")
     set(BUILD_PG_EXTENSION OFF)
 endif()
 
-# Include directories
-include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+# ============================================================================
+# 1. Core C++ Library (no PostgreSQL dependencies)
+# ============================================================================
 
-# Core library (no PostgreSQL dependency)
 add_library(hypercube_core STATIC
     src/hilbert.cpp
     src/coordinates.cpp
     src/blake3_pg.cpp
 )
+
 target_include_directories(hypercube_core PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# PostgreSQL extension (only if PostgreSQL found)
+target_link_libraries(hypercube_core
+    PRIVATE Threads::Threads
+)
+
+# ============================================================================
+# 2. C API Bridge Library (C++ implementation, C interface)
+# Must be SHARED on Windows so that the PostgreSQL C extensions can link to it
+# ============================================================================
+
+add_library(hypercube_c SHARED
+    src/hypercube_c.cpp
+)
+
+target_include_directories(hypercube_c PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(hypercube_c
+    PRIVATE hypercube_core
+    PRIVATE Threads::Threads
+)
+
+# Export symbols properly on Windows
+if(WIN32)
+    target_compile_definitions(hypercube_c PRIVATE HYPERCUBE_C_EXPORTS)
+endif()
+
+set_target_properties(hypercube_c PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "hypercube_c"
+)
+
+# ============================================================================
+# 3 & 4. PostgreSQL Extensions (pure C - compiled with C compiler)
+#
+# CRITICAL: These are .c files that include PostgreSQL headers.
+# PostgreSQL headers have C++-incompatible code (atomics, type punning).
+# By keeping these as pure C, we avoid all MSVC C++ errors.
+# ============================================================================
+
 if(BUILD_PG_EXTENSION)
-    # Windows-specific PostgreSQL configuration
+    # Windows-specific defines for PostgreSQL
     if(WIN32)
-        add_compile_definitions(
+        set(PG_COMPILE_DEFS
             WIN32_LEAN_AND_MEAN
             _CRT_SECURE_NO_WARNINGS
             _WINSOCK_DEPRECATED_NO_WARNINGS
-            BUILDING_DLL
+        )
+    else()
+        set(PG_COMPILE_DEFS "")
+    endif()
+    
+    # PostgreSQL include directories (proper order for Windows)
+    if(WIN32)
+        set(PG_INCLUDE_DIRS
+            ${PG_INCLUDEDIR_SERVER}/port/win32_msvc
+            ${PG_INCLUDEDIR_SERVER}/port/win32
+            ${PG_INCLUDEDIR_SERVER}
+            ${PG_INCLUDEDIR}
+        )
+    else()
+        set(PG_INCLUDE_DIRS
+            ${PG_INCLUDEDIR_SERVER}
+            ${PG_INCLUDEDIR}
         )
     endif()
     
-    add_library(hypercube SHARED
-        src/hypercube.cpp
-    )
-    
-    target_include_directories(hypercube PRIVATE
-        ${PostgreSQL_INCLUDE_DIRS}
-        ${POSTGRESQL_SERVER_INCLUDE}
-    )
-    
-    # Windows: Add PostgreSQL's Windows compatibility headers
+    # Find postgres.lib on Windows
     if(WIN32)
-        target_include_directories(hypercube PRIVATE
-            ${POSTGRESQL_SERVER_INCLUDE}/port/win32_msvc
-        )
-    endif()
-    
-    target_link_libraries(hypercube
-        hypercube_core
-    )
-    
-    # Windows: Link against postgres.lib for extension symbols
-    if(WIN32)
-        find_library(POSTGRES_LIB postgres HINTS "${POSTGRESQL_PKGLIBDIR}")
+        find_library(POSTGRES_LIB postgres HINTS "${PG_PKGLIBDIR}" "${PG_LIBDIR}")
         if(POSTGRES_LIB)
-            target_link_libraries(hypercube ${POSTGRES_LIB})
+            message(STATUS "Found postgres.lib: ${POSTGRES_LIB}")
+        else()
+            message(WARNING "postgres.lib not found - extensions may not link correctly")
         endif()
     endif()
     
+    # -------------------------------------------------------------------------
+    # hypercube PostgreSQL Extension (pure C)
+    # -------------------------------------------------------------------------
+    
+    add_library(hypercube SHARED
+        src/pg/hypercube_pg.c
+    )
+    
+    # Force C language for this file
+    set_source_files_properties(src/pg/hypercube_pg.c PROPERTIES LANGUAGE C)
+    
+    target_include_directories(hypercube PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PG_INCLUDE_DIRS}
+    )
+    
     target_compile_definitions(hypercube PRIVATE
+        ${PG_COMPILE_DEFS}
         HYPERCUBE_VERSION="${PROJECT_VERSION}"
     )
     
-    # Remove 'lib' prefix for PostgreSQL extensions
-    set_target_properties(hypercube PROPERTIES PREFIX "")
+    # Force C linker so we behave like native PG extension DLLs on Windows
+    set_target_properties(hypercube PROPERTIES LINKER_LANGUAGE C)
+
+    target_link_libraries(hypercube
+        PRIVATE hypercube_c
+    )
     
+    if(WIN32 AND POSTGRES_LIB)
+        target_link_libraries(hypercube PRIVATE ${POSTGRES_LIB})
+    endif()
+    
+    set_target_properties(hypercube PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "hypercube"
+    )
+    
+    # -------------------------------------------------------------------------
+    # semantic_ops PostgreSQL Extension (pure C)
+    # -------------------------------------------------------------------------
+    
+    add_library(semantic_ops SHARED
+        src/pg/semantic_ops_pg.c
+    )
+    
+    set_source_files_properties(src/pg/semantic_ops_pg.c PROPERTIES LANGUAGE C)
+    
+    target_include_directories(semantic_ops PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PG_INCLUDE_DIRS}
+    )
+    
+    target_compile_definitions(semantic_ops PRIVATE
+        ${PG_COMPILE_DEFS}
+    )
+    
+    set_target_properties(semantic_ops PROPERTIES LINKER_LANGUAGE C)
+
+    target_link_libraries(semantic_ops
+        PRIVATE hypercube_c
+    )
+    
+    if(WIN32 AND POSTGRES_LIB)
+        target_link_libraries(semantic_ops PRIVATE ${POSTGRES_LIB})
+    endif()
+    
+    set_target_properties(semantic_ops PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "semantic_ops"
+    )
+    
+    # -------------------------------------------------------------------------
     # Installation
+    # -------------------------------------------------------------------------
+
+    # The extension DLLs depend on hypercube_c.dll at runtime (Windows loader).
+    # Install it into pkglibdir alongside the modules.
+    install(TARGETS hypercube_c
+        LIBRARY DESTINATION ${PG_PKGLIBDIR}
+        RUNTIME DESTINATION ${PG_PKGLIBDIR}
+    )
+    
     install(TARGETS hypercube
-        LIBRARY DESTINATION ${POSTGRESQL_PKGLIBDIR}
+        LIBRARY DESTINATION ${PG_PKGLIBDIR}
+        RUNTIME DESTINATION ${PG_PKGLIBDIR}
     )
     
     install(FILES
         sql/hypercube--1.0.sql
         hypercube.control
-        DESTINATION ${POSTGRESQL_SHAREDIR}/extension
+        DESTINATION ${PG_SHAREDIR}/extension
     )
-    
-    # Semantic operations extension (high-performance AI/ML queries)
-    add_library(semantic_ops SHARED
-        src/semantic_ops.cpp
-    )
-    
-    target_include_directories(semantic_ops PRIVATE
-        ${PostgreSQL_INCLUDE_DIRS}
-        ${POSTGRESQL_SERVER_INCLUDE}
-    )
-    
-    # Windows: Add PostgreSQL's Windows compatibility headers
-    if(WIN32)
-        target_include_directories(semantic_ops PRIVATE
-            ${POSTGRESQL_SERVER_INCLUDE}/port/win32_msvc
-        )
-    endif()
-    
-    target_link_libraries(semantic_ops
-        hypercube_core
-    )
-    
-    # Windows: Link against postgres.lib for extension symbols
-    if(WIN32)
-        find_library(POSTGRES_LIB postgres HINTS "${POSTGRESQL_PKGLIBDIR}")
-        if(POSTGRES_LIB)
-            target_link_libraries(semantic_ops ${POSTGRES_LIB})
-        endif()
-    endif()
-    
-    set_target_properties(semantic_ops PROPERTIES PREFIX "")
     
     install(TARGETS semantic_ops
-        LIBRARY DESTINATION ${POSTGRESQL_PKGLIBDIR}
+        LIBRARY DESTINATION ${PG_PKGLIBDIR}
+        RUNTIME DESTINATION ${PG_PKGLIBDIR}
     )
     
     install(FILES
         sql/semantic_ops--1.0.sql
         sql/semantic_ops.control
-        DESTINATION ${POSTGRESQL_SHAREDIR}/extension
+        DESTINATION ${PG_SHAREDIR}/extension
     )
 endif()
 
-# Tests (always build)
+# ============================================================================
+# Tests (C++ tests, no PostgreSQL)
+# ============================================================================
+
 enable_testing()
 
 add_executable(test_hilbert tests/test_hilbert.cpp)
@@ -192,8 +300,36 @@ add_executable(test_semantic tests/test_semantic.cpp)
 target_link_libraries(test_semantic hypercube_core)
 add_test(NAME SemanticTest COMMAND test_semantic)
 
-# Integration tests (require PostgreSQL)
+# ============================================================================
+# PostgreSQL Tools (require libpq client library)
+# ============================================================================
+
+# Try to find libpq via vcpkg or system
+find_package(PostgreSQL QUIET)
 if(PostgreSQL_FOUND)
+    message(STATUS "Found PostgreSQL client library: ${PostgreSQL_LIBRARIES}")
+    
+    add_executable(seed_atoms_parallel src/seed_atoms_parallel.cpp)
+    target_include_directories(seed_atoms_parallel PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(seed_atoms_parallel hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
+    add_executable(cpe_ingest src/cpe_ingest.cpp)
+    target_include_directories(cpe_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(cpe_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
+    add_executable(sequitur_ingest src/sequitur_ingest.cpp)
+    target_include_directories(sequitur_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(sequitur_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
+    add_executable(ingest_safetensor src/ingest_safetensor.cpp)
+    target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(ingest_safetensor hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
+    add_executable(extract_embeddings src/extract_embeddings.cpp)
+    target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
+    # Integration tests with libpq
     add_executable(test_integration tests/test_integration.cpp)
     target_include_directories(test_integration PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(test_integration hypercube_core ${PostgreSQL_LIBRARIES})
@@ -203,39 +339,24 @@ if(PostgreSQL_FOUND)
     target_include_directories(test_query_api PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(test_query_api hypercube_core ${PostgreSQL_LIBRARIES})
     add_test(NAME QueryAPITest COMMAND test_query_api)
+else()
+    message(STATUS "PostgreSQL client library not found - skipping tool builds")
+    message(STATUS "To build tools, install libpq via: vcpkg install libpq:x64-windows")
 endif()
 
-# PostgreSQL tools (require libpq)
-if(PostgreSQL_FOUND)
-    # Parallel partitioned atom seeder (12 partitions, fastest)
-    add_executable(seed_atoms_parallel src/seed_atoms_parallel.cpp)
-    target_include_directories(seed_atoms_parallel PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(seed_atoms_parallel hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
-
-    # CPE ingester (binary tree merging)
-    add_executable(cpe_ingest src/cpe_ingest.cpp)
-    target_include_directories(cpe_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(cpe_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
-
-    # Sequitur grammar-based ingester (proper semantic composition)
-    add_executable(sequitur_ingest src/sequitur_ingest.cpp)
-    target_include_directories(sequitur_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(sequitur_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
-
-    # Safetensor package ingester (vocab, BPE merges, semantic edges)
-    add_executable(ingest_safetensor src/ingest_safetensor.cpp)
-    target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(ingest_safetensor hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
-
-    # Embedding extractor (pairwise cosine similarity → sparse edges)
-    add_executable(extract_embeddings src/extract_embeddings.cpp)
-    target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
-endif()
-
+# ============================================================================
 # Summary
+# ============================================================================
+
 message(STATUS "")
 message(STATUS "=== Hypercube Build Configuration ===")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "C compiler: ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}")
 message(STATUS "PostgreSQL extension: ${BUILD_PG_EXTENSION}")
+if(PostgreSQL_FOUND)
+    message(STATUS "PostgreSQL tools: ON")
+else()
+    message(STATUS "PostgreSQL tools: OFF (libpq not found)")
+endif()
 message(STATUS "")

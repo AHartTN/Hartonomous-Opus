@@ -4,35 +4,8 @@
  * High-performance C++ implementations for semantic query operations.
  */
 
-#include <vector>
-#include <queue>
-#include <unordered_map>
-#include <unordered_set>
-#include <algorithm>
-#include <cstring>
-#include <cmath>
-
-#ifdef _WIN32
-#define _WINSOCKAPI_
-#endif
-
-#include <vector>
-#include <queue>
-#include <unordered_map>
-#include <unordered_set>
-#include <algorithm>
-#include <cstring>
-#include <cmath>
-
-#include "hypercube/types.hpp"
-#include "hypercube/hilbert.hpp"
-
-#ifdef _WIN32
-#include <winsock2.h>
-#include <windows.h>
-#define stat _stat
-#endif
-
+// PostgreSQL headers must come first on Windows
+// Include order per PostgreSQL wiki: port/win32_msvc, port/win32, server headers
 extern "C" {
 #include "postgres.h"
 #include "fmgr.h"
@@ -48,6 +21,18 @@ extern "C" {
 PG_MODULE_MAGIC;
 #endif
 }
+
+// Now include C++ headers
+#include <vector>
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>
+#include <cstring>
+#include <cmath>
+
+#include "hypercube/types.hpp"
+#include "hypercube/hilbert.hpp"
 
 using namespace hypercube;
 

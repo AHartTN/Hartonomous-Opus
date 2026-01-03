@@ -14,6 +14,54 @@ if (Test-Path $ConfigFile) {
     }
 }
 
+# Initialize Visual Studio Developer Environment (required for MSVC builds)
+if (-not $env:VSCMD_VER) {
+    # Find Visual Studio installation using vswhere
+    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (-not (Test-Path $vswhere)) {
+        $vswhere = "${env:ProgramFiles}\Microsoft Visual Studio\Installer\vswhere.exe"
+    }
+    
+    $vsPath = $null
+    if (Test-Path $vswhere) {
+        $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+    }
+    
+    # Fallback: check common locations
+    if (-not $vsPath) {
+        $searchPaths = @(
+            "D:\Microsoft Visual Studio\18\Community",
+            "D:\Microsoft Visual Studio\2022\Community",
+            "C:\Program Files\Microsoft Visual Studio\2022\Community",
+            "C:\Program Files\Microsoft Visual Studio\2022\Professional",
+            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise"
+        )
+        foreach ($path in $searchPaths) {
+            if (Test-Path "$path\Common7\Tools\VsDevCmd.bat") {
+                $vsPath = $path
+                break
+            }
+        }
+    }
+    
+    if ($vsPath -and (Test-Path "$vsPath\Common7\Tools\VsDevCmd.bat")) {
+        Write-Host "Initializing Visual Studio environment from: $vsPath" -ForegroundColor Yellow
+        # Import VS environment variables into PowerShell
+        $vsDevCmd = "$vsPath\Common7\Tools\VsDevCmd.bat"
+        cmd /c "`"$vsDevCmd`" -arch=amd64 -no_logo && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+                [Environment]::SetEnvironmentVariable($matches[1], $matches[2], "Process")
+            }
+        }
+    } else {
+        Write-Host "Warning: Visual Studio not found. MSVC builds may fail." -ForegroundColor Red
+        Write-Host "Install Visual Studio with C++ workload or set VS path manually." -ForegroundColor Red
+    }
+}
+
 # Defaults (app-specific, not global PG* vars)
 if (-not $env:HC_DB_HOST) { $env:HC_DB_HOST = "localhost" }
 if (-not $env:HC_DB_PORT) { $env:HC_DB_PORT = "5432" }

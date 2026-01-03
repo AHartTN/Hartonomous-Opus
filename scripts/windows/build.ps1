@@ -23,10 +23,27 @@ Push-Location $BuildDir
 try {
     # Configure with CMake
     Write-Host "`nConfiguring..."
+    
+    # Build argument list - use Visual Studio generator for proper MSVC compilation
+    # PostgreSQL extensions require MSVC on Windows (Clang in GNU mode doesn't work with PG headers)
     $cmakeArgs = @("-DCMAKE_BUILD_TYPE=$env:HC_BUILD_TYPE", "..")
+    
+    # Prefer Ninja with MSVC toolchain for faster builds
     if (Get-Command ninja -ErrorAction SilentlyContinue) {
-        $cmakeArgs = @("-G", "Ninja") + $cmakeArgs
+        # Find cl.exe from VS environment
+        $clPath = (Get-Command cl.exe -ErrorAction SilentlyContinue).Source
+        if ($clPath) {
+            $cmakeArgs = @(
+                "-G", "Ninja",
+                "-DCMAKE_C_COMPILER=cl",
+                "-DCMAKE_CXX_COMPILER=cl"
+            ) + $cmakeArgs
+        } else {
+            # Fallback to Visual Studio generator (slower but reliable)
+            $cmakeArgs = @("-G", "Visual Studio 17 2022", "-A", "x64") + $cmakeArgs
+        }
     }
+    
     & cmake @cmakeArgs
     if ($LASTEXITCODE -ne 0) {
         Write-Host "CMake configuration failed" -ForegroundColor Red

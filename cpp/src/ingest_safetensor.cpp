@@ -48,6 +48,9 @@ struct SemanticEdge {
 static std::vector<TokenInfo> g_vocab;
 static std::unordered_map<std::string, size_t> g_token_to_idx;
 
+// Forward declarations
+std::vector<SemanticEdge> extract_safetensor_weights(const fs::path& safetensor_path, const IngestConfig& config);
+
 bool parse_vocab(const fs::path& vocab_path) {
     std::ifstream file(vocab_path);
     if (!file) {

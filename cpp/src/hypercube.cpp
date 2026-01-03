@@ -4,21 +4,8 @@
  * Provides 4D Hilbert curve indexing for semantic coordinate system.
  */
 
-#ifdef _WIN32
-#define _WINSOCKAPI_
-#endif
-
-#include "hypercube/types.hpp"
-#include "hypercube/hilbert.hpp"
-#include "hypercube/coordinates.hpp"
-#include "hypercube/blake3.hpp"
-
-#ifdef _WIN32
-#include <winsock2.h>
-#include <windows.h>
-#define stat _stat
-#endif
-
+// PostgreSQL headers must come first on Windows
+// Include order per PostgreSQL wiki: port/win32_msvc, port/win32, server headers
 extern "C" {
 #include "postgres.h"
 #include "fmgr.h"
@@ -31,6 +18,12 @@ extern "C" {
 PG_MODULE_MAGIC;
 #endif
 }
+
+// Now include C++ headers
+#include "hypercube/types.hpp"
+#include "hypercube/hilbert.hpp"
+#include "hypercube/coordinates.hpp"
+#include "hypercube/blake3.hpp"
 
 using namespace hypercube;
 
