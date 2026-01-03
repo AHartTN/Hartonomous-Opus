@@ -25,11 +25,12 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "pg_utils.h"
+
 #ifdef PG_MODULE_MAGIC
 PG_MODULE_MAGIC;
 #endif
 
-#define HASH_SIZE 32
 #define MAX_EDGES 100000
 
 /* ============================================================================
@@ -46,32 +47,6 @@ typedef struct WalkStep {
     uint8   id[HASH_SIZE];
     double  weight;
 } WalkStep;
-
-/* ============================================================================
- * Helper Functions
- * ============================================================================ */
-
-static void bytea_to_hash(bytea *b, uint8 *out)
-{
-    if (VARSIZE_ANY_EXHDR(b) >= HASH_SIZE) {
-        memcpy(out, VARDATA_ANY(b), HASH_SIZE);
-    } else {
-        memset(out, 0, HASH_SIZE);
-    }
-}
-
-static bytea *hash_to_bytea(const uint8 *hash)
-{
-    bytea *result = (bytea *)palloc(VARHDRSZ + HASH_SIZE);
-    SET_VARSIZE(result, VARHDRSZ + HASH_SIZE);
-    memcpy(VARDATA(result), hash, HASH_SIZE);
-    return result;
-}
-
-static bool hash_equals(const uint8 *a, const uint8 *b)
-{
-    return memcmp(a, b, HASH_SIZE) == 0;
-}
 
 /* ============================================================================
  * Load Semantic Edges from Database (ONE query)

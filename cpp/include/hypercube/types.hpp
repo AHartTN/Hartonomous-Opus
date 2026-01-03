@@ -233,6 +233,18 @@ struct Composition {
     uint64_t atom_count;
 };
 
+// Semantic edge (weighted relationship between nodes)
+// Used for: embedding similarities, co-occurrence, etc.
+struct SemanticEdge {
+    Blake3Hash source;
+    Blake3Hash target;
+    float weight;  // Relationship strength (cosine similarity, frequency, etc.)
+    
+    SemanticEdge() = default;
+    SemanticEdge(const Blake3Hash& src, const Blake3Hash& tgt, float w)
+        : source(src), target(tgt), weight(w) {}
+};
+
 // Constants
 namespace constants {
     // Hypercube dimensions

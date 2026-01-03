@@ -230,3 +230,11 @@ CREATE OPERATOR CLASS hilbert_index_ops
         OPERATOR 4 >=,
         OPERATOR 5 >,
         FUNCTION 1 hilbert_index_cmp(hilbert_index, hilbert_index);
+
+
+-- CPE Content Hash - Compute Merkle DAG root from atom hashes
+CREATE OR REPLACE FUNCTION hypercube_content_hash(atom_hashes BYTEA[])
+RETURNS BYTEA
+AS '$libdir/hypercube', 'hypercube_content_hash'
+LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+

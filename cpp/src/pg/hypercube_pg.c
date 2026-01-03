@@ -366,3 +366,54 @@ Datum hypercube_centroid(PG_FUNCTION_ARGS)
     tuple = heap_form_tuple(tupdesc, values, nulls);
     PG_RETURN_DATUM(HeapTupleGetDatum(tuple));
 }
+
+/* ============================================================================
+ * Content Hash (CPE Cascade) - Compute Merkle DAG root hash for text
+ * ============================================================================ */
+
+PG_FUNCTION_INFO_V1(hypercube_content_hash);
+Datum hypercube_content_hash(PG_FUNCTION_ARGS)
+{
+    ArrayType *hashes_arr = PG_GETARG_ARRAYTYPE_P(0);
+    Datum *elems;
+    bool *nulls;
+    int nelems;
+    hc_hash_t *atom_hashes;
+    hc_hash_t result;
+    bytea *result_bytea;
+    int i;
+    
+    deconstruct_array(hashes_arr, BYTEAOID, -1, false, TYPALIGN_INT,
+                     &elems, &nulls, &nelems);
+    
+    if (nelems == 0) {
+        PG_RETURN_NULL();
+    }
+    
+    /* Convert bytea array to hc_hash_t array */
+    atom_hashes = (hc_hash_t *)palloc(nelems * sizeof(hc_hash_t));
+    for (i = 0; i < nelems; i++) {
+        if (nulls[i]) {
+            memset(atom_hashes[i].bytes, 0, HC_HASH_SIZE);
+        } else {
+            bytea *b = DatumGetByteaP(elems[i]);
+            if (VARSIZE(b) - VARHDRSZ >= HC_HASH_SIZE) {
+                memcpy(atom_hashes[i].bytes, VARDATA(b), HC_HASH_SIZE);
+            } else {
+                memset(atom_hashes[i].bytes, 0, HC_HASH_SIZE);
+            }
+        }
+    }
+    
+    /* Compute CPE cascade */
+    result = hc_content_hash_codepoints(NULL, nelems, atom_hashes);
+    
+    pfree(atom_hashes);
+    
+    /* Return as bytea */
+    result_bytea = (bytea *)palloc(VARHDRSZ + HC_HASH_SIZE);
+    SET_VARSIZE(result_bytea, VARHDRSZ + HC_HASH_SIZE);
+    memcpy(VARDATA(result_bytea), result.bytes, HC_HASH_SIZE);
+    
+    PG_RETURN_BYTEA_P(result_bytea);
+}

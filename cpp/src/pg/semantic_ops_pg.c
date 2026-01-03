@@ -26,6 +26,7 @@
 #include "access/htup_details.h"
 
 #include "hypercube_c.h"
+#include "pg_utils.h"
 
 #include <string.h>
 #include <math.h>
@@ -33,27 +34,6 @@
 #ifdef PG_MODULE_MAGIC
 PG_MODULE_MAGIC;
 #endif
-
-/* ============================================================================
- * Helper Functions
- * ============================================================================ */
-
-static void bytea_to_hash(bytea *b, uint8 *out)
-{
-    if (VARSIZE_ANY_EXHDR(b) >= 32) {
-        memcpy(out, VARDATA_ANY(b), 32);
-    } else {
-        memset(out, 0, 32);
-    }
-}
-
-static bytea *hash_to_bytea(const uint8 *hash)
-{
-    bytea *result = (bytea *)palloc(VARHDRSZ + 32);
-    SET_VARSIZE(result, VARHDRSZ + 32);
-    memcpy(VARDATA(result), hash, 32);
-    return result;
-}
 
 /* ============================================================================
  * semantic_hilbert_distance_128: 128-bit Hilbert distance

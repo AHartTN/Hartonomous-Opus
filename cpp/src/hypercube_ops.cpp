@@ -41,7 +41,7 @@ PG_MODULE_MAGIC;
 // Type Definitions
 // =============================================================================
 
-// 32-byte hash as fixed-size key
+// 32-byte hash as fixed-size key (local alias for Blake3Hash bytes)
 struct HashKey {
     uint8_t bytes[32];
     
@@ -76,14 +76,14 @@ struct AtomData {
     bool is_leaf;
 };
 
-// Graph edge for semantic operations
-struct SemanticEdge {
+// Graph neighbor for traversal (different from GraphNeighbor which stores edges)
+struct GraphNeighbor {
     HashKey target;
     double weight;
 };
 
 using AtomCache = std::unordered_map<HashKey, AtomData, HashKeyHasher>;
-using EdgeMap = std::unordered_map<HashKey, std::vector<SemanticEdge>, HashKeyHasher>;
+using EdgeMap = std::unordered_map<HashKey, std::vector<GraphNeighbor>, HashKeyHasher>;
 
 // =============================================================================
 // Helper Functions
@@ -387,7 +387,7 @@ static std::vector<std::pair<HashKey, double>> random_walk_cached(
         }
         
         // Filter to unvisited neighbors
-        std::vector<SemanticEdge> available;
+        std::vector<GraphNeighbor> available;
         for (const auto& edge : it->second) {
             if (visited.find(edge.target) == visited.end()) {
                 available.push_back(edge);
@@ -409,7 +409,7 @@ static std::vector<std::pair<HashKey, double>> random_walk_cached(
         double r = dist(rng);
         
         double cumulative = 0;
-        SemanticEdge chosen = available[0];
+        GraphNeighbor chosen = available[0];
         for (const auto& e : available) {
             cumulative += e.weight;
             if (r <= cumulative) {

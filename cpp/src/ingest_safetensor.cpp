@@ -39,11 +39,7 @@ struct TokenInfo {
     int64_t hilbert_lo, hilbert_hi;
 };
 
-struct SemanticEdge {
-    Blake3Hash from_token;
-    Blake3Hash to_token;
-    float weight;
-};
+// Use unified SemanticEdge from types.hpp
 
 static std::vector<TokenInfo> g_vocab;
 static std::unordered_map<std::string, size_t> g_token_to_idx;
@@ -185,9 +181,9 @@ bool insert_edges(PGconn* conn, const std::vector<SemanticEdge>& edges, float th
     
     for (const auto* e : filtered) {
         batch += "\\\\x";
-        batch += e->from_token.to_hex();
+        batch += e->source.to_hex();
         batch += "\t\\\\x";
-        batch += e->to_token.to_hex();
+        batch += e->target.to_hex();
         batch += "\t";
         batch += std::to_string(e->weight);
         batch += "\n";
@@ -335,10 +331,16 @@ std::vector<SemanticEdge> extract_safetensor_weights(const fs::path& safetensor_
     std::string header_json(header_buf.begin(), header_buf.end());
     
     // Parse to find embedding layer tensor name and shape
-    // Common patterns: "embeddings.weight", "word_embeddings.weight", "token_embedding.weight"
-    size_t embed_pos = header_json.find("\"embeddings\"");
+    // Common patterns: "embeddings.word_embeddings.weight", "word_embeddings.weight", "embed_tokens.weight"
+    size_t embed_pos = header_json.find("\"embeddings.word_embeddings.weight\"");
     if (embed_pos == std::string::npos) {
-        embed_pos = header_json.find("\"word_embeddings\"");
+        embed_pos = header_json.find("\"word_embeddings.weight\"");
+    }
+    if (embed_pos == std::string::npos) {
+        embed_pos = header_json.find("\"embed_tokens.weight\"");
+    }
+    if (embed_pos == std::string::npos) {
+        embed_pos = header_json.find("\"wte.weight\"");  // GPT-2 style
     }
     if (embed_pos == std::string::npos) {
         std::cerr << "[WEIGHTS] No embedding layer found\n";

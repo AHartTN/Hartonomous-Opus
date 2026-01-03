@@ -226,6 +226,30 @@ HC_API hc_hash_t hc_blake3_children(const hc_hash_t* children, size_t count);
 HC_API hc_hash_t hc_blake3_children_ordered(const hc_hash_t* children, size_t count);
 
 /**
+ * Compute content hash for UTF-8 text using CPE cascade
+ * This is the deterministic Merkle DAG root hash for any text content.
+ * Uses atom hashes from the database via callback.
+ * 
+ * @param text UTF-8 encoded text
+ * @param len Length of text in bytes
+ * @param atom_hashes Array of atom hashes (one per codepoint)
+ * @param atom_count Number of atoms
+ * @return Root hash of CPE Merkle DAG
+ */
+HC_API hc_hash_t hc_content_hash(const uint8_t* text, size_t len,
+                                  const hc_hash_t* atom_hashes, size_t atom_count);
+
+/**
+ * Compute content hash from codepoint array
+ * @param codepoints Array of Unicode codepoints
+ * @param count Number of codepoints
+ * @param atom_hashes Array of atom hashes (must match codepoints)
+ * @return Root hash of CPE Merkle DAG
+ */
+HC_API hc_hash_t hc_content_hash_codepoints(const uint32_t* codepoints, size_t count,
+                                             const hc_hash_t* atom_hashes);
+
+/**
  * Convert hash to hex string
  * @param hash Hash to convert
  * @param out Output buffer (must be at least 65 bytes for null terminator)

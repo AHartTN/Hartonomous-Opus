@@ -193,15 +193,6 @@ float cosine_similarity(const float* a, const float* b, size_t dim) {
     return dot / (std::sqrt(norm_a) * std::sqrt(norm_b));
 }
 
-// Semantic edge: stored in unified atom table
-// Edge = LINESTRINGZM with M coordinate encoding weight (strength of relationship)
-// ID = BLAKE3(src_hash || dst_hash) for content-addressing
-struct SemanticEdge {
-    Blake3Hash src_hash;
-    Blake3Hash dst_hash;
-    float weight;  // Cosine similarity = how beaten the path is
-};
-
 // Token cache: vocab index → hash + coordinates
 struct TokenAtom {
     Blake3Hash hash;
@@ -292,9 +283,9 @@ bool batch_insert_edges(PGconn* conn, const std::vector<SemanticEdge>& edges) {
 
     for (const auto& e : edges) {
         batch += "\\\\x";
-        batch += e.src_hash.to_hex();
+        batch += e.source.to_hex();
         batch += "\t\\\\x";
-        batch += e.dst_hash.to_hex();
+        batch += e.target.to_hex();
         batch += "\t";
         batch += std::to_string(e.weight);
         batch += "\n";

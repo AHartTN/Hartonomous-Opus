@@ -20,6 +20,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# RPATH settings - use install path even during build
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CMAKE_INSTALL_RPATH "/usr/lib/postgresql/18/lib")
+
 # Build type
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -358,14 +363,6 @@ if(PostgreSQL_FOUND)
     target_include_directories(seed_atoms_parallel PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(seed_atoms_parallel hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
-    add_executable(cpe_ingest src/cpe_ingest.cpp)
-    target_include_directories(cpe_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(cpe_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
-    
-    add_executable(sequitur_ingest src/sequitur_ingest.cpp)
-    target_include_directories(sequitur_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(sequitur_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
-    
     add_executable(ingest_safetensor src/ingest_safetensor.cpp)
     target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(ingest_safetensor hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
@@ -374,17 +371,28 @@ if(PostgreSQL_FOUND)
     target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
-    add_executable(semantic_ingest src/semantic_ingest.cpp)
-    target_include_directories(semantic_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(semantic_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
-
-    add_executable(vocabulary_ingest src/vocabulary_ingest.cpp)
-    target_include_directories(vocabulary_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(vocabulary_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    # -------------------------------------------------------------------------
+    # New modular ingester library
+    # -------------------------------------------------------------------------
+    add_library(hypercube_ingest STATIC
+        src/util/utf8.cpp
+        src/db/atom_cache.cpp
+        src/db/geometry.cpp
+        src/db/insert.cpp
+        src/ingest/cpe.cpp
+    )
+    target_include_directories(hypercube_ingest PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PostgreSQL_INCLUDE_DIRS}
+    )
+    target_link_libraries(hypercube_ingest
+        hypercube_core
+        ${PostgreSQL_LIBRARIES}
+    )
     
-    add_executable(grammar_ingest src/grammar_ingest.cpp)
-    target_include_directories(grammar_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(grammar_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    # New unified ingester tool
+    add_executable(ingest src/ingest/main.cpp)
+    target_link_libraries(ingest hypercube_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
     # Integration tests with libpq
     add_executable(test_integration tests/test_integration.cpp)

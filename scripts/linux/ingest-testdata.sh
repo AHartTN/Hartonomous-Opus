@@ -39,7 +39,7 @@ echo "Source: $TEST_DATA_DIR"
 echo ""
 
 # Find tools
-VOCAB_INGESTER="$HC_BUILD_DIR/vocabulary_ingest"
+INGESTER="$HC_BUILD_DIR/ingest"
 EMBEDDING_EXTRACTOR="$HC_BUILD_DIR/extract_embeddings"
 SAFETENSOR_INGESTER="$HC_BUILD_DIR/ingest_safetensor"
 
@@ -93,12 +93,12 @@ echo "┌───────────────────────�
 echo "│ STEP 2: INGESTING VOCABULARY (Token Compositions)                │"
 echo "└──────────────────────────────────────────────────────────────────┘"
 
-if [ -f "$VOCAB_FILE" ] && [ -x "$VOCAB_INGESTER" ]; then
+if [ -f "$VOCAB_FILE" ] && [ -x "$INGESTER" ]; then
     BEFORE_COUNT=$(get_comp_count)
     START_TIME=$(date +%s.%N)
     
     echo "  Ingesting vocab.txt..."
-    $VOCAB_INGESTER $DB_ARGS "$VOCAB_FILE" 2>&1 | grep -E "^\[|compositions|tokens" | head -10
+    $INGESTER $DB_ARGS "$VOCAB_FILE" 2>&1 | grep -E "^\[|compositions|OK" | head -10
     
     END_TIME=$(date +%s.%N)
     AFTER_COUNT=$(get_comp_count)
@@ -149,7 +149,7 @@ echo "┌───────────────────────�
 echo "│ STEP 4: INGESTING TEXT CONTENT                                   │"
 echo "└──────────────────────────────────────────────────────────────────┘"
 
-if [ -x "$VOCAB_INGESTER" ]; then
+if [ -x "$INGESTER" ]; then
     for file in "$TEST_DATA_DIR"/*.txt; do
         [ -f "$file" ] || continue
         filename=$(basename "$file")
@@ -160,8 +160,8 @@ if [ -x "$VOCAB_INGESTER" ]; then
         BEFORE_COUNT=$(get_comp_count)
         START_TIME=$(date +%s.%N)
         
-        # Capture output but don't show verbose logs
-        $VOCAB_INGESTER $DB_ARGS "$file" 2>&1 | grep -E "reused from vocab|new compositions" | tail -1
+        # Run ingester
+        $INGESTER $DB_ARGS "$file" 2>&1 | grep -E "compositions|OK" | tail -1
         
         END_TIME=$(date +%s.%N)
         AFTER_COUNT=$(get_comp_count)
@@ -171,7 +171,7 @@ if [ -x "$VOCAB_INGESTER" ]; then
         echo "    → +$NEW_COMPS compositions (${DURATION}s)"
     done
 else
-    echo "  ⚠ vocabulary_ingest not found - run build.sh first"
+    echo "  ⚠ ingest tool not found - run build.sh first"
 fi
 echo ""
 

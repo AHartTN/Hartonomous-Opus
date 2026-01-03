@@ -446,6 +446,62 @@ uint32_t hc_next_codepoint(uint32_t current) {
 }
 
 /* ============================================================================
+ * Content Hash (CPE Cascade)
+ * ============================================================================ */
+
+hc_hash_t hc_content_hash_codepoints(const uint32_t* codepoints, size_t count,
+                                      const hc_hash_t* atom_hashes) {
+    hc_hash_t result;
+    std::memset(result.bytes, 0, 32);
+    
+    if (atom_hashes == nullptr || count == 0) {
+        return result;
+    }
+    
+    if (count == 1) {
+        return atom_hashes[0];
+    }
+    
+    // CPE cascade: binary tree merging
+    std::vector<hc_hash_t> hashes(atom_hashes, atom_hashes + count);
+    
+    // Little-endian ordinal constants
+    uint8_t ord0[4] = {0, 0, 0, 0};  // ordinal 0
+    uint8_t ord1[4] = {1, 0, 0, 0};  // ordinal 1
+    
+    while (hashes.size() > 1) {
+        std::vector<hc_hash_t> merged;
+        merged.reserve((hashes.size() + 1) / 2);
+        
+        for (size_t i = 0; i < hashes.size(); i += 2) {
+            if (i + 1 < hashes.size()) {
+                // Merge pair: BLAKE3(ord0 || left || ord1 || right)
+                uint8_t input[72];  // 4 + 32 + 4 + 32
+                std::memcpy(input, ord0, 4);
+                std::memcpy(input + 4, hashes[i].bytes, 32);
+                std::memcpy(input + 36, ord1, 4);
+                std::memcpy(input + 40, hashes[i + 1].bytes, 32);
+                
+                merged.push_back(hc_blake3(input, 72));
+            } else {
+                // Odd element - carry forward
+                merged.push_back(hashes[i]);
+            }
+        }
+        hashes = std::move(merged);
+    }
+    
+    return hashes[0];
+}
+
+hc_hash_t hc_content_hash(const uint8_t* text, size_t len,
+                           const hc_hash_t* atom_hashes, size_t atom_count) {
+    // This function expects atom_hashes to already be in codepoint order
+    // The caller must have decoded UTF-8 and looked up atom hashes
+    return hc_content_hash_codepoints(nullptr, atom_count, atom_hashes);
+}
+
+/* ============================================================================
  * Memory Management
  * ============================================================================ */
 

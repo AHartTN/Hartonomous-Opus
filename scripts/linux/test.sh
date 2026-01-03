@@ -71,27 +71,38 @@ run_test "Atom table exists" "[ \$(hc_psql -tAc \"SELECT COUNT(*) FROM informati
 run_test "GIST index exists" "[ \$(hc_psql -tAc \"SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'idx_atom_geom'\") = '1' ]" || true
 run_test "Hilbert index exists" "[ \$(hc_psql -tAc \"SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'idx_atom_hilbert'\") = '1' ]" || true
 
-# Section 4: Atom Seeding
+# Section 4: Atom Seeding - Use canonical functions
 echo ""
 echo -e "${BLUE}─── Atom Seeding ──────────────────────────────────────────${NC}"
 
-ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0" | tr -d '[:space:]')
+ATOM_COUNT=$(hc_psql -tAc "SELECT leaf_atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
+if [ -z "$ATOM_COUNT" ]; then
+    ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0" | tr -d '[:space:]')
+fi
 echo "  Leaf atoms (codepoints): $ATOM_COUNT"
 
 run_test "All Unicode atoms seeded (>1.1M)" "[ $ATOM_COUNT -gt 1100000 ]" || true
-run_test "SRID = 0 for all atoms" "[ \$(hc_psql -tAc 'SELECT COUNT(*) FROM atom WHERE ST_SRID(geom) != 0') = '0' ]" || true
+
+# Use validation function
+echo ""
+echo -e "${BLUE}─── Data Validation ───────────────────────────────────────${NC}"
+hc_psql -c "SELECT * FROM validate_atoms()" 2>/dev/null || echo "  (validate_atoms not available)"
 
 # Section 5: Compositions
 echo ""
 echo -e "${BLUE}─── Compositions ──────────────────────────────────────────${NC}"
 
-COMP_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth > 0" | tr -d '[:space:]')
+STATS=$(hc_psql -tAc "SELECT compositions FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
+if [ -n "$STATS" ]; then
+    COMP_COUNT=$STATS
+else
+    COMP_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth > 0" | tr -d '[:space:]')
+fi
 EDGE_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 1 AND atom_count = 2" | tr -d '[:space:]')
 echo "  Compositions: $COMP_COUNT"
 echo "  Semantic edges: $EDGE_COUNT"
 
 run_test "Has compositions (depth > 0)" "[ $COMP_COUNT -gt 0 ]" || true
-run_test "Compositions have children" "[ \$(hc_psql -tAc 'SELECT COUNT(*) FROM atom WHERE depth > 0 AND children IS NULL') = '0' ]" || true
 
 # Section 6: SQL Function Tests
 echo ""

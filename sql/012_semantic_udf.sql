@@ -308,26 +308,18 @@ $$ LANGUAGE SQL STABLE;
 -- Compute the CPE cascade hash for a text string
 -- This matches how CPE builds composition hashes deterministically
 -- NOTE: Uses little-endian ordinals to match C++ implementation
+-- Compute content hash using C extension (fast CPE cascade)
+-- This replaces the slow plpgsql loop version
 CREATE OR REPLACE FUNCTION atom_content_hash(p_text TEXT)
 RETURNS BYTEA AS $$
 DECLARE
-    v_codepoints INTEGER[];
     v_hashes BYTEA[];
-    v_hash BYTEA;
-    v_left BYTEA;
-    v_right BYTEA;
-    -- Little-endian ordinal constants (matches C++ native byte order)
-    v_ord0 BYTEA := '\x00000000'::BYTEA;  -- 0 as uint32 little-endian
-    v_ord1 BYTEA := '\x01000000'::BYTEA;  -- 1 as uint32 little-endian
 BEGIN
-    -- Convert text to codepoints and get atom hashes
-    SELECT array_agg(codepoint ORDER BY ordinality), array_agg(id ORDER BY ordinality)
-    INTO v_codepoints, v_hashes
-    FROM (
-        SELECT ascii(chr) as codepoint, a.id, ordinality
-        FROM unnest(string_to_array(p_text, NULL)) WITH ORDINALITY AS chars(chr, ordinality)
-        JOIN atom a ON a.codepoint = ascii(chr)
-    ) t;
+    -- Get atom hashes in order
+    SELECT array_agg(a.id ORDER BY ordinality)
+    INTO v_hashes
+    FROM unnest(string_to_array(p_text, NULL)) WITH ORDINALITY AS chars(chr, ordinality)
+    JOIN atom a ON a.codepoint = ascii(chr);
 
     IF v_hashes IS NULL OR array_length(v_hashes, 1) = 0 THEN
         RETURN NULL;
@@ -337,35 +329,8 @@ BEGIN
         RETURN v_hashes[1];
     END IF;
 
-    -- CPE cascade: merge pairs until single root
-    WHILE array_length(v_hashes, 1) > 1 LOOP
-        DECLARE
-            v_merged BYTEA[] := ARRAY[]::BYTEA[];
-            v_len INTEGER := array_length(v_hashes, 1);
-            v_i INTEGER := 1;
-        BEGIN
-            WHILE v_i <= v_len LOOP
-                IF v_i + 1 <= v_len THEN
-                    -- Merge pair: BLAKE3(ordinal0 || left_hash || ordinal1 || right_hash)
-                    -- Ordinals use little-endian to match C++ implementation
-                    v_left := v_hashes[v_i];
-                    v_right := v_hashes[v_i + 1];
-                    v_hash := hypercube_blake3(
-                        v_ord0 || v_left || v_ord1 || v_right
-                    );
-                    v_merged := v_merged || v_hash;
-                    v_i := v_i + 2;
-                ELSE
-                    -- Odd element - carry forward
-                    v_merged := v_merged || v_hashes[v_i];
-                    v_i := v_i + 1;
-                END IF;
-            END LOOP;
-            v_hashes := v_merged;
-        END;
-    END LOOP;
-
-    RETURN v_hashes[1];
+    -- Use C extension for CPE cascade (much faster than plpgsql loops)
+    RETURN hypercube_content_hash(v_hashes);
 END;
 $$ LANGUAGE plpgsql STABLE;
 

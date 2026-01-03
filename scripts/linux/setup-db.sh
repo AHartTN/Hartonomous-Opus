@@ -62,8 +62,12 @@ else
     echo "  Continuing without extensions - some functions may be slower"
 fi
 
-# Check atom count
-ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0" | tr -d '[:space:]')
+# Check atom count using canonical function
+ATOM_COUNT=$(hc_psql -tAc "SELECT leaf_atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
+# Fallback if function doesn't exist yet
+if [ -z "$ATOM_COUNT" ]; then
+    ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0" | tr -d '[:space:]')
+fi
 echo -e "\nAtom count: $ATOM_COUNT"
 
 if [ "$ATOM_COUNT" -lt 1100000 ]; then
@@ -83,8 +87,8 @@ fi
 
 echo -e "\n=== Setup Complete ==="
 
-# Show stats
+# Show stats using canonical function
 echo -e "\nDatabase Statistics:"
-hc_psql -c "SELECT COUNT(*) as leaf_atoms FROM atom WHERE depth = 0; SELECT COUNT(*) as compositions FROM atom WHERE depth > 0; SELECT MAX(depth) as max_depth FROM atom;" 2>/dev/null || \
+hc_psql -c "SELECT * FROM db_stats()" 2>/dev/null || \
 hc_psql -c "SELECT * FROM atom_stats" 2>/dev/null || \
-echo "(stats view not available)"
+echo "(stats function not available)"
