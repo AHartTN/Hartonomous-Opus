@@ -303,10 +303,125 @@ int main(int argc, char* argv[]) {
     }
     
     if (!model_path.empty()) {
-        std::cerr << "[3] Model found: " << model_path << " (weight extraction not yet implemented)\n";
+        std::cerr << "[3] Extracting semantic edges from: " << model_path << "\n";
+        auto weight_edges = extract_safetensor_weights(model_path, config);
+        std::cerr << "[WEIGHTS] Extracted " << weight_edges.size() << " semantic edges\n";
+        insert_edges(conn, weight_edges, config.weight_threshold);
     }
     
     PQfinish(conn);
     std::cerr << "\n=== Complete ===\n";
     return 0;
+}
+
+std::vector<SemanticEdge> extract_safetensor_weights(const fs::path& safetensor_path, const IngestConfig& config) {
+    std::vector<SemanticEdge> edges;
+    std::ifstream file(safetensor_path, std::ios::binary);
+    if (!file) {
+        std::cerr << "Failed to open: " << safetensor_path << "\n";
+        return edges;
+    }
+    
+    // Read 8-byte header size
+    uint64_t header_size;
+    file.read(reinterpret_cast<char*>(&header_size), 8);
+    
+    // Read JSON header
+    std::vector<char> header_buf(header_size);
+    file.read(header_buf.data(), header_size);
+    std::string header_json(header_buf.begin(), header_buf.end());
+    
+    // Parse to find embedding layer tensor name and shape
+    // Common patterns: "embeddings.weight", "word_embeddings.weight", "token_embedding.weight"
+    size_t embed_pos = header_json.find("\"embeddings\"");
+    if (embed_pos == std::string::npos) {
+        embed_pos = header_json.find("\"word_embeddings\"");
+    }
+    if (embed_pos == std::string::npos) {
+        std::cerr << "[WEIGHTS] No embedding layer found\n";
+        return edges;
+    }
+    
+    // Extract shape: [vocab_size, embedding_dim]
+    size_t shape_start = header_json.find("\"shape\"", embed_pos);
+    size_t bracket_start = header_json.find("[", shape_start);
+    size_t bracket_end = header_json.find("]", bracket_start);
+    std::string shape_str = header_json.substr(bracket_start + 1, bracket_end - bracket_start - 1);
+    
+    size_t comma_pos = shape_str.find(",");
+    int vocab_size = std::stoi(shape_str.substr(0, comma_pos));
+    int embed_dim = std::stoi(shape_str.substr(comma_pos + 1));
+    
+    std::cerr << "[WEIGHTS] Found embeddings: " << vocab_size << " tokens x " << embed_dim << " dims\n";
+    
+    // Extract data offset
+    size_t offset_start = header_json.find("\"data_offsets\"", embed_pos);
+    size_t offset_bracket = header_json.find("[", offset_start);
+    size_t offset_end = header_json.find("]", offset_bracket);
+    std::string offset_str = header_json.substr(offset_bracket + 1, offset_end - offset_bracket - 1);
+    comma_pos = offset_str.find(",");
+    uint64_t data_start = std::stoull(offset_str.substr(0, comma_pos));
+    
+    // Seek to embedding weights
+    file.seekg(8 + header_size + data_start);
+    
+    // Compute cosine similarity between all token pairs (sparse: only top-k per token)
+    std::cerr << "[WEIGHTS] Computing top-" << config.top_k_per_token << " similarities per token...\n";
+    
+    for (int i = 0; i < std::min(vocab_size, (int)g_vocab.size()); i++) {
+        if (i % 1000 == 0) std::cerr << "  " << i << "/" << vocab_size << "\r" << std::flush;
+        
+        // Read embedding for token i
+        std::vector<float> embed_i(embed_dim);
+        file.read(reinterpret_cast<char*>(embed_i.data()), embed_dim * sizeof(float));
+        
+        float norm_i = 0.0f;
+        for (float v : embed_i) norm_i += v * v;
+        norm_i = std::sqrt(norm_i);
+        
+        // Track top-k most similar
+        std::vector<std::pair<float, int>> top_k;
+        
+        // Compare with all other tokens
+        auto current_pos = file.tellg();
+        file.seekg(8 + header_size + data_start);
+        
+        for (int j = 0; j < std::min(vocab_size, (int)g_vocab.size()); j++) {
+            if (i == j) {
+                file.seekg(embed_dim * sizeof(float), std::ios::cur);
+                continue;
+            }
+            
+            std::vector<float> embed_j(embed_dim);
+            file.read(reinterpret_cast<char*>(embed_j.data()), embed_dim * sizeof(float));
+            
+            float norm_j = 0.0f;
+            float dot = 0.0f;
+            for (int k = 0; k < embed_dim; k++) {
+                dot += embed_i[k] * embed_j[k];
+                norm_j += embed_j[k] * embed_j[k];
+            }
+            norm_j = std::sqrt(norm_j);
+            
+            float cosine = dot / (norm_i * norm_j + 1e-8f);
+            
+            if (cosine > config.weight_threshold) {
+                top_k.push_back({cosine, j});
+                if (top_k.size() > config.top_k_per_token) {
+                    std::sort(top_k.begin(), top_k.end(), std::greater<>());
+                    top_k.resize(config.top_k_per_token);
+                }
+            }
+        }
+        
+        // Create edges
+        for (auto [weight, j] : top_k) {
+            edges.push_back({g_vocab[i].hash, g_vocab[j].hash, weight});
+        }
+        
+        file.seekg(current_pos);
+    }
+    
+    std::cerr << "\n";
+    return edges;
 }

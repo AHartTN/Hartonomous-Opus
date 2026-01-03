@@ -52,6 +52,15 @@ try {
         exit 1
     }
     Write-Host "Schema applied" -ForegroundColor Green
+    
+    # Load C++ extensions if available
+    Write-Host "`nLoading C++ extensions..."
+    $extResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "CREATE EXTENSION IF NOT EXISTS hypercube; CREATE EXTENSION IF NOT EXISTS semantic_ops;" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "C++ extensions loaded" -ForegroundColor Green
+    } else {
+        Write-Host "Warning: C++ extensions not available (run build.ps1 -Install)" -ForegroundColor Yellow
+    }
 
     # Check atom count
     $atomCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0"

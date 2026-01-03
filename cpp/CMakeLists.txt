@@ -16,17 +16,16 @@ endif()
 find_package(Threads REQUIRED)
 
 # Compiler flags - platform specific
-if(MSVC)
-    # Microsoft Visual C++
-    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG /W4 /EHsc")
-    set(CMAKE_CXX_FLAGS_DEBUG "/Od /DDEBUG /W4 /Zi /EHsc /RTC1")
-    # Disable some noisy warnings
-    add_compile_options(/wd4244 /wd4267 /wd4996)
+if(MSVC OR (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+    # Microsoft Visual C++ or Clang-CL on Windows
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG /W3 /EHsc")
+    set(CMAKE_CXX_FLAGS_DEBUG "/Od /DDEBUG /W3 /Zi /EHsc")
+    add_compile_options(/wd4244 /wd4267 /wd4996 /wd4005)
+    set(CMAKE_CXX_COMPILER_ID "MSVC")
 else()
-    # GCC/Clang
+    # GCC/Clang on Unix
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -Wall -Wextra")
     set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
-    # Only enable sanitizers on non-Windows (MSVC doesn't support them the same way)
     if(NOT WIN32)
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address,undefined")
     endif()
@@ -76,6 +75,16 @@ target_include_directories(hypercube_core PUBLIC
 
 # PostgreSQL extension (only if PostgreSQL found)
 if(BUILD_PG_EXTENSION)
+    # Windows-specific PostgreSQL configuration
+    if(WIN32)
+        add_compile_definitions(
+            WIN32_LEAN_AND_MEAN
+            _CRT_SECURE_NO_WARNINGS
+            _WINSOCK_DEPRECATED_NO_WARNINGS
+            BUILDING_DLL
+        )
+    endif()
+    
     add_library(hypercube SHARED
         src/hypercube.cpp
     )
@@ -85,9 +94,24 @@ if(BUILD_PG_EXTENSION)
         ${POSTGRESQL_SERVER_INCLUDE}
     )
     
+    # Windows: Add PostgreSQL's Windows compatibility headers
+    if(WIN32)
+        target_include_directories(hypercube PRIVATE
+            ${POSTGRESQL_SERVER_INCLUDE}/port/win32_msvc
+        )
+    endif()
+    
     target_link_libraries(hypercube
         hypercube_core
     )
+    
+    # Windows: Link against postgres.lib for extension symbols
+    if(WIN32)
+        find_library(POSTGRES_LIB postgres HINTS "${POSTGRESQL_PKGLIBDIR}")
+        if(POSTGRES_LIB)
+            target_link_libraries(hypercube ${POSTGRES_LIB})
+        endif()
+    endif()
     
     target_compile_definitions(hypercube PRIVATE
         HYPERCUBE_VERSION="${PROJECT_VERSION}"
@@ -117,9 +141,24 @@ if(BUILD_PG_EXTENSION)
         ${POSTGRESQL_SERVER_INCLUDE}
     )
     
+    # Windows: Add PostgreSQL's Windows compatibility headers
+    if(WIN32)
+        target_include_directories(semantic_ops PRIVATE
+            ${POSTGRESQL_SERVER_INCLUDE}/port/win32_msvc
+        )
+    endif()
+    
     target_link_libraries(semantic_ops
         hypercube_core
     )
+    
+    # Windows: Link against postgres.lib for extension symbols
+    if(WIN32)
+        find_library(POSTGRES_LIB postgres HINTS "${POSTGRESQL_PKGLIBDIR}")
+        if(POSTGRES_LIB)
+            target_link_libraries(semantic_ops ${POSTGRES_LIB})
+        endif()
+    endif()
     
     set_target_properties(semantic_ops PROPERTIES PREFIX "")
     

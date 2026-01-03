@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Models\\\\embedding_models\\\\models--sentence-transformers--all-MiniLM-L6-v2\" -Recurse)",
+      "Bash(Select-Object FullName, Length)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(powershell.exe -Command \"Test-Path ''D:\\\\Repositories\\\\Github\\\\AHartTN\\\\Hartonomous-Opus\\\\cpp\\\\build''\")",
+      "Bash(powershell.exe -Command \"mkdir ''D:\\\\Repositories\\\\Github\\\\AHartTN\\\\Hartonomous-Opus\\\\cpp\\\\build'' -Force; cd ''D:\\\\Repositories\\\\Github\\\\AHartTN\\\\Hartonomous-Opus\\\\cpp\\\\build''; cmake .. -DCMAKE_BUILD_TYPE=Release 2>&1\")",
+      "Bash(powershell.exe:*)"
+    ]
+  }
+}

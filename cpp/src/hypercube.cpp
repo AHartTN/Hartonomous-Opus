@@ -2,15 +2,22 @@
  * PostgreSQL Extension: hypercube
  * 
  * Provides 4D Hilbert curve indexing for semantic coordinate system.
- * 
- * Functions:
- * - hypercube_coords_to_hilbert(x, y, z, m) -> (hilbert_lo, hilbert_hi)
- * - hypercube_hilbert_to_coords(lo, hi) -> (x, y, z, m)
- * - hypercube_blake3(data) -> bytea
- * - hypercube_map_codepoint(codepoint) -> (x, y, z, m, hilbert_lo, hilbert_hi, hash)
- * - hypercube_categorize(codepoint) -> text
- * - hypercube_seed_atoms() -> SETOF atom_record
  */
+
+#ifdef _WIN32
+#define _WINSOCKAPI_
+#endif
+
+#include "hypercube/types.hpp"
+#include "hypercube/hilbert.hpp"
+#include "hypercube/coordinates.hpp"
+#include "hypercube/blake3.hpp"
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <windows.h>
+#define stat _stat
+#endif
 
 extern "C" {
 #include "postgres.h"
@@ -24,11 +31,6 @@ extern "C" {
 PG_MODULE_MAGIC;
 #endif
 }
-
-#include "hypercube/types.hpp"
-#include "hypercube/hilbert.hpp"
-#include "hypercube/coordinates.hpp"
-#include "hypercube/blake3.hpp"
 
 using namespace hypercube;
 

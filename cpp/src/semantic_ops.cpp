@@ -2,16 +2,36 @@
  * PostgreSQL Extension: semantic_ops
  * 
  * High-performance C++ implementations for semantic query operations.
- * Offloads recursive traversals, distance calculations, and graph walks from SQL.
- * 
- * Functions:
- * - semantic_traverse(root_id) -> SETOF (id, depth, path, content)
- * - semantic_find_path(from_id, to_id) -> path
- * - semantic_nearest_k(target_id, k) -> SETOF (id, distance)
- * - semantic_hilbert_range(center_id, range) -> SETOF id
- * - semantic_reconstruct(root_id) -> text
- * - semantic_centroid_4d(x[], y[], z[], m[]) -> (x, y, z, m)
  */
+
+#include <vector>
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>
+#include <cstring>
+#include <cmath>
+
+#ifdef _WIN32
+#define _WINSOCKAPI_
+#endif
+
+#include <vector>
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>
+#include <cstring>
+#include <cmath>
+
+#include "hypercube/types.hpp"
+#include "hypercube/hilbert.hpp"
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <windows.h>
+#define stat _stat
+#endif
 
 extern "C" {
 #include "postgres.h"
@@ -28,17 +48,6 @@ extern "C" {
 PG_MODULE_MAGIC;
 #endif
 }
-
-#include <vector>
-#include <queue>
-#include <unordered_map>
-#include <unordered_set>
-#include <algorithm>
-#include <cstring>
-#include <cmath>
-
-#include "hypercube/types.hpp"
-#include "hypercube/hilbert.hpp"
 
 using namespace hypercube;
 
