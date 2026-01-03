@@ -307,8 +307,7 @@ Datum semantic_traverse(PG_FUNCTION_ARGS)
 /* ============================================================================
  * semantic_reconstruct: Text reconstruction from composition
  * 
- * Simple iterative approach using SPI - fetch children on demand.
- * Uses a stack to avoid recursion and palloc in caller's context.
+ * Uses SQL CTE for safety - avoids SPI recursion issues that crash PostgreSQL.
  * ============================================================================ */
 
 PG_FUNCTION_INFO_V1(semantic_reconstruct);
@@ -319,129 +318,49 @@ Datum semantic_reconstruct(PG_FUNCTION_ARGS)
         PG_RETURN_TEXT_P(cstring_to_text(""));
     }
     
-    /* Copy root hash to local buffer */
-    uint8 root_hash[32];
-    memcpy(root_hash, VARDATA_ANY(root_arg), 32);
-    
-    /* Save caller's memory context */
-    MemoryContext caller_ctx = CurrentMemoryContext;
-    
-    /* 
-     * Allocate result buffer in CALLER context BEFORE SPI_connect.
-     * This ensures the buffer survives SPI_finish.
-     */
-    #define RESULT_INIT_SIZE 4096
-    #define MAX_RESULT_SIZE (64 * 1024 * 1024)  /* 64MB max */
-    
-    char *result_buf = (char *)palloc(RESULT_INIT_SIZE);
-    int result_len = 0;
-    int result_cap = RESULT_INIT_SIZE;
+    char hex[65];
+    uint8 *hash_bytes = (uint8 *)VARDATA_ANY(root_arg);
+    for (int i = 0; i < 32; i++)
+        snprintf(hex + i*2, 3, "%02x", hash_bytes[i]);
     
     if (SPI_connect() != SPI_OK_CONNECT)
         ereport(ERROR, (errmsg("SPI_connect failed")));
     
-    /* Stack for DFS traversal - array of 32-byte hashes */
-    #define MAX_STACK_DEPTH 10000
-    uint8 *stack = (uint8 *)palloc(MAX_STACK_DEPTH * 32);
-    int stack_top = 0;
+    /* Use a CTE to do the traversal in SQL - much safer than recursive SPI */
+    char query[1024];
+    snprintf(query, sizeof(query),
+        "WITH RECURSIVE tree AS ("
+        "  SELECT id, children, value, 1 as ord, ARRAY[1] as path "
+        "  FROM atom WHERE id = '\\x%s' "
+        "  UNION ALL "
+        "  SELECT a.id, a.children, a.value, c.ordinal::int, t.path || c.ordinal::int "
+        "  FROM tree t "
+        "  CROSS JOIN LATERAL unnest(t.children) WITH ORDINALITY AS c(child_id, ordinal) "
+        "  JOIN atom a ON a.id = c.child_id "
+        "  WHERE t.children IS NOT NULL "
+        ") "
+        "SELECT convert_from(string_agg(value, ''::bytea ORDER BY path), 'UTF8') "
+        "FROM tree WHERE value IS NOT NULL",
+        hex);
     
-    /* Push root */
-    memcpy(stack, root_hash, 32);
-    stack_top = 1;
+    int ret = SPI_execute(query, true, 1);
     
-    char query[256];
-    
-    while (stack_top > 0) {
-        /* Pop from stack */
-        stack_top--;
-        uint8 *current_id = stack + stack_top * 32;
-        
-        /* Build hex string for query */
-        char hex[65];
-        for (int i = 0; i < 32; i++)
-            snprintf(hex + i*2, 3, "%02x", current_id[i]);
-        
-        /* Query this node */
-        snprintf(query, sizeof(query),
-            "SELECT value, children FROM atom WHERE id = '\\x%s'", hex);
-        
-        int ret = SPI_execute(query, true, 1);
-        if (ret != SPI_OK_SELECT || SPI_processed == 0)
-            continue;
-        
-        HeapTuple tuple = SPI_tuptable->vals[0];
-        TupleDesc tupdesc = SPI_tuptable->tupdesc;
-        bool value_null, children_null;
-        
-        Datum value_datum = SPI_getbinval(tuple, tupdesc, 1, &value_null);
-        Datum children_datum = SPI_getbinval(tuple, tupdesc, 2, &children_null);
-        
-        if (!value_null) {
-            /* Leaf node - append value to result buffer in caller context */
-            bytea *val = DatumGetByteaPP(value_datum);
-            int len = VARSIZE_ANY_EXHDR(val);
-            
-            /* Check capacity, grow if needed */
-            while (result_len + len > result_cap) {
-                if (result_cap >= MAX_RESULT_SIZE) {
-                    SPI_freetuptable(SPI_tuptable);
-                    SPI_finish();
-                    ereport(ERROR, (errmsg("semantic_reconstruct: result too large")));
-                }
-                
-                /* Grow in caller context */
-                MemoryContext old_ctx = MemoryContextSwitchTo(caller_ctx);
-                int new_cap = result_cap * 2;
-                char *new_buf = (char *)palloc(new_cap);
-                memcpy(new_buf, result_buf, result_len);
-                pfree(result_buf);
-                result_buf = new_buf;
-                result_cap = new_cap;
-                MemoryContextSwitchTo(old_ctx);
-            }
-            
-            memcpy(result_buf + result_len, VARDATA_ANY(val), len);
-            result_len += len;
+    text *result;
+    if (ret == SPI_OK_SELECT && SPI_processed > 0) {
+        bool isnull;
+        Datum val = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull);
+        if (!isnull) {
+            text *t = DatumGetTextPP(val);
+            result = (text *)SPI_palloc(VARSIZE_ANY(t));
+            memcpy(result, t, VARSIZE_ANY(t));
+        } else {
+            result = cstring_to_text("");
         }
-        else if (!children_null) {
-            /* Composition node - push children in REVERSE order for correct DFS */
-            ArrayType *arr = DatumGetArrayTypeP(children_datum);
-            int nelems = ArrayGetNItems(ARR_NDIM(arr), ARR_DIMS(arr));
-            
-            if (nelems > 0 && stack_top + nelems <= MAX_STACK_DEPTH) {
-                Datum *elems;
-                bool *nulls;
-                int n;
-                deconstruct_array(arr, BYTEAOID, -1, false, TYPALIGN_INT,
-                                 &elems, &nulls, &n);
-                
-                /* Push in reverse order so first child is processed first */
-                for (int i = n - 1; i >= 0; i--) {
-                    if (!nulls[i]) {
-                        bytea *child = DatumGetByteaPP(elems[i]);
-                        if (VARSIZE_ANY_EXHDR(child) >= 32) {
-                            memcpy(stack + stack_top * 32, VARDATA_ANY(child), 32);
-                            stack_top++;
-                        }
-                    }
-                }
-            }
-        }
-        
-        /* Free SPI tuple table for next iteration */
         SPI_freetuptable(SPI_tuptable);
+    } else {
+        result = cstring_to_text("");
     }
     
-    pfree(stack);
     SPI_finish();
-    
-    /* Now we're in caller context with result_buf containing the data */
-    if (result_len > 0) {
-        text *output = cstring_to_text_with_len(result_buf, result_len);
-        pfree(result_buf);
-        PG_RETURN_TEXT_P(output);
-    }
-    
-    pfree(result_buf);
-    PG_RETURN_TEXT_P(cstring_to_text(""));
+    PG_RETURN_TEXT_P(result);
 }
