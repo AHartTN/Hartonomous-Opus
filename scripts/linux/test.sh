@@ -1,6 +1,6 @@
 #!/bin/bash
 # Hartonomous Hypercube - Test Suite (Linux)
-# Runs all tests: C++ unit tests, integration tests, SQL tests
+# Runs all tests: C++ unit tests, integration tests, SQL tests, AI operations
 # Usage: ./scripts/linux/test.sh [--quick]
 
 set -e
@@ -81,15 +81,52 @@ echo "  Leaf atoms (codepoints): $ATOM_COUNT"
 run_test "All Unicode atoms seeded (>1.1M)" "[ $ATOM_COUNT -gt 1100000 ]" || true
 run_test "SRID = 0 for all atoms" "[ \$(hc_psql -tAc 'SELECT COUNT(*) FROM atom WHERE ST_SRID(geom) != 0') = '0' ]" || true
 
-# Section 5: SQL Function Tests
+# Section 5: Compositions
+echo ""
+echo -e "${BLUE}─── Compositions ──────────────────────────────────────────${NC}"
+
+COMP_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth > 0" | tr -d '[:space:]')
+EDGE_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 1 AND atom_count = 2" | tr -d '[:space:]')
+echo "  Compositions: $COMP_COUNT"
+echo "  Semantic edges: $EDGE_COUNT"
+
+run_test "Has compositions (depth > 0)" "[ $COMP_COUNT -gt 0 ]" || true
+run_test "Compositions have children" "[ \$(hc_psql -tAc 'SELECT COUNT(*) FROM atom WHERE depth > 0 AND children IS NULL') = '0' ]" || true
+
+# Section 6: SQL Function Tests
 echo ""
 echo -e "${BLUE}─── SQL Function Tests ────────────────────────────────────${NC}"
 
 run_test "atom_is_leaf()" "[ \$(hc_psql -tAc \"SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))\") = 't' ]" || true
 run_test "atom_centroid()" "[ \$(hc_psql -tAc \"SELECT (atom_centroid((SELECT id FROM atom WHERE codepoint = 65))).x IS NOT NULL\") = 't' ]" || true
 run_test "atom_reconstruct_text()" "[ \"\$(hc_psql -tAc \"SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 65))\")\" = 'A' ]" || true
+run_test "atom_content_hash()" "[ \$(hc_psql -tAc \"SELECT length(encode(atom_content_hash('hello'), 'hex'))\") = '64' ]" || true
 
-# Section 6: C++ Integration Tests
+# Section 7: AI/ML Operations Tests
+echo ""
+echo -e "${BLUE}─── AI/ML Operations ──────────────────────────────────────${NC}"
+
+if [ $COMP_COUNT -gt 100 ]; then
+    # Test semantic neighbors
+    run_test "semantic_neighbors()" "hc_psql -tAc \"SELECT COUNT(*) FROM semantic_neighbors((SELECT id FROM atom WHERE codepoint = 116), 5)\" | grep -E '^[0-5]$'" || true
+    
+    # Test attention
+    run_test "attention()" "hc_psql -tAc \"SELECT COUNT(*) FROM attention((SELECT id FROM atom WHERE depth > 0 LIMIT 1), 5)\" | grep -E '^[0-5]$'" || true
+    
+    # Test content hash lookup
+    run_test "Content hash: 'the'" "[ \$(hc_psql -tAc \"SELECT EXISTS(SELECT 1 FROM atom WHERE id = atom_content_hash('the'))\") = 't' ]" || true
+    run_test "Content hash: 'man'" "[ \$(hc_psql -tAc \"SELECT EXISTS(SELECT 1 FROM atom WHERE id = atom_content_hash('man'))\") = 't' ]" || true
+    
+    # Test spatial queries
+    run_test "Spatial KNN" "hc_psql -tAc \"SELECT COUNT(*) FROM atom_nearest_spatial((SELECT id FROM atom WHERE depth > 0 LIMIT 1), 5)\" 2>/dev/null | grep -E '^[0-5]$'" || true
+    
+    # Test Hilbert range queries
+    run_test "Hilbert range query" "hc_psql -c \"SELECT COUNT(*) FROM atom a, atom t WHERE t.codepoint = 65 AND a.hilbert_hi = t.hilbert_hi AND a.hilbert_lo BETWEEN t.hilbert_lo - 1000 AND t.hilbert_lo + 1000\" >/dev/null" || true
+else
+    echo -e "  ${YELLOW}Skipping AI tests (need compositions - run ingest-testdata.sh first)${NC}"
+fi
+
+# Section 8: C++ Integration Tests
 echo ""
 echo -e "${BLUE}─── C++ Integration Tests ─────────────────────────────────${NC}"
 
@@ -111,5 +148,17 @@ else
 fi
 echo "════════════════════════════════════════════════════════════════"
 echo ""
+
+# System stats
+echo "System Statistics:"
+hc_psql -c "
+SELECT 
+    COUNT(*) FILTER (WHERE depth = 0) as \"Atoms\",
+    COUNT(*) FILTER (WHERE depth > 0 AND atom_count > 2) as \"Compositions\",
+    COUNT(*) FILTER (WHERE depth = 1 AND atom_count = 2) as \"Edges\",
+    MAX(depth) as \"MaxDepth\",
+    pg_size_pretty(pg_total_relation_size('atom')) as \"Size\"
+FROM atom;
+" 2>/dev/null || true
 
 exit $TESTS_FAILED

@@ -382,6 +382,10 @@ if(PostgreSQL_FOUND)
     target_include_directories(vocabulary_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(vocabulary_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
+    add_executable(grammar_ingest src/grammar_ingest.cpp)
+    target_include_directories(grammar_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(grammar_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
     # Integration tests with libpq
     add_executable(test_integration tests/test_integration.cpp)
     target_include_directories(test_integration PRIVATE ${PostgreSQL_INCLUDE_DIRS})

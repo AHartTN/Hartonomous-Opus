@@ -53,16 +53,61 @@ $$ LANGUAGE SQL STABLE;
 -- =============================================================================
 
 -- Reconstruct bytes from composition (recursive)
+-- Reconstruct bytes from composition (recursive, handles RLE)
+-- RLE compositions have 1 child but atom_count > 1, meaning child is repeated
 CREATE OR REPLACE FUNCTION atom_reconstruct(p_id BYTEA) RETURNS BYTEA AS $$
 WITH RECURSIVE tree AS (
-    SELECT id, children, value, ARRAY[]::INTEGER[] AS path
+    -- Base case: start with the root
+    SELECT 
+        id, 
+        children, 
+        value, 
+        atom_count,
+        ARRAY[]::INTEGER[] AS path,
+        1 AS repeat_idx,
+        -- RLE: if 1 child but atom_count > 1, need to repeat
+        CASE 
+            WHEN array_length(children, 1) = 1 AND atom_count > 1 
+            THEN atom_count 
+            ELSE 1 
+        END AS repeat_count
     FROM atom WHERE id = p_id
     
     UNION ALL
     
-    SELECT a.id, a.children, a.value, t.path || c.ord::INTEGER
+    -- Recursive: expand children, handling RLE repetition
+    SELECT 
+        a.id, 
+        a.children, 
+        a.value,
+        a.atom_count,
+        t.path || c.ord::INTEGER,
+        1 AS repeat_idx,
+        CASE 
+            WHEN array_length(a.children, 1) = 1 AND a.atom_count > 1 
+            THEN a.atom_count 
+            ELSE 1 
+        END AS repeat_count
     FROM tree t
-    CROSS JOIN LATERAL unnest(t.children) WITH ORDINALITY AS c(child_id, ord)
+    CROSS JOIN LATERAL (
+        -- For RLE (1 child, atom_count > 1), repeat the child atom_count times
+        SELECT t.children[1] AS child_id, g.n AS ord
+        FROM generate_series(1, 
+            CASE 
+                WHEN array_length(t.children, 1) = 1 AND t.atom_count > 1 
+                THEN t.atom_count::INTEGER
+                ELSE array_length(t.children, 1) 
+            END
+        ) g(n)
+        WHERE array_length(t.children, 1) = 1 AND t.atom_count > 1
+        
+        UNION ALL
+        
+        -- Normal: unnest children as usual
+        SELECT child_id, ord::INTEGER
+        FROM unnest(t.children) WITH ORDINALITY AS u(child_id, ord)
+        WHERE array_length(t.children, 1) != 1 OR t.atom_count = 1
+    ) c
     JOIN atom a ON a.id = c.child_id
     WHERE t.children IS NOT NULL
 )

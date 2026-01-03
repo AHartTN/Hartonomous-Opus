@@ -24,6 +24,7 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -90,12 +91,26 @@ struct EdgeRecord {
 // Global Vocabulary Cache
 // =============================================================================
 
-// Map from hash hex string to composition info
-static std::unordered_map<std::string, CompositionInfo> g_vocabulary;
+// Blake3Hash hasher for use as map key (avoids .to_hex() string allocations)
+struct Blake3HashHasher {
+    size_t operator()(const Blake3Hash& h) const {
+        size_t result;
+        std::memcpy(&result, h.bytes.data(), sizeof(result));
+        return result;
+    }
+};
+struct Blake3HashEqual {
+    bool operator()(const Blake3Hash& a, const Blake3Hash& b) const {
+        return a.bytes == b.bytes;
+    }
+};
+
+// Map from hash to composition info (NO string conversion)
+static std::unordered_map<Blake3Hash, CompositionInfo, Blake3HashHasher, Blake3HashEqual> g_vocabulary;
 
 // Map from children hash (concatenated child hashes) to composition hash
 // This allows O(1) lookup: "do we have a composition for these children?"
-static std::unordered_map<std::string, std::string> g_children_to_hash;
+static std::unordered_map<std::string, Blake3Hash> g_children_to_hash;
 
 // Edge key: 64 bytes (source + target hashes concatenated)
 struct EdgeKey {
@@ -128,7 +143,7 @@ struct AtomInfo {
     int32_t coord_x, coord_y, coord_z, coord_m;
 };
 static std::unordered_map<uint32_t, AtomInfo> g_atom_cache;
-static std::unordered_map<std::string, uint32_t> g_hash_to_codepoint;  // Reverse lookup
+static std::unordered_map<Blake3Hash, uint32_t, Blake3HashHasher, Blake3HashEqual> g_hash_to_codepoint;  // Reverse lookup
 
 // =============================================================================
 // Helper Functions
@@ -141,6 +156,35 @@ inline int32_t as_int32(uint32_t val) { return static_cast<int32_t>(val); }
 inline int64_t as_int64(uint64_t val) { return static_cast<int64_t>(val); }
 
 // Build children key for lookup
+// Children key using raw bytes (no string conversion)
+struct ChildrenKey {
+    std::vector<uint8_t> bytes;
+    
+    ChildrenKey() = default;
+    explicit ChildrenKey(const std::vector<Blake3Hash>& children) {
+        bytes.reserve(children.size() * 32);
+        for (const auto& h : children) {
+            bytes.insert(bytes.end(), h.bytes.begin(), h.bytes.end());
+        }
+    }
+    
+    bool operator==(const ChildrenKey& other) const {
+        return bytes == other.bytes;
+    }
+};
+
+struct ChildrenKeyHash {
+    size_t operator()(const ChildrenKey& k) const {
+        if (k.bytes.size() >= 8) {
+            size_t h;
+            std::memcpy(&h, k.bytes.data(), sizeof(h));
+            return h;
+        }
+        return 0;
+    }
+};
+
+// Legacy string version for compatibility during transition
 std::string make_children_key(const std::vector<Blake3Hash>& children) {
     std::string key;
     key.reserve(children.size() * 64);
@@ -175,18 +219,29 @@ Blake3Hash compute_composition_hash(const std::vector<Blake3Hash>& children) {
 // =============================================================================
 
 // Compute atom hash for a codepoint (deterministic)
+// MUST match seed_atoms_parallel.cpp which uses UTF-8 encoding
 Blake3Hash compute_atom_hash(uint32_t codepoint) {
-    // Match the SQL: atom_content_hash uses little-endian ordinal
-    uint8_t bytes[4];
-    bytes[0] = codepoint & 0xFF;
-    bytes[1] = (codepoint >> 8) & 0xFF;
-    bytes[2] = (codepoint >> 16) & 0xFF;
-    bytes[3] = (codepoint >> 24) & 0xFF;
-    return Blake3Hasher::hash(std::span<const uint8_t>(bytes, 4));
+    // Use the canonical hash_codepoint which hashes UTF-8 bytes
+    return Blake3Hasher::hash_codepoint(codepoint);
 }
 
-// Get or compute atom info for a codepoint
+// Thread-safe atom cache mutex
+static std::mutex g_atom_mutex;
+
+// Get or compute atom info for a codepoint (thread-safe)
 const AtomInfo& get_atom(uint32_t codepoint) {
+    // Fast path: check cache without lock (read-only, safe for concurrent access)
+    {
+        auto it = g_atom_cache.find(codepoint);
+        if (it != g_atom_cache.end()) {
+            return it->second;
+        }
+    }
+    
+    // Slow path: compute and cache with lock
+    std::lock_guard<std::mutex> lock(g_atom_mutex);
+    
+    // Double-check after acquiring lock
     auto it = g_atom_cache.find(codepoint);
     if (it != g_atom_cache.end()) {
         return it->second;
@@ -203,7 +258,7 @@ const AtomInfo& get_atom(uint32_t codepoint) {
     info.coord_m = static_cast<int32_t>(coords.m);
     
     g_atom_cache[codepoint] = info;
-    g_hash_to_codepoint[info.hash.to_hex()] = codepoint;
+    g_hash_to_codepoint[info.hash] = codepoint;
     
     // Also add to vocabulary
     CompositionInfo comp;
@@ -215,14 +270,83 @@ const AtomInfo& get_atom(uint32_t codepoint) {
     comp.depth = 0;
     comp.atom_count = 1;
     comp.from_db = true;  // Treat as existing (deterministic)
-    g_vocabulary[info.hash.to_hex()] = comp;
+    g_vocabulary[info.hash] = comp;
     
     return g_atom_cache[codepoint];
 }
 
 // =============================================================================
-// Database Loading (only compositions, not atoms)
+// Database Loading
 // =============================================================================
+
+// Load atoms that are referenced by compositions (for trie reconstruction)
+// This is much faster than loading all 1.1M atoms
+bool load_referenced_atoms(PGconn* conn) {
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    // Get unique atoms referenced by compositions
+    PGresult* res = PQexec(conn,
+        "WITH referenced AS ("
+        "  SELECT DISTINCT unnest(children) as child_id FROM atom WHERE depth > 0"
+        ") "
+        "SELECT a.id, a.codepoint, "
+        "       ST_X(a.geom), ST_Y(a.geom), ST_Z(a.geom), ST_M(a.geom) "
+        "FROM atom a "
+        "JOIN referenced r ON a.id = r.child_id "
+        "WHERE a.depth = 0 AND a.codepoint IS NOT NULL");
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::cerr << "Failed to load referenced atoms: " << PQerrorMessage(conn) << std::endl;
+        PQclear(res);
+        return false;
+    }
+    
+    int rows = PQntuples(res);
+    
+    for (int i = 0; i < rows; ++i) {
+        const char* id_hex = PQgetvalue(res, i, 0);
+        Blake3Hash hash;
+        if (id_hex[0] == '\\' && id_hex[1] == 'x') {
+            hash = Blake3Hash::from_hex(std::string_view(id_hex + 2, 64));
+        }
+        
+        uint32_t codepoint = static_cast<uint32_t>(std::stoul(PQgetvalue(res, i, 1)));
+        
+        int32_t cx = static_cast<int32_t>(std::stod(PQgetvalue(res, i, 2)));
+        int32_t cy = static_cast<int32_t>(std::stod(PQgetvalue(res, i, 3)));
+        int32_t cz = static_cast<int32_t>(std::stod(PQgetvalue(res, i, 4)));
+        int32_t cm = static_cast<int32_t>(std::stod(PQgetvalue(res, i, 5)));
+        
+        AtomInfo info;
+        info.hash = hash;
+        info.coord_x = cx;
+        info.coord_y = cy;
+        info.coord_z = cz;
+        info.coord_m = cm;
+        g_atom_cache[codepoint] = info;
+        
+        g_hash_to_codepoint[hash] = codepoint;
+        
+        CompositionInfo comp;
+        comp.hash = hash;
+        comp.centroid_x = cx;
+        comp.centroid_y = cy;
+        comp.centroid_z = cz;
+        comp.centroid_m = cm;
+        comp.depth = 0;
+        comp.atom_count = 1;
+        comp.from_db = true;
+        g_vocabulary[hash] = comp;
+    }
+    
+    PQclear(res);
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cerr << "[ATOMS] Loaded " << rows << " referenced atoms in " << ms << " ms\n";
+    
+    return true;
+}
 
 bool load_vocabulary(PGconn* conn) {
     auto start = std::chrono::high_resolution_clock::now();
@@ -285,13 +409,12 @@ bool load_vocabulary(PGconn* conn) {
         comp.depth = static_cast<uint32_t>(std::stoul(PQgetvalue(res, i, 8)));
         comp.atom_count = std::stoull(PQgetvalue(res, i, 9));
 
-        std::string hash_key = comp.hash.to_hex();
-        g_vocabulary[hash_key] = comp;
+        g_vocabulary[comp.hash] = comp;
 
         // Index by children for fast lookup
         if (!comp.children.empty()) {
             std::string children_key = make_children_key(comp.children);
-            g_children_to_hash[children_key] = hash_key;
+            g_children_to_hash[children_key] = comp.hash;
         }
     }
 
@@ -311,7 +434,7 @@ bool load_vocabulary(PGconn* conn) {
 // Trie node for vocabulary lookup
 struct TrieNode {
     std::unordered_map<uint32_t, std::unique_ptr<TrieNode>> children;
-    std::optional<std::string> composition_hash;  // If this is end of a vocab entry
+    std::optional<Blake3Hash> composition_hash;  // If this is end of a vocab entry
     size_t length = 0;  // Length in codepoints
 };
 
@@ -320,7 +443,7 @@ public:
     TrieNode root;
     
     // Insert a codepoint sequence with its composition hash
-    void insert(const std::vector<uint32_t>& codepoints, const std::string& hash) {
+    void insert(const std::vector<uint32_t>& codepoints, const Blake3Hash& hash) {
         TrieNode* node = &root;
         for (uint32_t cp : codepoints) {
             if (!node->children.count(cp)) {
@@ -334,10 +457,10 @@ public:
     
     // Find longest matching composition starting at position
     // Returns {hash, length} or {nullopt, 0} if no match
-    std::pair<std::optional<std::string>, size_t> longest_match(
+    std::pair<std::optional<Blake3Hash>, size_t> longest_match(
         const std::vector<uint32_t>& codepoints, size_t start
     ) const {
-        std::optional<std::string> best_hash;
+        std::optional<Blake3Hash> best_hash;
         size_t best_len = 0;
         
         const TrieNode* node = &root;
@@ -364,7 +487,7 @@ std::vector<uint32_t> reconstruct_codepoints(const CompositionInfo& comp) {
     
     if (comp.depth == 0) {
         // O(1) reverse lookup instead of O(N) linear scan
-        auto it = g_hash_to_codepoint.find(comp.hash.to_hex());
+        auto it = g_hash_to_codepoint.find(comp.hash);
         if (it != g_hash_to_codepoint.end()) {
             result.push_back(it->second);
         }
@@ -373,8 +496,7 @@ std::vector<uint32_t> reconstruct_codepoints(const CompositionInfo& comp) {
     
     // Recursively reconstruct from children
     for (const auto& child_hash : comp.children) {
-        std::string child_key = child_hash.to_hex();
-        auto it = g_vocabulary.find(child_key);
+        auto it = g_vocabulary.find(child_hash);
         if (it != g_vocabulary.end()) {
             auto child_cps = reconstruct_codepoints(it->second);
             result.insert(result.end(), child_cps.begin(), child_cps.end());
@@ -389,12 +511,12 @@ void build_vocab_trie() {
     auto start = std::chrono::high_resolution_clock::now();
     size_t indexed = 0;
     
-    for (const auto& [hash_key, comp] : g_vocabulary) {
+    for (const auto& [hash, comp] : g_vocabulary) {
         if (comp.depth == 0) continue;  // Skip atoms
         
         std::vector<uint32_t> codepoints = reconstruct_codepoints(comp);
         if (!codepoints.empty()) {
-            g_vocab_trie.insert(codepoints, hash_key);
+            g_vocab_trie.insert(codepoints, hash);
             indexed++;
         }
     }
@@ -402,6 +524,17 @@ void build_vocab_trie() {
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cerr << "[TRIE] Built vocabulary trie with " << indexed << " entries in " << ms << " ms\n";
+}
+
+// Add a new composition to the trie (for incremental updates)
+void add_to_trie(const CompositionInfo& comp) {
+    if (comp.depth == 0) return;  // Skip atoms
+    
+    std::vector<uint32_t> codepoints = reconstruct_codepoints(comp);
+    if (!codepoints.empty()) {
+        std::lock_guard<std::mutex> lock(g_vocab_mutex);
+        g_vocab_trie.insert(codepoints, comp.hash);
+    }
 }
 
 // =============================================================================
@@ -429,8 +562,7 @@ const CompositionInfo& find_or_create_composition(
     comp.from_db = false;
 
     // Check if hash already exists (shouldn't happen if children_key lookup works)
-    std::string hash_key = comp.hash.to_hex();
-    auto hash_it = g_vocabulary.find(hash_key);
+    auto hash_it = g_vocabulary.find(comp.hash);
     if (hash_it != g_vocabulary.end()) {
         return hash_it->second;
     }
@@ -441,8 +573,7 @@ const CompositionInfo& find_or_create_composition(
     uint64_t total_atoms = 0;
 
     for (const auto& child_hash : children) {
-        std::string child_key = child_hash.to_hex();
-        auto child_it = g_vocabulary.find(child_key);
+        auto child_it = g_vocabulary.find(child_hash);
         if (child_it != g_vocabulary.end()) {
             const CompositionInfo& child = child_it->second;
             sum_x += as_uint32(child.centroid_x);
@@ -477,13 +608,16 @@ const CompositionInfo& find_or_create_composition(
     comp.atom_count = total_atoms;
 
     // Add to vocabulary
-    g_vocabulary[hash_key] = comp;
-    g_children_to_hash[children_key] = hash_key;
+    g_vocabulary[comp.hash] = comp;
+    g_children_to_hash[children_key] = comp.hash;
+    
+    // Also add to trie for future greedy matching
+    add_to_trie(comp);
 
     // Track for database insertion
     new_compositions.push_back(comp);
 
-    return g_vocabulary[hash_key];
+    return g_vocabulary[comp.hash];
 }
 
 // Record an edge between two compositions (or accumulate weight if exists)
@@ -536,124 +670,68 @@ void record_edge(const CompositionInfo& source, const CompositionInfo& target, f
 // Greedy Vocabulary-Aware Tokenization
 // =============================================================================
 
-// Cascade-based ingestion with LOCAL deduplication
-// No global vocabulary lookups - everything computed forward
-// Returns the root hash of the document composition
-Blake3Hash tokenize_and_ingest(
+// Node representing a token (either matched from vocabulary or single atom)
+struct CascadeNode {
+    Blake3Hash hash;
+    int32_t cx, cy, cz, cm;
+    uint32_t depth;
+    uint64_t atom_count;
+    bool from_vocab;  // True if this came from vocabulary match (no need to store)
+};
+
+// Cascade a sequence of atoms into a single composition
+// Returns the root composition, adds new compositions to new_compositions
+CascadeNode cascade_atoms(
     const std::vector<uint32_t>& codepoints,
+    size_t start, size_t end,
     std::vector<CompositionInfo>& new_compositions
 ) {
-    if (codepoints.empty()) return Blake3Hash();
+    if (start >= end) return CascadeNode{};
     
-    auto cascade_start = std::chrono::high_resolution_clock::now();
-    
-    // Hash key for unordered_map - use raw bytes, avoid string conversion
-    struct HashKey {
-        std::array<uint8_t, 32> bytes;
-        bool operator==(const HashKey& other) const {
-            return bytes == other.bytes;
-        }
-    };
-    struct HashKeyHash {
-        size_t operator()(const HashKey& k) const {
-            // Use first 8 bytes as hash (already well-distributed from BLAKE3)
-            size_t h;
-            memcpy(&h, k.bytes.data(), sizeof(h));
-            return h;
-        }
-    };
-    
-    // LOCAL dedup map - hash → composition info (for THIS cascade only)
-    std::unordered_map<HashKey, CompositionInfo, HashKeyHash> local_cache;
-    
-    // LOCAL edge accumulator - merge into global at end
-    std::unordered_map<EdgeKey, EdgeRecord, EdgeKeyHash> local_edges;
-    
-    auto to_key = [](const Blake3Hash& h) -> HashKey {
-        HashKey k;
-        std::copy(h.bytes.begin(), h.bytes.end(), k.bytes.begin());
-        return k;
-    };
-    
-    // Level 0: build atoms with coordinates
-    struct CascadeNode {
-        Blake3Hash hash;
-        int32_t cx, cy, cz, cm;
-        uint32_t depth;
-        uint64_t atom_count;
-    };
-    
+    // Build initial atom nodes
     std::vector<CascadeNode> current;
-    current.reserve(codepoints.size());
+    current.reserve(end - start);
     
-    for (uint32_t cp : codepoints) {
+    for (size_t i = start; i < end; ++i) {
+        const AtomInfo& atom = get_atom(codepoints[i]);
         CascadeNode node;
-        node.hash = compute_atom_hash(cp);
-        Point4D coords = CoordinateMapper::map_codepoint(cp);
-        node.cx = static_cast<int32_t>(coords.x);
-        node.cy = static_cast<int32_t>(coords.y);
-        node.cz = static_cast<int32_t>(coords.z);
-        node.cm = static_cast<int32_t>(coords.m);
+        node.hash = atom.hash;
+        node.cx = atom.coord_x;
+        node.cy = atom.coord_y;
+        node.cz = atom.coord_z;
+        node.cm = atom.coord_m;
         node.depth = 0;
         node.atom_count = 1;
+        node.from_vocab = true;  // Atoms always exist
         current.push_back(node);
     }
     
-    std::cerr << "[TOKENIZE] " << current.size() << " atoms\n";
+    if (current.size() == 1) {
+        return current[0];
+    }
     
-    // Cascade upward with timing
-    int level = 0;
-    size_t unique_compositions = 0;
-    size_t total_pairs_processed = 0;
-    
+    // Binary cascade until single root
     while (current.size() > 1) {
         std::vector<CascadeNode> next;
+        next.reserve((current.size() + 1) / 2);
         
-        // Level 0: overlapping sliding window (all adjacent pairs)
-        // Level 1+: non-overlapping binary cascade
-        size_t step = (level == 0) ? 1 : 2;
-        next.reserve(level == 0 ? current.size() : (current.size() + 1) / 2);
-        
-        for (size_t i = 0; i + 1 < current.size(); i += step) {
-            total_pairs_processed++;
+        for (size_t i = 0; i < current.size(); i += 2) {
+            if (i + 1 >= current.size()) {
+                // Odd element - carry forward
+                next.push_back(current[i]);
+                continue;
+            }
+            
             CascadeNode& left = current[i];
             CascadeNode& right = current[i + 1];
             
             // Compute pair hash
-            std::vector<uint8_t> hash_input;
-            hash_input.reserve(68);
-            uint32_t ord0 = 0, ord1 = 1;
-            hash_input.insert(hash_input.end(), 
-                reinterpret_cast<uint8_t*>(&ord0), 
-                reinterpret_cast<uint8_t*>(&ord0) + 4);
-            hash_input.insert(hash_input.end(), 
-                left.hash.bytes.begin(), left.hash.bytes.end());
-            hash_input.insert(hash_input.end(), 
-                reinterpret_cast<uint8_t*>(&ord1), 
-                reinterpret_cast<uint8_t*>(&ord1) + 4);
-            hash_input.insert(hash_input.end(), 
-                right.hash.bytes.begin(), right.hash.bytes.end());
-            Blake3Hash hash = Blake3Hasher::hash(std::span<const uint8_t>(hash_input));
+            std::vector<Blake3Hash> children = {left.hash, right.hash};
+            Blake3Hash hash = compute_composition_hash(children);
             
-            HashKey key = to_key(hash);
+            // Check if this composition already exists in vocabulary
+            auto vocab_it = g_vocabulary.find(hash);
             
-            // Check local cache - DEDUP within this cascade
-            auto it = local_cache.find(key);
-            if (it != local_cache.end()) {
-                // Reuse existing - just need the node for next level
-                CascadeNode node;
-                node.hash = hash;
-                node.cx = it->second.centroid_x;
-                node.cy = it->second.centroid_y;
-                node.cz = it->second.centroid_z;
-                node.cm = it->second.centroid_m;
-                node.depth = it->second.depth;
-                node.atom_count = it->second.atom_count;
-                next.push_back(node);
-                continue;
-            }
-            
-            // New composition
             CascadeNode node;
             node.hash = hash;
             node.cx = (left.cx + right.cx) / 2;
@@ -663,96 +741,195 @@ Blake3Hash tokenize_and_ingest(
             node.depth = std::max(left.depth, right.depth) + 1;
             node.atom_count = left.atom_count + right.atom_count;
             
-            // Store in local cache
-            CompositionInfo comp;
-            comp.hash = hash;
-            comp.children = {left.hash, right.hash};
-            comp.child_centroids = {
-                {left.cx, left.cy, left.cz, left.cm},
-                {right.cx, right.cy, right.cz, right.cm}
-            };
-            comp.centroid_x = node.cx;
-            comp.centroid_y = node.cy;
-            comp.centroid_z = node.cz;
-            comp.centroid_m = node.cm;
-            comp.depth = node.depth;
-            comp.atom_count = node.atom_count;
-            comp.from_db = false;
-            
-            // Compute Hilbert
-            Point4D coords(
-                static_cast<uint32_t>(static_cast<int64_t>(node.cx) + INT32_MAX + 1),
-                static_cast<uint32_t>(static_cast<int64_t>(node.cy) + INT32_MAX + 1),
-                static_cast<uint32_t>(static_cast<int64_t>(node.cz) + INT32_MAX + 1),
-                static_cast<uint32_t>(static_cast<int64_t>(node.cm) + INT32_MAX + 1)
-            );
-            HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
-            comp.hilbert_lo = static_cast<int64_t>(hilbert.lo);
-            comp.hilbert_hi = static_cast<int64_t>(hilbert.hi);
-            
-            local_cache[key] = comp;
-            next.push_back(node);
-            unique_compositions++;
-            
-            // Record edge (use local data, not global lookup)
-            EdgeRecord edge;
-            edge.source = left.hash;
-            edge.target = right.hash;
-            edge.source_x = left.cx;
-            edge.source_y = left.cy;
-            edge.source_z = left.cz;
-            edge.source_m = left.cm;
-            edge.target_x = right.cx;
-            edge.target_y = right.cy;
-            edge.target_z = right.cz;
-            edge.target_m = right.cm;
-            edge.weight = 1.0f;
-            
-            EdgeKey edge_key = make_edge_key(left.hash, right.hash);
-            // Accumulate in LOCAL map - no mutex needed
-            auto eit = local_edges.find(edge_key);
-            if (eit != local_edges.end()) {
-                eit->second.weight += 1.0f;
+            if (vocab_it != g_vocabulary.end()) {
+                // Already exists - reuse
+                node.from_vocab = true;
             } else {
-                local_edges[edge_key] = edge;
+                // New composition - create and add to vocabulary
+                node.from_vocab = false;
+                
+                CompositionInfo comp;
+                comp.hash = hash;
+                comp.children = children;
+                comp.child_centroids = {
+                    {left.cx, left.cy, left.cz, left.cm},
+                    {right.cx, right.cy, right.cz, right.cm}
+                };
+                comp.centroid_x = node.cx;
+                comp.centroid_y = node.cy;
+                comp.centroid_z = node.cz;
+                comp.centroid_m = node.cm;
+                comp.depth = node.depth;
+                comp.atom_count = node.atom_count;
+                comp.from_db = false;
+                
+                // Compute Hilbert
+                Point4D coords(
+                    static_cast<uint32_t>(static_cast<int64_t>(node.cx) + INT32_MAX + 1),
+                    static_cast<uint32_t>(static_cast<int64_t>(node.cy) + INT32_MAX + 1),
+                    static_cast<uint32_t>(static_cast<int64_t>(node.cz) + INT32_MAX + 1),
+                    static_cast<uint32_t>(static_cast<int64_t>(node.cm) + INT32_MAX + 1)
+                );
+                HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
+                comp.hilbert_lo = static_cast<int64_t>(hilbert.lo);
+                comp.hilbert_hi = static_cast<int64_t>(hilbert.hi);
+                
+                // Add to vocabulary for future reuse
+                {
+                    std::lock_guard<std::mutex> lock(g_vocab_mutex);
+                    g_vocabulary[hash] = comp;
+                    g_children_to_hash[make_children_key(children)] = hash;
+                }
+                
+                // Also add to trie for future greedy matching
+                add_to_trie(comp);
+                
+                new_compositions.push_back(comp);
             }
-        }
-        
-        // Handle odd element for non-overlapping levels
-        if (level > 0 && current.size() % 2 == 1) {
-            next.push_back(current.back());
+            
+            next.push_back(node);
         }
         
         current = std::move(next);
-        level++;
     }
     
-    // Collect all compositions for DB insert
-    for (auto& [key, comp] : local_cache) {
-        new_compositions.push_back(comp);
-    }
+    return current[0];
+}
+
+// Greedy vocabulary-aware tokenization + cascade
+// 1. Greedy longest-match against vocabulary trie
+// 2. For unmatched gaps: cascade from atoms
+// 3. Cascade all tokens into document root
+// Returns the root hash of the document composition
+Blake3Hash tokenize_and_ingest(
+    const std::vector<uint32_t>& codepoints,
+    std::vector<CompositionInfo>& new_compositions
+) {
+    if (codepoints.empty()) return Blake3Hash();
     
-    // Merge local edges into global (single lock at end)
-    {
-        std::lock_guard<std::mutex> lock(g_edge_mutex);
-        for (auto& [key, edge] : local_edges) {
-            auto eit = g_edges.find(key);
-            if (eit != g_edges.end()) {
-                eit->second.weight += edge.weight;
-            } else {
-                g_edges[key] = edge;
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    // ==========================================================================
+    // GREEDY TOKENIZATION
+    // ==========================================================================
+    // Match longest compositions from vocabulary. Gaps become atom references.
+    // Result: list of existing composition/atom hashes - NO new compositions yet.
+    
+    std::vector<Blake3Hash> token_hashes;
+    token_hashes.reserve(codepoints.size() / 4);
+    
+    std::vector<std::array<int32_t, 4>> token_centroids;
+    token_centroids.reserve(codepoints.size() / 4);
+    
+    size_t reused_count = 0;
+    size_t atom_count = 0;
+    
+    size_t i = 0;
+    while (i < codepoints.size()) {
+        auto [match_hash, match_len] = g_vocab_trie.longest_match(codepoints, i);
+        
+        if (match_hash && match_len > 1) {
+            // Found existing composition
+            auto vocab_it = g_vocabulary.find(*match_hash);
+            if (vocab_it != g_vocabulary.end()) {
+                token_hashes.push_back(*match_hash);
+                token_centroids.push_back({
+                    vocab_it->second.centroid_x,
+                    vocab_it->second.centroid_y,
+                    vocab_it->second.centroid_z,
+                    vocab_it->second.centroid_m
+                });
+                i += match_len;
+                reused_count++;
+                continue;
             }
         }
+        
+        // No match - use atom
+        const AtomInfo& atom = get_atom(codepoints[i]);
+        token_hashes.push_back(atom.hash);
+        token_centroids.push_back({
+            atom.coord_x, atom.coord_y, atom.coord_z, atom.coord_m
+        });
+        i++;
+        atom_count++;
     }
     
-    auto cascade_end = std::chrono::high_resolution_clock::now();
-    auto cascade_ms = std::chrono::duration_cast<std::chrono::milliseconds>(cascade_end - cascade_start).count();
-    std::cerr << "[CASCADE] " << level << " levels, " 
-              << unique_compositions << " unique / " << total_pairs_processed << " total pairs, "
-              << local_edges.size() << " unique edges, " 
-              << cascade_ms << " ms\n";
+    auto tokenize_time = std::chrono::high_resolution_clock::now();
+    auto tokenize_ms = std::chrono::duration_cast<std::chrono::milliseconds>(tokenize_time - start_time).count();
     
-    return current.empty() ? Blake3Hash() : current[0].hash;
+    std::cerr << "[TOKENIZE] " << codepoints.size() << " codepoints → " 
+              << token_hashes.size() << " tokens (" << reused_count << " vocab, "
+              << atom_count << " atoms) in " << tokenize_ms << "ms\n";
+    
+    // ==========================================================================
+    // DOCUMENT COMPOSITION
+    // ==========================================================================
+    // The document IS this list of token hashes. Create ONE composition that
+    // references all of them. No binary cascade - just a flat children array.
+    
+    if (token_hashes.size() == 1) {
+        return token_hashes[0];
+    }
+    
+    // Compute document hash from all children
+    Blake3Hash doc_hash = compute_composition_hash(token_hashes);
+    
+    // Check if document already exists
+    auto doc_it = g_vocabulary.find(doc_hash);
+    if (doc_it != g_vocabulary.end()) {
+        std::cerr << "[DOC] Already exists\n";
+        return doc_hash;
+    }
+    
+    // Compute centroid as average of all tokens
+    int64_t sum_x = 0, sum_y = 0, sum_z = 0, sum_m = 0;
+    for (const auto& c : token_centroids) {
+        sum_x += c[0];
+        sum_y += c[1];
+        sum_z += c[2];
+        sum_m += c[3];
+    }
+    size_t n = token_centroids.size();
+    
+    CompositionInfo doc;
+    doc.hash = doc_hash;
+    doc.children = token_hashes;
+    doc.child_centroids = token_centroids;
+    doc.centroid_x = static_cast<int32_t>(sum_x / static_cast<int64_t>(n));
+    doc.centroid_y = static_cast<int32_t>(sum_y / static_cast<int64_t>(n));
+    doc.centroid_z = static_cast<int32_t>(sum_z / static_cast<int64_t>(n));
+    doc.centroid_m = static_cast<int32_t>(sum_m / static_cast<int64_t>(n));
+    doc.depth = 1;  // Flat structure - one level above tokens
+    doc.atom_count = codepoints.size();
+    doc.from_db = false;
+    
+    // Compute Hilbert
+    Point4D coords(
+        static_cast<uint32_t>(static_cast<int64_t>(doc.centroid_x) + INT32_MAX + 1),
+        static_cast<uint32_t>(static_cast<int64_t>(doc.centroid_y) + INT32_MAX + 1),
+        static_cast<uint32_t>(static_cast<int64_t>(doc.centroid_z) + INT32_MAX + 1),
+        static_cast<uint32_t>(static_cast<int64_t>(doc.centroid_m) + INT32_MAX + 1)
+    );
+    HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
+    doc.hilbert_lo = static_cast<int64_t>(hilbert.lo);
+    doc.hilbert_hi = static_cast<int64_t>(hilbert.hi);
+    
+    new_compositions.push_back(doc);
+    
+    // Add to vocabulary
+    {
+        std::lock_guard<std::mutex> lock(g_vocab_mutex);
+        g_vocabulary[doc_hash] = doc;
+    }
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    
+    std::cerr << "[DOC] Created document composition with " << token_hashes.size() 
+              << " children in " << total_ms << "ms\n";
+    
+    return doc_hash;
 }
 
 // Legacy function name for compatibility
@@ -1079,33 +1256,67 @@ bool insert_edges(PGconn* conn, float threshold = 0.0f) {
     res = PQgetResult(conn);
     PQclear(res);
     
-    res = PQexec(conn, "SELECT t.id FROM tmp_edge_check t JOIN atom a ON t.id = a.id");
+    res = PQexec(conn, "SELECT encode(t.id, 'hex'), ST_M(ST_StartPoint(a.geom)) FROM tmp_edge_check t JOIN atom a ON t.id = a.id WHERE a.depth = 1");
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
     
+    // Track existing edges and their current weights for accumulation
+    std::unordered_map<std::string, float> existing_weights;
     int existing_count = PQntuples(res);
     for (int i = 0; i < existing_count; ++i) {
         const char* id_hex = PQgetvalue(res, i, 0);
-        if (id_hex && id_hex[0] == '\\' && id_hex[1] == 'x') {
-            to_insert.erase(std::string(id_hex + 2, 64));
+        const char* weight_str = PQgetvalue(res, i, 1);
+        if (id_hex && weight_str) {
+            existing_weights[std::string(id_hex, 64)] = std::stof(weight_str);
         }
     }
     PQclear(res);
     
+    // Separate new edges from edges needing weight update
+    std::unordered_map<std::string, const EdgeRecord*> new_edges;
+    std::unordered_map<std::string, float> edges_to_update;  // edge_hex -> new_weight
+    
+    for (const auto& [hex, edge] : to_insert) {
+        auto existing_it = existing_weights.find(hex);
+        if (existing_it != existing_weights.end()) {
+            // Edge exists - accumulate weight
+            edges_to_update[hex] = existing_it->second + edge->weight;
+        } else {
+            // New edge
+            new_edges[hex] = edge;
+        }
+    }
+    
     auto check_end = std::chrono::high_resolution_clock::now();
     auto check_ms = std::chrono::duration_cast<std::chrono::milliseconds>(check_end - check_start).count();
     
-    if (to_insert.empty()) {
-        std::cerr << "[EDGES] All " << existing_count << " exist (" << check_ms << " ms)\n";
-        PQexec(conn, "COMMIT");
-        return true;
+    std::cerr << "[EDGES] " << new_edges.size() << " new, " << edges_to_update.size() 
+              << " to accumulate (check: " << check_ms << " ms)\n";
+    
+    // Update existing edges to accumulate weight in M coordinate
+    if (!edges_to_update.empty()) {
+        for (const auto& [hex, new_weight] : edges_to_update) {
+            std::string sql = 
+                "UPDATE atom SET geom = ST_SetSRID(ST_MakeLine("
+                "  ST_SetSRID(ST_MakePoint(ST_X(ST_StartPoint(geom)), ST_Y(ST_StartPoint(geom)), "
+                "    ST_Z(ST_StartPoint(geom)), " + std::to_string(new_weight) + "), 0),"
+                "  ST_SetSRID(ST_MakePoint(ST_X(ST_EndPoint(geom)), ST_Y(ST_EndPoint(geom)), "
+                "    ST_Z(ST_EndPoint(geom)), " + std::to_string(new_weight) + "), 0)"
+                "), 0) WHERE id = '\\x" + hex + "'";
+            res = PQexec(conn, sql.c_str());
+            PQclear(res);
+        }
+        std::cerr << "[EDGES] Accumulated weight on " << edges_to_update.size() << " existing edges\n";
     }
     
-    std::cerr << "[EDGES] " << to_insert.size() << " new, " << existing_count 
-              << " exist (check: " << check_ms << " ms)\n";
+    if (new_edges.empty()) {
+        res = PQexec(conn, "COMMIT");
+        PQclear(res);
+        return true;
+    }
     
     res = PQexec(conn,
         "CREATE TEMP TABLE tmp_edge ("
@@ -1135,11 +1346,11 @@ bool insert_edges(PGconn* conn, float threshold = 0.0f) {
     }
     PQclear(res);
     
-    static const char hex[] = "0123456789abcdef";
+    static const char hex_chars[] = "0123456789abcdef";
     std::string edge_batch;
     edge_batch.reserve(1 << 20);
     
-    for (const auto& [edge_hex, e] : to_insert) {
+    for (const auto& [edge_hex, e] : new_edges) {
         // Recompute edge ID (we already have it as the key)
         Blake3Hash edge_id = Blake3Hash::from_hex(edge_hex);
         
@@ -1160,8 +1371,8 @@ bool insert_edges(PGconn* conn, float threshold = 0.0f) {
         // ID
         edge_batch += "\\\\x";
         for (uint8_t b : edge_id.bytes) {
-            edge_batch += hex[b >> 4];
-            edge_batch += hex[b & 0x0F];
+            edge_batch += hex_chars[b >> 4];
+            edge_batch += hex_chars[b & 0x0F];
         }
         edge_batch += "\t";
         
@@ -1173,8 +1384,8 @@ bool insert_edges(PGconn* conn, float threshold = 0.0f) {
             std::memcpy(&bits, &val, sizeof(bits));
             for (int i = 0; i < 8; ++i) {
                 uint8_t byte = (bits >> (i * 8)) & 0xFF;
-                edge_batch += hex[byte >> 4];
-                edge_batch += hex[byte & 0x0F];
+                edge_batch += hex_chars[byte >> 4];
+                edge_batch += hex_chars[byte & 0x0F];
             }
         };
         
@@ -1195,13 +1406,13 @@ bool insert_edges(PGconn* conn, float threshold = 0.0f) {
         // Children array [source, target]
         edge_batch += "{\"\\\\\\\\x";
         for (uint8_t b : e->source.bytes) {
-            edge_batch += hex[b >> 4];
-            edge_batch += hex[b & 0x0F];
+            edge_batch += hex_chars[b >> 4];
+            edge_batch += hex_chars[b & 0x0F];
         }
         edge_batch += "\",\"\\\\\\\\x";
         for (uint8_t b : e->target.bytes) {
-            edge_batch += hex[b >> 4];
-            edge_batch += hex[b & 0x0F];
+            edge_batch += hex_chars[b >> 4];
+            edge_batch += hex_chars[b & 0x0F];
         }
         edge_batch += "\"}\t";
         
@@ -1249,7 +1460,7 @@ bool insert_edges(PGconn* conn, float threshold = 0.0f) {
     res = PQexec(conn, "COMMIT");
     PQclear(res);
     
-    std::cerr << "[EDGES] Inserted " << inserted << " edges\n";
+    std::cerr << "[EDGES] Inserted " << inserted << " new edges\n";
     return true;
 }
 
@@ -1340,8 +1551,229 @@ IngestResult process_file_content(const fs::path& path, std::vector<CompositionI
     return result;
 }
 
+// =============================================================================
+// Vocabulary File Ingestion (Optimized for vocab.txt format)
+// =============================================================================
+// Each line is a complete token - no overlapping n-grams needed
+// Process in parallel, bulk insert
+
+IngestResult ingest_vocab_file(PGconn* conn, const fs::path& path) {
+    IngestResult result;
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    // Read entire file
+    std::ifstream file(path);
+    if (!file) {
+        std::cerr << "Cannot read: " << path << std::endl;
+        return result;
+    }
+    
+    // Parse lines into tokens
+    std::vector<std::string> tokens;
+    tokens.reserve(50000);  // Pre-allocate for typical vocab size
+    std::string line;
+    while (std::getline(file, line)) {
+        if (!line.empty()) {
+            tokens.push_back(std::move(line));
+        }
+    }
+    
+    std::cerr << "[VOCAB] Read " << tokens.size() << " tokens from " << path.filename() << "\n";
+    result.bytes = 0;
+    result.codepoints = tokens.size();
+    
+    // Pre-compute all unique codepoints single-threaded (populates atom cache)
+    std::unordered_set<uint32_t> unique_codepoints;
+    for (const auto& token : tokens) {
+        std::vector<uint32_t> cps = decode_utf8(token);
+        for (uint32_t cp : cps) {
+            unique_codepoints.insert(cp);
+        }
+    }
+    std::cerr << "[VOCAB] Found " << unique_codepoints.size() << " unique codepoints\n";
+    
+    // Pre-populate atom cache (single-threaded, no race conditions)
+    for (uint32_t cp : unique_codepoints) {
+        get_atom(cp);  // This populates the cache
+    }
+    std::cerr << "[VOCAB] Pre-cached " << g_atom_cache.size() << " atoms\n";
+    
+    // Parallel processing - each thread has its own local storage, NO LOCKS during compute
+    unsigned int num_threads = std::min(std::thread::hardware_concurrency(), 8u);
+    if (num_threads == 0) num_threads = 4;
+    
+    // Thread-local results - each thread fills its own vector
+    std::vector<std::vector<CompositionInfo>> thread_results(num_threads);
+    std::vector<size_t> thread_processed(num_threads, 0);
+    
+    auto worker = [&](unsigned int thread_id, size_t start_idx, size_t end_idx) {
+        // Thread-local vocabulary for deduplication within this thread's work
+        std::unordered_map<Blake3Hash, bool, Blake3HashHasher, Blake3HashEqual> local_seen;
+        std::vector<CompositionInfo>& local_new = thread_results[thread_id];
+        local_new.reserve((end_idx - start_idx) * 5);  // ~5 compositions per token average
+        
+        for (size_t i = start_idx; i < end_idx; ++i) {
+            const std::string& token = tokens[i];
+            std::vector<uint32_t> codepoints = decode_utf8(token);
+            
+            if (codepoints.empty()) continue;
+            
+            // Build atom nodes - get_atom is deterministic, no lock needed
+            std::vector<CascadeNode> atoms;
+            atoms.reserve(codepoints.size());
+            for (uint32_t cp : codepoints) {
+                const AtomInfo& atom = get_atom(cp);
+                CascadeNode node;
+                node.hash = atom.hash;
+                node.cx = atom.coord_x;
+                node.cy = atom.coord_y;
+                node.cz = atom.coord_z;
+                node.cm = atom.coord_m;
+                node.depth = 0;
+                node.atom_count = 1;
+                atoms.push_back(node);
+            }
+            
+            // Binary cascade - create all intermediate compositions
+            while (atoms.size() > 1) {
+                std::vector<CascadeNode> next;
+                next.reserve((atoms.size() + 1) / 2);
+                
+                for (size_t j = 0; j < atoms.size(); j += 2) {
+                    if (j + 1 >= atoms.size()) {
+                        next.push_back(atoms[j]);
+                        continue;
+                    }
+                    
+                    CascadeNode& left = atoms[j];
+                    CascadeNode& right = atoms[j + 1];
+                    
+                    std::vector<Blake3Hash> children = {left.hash, right.hash};
+                    Blake3Hash hash = compute_composition_hash(children);
+                    
+                    CascadeNode node;
+                    node.hash = hash;
+                    node.cx = (left.cx + right.cx) / 2;
+                    node.cy = (left.cy + right.cy) / 2;
+                    node.cz = (left.cz + right.cz) / 2;
+                    node.cm = (left.cm + right.cm) / 2;
+                    node.depth = std::max(left.depth, right.depth) + 1;
+                    node.atom_count = left.atom_count + right.atom_count;
+                    
+                    // Check local cache first (no lock)
+                    if (local_seen.find(hash) == local_seen.end()) {
+                        // Check global vocabulary (read-only, thread-safe)
+                        if (g_vocabulary.find(hash) == g_vocabulary.end()) {
+                            // New composition
+                            CompositionInfo comp;
+                            comp.hash = hash;
+                            comp.children = children;
+                            comp.child_centroids = {
+                                {left.cx, left.cy, left.cz, left.cm},
+                                {right.cx, right.cy, right.cz, right.cm}
+                            };
+                            comp.centroid_x = node.cx;
+                            comp.centroid_y = node.cy;
+                            comp.centroid_z = node.cz;
+                            comp.centroid_m = node.cm;
+                            comp.depth = node.depth;
+                            comp.atom_count = node.atom_count;
+                            comp.from_db = false;
+                            
+                            Point4D coords(
+                                static_cast<uint32_t>(static_cast<int64_t>(node.cx) + INT32_MAX + 1),
+                                static_cast<uint32_t>(static_cast<int64_t>(node.cy) + INT32_MAX + 1),
+                                static_cast<uint32_t>(static_cast<int64_t>(node.cz) + INT32_MAX + 1),
+                                static_cast<uint32_t>(static_cast<int64_t>(node.cm) + INT32_MAX + 1)
+                            );
+                            HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
+                            comp.hilbert_lo = static_cast<int64_t>(hilbert.lo);
+                            comp.hilbert_hi = static_cast<int64_t>(hilbert.hi);
+                            
+                            local_new.push_back(std::move(comp));
+                        }
+                        local_seen[hash] = true;
+                    }
+                    
+                    next.push_back(node);
+                }
+                atoms = std::move(next);
+            }
+            
+            thread_processed[thread_id]++;
+        }
+    };
+    
+    // Launch threads
+    std::vector<std::thread> threads;
+    size_t chunk_size = (tokens.size() + num_threads - 1) / num_threads;
+    
+    for (unsigned int t = 0; t < num_threads; ++t) {
+        size_t start_idx = t * chunk_size;
+        size_t end_idx = std::min(start_idx + chunk_size, tokens.size());
+        if (start_idx < tokens.size()) {
+            threads.emplace_back(worker, t, start_idx, end_idx);
+        }
+    }
+    
+    for (auto& t : threads) {
+        t.join();
+    }
+    
+    // Merge results - dedupe across threads
+    std::unordered_map<Blake3Hash, const CompositionInfo*, Blake3HashHasher, Blake3HashEqual> seen;
+    std::vector<CompositionInfo> all_compositions;
+    size_t total_processed = 0;
+    
+    for (unsigned int t = 0; t < num_threads; ++t) {
+        total_processed += thread_processed[t];
+        for (auto& comp : thread_results[t]) {
+            if (seen.find(comp.hash) == seen.end()) {
+                seen[comp.hash] = &comp;
+                all_compositions.push_back(std::move(comp));
+            }
+        }
+        thread_results[t].clear();  // Free memory
+    }
+    
+    std::cerr << "[VOCAB] Processed " << total_processed << " tokens, " 
+              << all_compositions.size() << " new compositions\n";
+    
+    // Single bulk insert - ON CONFLICT handles any remaining duplicates from DB
+    if (!all_compositions.empty()) {
+        std::cerr << "[DB] Inserting " << all_compositions.size() << " compositions...\n";
+        insert_compositions(conn, all_compositions);
+        
+        // Update global vocabulary with new compositions
+        for (const auto& comp : all_compositions) {
+            g_vocabulary[comp.hash] = comp;
+        }
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    result.seconds = std::chrono::duration<double>(end - start).count();
+    result.new_compositions = all_compositions.size();
+    
+    std::cerr << "[VOCAB] Complete in " << std::fixed << std::setprecision(2) 
+              << result.seconds << "s\n";
+    
+    return result;
+}
+
+// Detect if file is a vocab file (one token per line)
+bool is_vocab_file(const fs::path& path) {
+    std::string name = path.filename().string();
+    return name == "vocab.txt" || name == "merges.txt" || 
+           name.find("vocab") != std::string::npos;
+}
+
 // Legacy single-file ingest (includes DB operations for backward compat)
 IngestResult ingest_file(PGconn* conn, const fs::path& path) {
+    // Use optimized path for vocab files
+    if (is_vocab_file(path)) {
+        return ingest_vocab_file(conn, path);
+    }
+    
     std::vector<CompositionInfo> new_compositions;
     IngestResult result = process_file_content(path, new_compositions);
     
@@ -1505,11 +1937,12 @@ bool validate_content_hash(PGconn* conn, const std::string& test_text) {
         return false;
     }
 
-    std::string computed_hash = current[0].to_hex();
-    std::cerr << "  Computed hash: " << computed_hash << "\n";
+    Blake3Hash computed = current[0];
+    std::string computed_hex = computed.to_hex();  // Only for display/DB query
+    std::cerr << "  Computed hash: " << computed_hex << "\n";
 
     // Check if exists in vocabulary
-    auto it = g_vocabulary.find(computed_hash);
+    auto it = g_vocabulary.find(computed);
     if (it != g_vocabulary.end()) {
         std::cerr << "  FOUND in vocabulary! Depth: " << it->second.depth
                   << ", Atoms: " << it->second.atom_count << "\n";
@@ -1519,7 +1952,7 @@ bool validate_content_hash(PGconn* conn, const std::string& test_text) {
     std::cerr << "  NOT FOUND in vocabulary\n";
 
     // Also check database directly
-    std::string query = "SELECT id, depth, atom_count, atom_text(id) FROM atom WHERE id = '\\x" + computed_hash + "'";
+    std::string query = "SELECT id, depth, atom_count, atom_text(id) FROM atom WHERE id = '\\x" + computed_hex + "'";
     PGresult* res = PQexec(conn, query.c_str());
 
     if (PQresultStatus(res) == PGRES_TUPLES_OK && PQntuples(res) > 0) {
@@ -1604,7 +2037,21 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cerr << "[INIT] Atoms computed on-demand, no DB preload\n";
+    // Load vocabulary first, then load only atoms referenced by compositions
+    std::cerr << "[INIT] Loading vocabulary from database...\n";
+    
+    // Load existing compositions for greedy matching
+    if (load_vocabulary(conn)) {
+        // Load only atoms that are referenced by compositions (for trie reconstruction)
+        load_referenced_atoms(conn);
+        
+        // Build trie for O(m) longest-match lookups
+        build_vocab_trie();
+        std::cerr << "[INIT] Ready: " << g_vocabulary.size() 
+                  << " compositions, " << g_atom_cache.size() << " cached atoms\n";
+    } else {
+        std::cerr << "[INIT] No existing vocabulary, will build from scratch\n";
+    }
 
     fs::path path(target);
     if (!fs::exists(path)) {

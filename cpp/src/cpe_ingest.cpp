@@ -307,6 +307,69 @@ Blake3Hash cpe_cascade(const std::vector<uint32_t>& codepoints,
         nodes.push_back(node);
     }
     
+    // RLE pass: collapse consecutive identical atoms
+    std::vector<CpeNode> rle_nodes;
+    rle_nodes.reserve(nodes.size());
+    
+    size_t i = 0;
+    while (i < nodes.size()) {
+        size_t run_start = i;
+        Blake3Hash run_hash = nodes[i].hash;
+        
+        while (i < nodes.size() && nodes[i].hash == run_hash) {
+            i++;
+        }
+        size_t run_length = i - run_start;
+        
+        if (run_length == 1) {
+            rle_nodes.push_back(nodes[run_start]);
+        } else {
+            // Create RLE composition: hash = BLAKE3(child_hash || run_length)
+            std::vector<uint8_t> rle_input;
+            rle_input.reserve(36);
+            rle_input.insert(rle_input.end(), run_hash.bytes.begin(), run_hash.bytes.end());
+            uint32_t run_le = static_cast<uint32_t>(run_length);
+            rle_input.insert(rle_input.end(),
+                reinterpret_cast<uint8_t*>(&run_le),
+                reinterpret_cast<uint8_t*>(&run_le) + 4);
+            Blake3Hash rle_hash = Blake3Hasher::hash(std::span<const uint8_t>(rle_input));
+            
+            CpeNode rle_node;
+            rle_node.hash = rle_hash;
+            rle_node.x = nodes[run_start].x;
+            rle_node.y = nodes[run_start].y;
+            rle_node.z = nodes[run_start].z;
+            rle_node.m = nodes[run_start].m;
+            rle_node.depth = 1;
+            rle_node.atoms = run_length;
+            rle_node.is_atom = false;
+            rle_nodes.push_back(rle_node);
+            
+            // Create composition record for RLE
+            CompositionRecord rec;
+            rec.hash = rle_hash;
+            rec.left_hash = run_hash;
+            rec.right_hash = run_hash;  // Same hash (indicates RLE)
+            rec.coord_x = rle_node.x;
+            rec.coord_y = rle_node.y;
+            rec.coord_z = rle_node.z;
+            rec.coord_m = rle_node.m;
+            rec.left_x = nodes[run_start].x;
+            rec.left_y = nodes[run_start].y;
+            rec.left_z = nodes[run_start].z;
+            rec.left_m = nodes[run_start].m;
+            rec.right_x = nodes[run_start].x;
+            rec.right_y = nodes[run_start].y;
+            rec.right_z = nodes[run_start].z;
+            rec.right_m = nodes[run_start].m;
+            rec.depth = 1;
+            rec.atom_count = run_length;
+            new_compositions.push_back(rec);
+        }
+    }
+    
+    nodes = std::move(rle_nodes);
+    
     if (nodes.empty()) {
         return Blake3Hash();
     }
@@ -315,7 +378,8 @@ Blake3Hash cpe_cascade(const std::vector<uint32_t>& codepoints,
         return nodes[0].hash;
     }
     
-    // Cascade until single root
+    // Binary cascade (step=2) - O(log N) levels to reach single root
+    // RLE already handled above for run compression
     while (nodes.size() > 1) {
         std::vector<CpeNode> merged;
         merged.reserve((nodes.size() + 1) / 2);
@@ -415,6 +479,15 @@ std::string build_linestringzm_ewkb(
 bool insert_compositions(PGconn* conn, const std::vector<CompositionRecord>& comps) {
     if (comps.empty()) return true;
 
+    // Deduplicate compositions by hash (overlapping cascade produces duplicates)
+    std::unordered_map<std::string, const CompositionRecord*> unique_comps;
+    for (const auto& c : comps) {
+        std::string key = c.hash.to_hex();
+        if (unique_comps.find(key) == unique_comps.end()) {
+            unique_comps[key] = &c;
+        }
+    }
+
     // Begin transaction
     PGresult* res = PQexec(conn, "BEGIN");
     PQclear(res);
@@ -455,7 +528,8 @@ bool insert_compositions(PGconn* conn, const std::vector<CompositionRecord>& com
     batch.reserve(1 << 20);
     char num_buf[32];
 
-    for (const auto& c : comps) {
+    for (const auto& [key, cp] : unique_comps) {
+        const auto& c = *cp;
         // id (bytea hex)
         batch += "\\\\x";
         batch += c.hash.to_hex();
