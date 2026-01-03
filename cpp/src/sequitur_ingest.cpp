@@ -23,6 +23,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <list>
@@ -878,8 +879,207 @@ struct IngestResult {
     size_t bytes;
     size_t codepoints;
     size_t rules;
+    size_t edges;
     double seconds;
 };
+
+// =============================================================================
+// Co-occurrence Edge Recording
+// =============================================================================
+
+// Accumulate co-occurrence weights between compositions
+// Key: pair of hashes (smaller first for symmetry)
+// Value: accumulated weight
+static std::map<std::pair<std::string, std::string>, double> g_cooccurrence;
+
+void record_cooccurrence(const Blake3Hash& a, const Blake3Hash& b, double weight) {
+    std::string a_hex = a.to_hex();
+    std::string b_hex = b.to_hex();
+    
+    // Canonical order (smaller hash first)
+    if (a_hex > b_hex) std::swap(a_hex, b_hex);
+    
+    auto key = std::make_pair(a_hex, b_hex);
+    g_cooccurrence[key] += weight;
+}
+
+// Record co-occurrence edges from a sequence of composition hashes
+// Context window: pairs within N positions accumulate weight = 1/distance
+void record_sequence_cooccurrence(
+    const std::vector<Blake3Hash>& sequence,
+    size_t context_window = 5
+) {
+    for (size_t i = 0; i < sequence.size(); ++i) {
+        for (size_t j = i + 1; j < sequence.size() && j <= i + context_window; ++j) {
+            double distance = static_cast<double>(j - i);
+            double weight = 1.0 / distance;  // Adjacent = 1.0, 2 apart = 0.5, etc.
+            record_cooccurrence(sequence[i], sequence[j], weight);
+        }
+    }
+}
+
+// Insert accumulated co-occurrence edges to database
+bool insert_cooccurrence_edges(PGconn* conn, double threshold = 0.5) {
+    // Filter edges above threshold
+    std::vector<std::tuple<std::string, std::string, double>> edges;
+    for (const auto& [key, weight] : g_cooccurrence) {
+        if (weight >= threshold) {
+            edges.push_back({key.first, key.second, weight});
+        }
+    }
+    
+    if (edges.empty()) return true;
+    
+    std::cerr << "[EDGES] Inserting " << edges.size() << " co-occurrence edges (threshold=" << threshold << ")...\n";
+    
+    PGresult* res = PQexec(conn, "BEGIN");
+    PQclear(res);
+    
+    // Create temp table for edges
+    res = PQexec(conn,
+        "CREATE TEMP TABLE tmp_edge ("
+        "  from_id BYTEA,"
+        "  to_id BYTEA,"
+        "  weight DOUBLE PRECISION"
+        ") ON COMMIT DROP");
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "Create tmp_edge failed: " << PQerrorMessage(conn) << "\n";
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    PQclear(res);
+    
+    // COPY edges to temp table
+    res = PQexec(conn, "COPY tmp_edge FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+    if (PQresultStatus(res) != PGRES_COPY_IN) {
+        std::cerr << "COPY start failed\n";
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    PQclear(res);
+    
+    std::string batch;
+    batch.reserve(1 << 20);
+    
+    for (const auto& [from_hex, to_hex, weight] : edges) {
+        batch += "\\\\x";
+        batch += from_hex;
+        batch += "\t\\\\x";
+        batch += to_hex;
+        batch += "\t";
+        batch += std::to_string(weight);
+        batch += "\n";
+        
+        if (batch.size() > (1 << 19)) {
+            PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+            batch.clear();
+        }
+    }
+    
+    if (!batch.empty()) {
+        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+    }
+    
+    PQputCopyEnd(conn, nullptr);
+    res = PQgetResult(conn);
+    PQclear(res);
+    
+    // Insert edges as compositions with weight in M coordinate
+    // Edge geometry: LINESTRINGZM from source centroid to target centroid
+    res = PQexec(conn,
+        "INSERT INTO atom (id, geom, children, hilbert_lo, hilbert_hi, depth, atom_count) "
+        "SELECT "
+        "  hypercube_blake3(e.from_id || e.to_id), "
+        "  ST_SetSRID(ST_MakeLine("
+        "    ST_SetSRID(ST_MakePoint("
+        "      ST_X(ST_Centroid(a1.geom)), ST_Y(ST_Centroid(a1.geom)), "
+        "      ST_Z(ST_Centroid(a1.geom)), e.weight"
+        "    ), 0), "
+        "    ST_SetSRID(ST_MakePoint("
+        "      ST_X(ST_Centroid(a2.geom)), ST_Y(ST_Centroid(a2.geom)), "
+        "      ST_Z(ST_Centroid(a2.geom)), e.weight"
+        "    ), 0)"
+        "  ), 0), "
+        "  ARRAY[e.from_id, e.to_id], "
+        "  COALESCE((a1.hilbert_lo + a2.hilbert_lo) / 2, 0), "
+        "  COALESCE((a1.hilbert_hi + a2.hilbert_hi) / 2, 0), "
+        "  GREATEST(a1.depth, a2.depth) + 1, "
+        "  a1.atom_count + a2.atom_count "
+        "FROM tmp_edge e "
+        "JOIN atom a1 ON a1.id = e.from_id "
+        "JOIN atom a2 ON a2.id = e.to_id "
+        "ON CONFLICT (id) DO UPDATE SET "
+        "  geom = ST_SetSRID(ST_MakeLine("
+        "    ST_SetSRID(ST_MakePoint("
+        "      ST_X(ST_StartPoint(atom.geom)), ST_Y(ST_StartPoint(atom.geom)), "
+        "      ST_Z(ST_StartPoint(atom.geom)), "
+        "      ST_M(ST_StartPoint(atom.geom)) + EXCLUDED.geom::geometry->ST_M(ST_StartPoint(EXCLUDED.geom))"
+        "    ), 0), "
+        "    ST_EndPoint(atom.geom)"
+        "  ), 0)");
+    
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        // Simpler upsert without complex update
+        PQclear(res);
+        res = PQexec(conn,
+            "INSERT INTO atom (id, geom, children, hilbert_lo, hilbert_hi, depth, atom_count) "
+            "SELECT "
+            "  hypercube_blake3(e.from_id || e.to_id), "
+            "  ST_SetSRID(ST_MakeLine("
+            "    ST_SetSRID(ST_MakePoint("
+            "      ST_X(ST_Centroid(a1.geom)), ST_Y(ST_Centroid(a1.geom)), "
+            "      ST_Z(ST_Centroid(a1.geom)), e.weight"
+            "    ), 0), "
+            "    ST_SetSRID(ST_MakePoint("
+            "      ST_X(ST_Centroid(a2.geom)), ST_Y(ST_Centroid(a2.geom)), "
+            "      ST_Z(ST_Centroid(a2.geom)), e.weight"
+            "    ), 0)"
+            "  ), 0), "
+            "  ARRAY[e.from_id, e.to_id], "
+            "  COALESCE((a1.hilbert_lo + a2.hilbert_lo) / 2, 0), "
+            "  COALESCE((a1.hilbert_hi + a2.hilbert_hi) / 2, 0), "
+            "  GREATEST(a1.depth, a2.depth) + 1, "
+            "  a1.atom_count + a2.atom_count "
+            "FROM tmp_edge e "
+            "JOIN atom a1 ON a1.id = e.from_id "
+            "JOIN atom a2 ON a2.id = e.to_id "
+            "ON CONFLICT (id) DO NOTHING");
+    }
+    
+    int inserted = 0;
+    if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+        inserted = atoi(PQcmdTuples(res));
+    } else {
+        std::cerr << "Edge insert error: " << PQerrorMessage(conn) << "\n";
+    }
+    PQclear(res);
+    
+    res = PQexec(conn, "COMMIT");
+    PQclear(res);
+    
+    std::cerr << "[EDGES] Inserted " << inserted << " edges\n";
+    return true;
+}
+
+// Get sequence of composition hashes from start rule
+std::vector<Blake3Hash> get_start_rule_sequence(Rule* start_rule, const std::vector<Rule*>& all_rules) {
+    std::vector<Blake3Hash> sequence;
+    
+    for (Symbol* s = start_rule->first; s; s = s->next) {
+        if (s->is_terminal) {
+            auto it = g_atom_cache.find(s->codepoint);
+            if (it != g_atom_cache.end()) {
+                sequence.push_back(it->second.hash);
+            }
+        } else if (s->rule->computed) {
+            sequence.push_back(s->rule->hash);
+        }
+    }
+    
+    return sequence;
+}
 
 IngestResult ingest_file(PGconn* conn, const fs::path& path) {
     IngestResult result{};

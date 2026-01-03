@@ -1,6 +1,85 @@
 # Hartonomous-Opus Comprehensive Audit & Action Plan
-**Date**: 2026-01-02
+**Date**: 2026-01-02 (Updated with Repository Cleanup Plan)
 **Auditor**: Claude Opus 4.5
+
+---
+
+## 🔴 CRITICAL: Files to Archive/Remove
+
+### C++ Source Files - DEPRECATED (Not Compiled)
+
+| File | Lines | Issue | Action |
+|------|-------|-------|--------|
+| `cpp/src/hypercube.cpp` | 405 | Old C++ PG extension, replaced by `pg/hypercube_pg.c` | **ARCHIVE** |
+| `cpp/src/semantic_ops.cpp` | 581 | Old C++ PG extension, replaced by `pg/semantic_ops_pg.c` | **ARCHIVE** |
+| `cpp/src/extract_embeddings.cpp` | 682 | Superseded by `ingest_safetensor.cpp` | **ARCHIVE** |
+| `cpp/src/deprecated/seed_atoms.cpp` | ~300 | Old single-threaded seeder | **DELETE** |
+| `cpp/src/deprecated/seed_atoms_direct.cpp` | ~200 | Old direct seeder | **DELETE** |
+| `cpp/src/deprecated/ingest_model.cpp` | ~400 | Old model ingester | **DELETE** |
+
+### SQL Files - DEPRECATED (Old 3-Table Schema)
+
+All 10 files in `sql/deprecated/` should be deleted - they reference the old 3-table schema (atom/relation/relation_edge) that was replaced by the unified atom table.
+
+### Scripts - DEPRECATED
+
+All 6 files in `scripts/deprecated/` should be deleted - superseded by `setup.sh` and platform-specific scripts in `linux/` and `windows/`.
+
+---
+
+## 🟠 STRUCTURAL ISSUES
+
+### Monolithic Files Needing Decomposition
+
+| File | Lines | Contains | Recommended Split |
+|------|-------|----------|-------------------|
+| `cpp/src/cpe_ingest.cpp` | 792 | Atom cache, file reader, CPE algorithm, DB batch | `cpe/atom_cache.cpp`, `cpe_encoder.cpp`, `db_batch.cpp` |
+| `cpp/src/sequitur_ingest.cpp` | 1020 | Sequitur grammar, digram index, DB ingestion | `sequitur.cpp`, `sequitur_db.cpp` |
+| `cpp/src/coordinates.cpp` | 651 | Unicode categorization, Hopf fibration, surface mapping | `unicode_category.cpp`, `hopf_fibration.cpp` |
+| `sql/014_ai_operations.sql` | 588 | Attention, transform, infer, generate | `ai_attention.sql`, `ai_transform.sql`, etc. |
+
+### Multiple Concerns Per File
+
+| File | Issue |
+|------|-------|
+| `cpp/include/hypercube/types.hpp` | Contains 4 types (`Point4D`, `HilbertIndex`, `Blake3Hash`, `AtomCategory`) - should split |
+
+### Embedded Structs (Should Be In Headers)
+
+| File | Structs |
+|------|---------|
+| `cpp/src/cpe_ingest.cpp` | `AtomInfo` |
+| `cpp/src/extract_embeddings.cpp` | `TensorInfo`, `SemanticEdge`, `TokenAtom` |
+| `cpp/src/semantic_ops.cpp` | `TraverseNode`, `TraverseState`, `HashKey` |
+
+---
+
+## 🟡 DATABASE ISSUES
+
+### Test Helpers Not Permanent
+
+Test files create temporary functions that should be permanent:
+
+```sql
+-- These exist ONLY in test files, not in production schema:
+test_assert(bool, text)
+test_assert_equal(anyelement, anyelement, text)
+assert_less_than(double, double, text)
+```
+
+**Recommendation**: Create `sql/099_test_infrastructure.sql` with:
+```sql
+CREATE SCHEMA IF NOT EXISTS test;
+CREATE OR REPLACE FUNCTION test.assert(bool, text) ...
+CREATE OR REPLACE FUNCTION test.assert_eq(anyelement, anyelement, text) ...
+CREATE OR REPLACE FUNCTION test.validate_all() RETURNS TABLE(...) ...
+```
+
+### Schema Mismatch
+
+`tests/test_unified_schema_v2.sql` references `centroid` column, but current schema uses `ST_Centroid(geom)`.
+
+---
 
 ## Executive Summary
 
@@ -292,3 +371,53 @@ scripts/deprecated/        # Old scripts
 ---
 
 *This audit confirms Hartonomous-Opus is architecturally sound. The critical path to ingesting D:\Models is: Fix Windows CMake → Build → Test safetensor → Bulk CPE ingest.*
+
+---
+
+## 📋 REPOSITORY CLEANUP CHECKLIST
+
+### Phase 1: Immediate Cleanup (Safe Deletes)
+
+```powershell
+# Delete deprecated C++ source files
+Remove-Item -Recurse -Force cpp\src\deprecated
+
+# Archive old C++ PG extensions (keep for reference)
+New-Item -ItemType Directory -Path cpp\src\archive -Force
+Move-Item cpp\src\hypercube.cpp cpp\src\archive\
+Move-Item cpp\src\semantic_ops.cpp cpp\src\archive\
+Move-Item cpp\src\extract_embeddings.cpp cpp\src\archive\
+
+# Delete deprecated SQL (old schema)
+Remove-Item -Recurse -Force sql\deprecated
+
+# Delete deprecated scripts
+Remove-Item -Recurse -Force scripts\deprecated
+```
+
+- [ ] Delete `cpp/src/deprecated/*` (3 files)
+- [ ] Archive `cpp/src/hypercube.cpp`, `semantic_ops.cpp`, `extract_embeddings.cpp`
+- [ ] Delete `sql/deprecated/*` (10 files)  
+- [ ] Delete `scripts/deprecated/*` (6 files)
+
+### Phase 2: Create Permanent Test Infrastructure
+
+- [ ] Create `sql/099_test_infrastructure.sql` with test schema utilities
+- [ ] Migrate test helpers from inline definitions to permanent schema
+- [ ] Fix `test_unified_schema_v2.sql` centroid column reference
+
+### Phase 3: Refactor Monolithic Files (Future)
+
+- [ ] Split `types.hpp` into separate headers per type
+- [ ] Split `coordinates.cpp` into focused modules
+- [ ] Split `cpe_ingest.cpp` into subdirectory modules
+
+---
+
+## Summary Metrics
+
+| Category | Current | After Cleanup |
+|----------|---------|---------------|
+| C++ source files (cpp/src) | 14 | 8 + 3 archived |
+| SQL schema files | 15 | 6 |
+| Total deprecated files | 19 | 0 |

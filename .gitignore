@@ -3,6 +3,18 @@ cpp/build/
 *.o
 *.so
 *.a
+*.exe
+*.dll
+*.lib
+*.pdb
+
+# Compiled test binaries (Linux has no extension)
+tests/test_integration
+tests/test_semantic
+tests/test_hilbert
+tests/test_coordinates
+tests/test_blake3
+tests/test_query_api
 
 # IDE
 .vscode/
@@ -34,3 +46,4 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+nul

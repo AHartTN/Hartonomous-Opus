@@ -25,37 +25,31 @@ $$;
 -- Create spatial index on centroid
 CREATE INDEX IF NOT EXISTS idx_atom_centroid ON atom USING GIST(centroid);
 
--- Populate centroid for existing data
--- For leaves: centroid = geom (already a point)
--- For compositions: centroid = ST_Centroid with Z/M interpolated
-UPDATE atom 
-SET centroid = CASE 
-    WHEN depth = 0 THEN geom
-    ELSE ST_SetSRID(
-        ST_MakePoint(
-            ST_X(ST_Centroid(geom)),
-            ST_Y(ST_Centroid(geom)),
-            (ST_Z(ST_StartPoint(geom)) + ST_Z(ST_EndPoint(geom))) / 2.0,
-            (ST_M(ST_StartPoint(geom)) + ST_M(ST_EndPoint(geom))) / 2.0
-        ),
-        0
-    )
-END
-WHERE centroid IS NULL;
+-- NOTE: Centroids are computed on INSERT via trigger below.
+-- For existing data without centroids, run maintenance manually:
+--   SELECT maintenance_compute_centroids();
 
 -- Create trigger to auto-populate centroid on insert/update
 CREATE OR REPLACE FUNCTION atom_compute_centroid() RETURNS TRIGGER AS $$
+DECLARE
+    v_centroid_2d GEOMETRY;
+    v_avg_z DOUBLE PRECISION;
+    v_avg_m DOUBLE PRECISION;
 BEGIN
-    IF NEW.depth = 0 THEN
+    IF ST_GeometryType(NEW.geom) = 'ST_Point' THEN
+        -- For POINTZM leaves: centroid is the point itself
         NEW.centroid := NEW.geom;
     ELSE
+        -- For LINESTRINGZM compositions: compute 4D centroid
+        -- ST_Centroid gives us X,Y; we need to compute Z,M from all vertices
+        v_centroid_2d := ST_Centroid(NEW.geom);
+        
+        SELECT AVG(ST_Z(geom)), AVG(ST_M(geom))
+        INTO v_avg_z, v_avg_m
+        FROM ST_DumpPoints(NEW.geom);
+        
         NEW.centroid := ST_SetSRID(
-            ST_MakePoint(
-                ST_X(ST_Centroid(NEW.geom)),
-                ST_Y(ST_Centroid(NEW.geom)),
-                (ST_Z(ST_StartPoint(NEW.geom)) + ST_Z(ST_EndPoint(NEW.geom))) / 2.0,
-                (ST_M(ST_StartPoint(NEW.geom)) + ST_M(ST_EndPoint(NEW.geom))) / 2.0
-            ),
+            ST_MakePoint(ST_X(v_centroid_2d), ST_Y(v_centroid_2d), v_avg_z, v_avg_m),
             0
         );
     END IF;
@@ -147,7 +141,63 @@ $$ LANGUAGE SQL STABLE;
 COMMIT;
 
 -- =============================================================================
--- Statistics
+-- Maintenance Functions (run manually, not during schema setup)
+-- =============================================================================
+
+-- Maintenance: Populate centroids for existing data that lacks them
+CREATE OR REPLACE FUNCTION maintenance_compute_centroids(p_batch_size INTEGER DEFAULT 10000)
+RETURNS INTEGER AS $$
+DECLARE
+    v_updated INTEGER := 0;
+    v_batch INTEGER;
+BEGIN
+    LOOP
+        -- For leaves (POINT): centroid = geom directly
+        UPDATE atom 
+        SET centroid = geom
+        WHERE id IN (
+            SELECT id FROM atom 
+            WHERE centroid IS NULL AND ST_GeometryType(geom) = 'ST_Point' 
+            LIMIT p_batch_size
+        );
+        GET DIAGNOSTICS v_batch = ROW_COUNT;
+        v_updated := v_updated + v_batch;
+        
+        -- For compositions (LINESTRING): compute proper 4D centroid
+        UPDATE atom 
+        SET centroid = (
+            SELECT ST_SetSRID(
+                ST_MakePoint(
+                    ST_X(ST_Centroid(geom)),
+                    ST_Y(ST_Centroid(geom)),
+                    AVG(ST_Z(dp.geom)),
+                    AVG(ST_M(dp.geom))
+                ),
+                0
+            )
+            FROM ST_DumpPoints(atom.geom) dp
+        )
+        WHERE id IN (
+            SELECT id FROM atom 
+            WHERE centroid IS NULL AND ST_GeometryType(geom) = 'ST_LineString' 
+            LIMIT p_batch_size
+        );
+        GET DIAGNOSTICS v_batch = ROW_COUNT;
+        v_updated := v_updated + v_batch;
+        
+        IF v_batch < p_batch_size THEN
+            EXIT;
+        END IF;
+        
+        RAISE NOTICE 'Computed % centroids so far...', v_updated;
+    END LOOP;
+    
+    RETURN v_updated;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =============================================================================
+-- Statistics View
 -- =============================================================================
 
 -- View for centroid coverage

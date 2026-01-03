@@ -1,5 +1,6 @@
 # Hartonomous Hypercube - Database Setup (Windows)
-# Creates database, applies schema, seeds Unicode atoms
+# Creates database, applies schema, loads extensions, seeds Unicode atoms
+# Fully idempotent - safe to run multiple times
 # Usage: .\scripts\windows\setup-db.ps1 [-Reset]
 
 param(
@@ -44,22 +45,27 @@ try {
     }
     Write-Host "Database exists" -ForegroundColor Green
 
-    # Apply schema
-    Write-Host "`nApplying unified schema..."
-    & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -f "$env:HC_PROJECT_ROOT\sql\011_unified_atom.sql"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Schema application failed" -ForegroundColor Red
-        exit 1
+    # Apply ALL SQL schema files in order
+    Write-Host "`nApplying schema files..."
+    $sqlFiles = Get-ChildItem -Path "$env:HC_PROJECT_ROOT\sql\*.sql" | Sort-Object Name
+    foreach ($sqlFile in $sqlFiles) {
+        Write-Host "  $($sqlFile.Name)..." -NoNewline
+        & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -f $sqlFile.FullName -q 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host " FAILED" -ForegroundColor Red
+        } else {
+            Write-Host " OK" -ForegroundColor Green
+        }
     }
-    Write-Host "Schema applied" -ForegroundColor Green
     
-    # Load C++ extensions if available
+    # Load C++ extensions (idempotent - IF NOT EXISTS)
     Write-Host "`nLoading C++ extensions..."
-    $extResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "CREATE EXTENSION IF NOT EXISTS hypercube; CREATE EXTENSION IF NOT EXISTS semantic_ops;" 2>&1
+    $extResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "CREATE EXTENSION IF NOT EXISTS hypercube; CREATE EXTENSION IF NOT EXISTS semantic_ops;" 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Host "C++ extensions loaded" -ForegroundColor Green
     } else {
         Write-Host "Warning: C++ extensions not available (run build.ps1 -Install)" -ForegroundColor Yellow
+        Write-Host "  $extResult"
     }
 
     # Check atom count
@@ -92,7 +98,7 @@ try {
     
     # Show stats
     Write-Host "`nDatabase Statistics:"
-    & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "SELECT * FROM atom_stats"
+    & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "SELECT COUNT(*) as leaf_atoms FROM atom WHERE depth = 0; SELECT COUNT(*) as compositions FROM atom WHERE depth > 0; SELECT MAX(depth) as max_depth FROM atom;"
 
 } finally {
     Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue

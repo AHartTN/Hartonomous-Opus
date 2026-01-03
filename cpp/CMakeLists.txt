@@ -329,6 +329,10 @@ if(PostgreSQL_FOUND)
     target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
+    add_executable(semantic_ingest src/semantic_ingest.cpp)
+    target_include_directories(semantic_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(semantic_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
     # Integration tests with libpq
     add_executable(test_integration tests/test_integration.cpp)
     target_include_directories(test_integration PRIVATE ${PostgreSQL_INCLUDE_DIRS})

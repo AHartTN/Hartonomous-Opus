@@ -17,7 +17,7 @@
 --
 -- SRID = 0 throughout (raw 4D space)
 -- Note: Leaf atoms (depth=0) are POINT geometries, compositions are LINESTRING
---       Use ST_StartPoint() to get representative point from LINESTRING
+-- Note: For compositions (LINESTRING), ST_Centroid gives the true 4D center
 
 BEGIN;
 
@@ -27,10 +27,7 @@ BEGIN;
 
 CREATE OR REPLACE FUNCTION get_atom_point(p_geom GEOMETRY)
 RETURNS GEOMETRY AS $$
-    SELECT CASE 
-        WHEN ST_GeometryType(p_geom) = 'ST_Point' THEN p_geom
-        ELSE ST_StartPoint(p_geom)
-    END;
+    SELECT ST_Centroid(p_geom);
 $$ LANGUAGE SQL IMMUTABLE;
 
 -- Helper: Get 4D coordinates from any atom geometry
@@ -583,5 +580,4 @@ COMMIT;
 -- Index for faster child lookups (used by infer_related)
 CREATE INDEX IF NOT EXISTS idx_atom_children_gin ON atom USING GIN(children);
 
--- Analyze for query planner
-ANALYZE atom;
+-- NOTE: Run ANALYZE atom manually after bulk data loads for optimal query performance

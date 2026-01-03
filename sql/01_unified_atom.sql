@@ -105,28 +105,15 @@ RETURNS TABLE(child_id BYTEA, ordinal INTEGER) AS $$
 $$ LANGUAGE SQL STABLE;
 
 -- Get 4D centroid of any atom (works for POINT and LINESTRING)
--- Get 4D centroid of an atom
 -- For POINTZM (leaves): returns the point coordinates directly
 -- For LINESTRINGZM (compositions): computes geometric centroid
 CREATE OR REPLACE FUNCTION atom_centroid(p_id BYTEA)
 RETURNS TABLE(x DOUBLE PRECISION, y DOUBLE PRECISION, z DOUBLE PRECISION, m DOUBLE PRECISION) AS $$
     SELECT
-        CASE 
-            WHEN GeometryType(geom) = 'POINT' THEN ST_X(geom)
-            ELSE ST_X(ST_Centroid(geom))
-        END,
-        CASE 
-            WHEN GeometryType(geom) = 'POINT' THEN ST_Y(geom)
-            ELSE ST_Y(ST_Centroid(geom))
-        END,
-        CASE 
-            WHEN GeometryType(geom) = 'POINT' THEN ST_Z(geom)
-            ELSE (ST_Z(ST_StartPoint(geom)) + ST_Z(ST_EndPoint(geom))) / 2.0
-        END,
-        CASE 
-            WHEN GeometryType(geom) = 'POINT' THEN ST_M(geom)
-            ELSE (ST_M(ST_StartPoint(geom)) + ST_M(ST_EndPoint(geom))) / 2.0
-        END
+        ST_X(ST_Centroid(geom)),
+        ST_Y(ST_Centroid(geom)),
+        ST_Z(ST_Centroid(geom)),
+        ST_M(ST_Centroid(geom))
     FROM atom WHERE id = p_id;
 $$ LANGUAGE SQL STABLE;
 
