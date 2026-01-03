@@ -16,11 +16,20 @@ if (-not (Test-Path $testDataDir)) {
 Write-Host "=== Hypercube Test Data Ingestion ===" -ForegroundColor Cyan
 Write-Host "Source: $testDataDir"
 
-# Find tools
-$cpeIngester = if (Test-Path "$env:HC_BUILD_DIR\Release\cpe_ingest.exe") { 
-    "$env:HC_BUILD_DIR\Release\cpe_ingest.exe" 
-} elseif (Test-Path "$env:HC_BUILD_DIR\cpe_ingest.exe") { 
-    "$env:HC_BUILD_DIR\cpe_ingest.exe" 
+# Find tools - prefer vocabulary_ingest (proper grammar-based) over cpe_ingest (broken binary pairing)
+$vocabIngester = if (Test-Path "$env:HC_BUILD_DIR\Release\vocabulary_ingest.exe") {
+    "$env:HC_BUILD_DIR\Release\vocabulary_ingest.exe"
+} elseif (Test-Path "$env:HC_BUILD_DIR\vocabulary_ingest.exe") {
+    "$env:HC_BUILD_DIR\vocabulary_ingest.exe"
+} else { $null }
+
+# Fallback to cpe_ingest if vocabulary_ingest not available
+$cpeIngester = if ($vocabIngester) {
+    $vocabIngester  # Use vocab ingester as primary
+} elseif (Test-Path "$env:HC_BUILD_DIR\Release\cpe_ingest.exe") {
+    "$env:HC_BUILD_DIR\Release\cpe_ingest.exe"
+} elseif (Test-Path "$env:HC_BUILD_DIR\cpe_ingest.exe") {
+    "$env:HC_BUILD_DIR\cpe_ingest.exe"
 } else { $null }
 
 $semanticIngester = if (Test-Path "$env:HC_BUILD_DIR\Release\semantic_ingest.exe") { 

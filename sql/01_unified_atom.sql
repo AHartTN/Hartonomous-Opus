@@ -104,16 +104,10 @@ RETURNS TABLE(child_id BYTEA, ordinal INTEGER) AS $$
     FROM atom WHERE id = p_id;
 $$ LANGUAGE SQL STABLE;
 
--- Get 4D centroid of any atom (works for POINT and LINESTRING)
--- For POINTZM (leaves): returns the point coordinates directly
--- For LINESTRINGZM (compositions): computes geometric centroid
+-- Get 4D centroid of any atom (uses pre-computed centroid column)
 CREATE OR REPLACE FUNCTION atom_centroid(p_id BYTEA)
 RETURNS TABLE(x DOUBLE PRECISION, y DOUBLE PRECISION, z DOUBLE PRECISION, m DOUBLE PRECISION) AS $$
-    SELECT
-        ST_X(ST_Centroid(geom)),
-        ST_Y(ST_Centroid(geom)),
-        ST_Z(ST_Centroid(geom)),
-        ST_M(ST_Centroid(geom))
+    SELECT ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid)
     FROM atom WHERE id = p_id;
 $$ LANGUAGE SQL STABLE;
 
@@ -148,9 +142,30 @@ WHERE value IS NOT NULL;
 $$ LANGUAGE SQL STABLE;
 
 -- Reconstruct as text (convenience function)
+-- Reconstruct text from bytes with safe UTF-8 handling
 CREATE OR REPLACE FUNCTION atom_reconstruct_text(p_root_id BYTEA) RETURNS TEXT AS $$
-    SELECT convert_from(atom_reconstruct(p_root_id), 'UTF8');
-$$ LANGUAGE SQL STABLE;
+DECLARE
+    v_bytes BYTEA;
+    v_text TEXT;
+BEGIN
+    v_bytes := atom_reconstruct(p_root_id);
+    IF v_bytes IS NULL THEN
+        RETURN NULL;
+    END IF;
+    
+    -- Remove NULL bytes which are invalid in UTF-8 text
+    v_bytes := replace(v_bytes::TEXT, '\x00', '')::BYTEA;
+    
+    BEGIN
+        v_text := convert_from(v_bytes, 'UTF8');
+    EXCEPTION WHEN OTHERS THEN
+        -- Fall back to hex representation if not valid UTF-8
+        v_text := encode(v_bytes, 'hex');
+    END;
+    
+    RETURN v_text;
+END;
+$$ LANGUAGE plpgsql STABLE;
 
 -- =============================================================================
 -- STEP 5: Stats views

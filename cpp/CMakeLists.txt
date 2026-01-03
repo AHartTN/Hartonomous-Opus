@@ -245,6 +245,36 @@ if(BUILD_PG_EXTENSION)
     )
     
     # -------------------------------------------------------------------------
+    # hypercube_ops PostgreSQL Extension (pure C - optimized batch operations)
+    # -------------------------------------------------------------------------
+    
+    add_library(hypercube_ops SHARED
+        src/pg/hypercube_ops_pg.c
+    )
+    
+    set_source_files_properties(src/pg/hypercube_ops_pg.c PROPERTIES LANGUAGE C)
+    
+    target_include_directories(hypercube_ops PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PG_INCLUDE_DIRS}
+    )
+    
+    target_compile_definitions(hypercube_ops PRIVATE
+        ${PG_COMPILE_DEFS}
+    )
+    
+    set_target_properties(hypercube_ops PROPERTIES LINKER_LANGUAGE C)
+
+    if(WIN32 AND POSTGRES_LIB)
+        target_link_libraries(hypercube_ops PRIVATE ${POSTGRES_LIB})
+    endif()
+    
+    set_target_properties(hypercube_ops PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "hypercube_ops"
+    )
+    
+    # -------------------------------------------------------------------------
     # Installation
     # -------------------------------------------------------------------------
 
@@ -274,6 +304,17 @@ if(BUILD_PG_EXTENSION)
     install(FILES
         sql/semantic_ops--1.0.sql
         sql/semantic_ops.control
+        DESTINATION ${PG_SHAREDIR}/extension
+    )
+    
+    install(TARGETS hypercube_ops
+        LIBRARY DESTINATION ${PG_PKGLIBDIR}
+        RUNTIME DESTINATION ${PG_PKGLIBDIR}
+    )
+    
+    install(FILES
+        sql/hypercube_ops--1.0.sql
+        sql/hypercube_ops.control
         DESTINATION ${PG_SHAREDIR}/extension
     )
 endif()
@@ -332,6 +373,10 @@ if(PostgreSQL_FOUND)
     add_executable(semantic_ingest src/semantic_ingest.cpp)
     target_include_directories(semantic_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(semantic_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+
+    add_executable(vocabulary_ingest src/vocabulary_ingest.cpp)
+    target_include_directories(vocabulary_ingest PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(vocabulary_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
     # Integration tests with libpq
     add_executable(test_integration tests/test_integration.cpp)

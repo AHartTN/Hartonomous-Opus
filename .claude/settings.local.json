@@ -8,7 +8,10 @@
       "Bash(Format-Table -AutoSize)",
       "Bash(powershell.exe -Command \"Test-Path ''D:\\\\Repositories\\\\Github\\\\AHartTN\\\\Hartonomous-Opus\\\\cpp\\\\build''\")",
       "Bash(powershell.exe -Command \"mkdir ''D:\\\\Repositories\\\\Github\\\\AHartTN\\\\Hartonomous-Opus\\\\cpp\\\\build'' -Force; cd ''D:\\\\Repositories\\\\Github\\\\AHartTN\\\\Hartonomous-Opus\\\\cpp\\\\build''; cmake .. -DCMAKE_BUILD_TYPE=Release 2>&1\")",
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(pwsh:*)",
+      "Bash(Select-String -Pattern \"Testing:|PASSED|FAILED|tests passed\")"
     ]
   }
 }

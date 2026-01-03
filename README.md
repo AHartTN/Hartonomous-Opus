@@ -6,10 +6,34 @@ A **deterministic, lossless, content-addressable geometric semantic substrate** 
 
 ## Quick Start
 
+### Windows (PowerShell)
+
+```powershell
+# Configure database credentials
+Copy-Item scripts/config.env.example scripts/config.env
+# Edit scripts/config.env with your PostgreSQL credentials
+
+# Run EVERYTHING: clean, build, database setup, seed 1.1M atoms, 
+# ingest test data (model + Moby Dick), run all tests
+.\scripts\windows\setup-all.ps1
+
+# Individual steps (if needed):
+.\scripts\windows\clean.ps1           # Clean build artifacts
+.\scripts\windows\build.ps1 -Install  # Build C++ and install extensions
+.\scripts\windows\setup-db.ps1 -Reset # Reset and setup database
+.\scripts\windows\ingest-testdata.ps1 # Ingest test-data/ content
+.\scripts\windows\test.ps1            # Run full test suite
+
+# Ingest your own content:
+.\scripts\windows\ingest.ps1 -Path "C:\path\to\file.txt"
+```
+
+### Linux/macOS (Bash)
+
 ```bash
 # Configure database credentials
-cp .env.example .env
-# Edit .env with your PostgreSQL credentials
+cp scripts/config.env.example scripts/config.env
+# Edit scripts/config.env with your PostgreSQL credentials
 
 # Initialize everything (builds tools, creates database, seeds 1.1M atoms)
 ./setup.sh init

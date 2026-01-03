@@ -1,0 +1,6 @@
+# Hypercube Optimized Operations extension
+comment = 'High-performance batch and graph operations for Hypercube'
+default_version = '1.0'
+module_pathname = '$libdir/hypercube_ops'
+relocatable = true
+requires = 'postgis'
