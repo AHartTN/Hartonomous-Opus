@@ -17,27 +17,56 @@
 --
 -- SRID = 0 throughout (raw 4D space)
 -- Note: Leaf atoms (depth=0) are POINT geometries, compositions are LINESTRING
--- Note: For compositions (LINESTRING), ST_Centroid gives the true 4D center
+-- Note: We use the pre-computed 'centroid' column for 4D coordinates
 
 BEGIN;
 
 -- =============================================================================
--- Helper: Get representative 4D point from any geometry type
+-- Helper: Get 4D coordinates efficiently from centroid column
 -- =============================================================================
 
-CREATE OR REPLACE FUNCTION get_atom_point(p_geom GEOMETRY)
-RETURNS GEOMETRY AS $$
-    SELECT ST_Centroid(p_geom);
-$$ LANGUAGE SQL IMMUTABLE;
-
--- Helper: Get 4D coordinates from any atom geometry
-CREATE OR REPLACE FUNCTION get_atom_coords(p_geom GEOMETRY)
+-- Get 4D coordinates from the pre-computed centroid column (preferred method)
+CREATE OR REPLACE FUNCTION get_atom_coords_by_id(p_id BYTEA)
 RETURNS TABLE(x DOUBLE PRECISION, y DOUBLE PRECISION, z DOUBLE PRECISION, m DOUBLE PRECISION) AS $$
     SELECT 
-        ST_X(get_atom_point(p_geom)),
-        ST_Y(get_atom_point(p_geom)),
-        ST_Z(get_atom_point(p_geom)),
-        ST_M(get_atom_point(p_geom));
+        ST_X(centroid),
+        ST_Y(centroid),
+        ST_Z(centroid),
+        ST_M(centroid)
+    FROM atom
+    WHERE id = p_id;
+$$ LANGUAGE SQL STABLE;
+
+-- For POINT: return the point directly
+-- For LINESTRING: compute proper 4D centroid from all vertices
+CREATE OR REPLACE FUNCTION get_atom_point(p_geom GEOMETRY)
+RETURNS GEOMETRY AS $$
+    SELECT CASE 
+        WHEN ST_GeometryType(p_geom) = 'ST_Point' THEN p_geom
+        ELSE 
+            -- For LINESTRING, compute 4D centroid manually
+            ST_SetSRID(
+                ST_MakePoint(
+                    ST_X(ST_Centroid(p_geom)),
+                    ST_Y(ST_Centroid(p_geom)),
+                    (SELECT AVG(ST_Z(geom)) FROM ST_DumpPoints(p_geom)),
+                    (SELECT AVG(ST_M(geom)) FROM ST_DumpPoints(p_geom))
+                ),
+                0
+            )
+    END;
+$$ LANGUAGE SQL IMMUTABLE;
+
+-- Fallback: Get 4D coordinates from geometry (slower, computes on the fly)
+CREATE OR REPLACE FUNCTION get_atom_coords(p_geom GEOMETRY)
+RETURNS TABLE(x DOUBLE PRECISION, y DOUBLE PRECISION, z DOUBLE PRECISION, m DOUBLE PRECISION) AS $$
+    WITH pt AS (SELECT get_atom_point(p_geom) as p)
+    SELECT 
+        ST_X(pt.p),
+        ST_Y(pt.p),
+        ST_Z(pt.p),
+        ST_M(pt.p)
+    FROM pt;
 $$ LANGUAGE SQL IMMUTABLE;
 
 -- =============================================================================
@@ -63,11 +92,11 @@ DECLARE
     v_query_m DOUBLE PRECISION;
     v_query_depth INTEGER;
 BEGIN
-    -- Get query position (using representative point)
-    SELECT c.x, c.y, c.z, c.m, a.depth
+    -- Get query position from centroid column
+    SELECT ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid), depth
     INTO v_query_x, v_query_y, v_query_z, v_query_m, v_query_depth
-    FROM atom a, get_atom_coords(a.geom) c
-    WHERE a.id = p_query_id;
+    FROM atom
+    WHERE id = p_query_id;
     
     IF v_query_x IS NULL THEN
         RAISE EXCEPTION 'Query composition not found';
@@ -80,13 +109,13 @@ BEGIN
         atom_reconstruct_text(a.id),
         -- Attention score: inverse of 4D distance, scaled by depth similarity
         1.0 / (1.0 + sqrt(
-            power(c.x - v_query_x, 2) +
-            power(c.y - v_query_y, 2) +
-            power(c.z - v_query_z, 2) +
-            power(c.m - v_query_m, 2)
+            power(ST_X(a.centroid) - v_query_x, 2) +
+            power(ST_Y(a.centroid) - v_query_y, 2) +
+            power(ST_Z(a.centroid) - v_query_z, 2) +
+            power(ST_M(a.centroid) - v_query_m, 2)
         )) * (1.0 / (1.0 + ABS(a.depth - v_query_depth))),
         a.depth
-    FROM atom a, get_atom_coords(a.geom) c
+    FROM atom a
     WHERE a.id != p_query_id
       AND a.depth BETWEEN v_query_depth - p_context_depth AND v_query_depth + p_context_depth
       AND a.depth > 0  -- Only compositions, not leaf atoms
@@ -108,8 +137,9 @@ CREATE OR REPLACE FUNCTION attention_cross(
 BEGIN
     RETURN QUERY
     WITH query_positions AS (
-        SELECT a.id, c.x, c.y, c.z, c.m
-        FROM atom a, get_atom_coords(a.geom) c
+        SELECT a.id, ST_X(a.centroid) as x, ST_Y(a.centroid) as y, 
+               ST_Z(a.centroid) as z, ST_M(a.centroid) as m
+        FROM atom a
         WHERE a.id = ANY(p_query_ids)
     ),
     attention_scores AS (
@@ -117,12 +147,12 @@ BEGIN
             a.id as comp_id,
             q.id as query_id,
             1.0 / (1.0 + sqrt(
-                power(ac.x - q.x, 2) +
-                power(ac.y - q.y, 2) +
-                power(ac.z - q.z, 2) +
-                power(ac.m - q.m, 2)
+                power(ST_X(a.centroid) - q.x, 2) +
+                power(ST_Y(a.centroid) - q.y, 2) +
+                power(ST_Z(a.centroid) - q.z, 2) +
+                power(ST_M(a.centroid) - q.m, 2)
             )) as score
-        FROM atom a, get_atom_coords(a.geom) ac
+        FROM atom a
         CROSS JOIN query_positions q
         WHERE a.depth > 0
           AND a.id != ALL(p_query_ids)
@@ -165,25 +195,24 @@ DECLARE
     v_target_z DOUBLE PRECISION;
     v_target_m DOUBLE PRECISION;
 BEGIN
-    -- Compute transformation vector: target - source (using representative points)
+    -- Compute transformation vector: target - source (using centroid column)
     SELECT 
-        tc.x - sc.x,
-        tc.y - sc.y,
-        tc.z - sc.z,
-        tc.m - sc.m
+        ST_X(t.centroid) - ST_X(s.centroid),
+        ST_Y(t.centroid) - ST_Y(s.centroid),
+        ST_Z(t.centroid) - ST_Z(s.centroid),
+        ST_M(t.centroid) - ST_M(s.centroid)
     INTO v_delta_x, v_delta_y, v_delta_z, v_delta_m
-    FROM atom s, get_atom_coords(s.geom) sc,
-         atom t, get_atom_coords(t.geom) tc
+    FROM atom s, atom t
     WHERE s.id = p_source_id AND t.id = p_target_id;
     
     -- Apply transformation to query
     SELECT 
-        qc.x + v_delta_x,
-        qc.y + v_delta_y,
-        qc.z + v_delta_z,
-        qc.m + v_delta_m
+        ST_X(q.centroid) + v_delta_x,
+        ST_Y(q.centroid) + v_delta_y,
+        ST_Z(q.centroid) + v_delta_z,
+        ST_M(q.centroid) + v_delta_m
     INTO v_target_x, v_target_y, v_target_z, v_target_m
-    FROM atom q, get_atom_coords(q.geom) qc
+    FROM atom q
     WHERE q.id = p_query_id;
     
     -- Find nearest compositions to the transformed point
@@ -192,19 +221,19 @@ BEGIN
         a.id,
         atom_reconstruct_text(a.id),
         1.0 / (1.0 + sqrt(
-            power(ac.x - v_target_x, 2) +
-            power(ac.y - v_target_y, 2) +
-            power(ac.z - v_target_z, 2) +
-            power(ac.m - v_target_m, 2)
+            power(ST_X(a.centroid) - v_target_x, 2) +
+            power(ST_Y(a.centroid) - v_target_y, 2) +
+            power(ST_Z(a.centroid) - v_target_z, 2) +
+            power(ST_M(a.centroid) - v_target_m, 2)
         ))
-    FROM atom a, get_atom_coords(a.geom) ac
+    FROM atom a
     WHERE a.id != p_query_id
       AND a.depth > 0
     ORDER BY sqrt(
-        power(ac.x - v_target_x, 2) +
-        power(ac.y - v_target_y, 2) +
-        power(ac.z - v_target_z, 2) +
-        power(ac.m - v_target_m, 2)
+        power(ST_X(a.centroid) - v_target_x, 2) +
+        power(ST_Y(a.centroid) - v_target_y, 2) +
+        power(ST_Z(a.centroid) - v_target_z, 2) +
+        power(ST_M(a.centroid) - v_target_m, 2)
     )
     LIMIT p_k;
 END;
@@ -273,11 +302,11 @@ DECLARE
     v_current_id BYTEA;
     v_step INTEGER := 0;
 BEGIN
-    -- Get end position using representative point
-    SELECT c.x, c.y, c.z, c.m
+    -- Get end position from centroid column
+    SELECT ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid)
     INTO v_end_x, v_end_y, v_end_z, v_end_m
-    FROM atom a, get_atom_coords(a.geom) c
-    WHERE a.id = p_end_id;
+    FROM atom
+    WHERE id = p_end_id;
     
     v_current_id := p_start_id;
     
@@ -289,37 +318,37 @@ BEGIN
             a.id,
             atom_reconstruct_text(a.id),
             sqrt(
-                power(ac.x - v_end_x, 2) +
-                power(ac.y - v_end_y, 2) +
-                power(ac.z - v_end_z, 2) +
-                power(ac.m - v_end_m, 2)
+                power(ST_X(a.centroid) - v_end_x, 2) +
+                power(ST_Y(a.centroid) - v_end_y, 2) +
+                power(ST_Z(a.centroid) - v_end_z, 2) +
+                power(ST_M(a.centroid) - v_end_m, 2)
             )
-        FROM atom a, get_atom_coords(a.geom) ac
+        FROM atom a
         WHERE a.id = v_current_id;
         
         -- Move to nearest neighbor closer to goal
         SELECT a.id INTO v_current_id
-        FROM atom a, get_atom_coords(a.geom) ac
+        FROM atom a
         WHERE a.id != v_current_id
           AND a.depth > 0
           AND sqrt(
-              power(ac.x - v_end_x, 2) +
-              power(ac.y - v_end_y, 2) +
-              power(ac.z - v_end_z, 2) +
-              power(ac.m - v_end_m, 2)
+              power(ST_X(a.centroid) - v_end_x, 2) +
+              power(ST_Y(a.centroid) - v_end_y, 2) +
+              power(ST_Z(a.centroid) - v_end_z, 2) +
+              power(ST_M(a.centroid) - v_end_m, 2)
           ) < (
               SELECT sqrt(
-                  power(cc.x - v_end_x, 2) +
-                  power(cc.y - v_end_y, 2) +
-                  power(cc.z - v_end_z, 2) +
-                  power(cc.m - v_end_m, 2)
-              ) FROM atom c, get_atom_coords(c.geom) cc WHERE c.id = v_current_id
+                  power(ST_X(c.centroid) - v_end_x, 2) +
+                  power(ST_Y(c.centroid) - v_end_y, 2) +
+                  power(ST_Z(c.centroid) - v_end_z, 2) +
+                  power(ST_M(c.centroid) - v_end_m, 2)
+              ) FROM atom c WHERE c.id = v_current_id
           )
         ORDER BY sqrt(
-            power(ac.x - v_end_x, 2) +
-            power(ac.y - v_end_y, 2) +
-            power(ac.z - v_end_z, 2) +
-            power(ac.m - v_end_m, 2)
+            power(ST_X(a.centroid) - v_end_x, 2) +
+            power(ST_Y(a.centroid) - v_end_y, 2) +
+            power(ST_Z(a.centroid) - v_end_z, 2) +
+            power(ST_M(a.centroid) - v_end_m, 2)
         )
         LIMIT 1;
         
@@ -367,11 +396,11 @@ BEGIN
     v_current_id := p_seed_id;
     
     WHILE v_step < p_steps LOOP
-        -- Get current position
-        SELECT c.x, c.y, c.z, c.m
+        -- Get current position from centroid
+        SELECT ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid)
         INTO v_current_x, v_current_y, v_current_z, v_current_m
-        FROM atom a, get_atom_coords(a.geom) c
-        WHERE a.id = v_current_id;
+        FROM atom
+        WHERE id = v_current_id;
         
         -- Return current step
         RETURN QUERY
@@ -382,17 +411,17 @@ BEGIN
         
         -- Pick random neighbor weighted by proximity
         SELECT a.id INTO v_current_id
-        FROM atom a, get_atom_coords(a.geom) ac
+        FROM atom a
         WHERE a.id != v_current_id
           AND a.depth > 0
         ORDER BY 
             -- Temperature controls randomness: higher = more random
             random() * p_temperature + 
             1.0 / (1.0 + sqrt(
-                power(ac.x - v_current_x, 2) +
-                power(ac.y - v_current_y, 2) +
-                power(ac.z - v_current_z, 2) +
-                power(ac.m - v_current_m, 2)
+                power(ST_X(a.centroid) - v_current_x, 2) +
+                power(ST_Y(a.centroid) - v_current_y, 2) +
+                power(ST_Z(a.centroid) - v_current_z, 2) +
+                power(ST_M(a.centroid) - v_current_m, 2)
             ))
         LIMIT 1;
         
@@ -433,24 +462,24 @@ BEGIN
             v_current_id,
             atom_reconstruct_text(v_current_id),
             sqrt(
-                power(ac.x - p_target_x, 2) +
-                power(ac.y - p_target_y, 2) +
-                power(ac.z - p_target_z, 2) +
-                power(ac.m - p_target_m, 2)
+                power(ST_X(a.centroid) - p_target_x, 2) +
+                power(ST_Y(a.centroid) - p_target_y, 2) +
+                power(ST_Z(a.centroid) - p_target_z, 2) +
+                power(ST_M(a.centroid) - p_target_m, 2)
             )
-        FROM atom a, get_atom_coords(a.geom) ac
+        FROM atom a
         WHERE a.id = v_current_id;
         
         -- Move toward target
         SELECT a.id INTO v_current_id
-        FROM atom a, get_atom_coords(a.geom) ac
+        FROM atom a
         WHERE a.id != v_current_id
           AND a.depth > 0
         ORDER BY sqrt(
-            power(ac.x - p_target_x, 2) +
-            power(ac.y - p_target_y, 2) +
-            power(ac.z - p_target_z, 2) +
-            power(ac.m - p_target_m, 2)
+            power(ST_X(a.centroid) - p_target_x, 2) +
+            power(ST_Y(a.centroid) - p_target_y, 2) +
+            power(ST_Z(a.centroid) - p_target_z, 2) +
+            power(ST_M(a.centroid) - p_target_m, 2)
         )
         LIMIT 1;
         
@@ -568,6 +597,318 @@ BEGIN
         SELECT g.step, g.content
         FROM generate_random_walk(v_id, p_steps, 0.5) g;
     END IF;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- =============================================================================
+-- SEMANTIC EDGE QUERIES: Co-occurrence based relationships
+-- =============================================================================
+
+-- Find atoms that co-occur with a given atom (from semantic edges)
+-- Semantic edges are stored as depth=1, atom_count=2 compositions
+-- with the M coordinate = co-occurrence weight
+CREATE OR REPLACE FUNCTION semantic_cooccurrence(
+    p_atom_id BYTEA,
+    p_k INTEGER DEFAULT 20
+) RETURNS TABLE(
+    neighbor_id BYTEA,
+    neighbor_text TEXT,
+    cooccurrence_weight DOUBLE PRECISION
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        CASE WHEN e.children[1] = p_atom_id THEN e.children[2] ELSE e.children[1] END,
+        atom_reconstruct_text(
+            CASE WHEN e.children[1] = p_atom_id THEN e.children[2] ELSE e.children[1] END
+        ),
+        ST_M(ST_StartPoint(e.geom))
+    FROM atom e
+    WHERE e.depth = 1 
+      AND e.atom_count = 2
+      AND (e.children[1] = p_atom_id OR e.children[2] = p_atom_id)
+      AND ST_M(ST_StartPoint(e.geom)) < 100000  -- Semantic edges have low M values
+    ORDER BY ST_M(ST_StartPoint(e.geom)) DESC
+    LIMIT p_k;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Find the strongest semantic edges in the system
+CREATE OR REPLACE FUNCTION semantic_top_edges(
+    p_limit INTEGER DEFAULT 50
+) RETURNS TABLE(
+    atom1_text TEXT,
+    atom2_text TEXT,
+    weight DOUBLE PRECISION
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        atom_reconstruct_text(e.children[1]),
+        atom_reconstruct_text(e.children[2]),
+        ST_M(ST_StartPoint(e.geom))
+    FROM atom e
+    JOIN atom a1 ON a1.id = e.children[1] AND a1.depth = 0
+    JOIN atom a2 ON a2.id = e.children[2] AND a2.depth = 0
+    WHERE e.depth = 1 
+      AND e.atom_count = 2
+      AND ST_M(ST_StartPoint(e.geom)) < 100000  -- Semantic edges
+    ORDER BY ST_M(ST_StartPoint(e.geom)) DESC
+    LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Semantic walk: follow co-occurrence edges (with visited tracking)
+CREATE OR REPLACE FUNCTION semantic_walk(
+    p_seed_id BYTEA,
+    p_steps INTEGER DEFAULT 10
+) RETURNS TABLE(
+    step INTEGER,
+    atom_id BYTEA,
+    atom_text TEXT,
+    edge_weight DOUBLE PRECISION
+) AS $$
+DECLARE
+    v_current_id BYTEA;
+    v_next_id BYTEA;
+    v_weight DOUBLE PRECISION;
+    v_step INTEGER := 0;
+    v_visited BYTEA[] := ARRAY[]::BYTEA[];
+BEGIN
+    v_current_id := p_seed_id;
+    
+    WHILE v_step < p_steps LOOP
+        -- Add current to visited
+        v_visited := array_append(v_visited, v_current_id);
+        
+        -- Return current step
+        step := v_step;
+        atom_id := v_current_id;
+        atom_text := atom_reconstruct_text(v_current_id);
+        edge_weight := v_weight;
+        RETURN NEXT;
+        
+        -- Find strongest co-occurrence edge to unvisited node
+        SELECT 
+            CASE WHEN e.children[1] = v_current_id THEN e.children[2] ELSE e.children[1] END,
+            ST_M(ST_StartPoint(e.geom))
+        INTO v_next_id, v_weight
+        FROM atom e
+        WHERE e.depth = 1 
+          AND e.atom_count = 2
+          AND (e.children[1] = v_current_id OR e.children[2] = v_current_id)
+          AND ST_M(ST_StartPoint(e.geom)) < 100000
+          AND NOT (CASE WHEN e.children[1] = v_current_id THEN e.children[2] ELSE e.children[1] END = ANY(v_visited))
+        ORDER BY ST_M(ST_StartPoint(e.geom)) DESC
+        LIMIT 1;
+        
+        IF v_next_id IS NULL THEN
+            EXIT;
+        END IF;
+        
+        v_current_id := v_next_id;
+        v_step := v_step + 1;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Find shortest semantic path between two atoms via co-occurrence edges
+CREATE OR REPLACE FUNCTION semantic_path(
+    p_from_id BYTEA,
+    p_to_id BYTEA,
+    p_max_depth INTEGER DEFAULT 6
+) RETURNS TABLE(
+    step INTEGER,
+    atom_id BYTEA,
+    atom_text TEXT,
+    edge_weight DOUBLE PRECISION
+) AS $$
+DECLARE
+    v_frontier BYTEA[][];
+    v_next_frontier BYTEA[][];
+    v_visited BYTEA[];
+    v_path BYTEA[];
+    v_found BOOLEAN := FALSE;
+    v_depth INTEGER := 0;
+    v_parent BYTEA;
+    v_child BYTEA;
+    v_weight DOUBLE PRECISION;
+    rec RECORD;
+BEGIN
+    -- BFS initialization
+    v_frontier := ARRAY[ARRAY[p_from_id, NULL::BYTEA]];
+    v_visited := ARRAY[p_from_id];
+    
+    WHILE v_depth < p_max_depth AND NOT v_found LOOP
+        v_next_frontier := ARRAY[]::BYTEA[][];
+        
+        FOR i IN 1..array_length(v_frontier, 1) LOOP
+            v_parent := v_frontier[i][1];
+            
+            -- Find all neighbors via co-occurrence edges
+            FOR rec IN 
+                SELECT 
+                    CASE WHEN e.children[1] = v_parent THEN e.children[2] ELSE e.children[1] END as neighbor,
+                    ST_M(ST_StartPoint(e.geom)) as w
+                FROM atom e
+                WHERE e.depth = 1 
+                  AND e.atom_count = 2
+                  AND (e.children[1] = v_parent OR e.children[2] = v_parent)
+                  AND ST_M(ST_StartPoint(e.geom)) < 100000
+            LOOP
+                IF rec.neighbor = p_to_id THEN
+                    -- Found target! Reconstruct path
+                    v_found := TRUE;
+                    
+                    -- Build path from frontier
+                    step := 0;
+                    atom_id := p_from_id;
+                    atom_text := atom_reconstruct_text(p_from_id);
+                    edge_weight := NULL;
+                    RETURN NEXT;
+                    
+                    -- Return intermediate steps (simplified - just returns start and end for now)
+                    step := v_depth + 1;
+                    atom_id := p_to_id;
+                    atom_text := atom_reconstruct_text(p_to_id);
+                    edge_weight := rec.w;
+                    RETURN NEXT;
+                    EXIT;
+                ELSIF NOT rec.neighbor = ANY(v_visited) THEN
+                    v_visited := array_append(v_visited, rec.neighbor);
+                    v_next_frontier := v_next_frontier || ARRAY[ARRAY[rec.neighbor, v_parent]];
+                END IF;
+            END LOOP;
+            
+            IF v_found THEN EXIT; END IF;
+        END LOOP;
+        
+        v_frontier := v_next_frontier;
+        v_depth := v_depth + 1;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Count semantic edges for an atom
+CREATE OR REPLACE FUNCTION semantic_degree(
+    p_atom_id BYTEA
+) RETURNS INTEGER AS $$
+BEGIN
+    RETURN (
+        SELECT COUNT(*)::INTEGER
+        FROM atom e
+        WHERE e.depth = 1 
+          AND e.atom_count = 2
+          AND (e.children[1] = p_atom_id OR e.children[2] = p_atom_id)
+          AND ST_M(ST_StartPoint(e.geom)) < 100000
+    );
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Get semantic statistics for an atom
+CREATE OR REPLACE FUNCTION semantic_stats(
+    p_atom_id BYTEA
+) RETURNS TABLE(
+    total_edges INTEGER,
+    total_weight DOUBLE PRECISION,
+    avg_weight DOUBLE PRECISION,
+    max_weight DOUBLE PRECISION,
+    min_weight DOUBLE PRECISION
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COUNT(*)::INTEGER,
+        SUM(ST_M(ST_StartPoint(e.geom))),
+        AVG(ST_M(ST_StartPoint(e.geom))),
+        MAX(ST_M(ST_StartPoint(e.geom))),
+        MIN(ST_M(ST_StartPoint(e.geom)))
+    FROM atom e
+    WHERE e.depth = 1 
+      AND e.atom_count = 2
+      AND (e.children[1] = p_atom_id OR e.children[2] = p_atom_id)
+      AND ST_M(ST_StartPoint(e.geom)) < 100000;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Find atoms with highest semantic connectivity (most co-occurrence edges)
+CREATE OR REPLACE FUNCTION semantic_hubs(
+    p_limit INTEGER DEFAULT 20
+) RETURNS TABLE(
+    atom_id BYTEA,
+    atom_text TEXT,
+    edge_count BIGINT,
+    total_weight DOUBLE PRECISION
+) AS $$
+BEGIN
+    RETURN QUERY
+    WITH edge_counts AS (
+        SELECT 
+            unnest(e.children) as child_id,
+            ST_M(ST_StartPoint(e.geom)) as w
+        FROM atom e
+        WHERE e.depth = 1 
+          AND e.atom_count = 2
+          AND ST_M(ST_StartPoint(e.geom)) < 100000
+    )
+    SELECT 
+        ec.child_id,
+        atom_reconstruct_text(ec.child_id),
+        COUNT(*),
+        SUM(ec.w)
+    FROM edge_counts ec
+    JOIN atom a ON a.id = ec.child_id AND a.depth = 0
+    GROUP BY ec.child_id
+    ORDER BY COUNT(*) DESC
+    LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Compute semantic similarity between two atoms based on shared neighbors
+CREATE OR REPLACE FUNCTION semantic_similarity(
+    p_atom1 BYTEA,
+    p_atom2 BYTEA
+) RETURNS DOUBLE PRECISION AS $$
+DECLARE
+    v_neighbors1 BYTEA[];
+    v_neighbors2 BYTEA[];
+    v_intersection INTEGER;
+    v_union INTEGER;
+BEGIN
+    -- Get neighbors for atom1
+    SELECT array_agg(CASE WHEN e.children[1] = p_atom1 THEN e.children[2] ELSE e.children[1] END)
+    INTO v_neighbors1
+    FROM atom e
+    WHERE e.depth = 1 
+      AND e.atom_count = 2
+      AND (e.children[1] = p_atom1 OR e.children[2] = p_atom1)
+      AND ST_M(ST_StartPoint(e.geom)) < 100000;
+    
+    -- Get neighbors for atom2
+    SELECT array_agg(CASE WHEN e.children[1] = p_atom2 THEN e.children[2] ELSE e.children[1] END)
+    INTO v_neighbors2
+    FROM atom e
+    WHERE e.depth = 1 
+      AND e.atom_count = 2
+      AND (e.children[1] = p_atom2 OR e.children[2] = p_atom2)
+      AND ST_M(ST_StartPoint(e.geom)) < 100000;
+    
+    IF v_neighbors1 IS NULL OR v_neighbors2 IS NULL THEN
+        RETURN 0.0;
+    END IF;
+    
+    -- Jaccard similarity: |intersection| / |union|
+    SELECT COUNT(*) INTO v_intersection
+    FROM unnest(v_neighbors1) n1
+    WHERE n1 = ANY(v_neighbors2);
+    
+    v_union := array_length(v_neighbors1, 1) + array_length(v_neighbors2, 1) - v_intersection;
+    
+    IF v_union = 0 THEN
+        RETURN 0.0;
+    END IF;
+    
+    RETURN v_intersection::DOUBLE PRECISION / v_union::DOUBLE PRECISION;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
