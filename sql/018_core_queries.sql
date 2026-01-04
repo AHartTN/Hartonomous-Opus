@@ -35,28 +35,27 @@ RETURNS BYTEA AS $$
 $$ LANGUAGE sql STABLE;
 
 -- =============================================================================
--- Statistics & Diagnostics
+-- Statistics & Diagnostics (4-TABLE SCHEMA)
 -- =============================================================================
 
--- Complete database statistics
+-- Complete database statistics for 4-table schema
 CREATE OR REPLACE FUNCTION db_stats()
 RETURNS TABLE (
-    total_atoms BIGINT,
-    leaf_atoms BIGINT,
+    atoms BIGINT,
     compositions BIGINT,
-    max_depth INTEGER,
-    db_size TEXT
+    relations BIGINT,
+    shapes BIGINT,
+    models TEXT[]
 ) AS $$
     SELECT 
-        COUNT(*),
-        COUNT(*) FILTER (WHERE depth = 0),
-        COUNT(*) FILTER (WHERE depth > 0),
-        MAX(depth),
-        pg_size_pretty(pg_total_relation_size('atom'))
-    FROM atom;
+        (SELECT COUNT(*) FROM atom),
+        (SELECT COUNT(*) FROM composition),
+        (SELECT COUNT(*) FROM relation),
+        (SELECT COUNT(*) FROM shape),
+        (SELECT array_agg(DISTINCT model_name) FROM shape WHERE model_name IS NOT NULL)
 $$ LANGUAGE sql STABLE;
 
--- Depth distribution
+-- Depth distribution (from composition table)
 CREATE OR REPLACE FUNCTION db_depth_distribution()
 RETURNS TABLE (
     depth INTEGER,
@@ -66,14 +65,14 @@ RETURNS TABLE (
     avg_atoms NUMERIC
 ) AS $$
     SELECT 
-        depth,
+        c.depth,
         COUNT(*),
-        MIN(atom_count),
-        MAX(atom_count),
-        AVG(atom_count)::NUMERIC(20,2)
-    FROM atom
-    GROUP BY depth
-    ORDER BY depth;
+        MIN(c.atom_count),
+        MAX(c.atom_count),
+        AVG(c.atom_count)::NUMERIC(20,2)
+    FROM composition c
+    GROUP BY c.depth
+    ORDER BY c.depth;
 $$ LANGUAGE sql STABLE;
 
 -- Index health check

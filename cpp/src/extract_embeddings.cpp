@@ -304,24 +304,16 @@ bool batch_insert_edges(PGconn* conn, const std::vector<SemanticEdge>& edges) {
     res = PQgetResult(conn);
     PQclear(res);
 
-    // Insert edges into atom table (LINESTRINGZM with weight in M)
+    // Insert edges into relation table (4-table schema)
     res = PQexec(conn,
-        "INSERT INTO atom (id, geom, children, hilbert_lo, hilbert_hi, depth, atom_count) "
-        "SELECT "
-        "  hypercube_blake3(e.src_id || e.dst_id), "
-        "  ST_SetSRID(ST_MakeLine("
-        "    ST_SetSRID(ST_MakePoint(ST_X(s.geom), ST_Y(s.geom), ST_Z(s.geom), e.weight), 0), "
-        "    ST_SetSRID(ST_MakePoint(ST_X(d.geom), ST_Y(d.geom), ST_Z(d.geom), e.weight), 0)"
-        "  ), 0), "
-        "  ARRAY[e.src_id, e.dst_id], "
-        "  0, 0, "  // Hilbert computed separately
-        "  GREATEST(s.depth, d.depth) + 1, "
-        "  s.atom_count + d.atom_count "
+        "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model) "
+        "SELECT 'A', e.src_id, 'A', e.dst_id, 'S', e.weight, 'minilm' "
         "FROM tmp_semantic_edge e "
-        "JOIN atom s ON s.id = e.src_id "
-        "JOIN atom d ON d.id = e.dst_id "
-        "ON CONFLICT (id) DO UPDATE SET "
-        "  geom = EXCLUDED.geom "  // Update with potentially better weight
+        "WHERE EXISTS (SELECT 1 FROM atom WHERE id = e.src_id) "
+        "  AND EXISTS (SELECT 1 FROM atom WHERE id = e.dst_id) "
+        "ON CONFLICT (source_id, target_id, relation_type, source_model) "
+        "DO UPDATE SET weight = GREATEST(relation.weight, EXCLUDED.weight), "
+        "  source_count = relation.source_count + 1"
     );
 
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {

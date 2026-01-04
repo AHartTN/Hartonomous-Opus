@@ -522,6 +522,11 @@ if(PostgreSQL_FOUND)
     target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
+    # Manifold projection tool (384D -> 4D)
+    add_executable(manifold_project src/manifold_project.cpp)
+    target_include_directories(manifold_project PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(manifold_project hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
     # -------------------------------------------------------------------------
     # New modular ingester library
     # -------------------------------------------------------------------------

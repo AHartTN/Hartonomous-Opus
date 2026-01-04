@@ -216,25 +216,25 @@ RETURNS TABLE(
     centroid_score DOUBLE PRECISION
 ) AS $$
     WITH query AS (
-        SELECT a.id, a.geom, a.centroid 
-        FROM atom a 
-        WHERE a.id = atom_content_hash(p_text)
+        SELECT c.id, c.geom, c.centroid 
+        FROM composition c 
+        WHERE c.id = atom_content_hash(p_text)
     ),
     -- Sample for normalization (first 1000 compositions)
     sample_stats AS (
         SELECT 
-            GREATEST(MAX(ST_FrechetDistance(a.geom, q.geom)), 1.0) AS max_frechet,
-            GREATEST(MAX(a.centroid <-> q.centroid), 1.0) AS max_centroid
-        FROM (SELECT * FROM atom WHERE depth > 0 LIMIT 1000) a, query q
-        WHERE a.id != q.id
+            GREATEST(MAX(ST_FrechetDistance(c.geom, q.geom)), 1.0) AS max_frechet,
+            GREATEST(MAX(c.centroid <-> q.centroid), 1.0) AS max_centroid
+        FROM (SELECT * FROM composition WHERE depth > 0 LIMIT 1000) c, query q
+        WHERE c.id != q.id
     ),
     scored AS (
         SELECT 
-            a.id,
-            ST_FrechetDistance(a.geom, q.geom) / s.max_frechet AS frechet_norm,
-            (a.centroid <-> q.centroid) / s.max_centroid AS centroid_norm
-        FROM atom a, query q, sample_stats s
-        WHERE a.id != q.id AND a.depth > 0
+            c.id,
+            ST_FrechetDistance(c.geom, q.geom) / s.max_frechet AS frechet_norm,
+            (c.centroid <-> q.centroid) / s.max_centroid AS centroid_norm
+        FROM composition c, query q, sample_stats s
+        WHERE c.id != q.id AND c.depth > 0
     )
     SELECT 
         sc.id,

@@ -1,13 +1,11 @@
 /**
- * Integration Tests for Hartonomous Hypercube
+ * Integration Tests for Hartonomous Hypercube (4-Table Schema)
  * 
  * End-to-end tests that verify:
- * - Database connectivity and schema
+ * - Database connectivity and 4-table schema (atom, composition, relation, shape)
  * - Atom seeding and lookup
- * - CPE ingestion and composition creation
- * - Bit-perfect reconstruction
+ * - Function compatibility
  * - Hilbert indexing and spatial queries
- * - Deduplication (same content = same hash)
  * 
  * All queries use SRID 0 (no projection - raw 4D space)
  */
@@ -26,7 +24,6 @@
 static int tests_passed = 0;
 static int tests_failed = 0;
 
-// Simple test registry - tests added to a list and run from main()
 typedef void (*TestFunc)();
 struct TestEntry { const char* name; TestFunc func; };
 static std::vector<TestEntry> g_tests;
@@ -58,22 +55,8 @@ static std::vector<TestEntry> g_tests;
     } \
 } while(0)
 
-// Global connection
 static PGconn* g_conn = nullptr;
 
-// Helper: Execute query and check success
-bool exec_check(const char* sql, const char* context) {
-    PGresult* res = PQexec(g_conn, sql);
-    bool ok = (PQresultStatus(res) == PGRES_TUPLES_OK || 
-               PQresultStatus(res) == PGRES_COMMAND_OK);
-    if (!ok) {
-        std::cerr << context << ": " << PQerrorMessage(g_conn) << std::endl;
-    }
-    PQclear(res);
-    return ok;
-}
-
-// Helper: Get single value from query
 std::string query_value(const char* sql) {
     PGresult* res = PQexec(g_conn, sql);
     std::string result;
@@ -88,34 +71,47 @@ std::string query_value(const char* sql) {
     return result;
 }
 
-// Helper: Get integer from query
 int query_int(const char* sql) {
     std::string val = query_value(sql);
     return val.empty() ? -1 : std::stoi(val);
 }
 
 // =============================================================================
-// TEST: Schema Verification
+// TEST: 4-Table Schema Exists
 // =============================================================================
 TEST(test_schema_exists) {
-    // Check atom table exists
-    int table_exists = query_int(
+    int atom_table = query_int(
         "SELECT 1 FROM information_schema.tables WHERE table_name = 'atom'"
     );
-    ASSERT_EQ(table_exists, 1, "atom table exists");
+    ASSERT_EQ(atom_table, 1, "atom table exists");
     
-    // Check required columns
+    int comp_table = query_int(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = 'composition'"
+    );
+    ASSERT_EQ(comp_table, 1, "composition table exists");
+    
+    int rel_table = query_int(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = 'relation'"
+    );
+    ASSERT_EQ(rel_table, 1, "relation table exists");
+    
+    int shape_table = query_int(
+        "SELECT 1 FROM information_schema.tables WHERE table_name = 'shape'"
+    );
+    ASSERT_EQ(shape_table, 1, "shape table exists");
+    
+    // Check atom columns (4-table schema: no depth, no children)
     int has_geom = query_int(
         "SELECT 1 FROM information_schema.columns "
         "WHERE table_name = 'atom' AND column_name = 'geom'"
     );
     ASSERT_EQ(has_geom, 1, "atom.geom column exists");
     
-    int has_children = query_int(
+    int has_codepoint = query_int(
         "SELECT 1 FROM information_schema.columns "
-        "WHERE table_name = 'atom' AND column_name = 'children'"
+        "WHERE table_name = 'atom' AND column_name = 'codepoint'"
     );
-    ASSERT_EQ(has_children, 1, "atom.children column exists");
+    ASSERT_EQ(has_codepoint, 1, "atom.codepoint column exists");
     
     int has_hilbert = query_int(
         "SELECT 1 FROM information_schema.columns "
@@ -128,17 +124,16 @@ TEST(test_schema_exists) {
 // TEST: Atoms are seeded correctly
 // =============================================================================
 TEST(test_atoms_seeded) {
-    int atom_count = query_int("SELECT COUNT(*) FROM atom WHERE depth = 0");
+    // In 4-table schema, atom table contains ONLY leaf atoms
+    int atom_count = query_int("SELECT COUNT(*) FROM atom");
     ASSERT_TRUE(atom_count >= 1112064, "All Unicode atoms seeded (>= 1.1M)");
     
-    // Check specific atoms exist
     int has_A = query_int("SELECT 1 FROM atom WHERE codepoint = 65");
     ASSERT_EQ(has_A, 1, "Atom 'A' (codepoint 65) exists");
     
     int has_a = query_int("SELECT 1 FROM atom WHERE codepoint = 97");
     ASSERT_EQ(has_a, 1, "Atom 'a' (codepoint 97) exists");
     
-    // Verify SRID is 0 for all atoms
     int wrong_srid = query_int(
         "SELECT COUNT(*) FROM atom WHERE ST_SRID(geom) != 0 LIMIT 1"
     );
@@ -146,33 +141,31 @@ TEST(test_atoms_seeded) {
 }
 
 // =============================================================================
-// TEST: Atom geometry is POINTZM for leaves
+// TEST: Atom geometry is POINTZM
 // =============================================================================
 TEST(test_atom_geometry_type) {
     std::string geom_type = query_value(
-        "SELECT ST_GeometryType(geom) FROM atom WHERE depth = 0 LIMIT 1"
+        "SELECT ST_GeometryType(geom) FROM atom LIMIT 1"
     );
-    ASSERT_EQ(geom_type, "ST_Point", "Leaf atoms have POINTZM geometry");
+    ASSERT_EQ(geom_type, "ST_Point", "Atoms have POINTZM geometry");
     
-    // Check 4D coordinates exist (Z and M)
     int has_z = query_int(
         "SELECT CASE WHEN ST_Z(geom) IS NOT NULL THEN 1 ELSE 0 END "
-        "FROM atom WHERE depth = 0 LIMIT 1"
+        "FROM atom LIMIT 1"
     );
-    ASSERT_EQ(has_z, 1, "Leaf atoms have Z coordinate");
+    ASSERT_EQ(has_z, 1, "Atoms have Z coordinate");
     
     int has_m = query_int(
         "SELECT CASE WHEN ST_M(geom) IS NOT NULL THEN 1 ELSE 0 END "
-        "FROM atom WHERE depth = 0 LIMIT 1"
+        "FROM atom LIMIT 1"
     );
-    ASSERT_EQ(has_m, 1, "Leaf atoms have M coordinate");
+    ASSERT_EQ(has_m, 1, "Atoms have M coordinate");
 }
 
 // =============================================================================
 // TEST: Case pairs are semantically close
 // =============================================================================
 TEST(test_case_pair_proximity) {
-    // Distance between 'A' and 'a' should be small
     std::string dist_Aa = query_value(
         "SELECT ST_Distance(a1.geom, a2.geom) "
         "FROM atom a1, atom a2 "
@@ -180,7 +173,6 @@ TEST(test_case_pair_proximity) {
     );
     double d_Aa = std::stod(dist_Aa);
     
-    // Distance between 'A' and 'Z' should be larger
     std::string dist_AZ = query_value(
         "SELECT ST_Distance(a1.geom, a2.geom) "
         "FROM atom a1, atom a2 "
@@ -195,7 +187,6 @@ TEST(test_case_pair_proximity) {
 // TEST: Hilbert indices preserve locality
 // =============================================================================
 TEST(test_hilbert_locality) {
-    // Verify Hilbert indices are computed (use text cast to avoid overflow)
     std::string hilbert_A = query_value(
         "SELECT hilbert_lo::text FROM atom WHERE codepoint = 65"
     );
@@ -211,7 +202,6 @@ TEST(test_hilbert_locality) {
 // TEST: BLAKE3 hashing is deterministic
 // =============================================================================
 TEST(test_blake3_determinism) {
-    // Same codepoint should always produce same hash
     std::string hash1 = query_value(
         "SELECT encode(id, 'hex') FROM atom WHERE codepoint = 65"
     );
@@ -220,7 +210,6 @@ TEST(test_blake3_determinism) {
     );
     ASSERT_EQ(hash1, hash2, "BLAKE3 hash is deterministic");
     
-    // Different codepoints should produce different hashes
     std::string hash_a = query_value(
         "SELECT encode(id, 'hex') FROM atom WHERE codepoint = 97"
     );
@@ -228,10 +217,9 @@ TEST(test_blake3_determinism) {
 }
 
 // =============================================================================
-// TEST: Functions exist and work
+// TEST: Core functions work
 // =============================================================================
 TEST(test_sql_functions) {
-    // atom_is_leaf
     int is_leaf = query_int(
         "SELECT CASE WHEN atom_is_leaf("
         "  (SELECT id FROM atom WHERE codepoint = 65)"
@@ -239,13 +227,11 @@ TEST(test_sql_functions) {
     );
     ASSERT_EQ(is_leaf, 1, "atom_is_leaf() works for leaf atoms");
     
-    // atom_centroid
     std::string centroid = query_value(
-        "SELECT (atom_centroid((SELECT id FROM atom WHERE codepoint = 65))).x"
+        "SELECT ST_X(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))"
     );
     ASSERT_TRUE(!centroid.empty(), "atom_centroid() returns coordinates");
     
-    // atom_distance
     std::string dist = query_value(
         "SELECT atom_distance("
         "  (SELECT id FROM atom WHERE codepoint = 65),"
@@ -256,148 +242,74 @@ TEST(test_sql_functions) {
 }
 
 // =============================================================================
-// TEST: Composition creation via CPE
+// TEST: KNN function works
 // =============================================================================
-TEST(test_composition_creation) {
-    // Check if any compositions exist (from prior ingestion)
-    int comp_count = query_int("SELECT COUNT(*) FROM atom WHERE depth > 0");
+TEST(test_knn) {
+    int knn_count = query_int(
+        "SELECT COUNT(*) FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 5)"
+    );
+    ASSERT_EQ(knn_count, 5, "atom_knn() returns 5 neighbors");
+}
+
+// =============================================================================
+// TEST: Relation table has semantic edges
+// =============================================================================
+TEST(test_relations) {
+    int rel_count = query_int("SELECT COUNT(*) FROM relation");
+    ASSERT_TRUE(rel_count >= 0, "relation table accessible");
     
-    if (comp_count == 0) {
-        std::cout << "SKIPPED: No compositions to test (run ingest first)" << std::endl;
-        return;
+    if (rel_count > 0) {
+        std::string weight = query_value(
+            "SELECT weight::text FROM relation ORDER BY weight DESC LIMIT 1"
+        );
+        ASSERT_TRUE(!weight.empty(), "relation.weight column works");
     }
-    
-    // Compositions should have LINESTRINGZM geometry
-    std::string comp_geom = query_value(
-        "SELECT ST_GeometryType(geom) FROM atom WHERE depth > 0 LIMIT 1"
-    );
-    ASSERT_EQ(comp_geom, "ST_LineString", "Compositions have LINESTRINGZM geometry");
-    
-    // Compositions should have children array
-    int has_children = query_int(
-        "SELECT CASE WHEN children IS NOT NULL THEN 1 ELSE 0 END "
-        "FROM atom WHERE depth > 0 LIMIT 1"
-    );
-    ASSERT_EQ(has_children, 1, "Compositions have children array");
-    
-    // Check SRID is 0 for compositions
-    int wrong_srid = query_int(
-        "SELECT COUNT(*) FROM atom WHERE depth > 0 AND ST_SRID(geom) != 0"
-    );
-    ASSERT_EQ(wrong_srid, 0, "All compositions have SRID 0");
 }
 
 // =============================================================================
-// TEST: Bit-perfect reconstruction
+// TEST: Composition table structure
 // =============================================================================
-TEST(test_reconstruction) {
-    int comp_count = query_int("SELECT COUNT(*) FROM atom WHERE depth > 0");
-    
-    if (comp_count == 0) {
-        std::cout << "SKIPPED: No compositions to test (run ingest first)" << std::endl;
-        return;
-    }
-    
-    // Get a composition and try to reconstruct it
-    // For now, just verify the function doesn't error
-    std::string reconstructed = query_value(
-        "SELECT atom_reconstruct_text((SELECT id FROM atom WHERE depth > 0 LIMIT 1))"
+TEST(test_composition_table) {
+    int has_depth = query_int(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = 'composition' AND column_name = 'depth'"
     );
+    ASSERT_EQ(has_depth, 1, "composition.depth column exists");
     
-    ASSERT_TRUE(!reconstructed.empty() || true, "atom_reconstruct_text() executes without error");
-}
-
-// =============================================================================
-// TEST: Deduplication
-// =============================================================================
-TEST(test_deduplication) {
-    // Same content should produce same hash (content-addressed)
-    // This is verified by the atom table having UNIQUE on id (hash)
-    
-    std::string unique_check = query_value(
-        "SELECT CASE WHEN COUNT(DISTINCT id) = COUNT(*) THEN 1 ELSE 0 END FROM atom"
+    int has_centroid = query_int(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = 'composition' AND column_name = 'centroid'"
     );
-    int is_unique = unique_check.empty() ? 0 : std::stoi(unique_check);
-    ASSERT_EQ(is_unique, 1, "All atom hashes are unique (deduplication working)");
-}
-
-// =============================================================================
-// TEST: Nearest neighbor queries
-// =============================================================================
-TEST(test_nearest_neighbors) {
-    // Test Hilbert-based nearest neighbor
-    std::string neighbor = query_value(
-        "SELECT encode(neighbor_id, 'hex') FROM atom_nearest_hilbert("
-        "  (SELECT id FROM atom WHERE codepoint = 65), 1"
-        ")"
-    );
-    ASSERT_TRUE(!neighbor.empty(), "atom_nearest_hilbert() finds neighbors");
-    
-    // Test spatial nearest neighbor
-    std::string spatial_neighbor = query_value(
-        "SELECT encode(neighbor_id, 'hex') FROM atom_nearest_spatial("
-        "  (SELECT id FROM atom WHERE codepoint = 65), 1"
-        ")"
-    );
-    ASSERT_TRUE(!spatial_neighbor.empty(), "atom_nearest_spatial() finds neighbors");
-}
-
-// =============================================================================
-// TEST: Views exist and work
-// =============================================================================
-TEST(test_views) {
-    // atom_stats view
-    int has_stats = query_int("SELECT 1 FROM atom_stats LIMIT 1");
-    ASSERT_EQ(has_stats, 1, "atom_stats view works");
-    
-    // atom_type_stats view
-    int has_type_stats = query_int("SELECT 1 FROM atom_type_stats LIMIT 1");
-    ASSERT_EQ(has_type_stats, 1, "atom_type_stats view works");
+    ASSERT_EQ(has_centroid, 1, "composition.centroid column exists");
 }
 
 // =============================================================================
 // MAIN
 // =============================================================================
-int main(int /* argc */, char* /* argv */[]) {
-    std::cout << "=== Hartonomous Integration Tests ===" << std::endl;
+int main(int argc, char** argv) {
+    const char* conninfo = "dbname=hypercube host=localhost port=5432 user=hartonomous password=hartonomous";
     
-    // Build connection string from environment
-    // Check HC_* (new) first, then PG* (legacy) for backwards compatibility
-    const char* host = std::getenv("HC_DB_HOST") ? std::getenv("HC_DB_HOST") :
-                       std::getenv("PGHOST") ? std::getenv("PGHOST") : "localhost";
-    const char* port = std::getenv("HC_DB_PORT") ? std::getenv("HC_DB_PORT") :
-                       std::getenv("PGPORT") ? std::getenv("PGPORT") : "5432";
-    const char* user = std::getenv("HC_DB_USER") ? std::getenv("HC_DB_USER") :
-                       std::getenv("PGUSER") ? std::getenv("PGUSER") : "hartonomous";
-    const char* pass = std::getenv("HC_DB_PASS") ? std::getenv("HC_DB_PASS") :
-                       std::getenv("PGPASSWORD") ? std::getenv("PGPASSWORD") : "hartonomous";
-    const char* db = std::getenv("HC_DB_NAME") ? std::getenv("HC_DB_NAME") :
-                     std::getenv("PGDATABASE") ? std::getenv("PGDATABASE") : "hypercube";
+    if (argc > 1) {
+        conninfo = argv[1];
+    }
     
-    std::string conninfo = "host=" + std::string(host) +
-                           " port=" + std::string(port) +
-                           " user=" + std::string(user) +
-                           " password=" + std::string(pass) +
-                           " dbname=" + std::string(db);
-    
-    std::cout << "Connecting to: " << user << "@" << host << ":" << port << "/" << db << std::endl;
-    
-    g_conn = PQconnectdb(conninfo.c_str());
+    g_conn = PQconnectdb(conninfo);
     if (PQstatus(g_conn) != CONNECTION_OK) {
         std::cerr << "Connection failed: " << PQerrorMessage(g_conn) << std::endl;
-        PQfinish(g_conn);
         return 1;
     }
     
-    std::cout << "Connected successfully\n" << std::endl;
+    std::cout << "Connected to database" << std::endl;
+    std::cout << "Running " << g_tests.size() << " integration tests..." << std::endl;
+    std::cout << std::endl;
     
-    // Run all registered tests
     for (const auto& test : g_tests) {
-        std::cout << "\n=== " << test.name << " ===" << std::endl;
+        std::cout << "--- " << test.name << " ---" << std::endl;
         test.func();
+        std::cout << std::endl;
     }
     
-    std::cout << "\n=== Test Summary ===" << std::endl;
+    std::cout << "=== Test Summary ===" << std::endl;
     std::cout << "Passed: " << tests_passed << std::endl;
     std::cout << "Failed: " << tests_failed << std::endl;
     

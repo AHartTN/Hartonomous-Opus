@@ -92,10 +92,11 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     
     // =========================================================================
     // NEW 4-TABLE SCHEMA: Insert into composition + composition_child tables
+    // NOW WITH GEOMETRY: geom, centroid, hilbert_lo, hilbert_hi
     // =========================================================================
     
-    // Step 1: COPY compositions into composition table
-    res = PQexec(conn, "COPY composition (id, label, depth, child_count, atom_count) FROM STDIN WITH (FORMAT text)");
+    // Step 1: COPY compositions into composition table WITH GEOMETRY
+    res = PQexec(conn, "COPY composition (id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi) FROM STDIN WITH (FORMAT text)");
     if (PQresultStatus(res) != PGRES_COPY_IN) {
         std::cerr << "COPY composition failed: " << PQerrorMessage(conn) << std::endl;
         PQclear(res);
@@ -117,7 +118,25 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
         // depth, child_count, atom_count
         line << c.depth << "\t"
              << c.children.size() << "\t"
-             << c.atom_count << "\n";
+             << c.atom_count << "\t";
+        
+        // geom (LINESTRINGZM from child coordinates)
+        if (c.children.size() >= 2) {
+            std::vector<std::array<int32_t, 4>> points;
+            points.reserve(c.children.size());
+            for (const auto& child : c.children) {
+                points.push_back({child.x, child.y, child.z, child.m});
+            }
+            line << build_linestringzm_ewkb(points) << "\t";
+        } else {
+            line << "\\N\t";
+        }
+        
+        // centroid (POINTZM)
+        line << build_pointzm_ewkb(c.coord_x, c.coord_y, c.coord_z, c.coord_m) << "\t";
+        
+        // hilbert_lo, hilbert_hi
+        line << c.hilbert_lo << "\t" << c.hilbert_hi << "\n";
         
         std::string data = line.str();
         if (PQputCopyData(conn, data.c_str(), static_cast<int>(data.size())) != 1) {

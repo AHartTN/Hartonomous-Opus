@@ -141,12 +141,17 @@ try {
     Write-Host "  Final Database State:" -ForegroundColor Green
     & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c @"
 SELECT 
-    COUNT(*) FILTER (WHERE depth = 0) as "Leaf Atoms",
-    COUNT(*) FILTER (WHERE depth > 0) as "Compositions",
-    COUNT(*) FILTER (WHERE depth = 1 AND atom_count = 2) as "Semantic Edges",
-    MAX(depth) as "Max Depth",
-    pg_size_pretty(pg_total_relation_size('atom')) as "Total Size"
-FROM atom;
+    (SELECT COUNT(*) FROM atom) as "Atoms",
+    (SELECT COUNT(*) FROM composition) as "Compositions",
+    (SELECT COUNT(*) FROM relation) as "Relations",
+    (SELECT COUNT(*) FROM shape) as "Shapes",
+    (SELECT MAX(depth) FROM composition) as "Max Depth",
+    pg_size_pretty(
+        pg_total_relation_size('atom') + 
+        pg_total_relation_size('composition') +
+        pg_total_relation_size('relation') +
+        pg_total_relation_size('shape')
+    ) as "Total Size"
 "@
 } finally {
     Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue

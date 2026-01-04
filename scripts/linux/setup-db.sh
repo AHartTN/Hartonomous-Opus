@@ -65,11 +65,11 @@ for sqlfile in "$HC_PROJECT_ROOT"/sql/*.sql; do
     fi
 done
 
-# Check atom count using canonical function
-ATOM_COUNT=$(hc_psql -tAc "SELECT leaf_atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
-# Fallback if function doesn't exist yet
+# Check atom count using canonical function (4-table schema)
+ATOM_COUNT=$(hc_psql -tAc "SELECT atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
+# Fallback if function doesn't exist yet - atom table = leaf atoms in 4-table schema
 if [ -z "$ATOM_COUNT" ]; then
-    ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0" | tr -d '[:space:]')
+    ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" | tr -d '[:space:]')
 fi
 echo -e "\nAtom count: $ATOM_COUNT"
 
@@ -86,6 +86,24 @@ if [ "$ATOM_COUNT" -lt 1100000 ]; then
     echo "Atoms seeded"
 else
     echo "Atoms already seeded"
+fi
+
+# Run manifold projection if embeddings exist but centroids are missing
+echo -e "\nChecking for manifold projection..."
+NEEDS_PROJECTION=$(hc_psql -tAc "SELECT COUNT(*) FROM shape s JOIN composition c ON c.id = s.entity_id WHERE c.centroid IS NULL AND s.dim_count = 384" | tr -d '[:space:]')
+
+if [ "$NEEDS_PROJECTION" -gt 0 ]; then
+    echo "  $NEEDS_PROJECTION compositions need projection..."
+    
+    PROJECTOR="$HC_BUILD_DIR/manifold_project"
+    if [ -x "$PROJECTOR" ]; then
+        "$PROJECTOR" --batch 5000
+        echo "Manifold projection complete"
+    else
+        echo "  Projector not found, run: SELECT project_all_embeddings() in psql"
+    fi
+else
+    echo "  All embeddings already projected"
 fi
 
 echo -e "\n=== Setup Complete ==="

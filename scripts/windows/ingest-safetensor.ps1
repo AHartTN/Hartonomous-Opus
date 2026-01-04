@@ -28,9 +28,16 @@ if (-not (Test-Path $ingester)) {
     exit 1
 }
 
-& $ingester -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -t $Threshold $ModelDir
+# libpq uses PGPASSWORD env var for authentication
+$env:PGPASSWORD = $env:HC_DB_PASS
 
-if ($LASTEXITCODE -eq 0) {
+& $ingester -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -t $Threshold $ModelDir
+$exitCode = $LASTEXITCODE
+
+# Clean up password from environment
+Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+
+if ($exitCode -eq 0) {
     Write-Host "`nModel ingestion complete" -ForegroundColor Green
 } else {
     Write-Host "`nModel ingestion failed" -ForegroundColor Red

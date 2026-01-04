@@ -38,7 +38,7 @@ CREATE INDEX idx_atom_geom ON atom USING GIST(geom);
 -- =============================================================================
 -- BPE tokens, words, phrases, sentences.
 -- id = BLAKE3(ordered children hashes concatenated)
--- NO geometry - shape is implicit in children or stored in Shape table.
+-- Geometry: LINESTRINGZM traces path through children, centroid for similarity
 
 CREATE TABLE composition (
     id              BYTEA PRIMARY KEY,              -- BLAKE3(child_ids concatenated)
@@ -46,8 +46,17 @@ CREATE TABLE composition (
     depth           INTEGER NOT NULL DEFAULT 1,     -- 1 = direct atom children, 2+ = nested
     child_count     INTEGER NOT NULL,               -- Number of direct children
     atom_count      BIGINT NOT NULL,                -- Total leaf atoms in subtree
+    geom            GEOMETRY(LINESTRINGZM, 0),      -- Path through child centroids
+    centroid        GEOMETRY(POINTZM, 0),           -- 4D centroid for similarity
+    hilbert_lo      BIGINT,                         -- Hilbert index (low 64 bits)
+    hilbert_hi      BIGINT,                         -- Hilbert index (high 64 bits)
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX idx_comp_centroid ON composition USING GIST(centroid);
+CREATE INDEX idx_comp_hilbert ON composition(hilbert_hi, hilbert_lo);
+CREATE INDEX idx_comp_label ON composition(label);
+CREATE INDEX idx_comp_depth ON composition(depth);
 
 -- Composition children (ordered)
 CREATE TABLE composition_child (

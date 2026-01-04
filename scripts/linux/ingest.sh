@@ -29,6 +29,11 @@ if [ ! -x "$INGESTER" ]; then
     exit 1
 fi
 
+# libpq uses PGPASSWORD env var for authentication
+export PGPASSWORD="$HC_DB_PASS"
+
 "$INGESTER" -d "$HC_DB_NAME" -U "$HC_DB_USER" -h "$HC_DB_HOST" -p "$HC_DB_PORT" "$TARGET"
+
+unset PGPASSWORD
 
 echo -e "\nIngestion complete"

@@ -68,8 +68,8 @@ try {
         Write-Host "  $extResult"
     }
 
-    # Check atom count
-    $atomCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0"
+    # Check atom count (atoms table in 4-table schema = leaf atoms only)
+    $atomCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom"
     Write-Host "`nAtom count: $atomCount"
 
     if ([int]$atomCount -lt 1100000) {
@@ -94,11 +94,36 @@ try {
         Write-Host "Atoms already seeded" -ForegroundColor Green
     }
 
+    # Run manifold projection if embeddings exist but centroids are missing
+    Write-Host "`nChecking for manifold projection..."
+    $needsProjection = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM shape s JOIN composition c ON c.id = s.entity_id WHERE c.centroid IS NULL AND s.dim_count = 384"
+    
+    if ([int]$needsProjection -gt 0) {
+        Write-Host "  $needsProjection compositions need projection..."
+        
+        $projector = "$env:HC_BUILD_DIR\manifold_project.exe"
+        if (-not (Test-Path $projector)) {
+            $projector = "$env:HC_BUILD_DIR\Release\manifold_project.exe"
+        }
+        if (Test-Path $projector) {
+            & $projector --batch 5000
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "Manifold projection complete" -ForegroundColor Green
+            } else {
+                Write-Host "Manifold projection failed" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "  Projector not found, run: project_all_embeddings() in psql" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  All embeddings already projected" -ForegroundColor Green
+    }
+
     Write-Host "`n=== Setup Complete ===" -ForegroundColor Green
     
     # Show stats
     Write-Host "`nDatabase Statistics:"
-    & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "SELECT COUNT(*) as leaf_atoms FROM atom WHERE depth = 0; SELECT COUNT(*) as compositions FROM atom WHERE depth > 0; SELECT MAX(depth) as max_depth FROM atom;"
+    & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "SELECT * FROM db_stats();"
 
 } finally {
     Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue

@@ -35,7 +35,20 @@
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
+#include <thread>
+#include <mutex>
+#include <atomic>
 #include <libpq-fe.h>
+
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#else
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 #include "hypercube/types.hpp"
 #include "hypercube/blake3.hpp"
 #include "hypercube/hilbert.hpp"
@@ -68,6 +81,111 @@ struct TensorMeta {
     uint64_t data_offset_end;
     std::string shard_file;       // Full path to containing file
 };
+
+// ============================================================================
+// Memory-Mapped File Cache (zero-copy tensor access)
+// ============================================================================
+
+class MappedFile {
+public:
+    MappedFile() = default;
+    ~MappedFile() { unmap(); }
+    
+    bool map(const std::string& path) {
+        if (data_) unmap();
+        
+#ifdef _WIN32
+        file_handle_ = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                                   nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file_handle_ == INVALID_HANDLE_VALUE) return false;
+        
+        LARGE_INTEGER size_li;
+        GetFileSizeEx(file_handle_, &size_li);
+        size_ = static_cast<size_t>(size_li.QuadPart);
+        
+        mapping_handle_ = CreateFileMappingA(file_handle_, nullptr, PAGE_READONLY, 0, 0, nullptr);
+        if (!mapping_handle_) {
+            CloseHandle(file_handle_);
+            file_handle_ = INVALID_HANDLE_VALUE;
+            return false;
+        }
+        
+        data_ = static_cast<const uint8_t*>(MapViewOfFile(mapping_handle_, FILE_MAP_READ, 0, 0, 0));
+        if (!data_) {
+            CloseHandle(mapping_handle_);
+            CloseHandle(file_handle_);
+            mapping_handle_ = nullptr;
+            file_handle_ = INVALID_HANDLE_VALUE;
+            return false;
+        }
+#else
+        int fd = open(path.c_str(), O_RDONLY);
+        if (fd < 0) return false;
+        
+        struct stat st;
+        if (fstat(fd, &st) < 0) {
+            close(fd);
+            return false;
+        }
+        size_ = static_cast<size_t>(st.st_size);
+        
+        data_ = static_cast<const uint8_t*>(mmap(nullptr, size_, PROT_READ, MAP_PRIVATE, fd, 0));
+        close(fd);
+        
+        if (data_ == MAP_FAILED) {
+            data_ = nullptr;
+            return false;
+        }
+#endif
+        return true;
+    }
+    
+    void unmap() {
+        if (!data_) return;
+#ifdef _WIN32
+        UnmapViewOfFile(data_);
+        if (mapping_handle_) CloseHandle(mapping_handle_);
+        if (file_handle_ != INVALID_HANDLE_VALUE) CloseHandle(file_handle_);
+        file_handle_ = INVALID_HANDLE_VALUE;
+        mapping_handle_ = nullptr;
+#else
+        munmap(const_cast<uint8_t*>(data_), size_);
+#endif
+        data_ = nullptr;
+        size_ = 0;
+    }
+    
+    const uint8_t* data() const { return data_; }
+    size_t size() const { return size_; }
+    
+private:
+    const uint8_t* data_ = nullptr;
+    size_t size_ = 0;
+#ifdef _WIN32
+    HANDLE file_handle_ = INVALID_HANDLE_VALUE;
+    HANDLE mapping_handle_ = nullptr;
+#endif
+};
+
+// Global cache of memory-mapped files
+static std::unordered_map<std::string, std::unique_ptr<MappedFile>> g_mmap_cache;
+static std::mutex g_mmap_mutex;
+
+// Get or create a memory-mapped file
+static const MappedFile* get_mapped_file(const std::string& path) {
+    std::lock_guard<std::mutex> lock(g_mmap_mutex);
+    auto it = g_mmap_cache.find(path);
+    if (it != g_mmap_cache.end()) {
+        return it->second.get();
+    }
+    auto mf = std::make_unique<MappedFile>();
+    if (!mf->map(path)) {
+        return nullptr;
+    }
+    auto ptr = mf.get();
+    g_mmap_cache[path] = std::move(mf);
+    return ptr;
+}
 
 // ============================================================================
 // Global State
@@ -355,39 +473,40 @@ bool parse_tokenizer(const fs::path& tokenizer_path) {
 }
 
 // ============================================================================
-// Read Tensor Row (handles BF16, F16, F32)
+// Read Tensor Row (handles BF16, F16, F32) - MEMORY MAPPED VERSION
+// Zero-copy access to tensor data via mmap
 // ============================================================================
 
 std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row) {
-    std::ifstream file(meta.shard_file, std::ios::binary);
-    if (!file) return {};
-    
-    // Read header size to know data offset base
-    uint64_t header_size;
-    file.read(reinterpret_cast<char*>(&header_size), 8);
-    
     if (meta.shape.size() < 2) return {};
+    
+    const MappedFile* mf = get_mapped_file(meta.shard_file);
+    if (!mf || !mf->data()) return {};
+    
+    // First 8 bytes contain header size
+    uint64_t header_size;
+    std::memcpy(&header_size, mf->data(), 8);
     
     size_t row_size = static_cast<size_t>(meta.shape[1]);
     size_t bytes_per_elem = 4;
     if (meta.dtype == "BF16" || meta.dtype == "F16") bytes_per_elem = 2;
     
-    // Seek to the row
-    file.seekg(8 + header_size + meta.data_offset_start + row * row_size * bytes_per_elem);
+    // Calculate offset to the row
+    size_t offset = 8 + header_size + meta.data_offset_start + row * row_size * bytes_per_elem;
+    if (offset + row_size * bytes_per_elem > mf->size()) return {};
     
+    const uint8_t* ptr = mf->data() + offset;
     std::vector<float> result(row_size);
     
     if (meta.dtype == "F32") {
-        file.read(reinterpret_cast<char*>(result.data()), row_size * 4);
+        std::memcpy(result.data(), ptr, row_size * 4);
     } else if (meta.dtype == "BF16") {
-        std::vector<uint16_t> buf(row_size);
-        file.read(reinterpret_cast<char*>(buf.data()), row_size * 2);
+        const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
         for (size_t i = 0; i < row_size; ++i) {
             result[i] = bf16_to_float(buf[i]);
         }
     } else if (meta.dtype == "F16") {
-        std::vector<uint16_t> buf(row_size);
-        file.read(reinterpret_cast<char*>(buf.data()), row_size * 2);
+        const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
         for (size_t i = 0; i < row_size; ++i) {
             result[i] = f16_to_float(buf[i]);
         }
@@ -474,6 +593,7 @@ Blake3Hash weight_to_atom_hash(float weight, int precision = 6) {
  * Parse vocab.txt and compute compositions for each token
  * All computation is done client-side via AtomCalculator
  * ZERO database roundtrips during parsing
+ * PARALLELIZED: Read all lines first, then compute compositions in parallel
  */
 bool parse_vocab(const fs::path& vocab_path) {
     std::ifstream file(vocab_path);
@@ -482,28 +602,91 @@ bool parse_vocab(const fs::path& vocab_path) {
         return false;
     }
     
+    // Phase 1: Read all lines sequentially (I/O bound)
+    std::vector<std::string> lines;
+    lines.reserve(50000);  // Pre-allocate for typical vocab size
     std::string line;
     while (std::getline(file, line)) {
-        if (line.empty()) continue;
-        
-        TokenInfo info;
-        info.text = line;
-        
-        // Compute full composition client-side (no DB access!)
-        // "captain" -> decode to codepoints -> compute atom coords/hashes
-        // -> compute composition hash, centroid, hilbert, depth, atom_count
-        info.comp = AtomCalculator::compute_vocab_token(line);
-        
-        g_token_to_idx[line] = g_vocab_tokens.size();
-        g_vocab_tokens.push_back(info);
+        if (!line.empty()) {
+            lines.push_back(std::move(line));
+        }
     }
     
-    std::cerr << "[VOCAB] Loaded " << g_vocab_tokens.size() << " tokens (computed locally)\n";
+    size_t total = lines.size();
+    g_vocab_tokens.resize(total);
+    
+    // Phase 2: Compute compositions in parallel (CPU bound)
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    if (num_threads == 0) num_threads = 4;
+    if (num_threads > 16) num_threads = 16;
+    
+    std::atomic<size_t> idx{0};
+    std::atomic<size_t> completed{0};
+    auto start = std::chrono::steady_clock::now();
+    
+    auto worker = [&]() {
+        while (true) {
+            size_t i = idx.fetch_add(1);
+            if (i >= total) break;
+            
+            TokenInfo info;
+            info.text = lines[i];
+            info.comp = AtomCalculator::compute_vocab_token(lines[i]);
+            g_vocab_tokens[i] = std::move(info);
+            
+            completed.fetch_add(1);
+        }
+    };
+    
+    // Progress thread
+    std::atomic<bool> done{false};
+    std::thread progress([&]() {
+        while (!done.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            size_t c = completed.load();
+            if (c > 0 && c < total) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+                double rate = (elapsed > 0) ? (c * 1000.0 / elapsed) : 0;
+                std::cerr << "  [VOCAB] " << c << "/" << total << " (" << std::fixed << std::setprecision(0) << rate << " tok/s)\r" << std::flush;
+            }
+        }
+    });
+    
+    std::vector<std::thread> workers;
+    for (unsigned t = 0; t < num_threads; ++t) {
+        workers.emplace_back(worker);
+    }
+    for (auto& th : workers) th.join();
+    done.store(true);
+    progress.join();
+    
+    // Build index map (sequential, fast)
+    for (size_t i = 0; i < total; ++i) {
+        g_token_to_idx[g_vocab_tokens[i].text] = i;
+    }
+    
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cerr << "\n[VOCAB] Loaded " << total << " tokens in " << elapsed << "ms using " << num_threads << " threads\n";
     return true;
 }
 
+// Lambda for writing a double as little-endian hex
+inline void write_double_hex(std::string& out, double d) {
+    uint64_t bits;
+    std::memcpy(&bits, &d, sizeof(bits));
+    char hex[17];
+    for (int i = 0; i < 8; ++i) {
+        snprintf(hex + i * 2, 3, "%02x", static_cast<unsigned>(bits & 0xFF));
+        bits >>= 8;
+    }
+    out += hex;
+}
+
 // Helper to build LINESTRINGZM EWKB hex from Point4D vector (for vocab compositions)
-std::string build_linestringzm_ewkb(const std::vector<Point4D>& points) {
+// Point4D stores uint32 coordinates - store them directly as doubles
+std::string build_composition_linestringzm_ewkb(const std::vector<Point4D>& points) {
     if (points.size() < 2) return "";
     
     std::string ewkb;
@@ -522,25 +705,33 @@ std::string build_linestringzm_ewkb(const std::vector<Point4D>& points) {
     ewkb += buf;
     
     // Each point: x, y, z, m as little-endian doubles
+    // Point4D.x etc are uint32 but represent signed values via offset
+    // Store raw uint32 as doubles (PostGIS double has 53-bit mantissa, plenty for 32-bit)
     for (const auto& pt : points) {
-        // Convert int32 coords to double
-        auto write_double = [&ewkb](int32_t coord) {
-            double d = static_cast<double>(coord);
-            uint64_t bits;
-            std::memcpy(&bits, &d, sizeof(bits));
-            char hex[17];
-            for (int i = 0; i < 8; ++i) {
-                snprintf(hex + i * 2, 3, "%02x", static_cast<unsigned>(bits & 0xFF));
-                bits >>= 8;
-            }
-            ewkb += hex;
-        };
-        
-        write_double(static_cast<int32_t>(pt.x));
-        write_double(static_cast<int32_t>(pt.y));
-        write_double(static_cast<int32_t>(pt.z));
-        write_double(static_cast<int32_t>(pt.m));
+        write_double_hex(ewkb, static_cast<double>(pt.x));
+        write_double_hex(ewkb, static_cast<double>(pt.y));
+        write_double_hex(ewkb, static_cast<double>(pt.z));
+        write_double_hex(ewkb, static_cast<double>(pt.m));
     }
+    
+    return ewkb;
+}
+
+// Helper to build POINTZM EWKB hex from Point4D (for composition centroid)
+std::string build_composition_pointzm_ewkb(const Point4D& pt) {
+    std::string ewkb;
+    ewkb.reserve(74);
+    
+    // Header: little-endian (01), type=POINTZM with SRID (010000e0), SRID=0 (00000000)
+    ewkb += "01";           // Little-endian
+    ewkb += "010000e0";     // POINTZM with SRID flag
+    ewkb += "00000000";     // SRID = 0
+    
+    // Store coordinates as raw uint32 values converted to double
+    write_double_hex(ewkb, static_cast<double>(pt.x));
+    write_double_hex(ewkb, static_cast<double>(pt.y));
+    write_double_hex(ewkb, static_cast<double>(pt.z));
+    write_double_hex(ewkb, static_cast<double>(pt.m));
     
     return ewkb;
 }
@@ -548,26 +739,164 @@ std::string build_linestringzm_ewkb(const std::vector<Point4D>& points) {
 /**
  * Insert vocab token compositions into the composition + composition_child tables
  * NEW SCHEMA: composition stores the aggregations, composition_child stores ordered children
+ * NOW INCLUDES: geom, centroid, hilbert_lo, hilbert_hi computed client-side
+ * PARALLELIZED: Build batch strings in parallel, stream to DB
  */
 bool insert_compositions(PGconn* conn) {
     if (g_vocab_tokens.empty()) return true;
     
-    std::cerr << "[COMP] Inserting " << g_vocab_tokens.size() << " token compositions...\n";
+    size_t total = g_vocab_tokens.size();
+    std::cerr << "[COMP] Inserting " << total << " token compositions...\n";
     
+    // Count compositions (skip single-char tokens)
+    size_t comp_count = 0;
+    for (const auto& token : g_vocab_tokens) {
+        if (token.comp.children.size() > 1) comp_count++;
+    }
+    std::cerr << "[COMP] " << comp_count << " multi-char compositions to insert\n";
+    
+    // Phase 1: Build batch strings in parallel
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    if (num_threads == 0) num_threads = 4;
+    if (num_threads > 16) num_threads = 16;
+    
+    std::cerr << "[COMP] Building batch strings with " << num_threads << " threads...\n";
+    
+    // Thread-local buffers for compositions and children
+    std::vector<std::string> comp_batches(num_threads);
+    std::vector<std::string> child_batches(num_threads);
+    for (auto& b : comp_batches) b.reserve(1 << 20);
+    for (auto& b : child_batches) b.reserve(1 << 20);
+    
+    std::atomic<size_t> idx{0};
+    std::atomic<size_t> processed{0};
+    auto start = std::chrono::steady_clock::now();
+    
+    // Progress reporter
+    std::atomic<bool> done{false};
+    std::thread progress_thread([&]() {
+        while (!done.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            size_t p = processed.load();
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+            double rate = (elapsed_ms > 0) ? (p * 1000.0 / elapsed_ms) : 0;
+            std::cerr << "  [BUILD] " << p << "/" << total << " tokens (" 
+                      << std::fixed << std::setprecision(0) << rate << "/s)\r" << std::flush;
+        }
+    });
+    
+    auto worker = [&](unsigned tid) {
+        auto& comp_batch = comp_batches[tid];
+        auto& child_batch = child_batches[tid];
+        
+        while (true) {
+            size_t i = idx.fetch_add(1);
+            if (i >= total) break;
+            
+            const auto& token = g_vocab_tokens[i];
+            const auto& c = token.comp;
+            
+            processed.fetch_add(1);
+            
+            // Skip single-char tokens (they're just atoms, already seeded)
+            if (c.children.size() <= 1) continue;
+            
+            // Build composition row
+            comp_batch += "\\\\x";
+            comp_batch += c.hash.to_hex();
+            comp_batch += "\t";
+            
+            // label (the token text, escaped for COPY)
+            for (char ch : token.text) {
+                if (ch == '\t') comp_batch += "\\t";
+                else if (ch == '\n') comp_batch += "\\n";
+                else if (ch == '\\') comp_batch += "\\\\";
+                else comp_batch += ch;
+            }
+            comp_batch += "\t";
+            
+            // depth, child_count, atom_count
+            comp_batch += std::to_string(c.depth);
+            comp_batch += "\t";
+            comp_batch += std::to_string(c.children.size());
+            comp_batch += "\t";
+            comp_batch += std::to_string(c.atom_count);
+            comp_batch += "\t";
+            
+            // geom (LINESTRINGZM from child coordinates)
+            std::string geom_ewkb = build_composition_linestringzm_ewkb(c.child_coords);
+            if (!geom_ewkb.empty()) {
+                comp_batch += geom_ewkb;
+            } else {
+                comp_batch += "\\N";
+            }
+            comp_batch += "\t";
+            
+            // centroid (POINTZM)
+            std::string centroid_ewkb = build_composition_pointzm_ewkb(c.centroid);
+            comp_batch += centroid_ewkb;
+            comp_batch += "\t";
+            
+            // hilbert_lo, hilbert_hi
+            comp_batch += std::to_string(static_cast<int64_t>(c.hilbert.lo));
+            comp_batch += "\t";
+            comp_batch += std::to_string(static_cast<int64_t>(c.hilbert.hi));
+            comp_batch += "\n";
+            
+            // Build child rows
+            for (size_t j = 0; j < c.children.size(); ++j) {
+                child_batch += "\\\\x";
+                child_batch += c.hash.to_hex();
+                child_batch += "\t";
+                child_batch += std::to_string(j);
+                child_batch += "\tA\t\\\\x";
+                child_batch += c.children[j].to_hex();
+                child_batch += "\n";
+            }
+        }
+    };
+    
+    std::vector<std::thread> workers;
+    for (unsigned t = 0; t < num_threads; ++t) {
+        workers.emplace_back(worker, t);
+    }
+    for (auto& th : workers) th.join();
+    done.store(true);
+    progress_thread.join();
+    
+    auto build_end = std::chrono::steady_clock::now();
+    auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(build_end - start).count();
+    
+    // Calculate total batch sizes
+    size_t comp_total = 0, child_total = 0;
+    for (const auto& b : comp_batches) comp_total += b.size();
+    for (const auto& b : child_batches) child_total += b.size();
+    
+    std::cerr << "\n[COMP] Built " << (comp_total / 1024) << "KB compositions + " 
+              << (child_total / 1024) << "KB children in " << build_ms << "ms\n";
+    std::cerr << "[COMP] Streaming to database...\n";
+    
+    // Phase 2: Stream to database
     PGresult* res = PQexec(conn, "BEGIN");
     PQclear(res);
     
-    // Temp table for compositions
+    // Temp table for compositions WITH GEOMETRY COLUMNS
+    std::cerr << "[COMP] Creating temp tables...\n";
     res = PQexec(conn,
         "CREATE TEMP TABLE tmp_comp ("
         "  id BYTEA,"
         "  label TEXT,"
         "  depth INTEGER,"
         "  child_count INTEGER,"
-        "  atom_count BIGINT"
+        "  atom_count BIGINT,"
+        "  geom GEOMETRY(LINESTRINGZM, 0),"
+        "  centroid GEOMETRY(POINTZM, 0),"
+        "  hilbert_lo BIGINT,"
+        "  hilbert_hi BIGINT"
         ") ON COMMIT DROP");
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "Create tmp_comp failed: " << PQerrorMessage(conn) << "\n";
+        std::cerr << "[COMP] Create tmp_comp failed: " << PQerrorMessage(conn) << "\n";
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
@@ -583,7 +912,7 @@ bool insert_compositions(PGconn* conn) {
         "  child_id BYTEA"
         ") ON COMMIT DROP");
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "Create tmp_comp_child failed: " << PQerrorMessage(conn) << "\n";
+        std::cerr << "[COMP] Create tmp_comp_child failed: " << PQerrorMessage(conn) << "\n";
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
@@ -591,122 +920,80 @@ bool insert_compositions(PGconn* conn) {
     PQclear(res);
     
     // COPY compositions
+    std::cerr << "[COMP] Copying compositions to temp table...\n";
     res = PQexec(conn, "COPY tmp_comp FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
     if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "COPY comp start failed\n";
+        std::cerr << "[COMP] COPY comp start failed: " << PQerrorMessage(conn) << "\n";
         PQclear(res);
         return false;
     }
     PQclear(res);
     
-    std::string batch;
-    batch.reserve(1 << 20);
-    
-    for (const auto& token : g_vocab_tokens) {
-        const auto& c = token.comp;
-        
-        // Skip single-char tokens (they're just atoms, already seeded)
-        if (c.children.size() <= 1) continue;
-        
-        // id (hash)
-        batch += "\\\\x";
-        batch += c.hash.to_hex();
-        batch += "\t";
-        
-        // label (the token text, escaped for COPY)
-        for (char ch : token.text) {
-            if (ch == '\t') batch += "\\t";
-            else if (ch == '\n') batch += "\\n";
-            else if (ch == '\\') batch += "\\\\";
-            else batch += ch;
+    for (size_t i = 0; i < comp_batches.size(); ++i) {
+        if (!comp_batches[i].empty()) {
+            std::cerr << "  [COPY] Batch " << (i+1) << "/" << comp_batches.size() 
+                      << " (" << (comp_batches[i].size()/1024) << "KB)\r" << std::flush;
+            PQputCopyData(conn, comp_batches[i].c_str(), static_cast<int>(comp_batches[i].size()));
         }
-        batch += "\t";
-        
-        // depth, child_count, atom_count
-        batch += std::to_string(c.depth);
-        batch += "\t";
-        batch += std::to_string(c.children.size());
-        batch += "\t";
-        batch += std::to_string(c.atom_count);
-        batch += "\n";
-        
-        if (batch.size() > (1 << 19)) {
-            PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-            batch.clear();
-        }
-    }
-    
-    if (!batch.empty()) {
-        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
     }
     PQputCopyEnd(conn, nullptr);
     res = PQgetResult(conn);
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "\n[COMP] COPY comp failed: " << PQerrorMessage(conn) << "\n";
+    }
     PQclear(res);
+    std::cerr << "\n";
     
     // COPY composition children
+    std::cerr << "[COMP] Copying composition children to temp table...\n";
     res = PQexec(conn, "COPY tmp_comp_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
     if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "COPY comp_child start failed\n";
+        std::cerr << "[COMP] COPY comp_child start failed: " << PQerrorMessage(conn) << "\n";
         PQclear(res);
         return false;
     }
     PQclear(res);
     
-    batch.clear();
-    for (const auto& token : g_vocab_tokens) {
-        const auto& c = token.comp;
-        if (c.children.size() <= 1) continue;
-        
-        for (size_t i = 0; i < c.children.size(); ++i) {
-            // composition_id
-            batch += "\\\\x";
-            batch += c.hash.to_hex();
-            batch += "\t";
-            
-            // ordinal (0-based)
-            batch += std::to_string(i);
-            batch += "\t";
-            
-            // child_type: 'A' = atom (single codepoint), check depth
-            // For BPE, children are always atoms (depth 1 composition -> atom children)
-            batch += "A\t";
-            
-            // child_id
-            batch += "\\\\x";
-            batch += c.children[i].to_hex();
-            batch += "\n";
+    for (size_t i = 0; i < child_batches.size(); ++i) {
+        if (!child_batches[i].empty()) {
+            std::cerr << "  [COPY] Batch " << (i+1) << "/" << child_batches.size() 
+                      << " (" << (child_batches[i].size()/1024) << "KB)\r" << std::flush;
+            PQputCopyData(conn, child_batches[i].c_str(), static_cast<int>(child_batches[i].size()));
         }
-        
-        if (batch.size() > (1 << 19)) {
-            PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-            batch.clear();
-        }
-    }
-    
-    if (!batch.empty()) {
-        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
     }
     PQputCopyEnd(conn, nullptr);
     res = PQgetResult(conn);
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "\n[COMP] COPY child failed: " << PQerrorMessage(conn) << "\n";
+    }
     PQclear(res);
-    
-    // Insert compositions
+    std::cerr << "\n";
+
+    // Insert compositions WITH geometry columns
+    std::cerr << "[COMP] Inserting into composition table...\n";
     res = PQexec(conn,
-        "INSERT INTO composition (id, label, depth, child_count, atom_count) "
-        "SELECT id, label, depth, child_count, atom_count "
+        "INSERT INTO composition (id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi) "
+        "SELECT id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi "
         "FROM tmp_comp "
-        "ON CONFLICT (id) DO NOTHING");
+        "ON CONFLICT (id) DO UPDATE SET "
+        "  geom = EXCLUDED.geom, "
+        "  centroid = EXCLUDED.centroid, "
+        "  hilbert_lo = EXCLUDED.hilbert_lo, "
+        "  hilbert_hi = EXCLUDED.hilbert_hi "
+        "WHERE composition.geom IS NULL");
     
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "Composition insert failed: " << PQerrorMessage(conn) << "\n";
+        std::cerr << "[COMP] Composition insert failed: " << PQerrorMessage(conn) << "\n";
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
     int inserted_comps = atoi(PQcmdTuples(res));
     PQclear(res);
+    std::cerr << "[COMP] Inserted " << inserted_comps << " compositions\n";
     
     // Insert composition children (only for compositions that exist)
+    std::cerr << "[COMP] Inserting into composition_child table...\n";
     res = PQexec(conn,
         "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
         "SELECT composition_id, ordinal, child_type, child_id "
@@ -715,18 +1002,21 @@ bool insert_compositions(PGconn* conn) {
         "ON CONFLICT (composition_id, ordinal) DO NOTHING");
     
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "Composition child insert failed: " << PQerrorMessage(conn) << "\n";
+        std::cerr << "[COMP] Composition child insert failed: " << PQerrorMessage(conn) << "\n";
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
     int inserted_children = atoi(PQcmdTuples(res));
     PQclear(res);
+    std::cerr << "[COMP] Inserted " << inserted_children << " children\n";
     
     res = PQexec(conn, "COMMIT");
     PQclear(res);
     
-    std::cerr << "[COMP] Inserted " << inserted_comps << " compositions, " << inserted_children << " children\n";
+    auto end = std::chrono::steady_clock::now();
+    auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cerr << "[COMP] Inserted " << inserted_comps << " compositions, " << inserted_children << " children in " << total_ms << "ms\n";
     return true;
 }
 
@@ -857,6 +1147,7 @@ int main(int argc, char* argv[]) {
 
 // ============================================================================
 // Insert Embeddings as Shapes (external model fingerprints)
+// PARALLELIZED: Read tensor rows and build batch strings in parallel
 // ============================================================================
 
 bool insert_shapes(PGconn* conn, const IngestConfig& config) {
@@ -881,16 +1172,108 @@ bool insert_shapes(PGconn* conn, const IngestConfig& config) {
         return false;
     }
     
-    int64_t vocab_size = embed->shape[0];
+    int64_t vocab_size = std::min(embed->shape[0], static_cast<int64_t>(g_vocab_tokens.size()));
     int64_t embed_dim = embed->shape[1];
     
-    std::cerr << "[SHAPE] Processing " << vocab_size << " tokens x " << embed_dim << " dims\n";
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    if (num_threads == 0) num_threads = 4;
+    if (num_threads > 16) num_threads = 16;
+    
+    std::cerr << "[SHAPE] Processing " << vocab_size << " tokens x " << embed_dim << " dims using " << num_threads << " threads\n";
     std::cerr << "[SHAPE] Tensor: " << embed->name << " in " << embed->shard_file << "\n";
     
+    auto start = std::chrono::steady_clock::now();
+    
+    // Phase 1: Read all embeddings in parallel
+    std::cerr << "[SHAPE] Reading embeddings...\n";
+    std::vector<std::vector<float>> embeddings(vocab_size);
+    std::atomic<int64_t> read_idx{0};
+    std::atomic<int64_t> read_completed{0};
+    
+    auto read_worker = [&]() {
+        while (true) {
+            int64_t i = read_idx.fetch_add(1);
+            if (i >= vocab_size) break;
+            embeddings[i] = read_tensor_row(*embed, static_cast<size_t>(i));
+            read_completed.fetch_add(1);
+        }
+    };
+    
+    // Progress thread for reading
+    std::atomic<bool> read_done{false};
+    std::thread read_progress([&]() {
+        while (!read_done.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            int64_t c = read_completed.load();
+            if (c > 0 && c < vocab_size) {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+                double rate = (elapsed > 0) ? (c * 1000.0 / elapsed) : 0;
+                std::cerr << "  [READ] " << c << "/" << vocab_size << " (" << std::fixed << std::setprecision(0) << rate << " tok/s)\r" << std::flush;
+            }
+        }
+    });
+    
+    std::vector<std::thread> read_workers;
+    for (unsigned t = 0; t < num_threads; ++t) {
+        read_workers.emplace_back(read_worker);
+    }
+    for (auto& th : read_workers) th.join();
+    read_done.store(true);
+    read_progress.join();
+    
+    auto read_end = std::chrono::steady_clock::now();
+    auto read_ms = std::chrono::duration_cast<std::chrono::milliseconds>(read_end - start).count();
+    std::cerr << "\n[SHAPE] Embeddings read in " << read_ms << "ms, building batch strings...\n";
+    
+    // Phase 2: Build batch strings in parallel
+    std::vector<std::string> batches(num_threads);
+    for (auto& b : batches) b.reserve(1 << 21);  // 2MB per thread
+    
+    std::atomic<int64_t> build_idx{0};
+    
+    auto build_worker = [&](unsigned tid) {
+        auto& batch = batches[tid];
+        
+        while (true) {
+            int64_t i = build_idx.fetch_add(1);
+            if (i >= vocab_size) break;
+            
+            if (embeddings[i].empty()) continue;
+            
+            const auto& comp = g_vocab_tokens[i].comp;
+            char entity_type = (comp.children.size() <= 1) ? 'A' : 'C';
+            
+            // Convert embedding to LineString geometry (hex-encoded EWKB)
+            std::string geom = floats_to_linestring_ewkb(embeddings[i].data(), embeddings[i].size());
+            
+            batch += entity_type;
+            batch += "\t\\\\x";
+            batch += comp.hash.to_hex();
+            batch += "\t";
+            batch += config.model_name;
+            batch += "\t\\\\x";
+            batch += geom;
+            batch += "\t";
+            batch += std::to_string(embed_dim);
+            batch += "\n";
+        }
+    };
+    
+    std::vector<std::thread> build_workers;
+    for (unsigned t = 0; t < num_threads; ++t) {
+        build_workers.emplace_back(build_worker, t);
+    }
+    for (auto& th : build_workers) th.join();
+    
+    auto build_end = std::chrono::steady_clock::now();
+    auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(build_end - read_end).count();
+    std::cerr << "[SHAPE] Batch strings built in " << build_ms << "ms, streaming to DB...\n";
+    
+    // Phase 3: Stream to database
     PGresult* res = PQexec(conn, "BEGIN");
     PQclear(res);
     
-    // Temp table for shapes
     res = PQexec(conn,
         "CREATE TEMP TABLE tmp_shape ("
         "  entity_type CHAR(1),"
@@ -910,58 +1293,14 @@ bool insert_shapes(PGconn* conn, const IngestConfig& config) {
     res = PQexec(conn, "COPY tmp_shape FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
     PQclear(res);
     
-    std::string batch;
-    batch.reserve(1 << 21);  // 2MB buffer
-    
-    auto start = std::chrono::steady_clock::now();
-    
-    for (int64_t i = 0; i < vocab_size && i < static_cast<int64_t>(g_vocab_tokens.size()); ++i) {
-        if (i % 10000 == 0) {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
-            float rate = elapsed > 0 ? static_cast<float>(i) / elapsed : 0;
-            std::cerr << "  " << i << "/" << vocab_size << " (" << rate << " tok/s)\r" << std::flush;
-        }
-        
-        // Read this token's embedding
-        auto row = read_tensor_row(*embed, static_cast<size_t>(i));
-        if (row.empty()) continue;
-        
-        // Get the composition hash for this token (entity_id)
-        const auto& comp = g_vocab_tokens[i].comp;
-        
-        // Determine entity type: 'A' if single char (atom), 'C' if composition
-        char entity_type = (comp.children.size() <= 1) ? 'A' : 'C';
-        
-        // Convert embedding to LineString geometry (hex-encoded EWKB)
-        std::string geom = floats_to_linestring_ewkb(row.data(), row.size());
-        
-        // entity_type, entity_id, model_name, embedding, dim_count
-        batch += entity_type;
-        batch += "\t\\\\x";
-        batch += comp.hash.to_hex();
-        batch += "\t";
-        batch += config.model_name;
-        batch += "\t\\\\x";
-        batch += geom;
-        batch += "\t";
-        batch += std::to_string(embed_dim);
-        batch += "\n";
-        
-        if (batch.size() > (1 << 20)) {
+    for (const auto& batch : batches) {
+        if (!batch.empty()) {
             PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-            batch.clear();
         }
-    }
-    
-    if (!batch.empty()) {
-        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
     }
     PQputCopyEnd(conn, nullptr);
     res = PQgetResult(conn);
     PQclear(res);
-    
-    std::cerr << "\n";
     
     // Insert into shape table
     res = PQexec(conn,
@@ -981,7 +1320,9 @@ bool insert_shapes(PGconn* conn, const IngestConfig& config) {
     res = PQexec(conn, "COMMIT");
     PQclear(res);
     
-    std::cerr << "[SHAPE] Inserted " << inserted << " shapes for model '" << config.model_name << "'\n";
+    auto end = std::chrono::steady_clock::now();
+    auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cerr << "[SHAPE] Inserted " << inserted << " shapes for model '" << config.model_name << "' in " << total_ms << "ms\n";
     return true;
 }
 
@@ -1081,98 +1422,175 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
         int64_t vocab_size = std::min(embed->shape[0], static_cast<int64_t>(g_vocab_tokens.size()));
         int64_t embed_dim = embed->shape[1];
         
-        std::cerr << "[SIMILARITY] Computing pairwise similarity for " << vocab_size 
-                  << " tokens (threshold=" << config.weight_threshold << ")\n";
+        // Determine thread count
+        unsigned int num_threads = std::thread::hardware_concurrency();
+        if (num_threads == 0) num_threads = 4;
+        if (num_threads > 16) num_threads = 16;  // Cap to prevent too much contention
         
-        // Load all embeddings
+        std::cerr << "[SIMILARITY] Computing pairwise similarity for " << vocab_size 
+                  << " tokens using " << num_threads << " threads (threshold=" << config.weight_threshold << ")\n";
+        
+        // Load all embeddings in parallel
+        std::cerr << "[SIMILARITY] Loading embeddings...\n";
         std::vector<std::vector<float>> embeddings(vocab_size);
+        {
+            std::atomic<int64_t> load_idx{0};
+            auto load_worker = [&]() {
+                while (true) {
+                    int64_t i = load_idx.fetch_add(1);
+                    if (i >= vocab_size) break;
+                    embeddings[i] = read_tensor_row(*embed, static_cast<size_t>(i));
+                }
+            };
+            std::vector<std::thread> load_threads;
+            for (unsigned t = 0; t < num_threads; ++t) {
+                load_threads.emplace_back(load_worker);
+            }
+            for (auto& th : load_threads) th.join();
+        }
+        std::cerr << "[SIMILARITY] Embeddings loaded, computing and streaming...\n";
+        
+        // Pre-compute types for each token
+        std::vector<char> token_types(vocab_size);
         for (int64_t i = 0; i < vocab_size; ++i) {
-            embeddings[i] = read_tensor_row(*embed, static_cast<size_t>(i));
+            token_types[i] = (g_vocab_tokens[i].comp.children.size() <= 1) ? 'A' : 'C';
         }
         
-        PGresult* res = PQexec(conn, "BEGIN");
-        PQclear(res);
-        
-        res = PQexec(conn,
-            "CREATE TEMP TABLE tmp_sim ("
-            "  source_type CHAR(1), source_id BYTEA,"
-            "  target_type CHAR(1), target_id BYTEA,"
-            "  weight REAL, layer SMALLINT, component TEXT"
-            ") ON COMMIT DROP");
-        PQclear(res);
-        
-        res = PQexec(conn, "COPY tmp_sim FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        PQclear(res);
-        
-        std::string batch;
-        batch.reserve(1 << 21);
-        size_t sim_edges = 0;
-        
+        // STREAMING APPROACH: Process in batches, stream each batch to DB
+        // This avoids accumulating 100M+ edges in memory
+        const int64_t BATCH_ROWS = 1000;  // Process 1000 rows at a time
+        size_t total_sim_edges = 0;
         auto start = std::chrono::steady_clock::now();
         
-        // Upper triangle (symmetric)
-        for (int64_t i = 0; i < vocab_size; ++i) {
-            if (embeddings[i].empty()) continue;
-            const auto& comp_i = g_vocab_tokens[i].comp;
-            char type_i = (comp_i.children.size() <= 1) ? 'A' : 'C';
+        for (int64_t batch_start = 0; batch_start < vocab_size; batch_start += BATCH_ROWS) {
+            int64_t batch_end = std::min(batch_start + BATCH_ROWS, vocab_size);
             
-            for (int64_t j = i + 1; j < vocab_size; ++j) {
-                if (embeddings[j].empty()) continue;
-                
-                float sim = cosine_similarity_avx2(
-                    embeddings[i].data(), embeddings[j].data(),
-                    static_cast<size_t>(embed_dim)
-                );
-                
-                if (sim >= config.weight_threshold) {
-                    const auto& comp_j = g_vocab_tokens[j].comp;
-                    char type_j = (comp_j.children.size() <= 1) ? 'A' : 'C';
+            // Compute edges for this batch in parallel
+            struct EdgeRecord {
+                char src_type, tgt_type;
+                Blake3Hash src_hash, tgt_hash;
+                float weight;
+            };
+            std::vector<std::vector<EdgeRecord>> thread_edges(num_threads);
+            for (auto& te : thread_edges) te.reserve(50000);
+            
+            std::atomic<int64_t> row_idx{batch_start};
+            
+            auto batch_worker = [&](unsigned tid) {
+                auto& local_edges = thread_edges[tid];
+                while (true) {
+                    int64_t i = row_idx.fetch_add(1);
+                    if (i >= batch_end) break;
                     
-                    // Both directions
-                    batch += type_i; batch += "\t\\\\x"; batch += comp_i.hash.to_hex();
-                    batch += "\t"; batch += type_j; batch += "\t\\\\x"; batch += comp_j.hash.to_hex();
-                    batch += "\t"; batch += std::to_string(sim);
-                    batch += "\t\\N\tembed_sim\n";  // NULL layer, component = embed_sim
+                    if (embeddings[i].empty()) continue;
+                    const auto& comp_i = g_vocab_tokens[i].comp;
+                    char type_i = token_types[i];
+                    const float* emb_i = embeddings[i].data();
                     
-                    batch += type_j; batch += "\t\\\\x"; batch += comp_j.hash.to_hex();
-                    batch += "\t"; batch += type_i; batch += "\t\\\\x"; batch += comp_i.hash.to_hex();
-                    batch += "\t"; batch += std::to_string(sim);
-                    batch += "\t\\N\tembed_sim\n";
+                    // Compare with all j > i (upper triangle only)
+                    for (int64_t j = i + 1; j < vocab_size; ++j) {
+                        if (embeddings[j].empty()) continue;
+                        
+                        float sim = cosine_similarity_avx2(
+                            emb_i, embeddings[j].data(),
+                            static_cast<size_t>(embed_dim)
+                        );
+                        
+                        if (sim >= config.weight_threshold) {
+                            const auto& comp_j = g_vocab_tokens[j].comp;
+                            char type_j = token_types[j];
+                            local_edges.push_back({type_i, type_j, comp_i.hash, comp_j.hash, sim});
+                            local_edges.push_back({type_j, type_i, comp_j.hash, comp_i.hash, sim});
+                        }
+                    }
+                }
+            };
+            
+            std::vector<std::thread> workers;
+            for (unsigned t = 0; t < num_threads; ++t) {
+                workers.emplace_back(batch_worker, t);
+            }
+            for (auto& th : workers) th.join();
+            
+            // Count edges in this batch
+            size_t batch_edges = 0;
+            for (const auto& te : thread_edges) batch_edges += te.size();
+            
+            if (batch_edges == 0) continue;
+            
+            // Stream this batch to DB
+            PGresult* res = PQexec(conn, "BEGIN");
+            PQclear(res);
+            
+            res = PQexec(conn,
+                "CREATE TEMP TABLE tmp_sim ("
+                "  source_type CHAR(1), source_id BYTEA,"
+                "  target_type CHAR(1), target_id BYTEA,"
+                "  weight REAL, layer SMALLINT, component TEXT"
+                ") ON COMMIT DROP");
+            PQclear(res);
+            
+            res = PQexec(conn, "COPY tmp_sim FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+            PQclear(res);
+            
+            std::string batch_str;
+            batch_str.reserve(1 << 20);
+            
+            for (const auto& te : thread_edges) {
+                for (const auto& edge : te) {
+                    batch_str += edge.src_type; 
+                    batch_str += "\t\\\\x"; 
+                    batch_str += edge.src_hash.to_hex();
+                    batch_str += "\t"; 
+                    batch_str += edge.tgt_type; 
+                    batch_str += "\t\\\\x"; 
+                    batch_str += edge.tgt_hash.to_hex();
+                    batch_str += "\t"; 
+                    batch_str += std::to_string(edge.weight);
+                    batch_str += "\t\\N\tembed_sim\n";
                     
-                    sim_edges += 2;
-                    
-                    if (batch.size() > (1 << 20)) {
-                        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-                        batch.clear();
+                    if (batch_str.size() > (1 << 20)) {
+                        PQputCopyData(conn, batch_str.c_str(), static_cast<int>(batch_str.size()));
+                        batch_str.clear();
                     }
                 }
             }
             
-            if (i % 1000 == 0 && i > 0) {
-                auto now = std::chrono::steady_clock::now();
-                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
-                std::cerr << "  " << i << "/" << vocab_size << " - " << sim_edges << " edges\r" << std::flush;
+            if (!batch_str.empty()) {
+                PQputCopyData(conn, batch_str.c_str(), static_cast<int>(batch_str.size()));
             }
+            PQputCopyEnd(conn, nullptr);
+            res = PQgetResult(conn);
+            PQclear(res);
+            
+            // Insert from temp to permanent table
+            res = PQexec(conn,
+                ("INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) "
+                 "SELECT source_type, source_id, target_type, target_id, 'S', weight, '" + config.model_name + "', 1, layer, component FROM tmp_sim "
+                 "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
+                 "  weight = GREATEST(relation.weight, EXCLUDED.weight), source_count = relation.source_count + 1").c_str());
+            PQclear(res);
+            
+            res = PQexec(conn, "COMMIT");
+            PQclear(res);
+            
+            total_sim_edges += batch_edges;
+            
+            // Progress update
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
+            double work_done = batch_end * (2.0 * vocab_size - batch_end - 1) / 2;
+            double total_work = vocab_size * (vocab_size - 1.0) / 2;
+            double work_pct = 100.0 * work_done / total_work;
+            std::cerr << "  [SIM] Rows " << batch_end << "/" << vocab_size 
+                      << " (" << std::fixed << std::setprecision(1) << work_pct << "%) "
+                      << total_sim_edges << " edges, " << elapsed << "s\r" << std::flush;
         }
         
-        if (!batch.empty()) PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-        PQputCopyEnd(conn, nullptr);
-        res = PQgetResult(conn);
-        PQclear(res);
-        
-        // Insert
-        res = PQexec(conn,
-            ("INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) "
-             "SELECT source_type, source_id, target_type, target_id, 'S', weight, '" + config.model_name + "', 1, layer, component FROM tmp_sim "
-             "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
-             "  weight = GREATEST(relation.weight, EXCLUDED.weight), source_count = relation.source_count + 1").c_str());
-        PQclear(res);
-        
-        res = PQexec(conn, "COMMIT");
-        PQclear(res);
-        
-        std::cerr << "\n[SIMILARITY] Inserted " << sim_edges << " token similarity edges\n";
-        total_edges += sim_edges;
+        auto end = std::chrono::steady_clock::now();
+        auto total_secs = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+        std::cerr << "\n[SIMILARITY] Inserted " << total_sim_edges << " edges in " << total_secs << "s\n";
+        total_edges += total_sim_edges;
     }
     
     // -------------------------------------------------------------------------
