@@ -50,24 +50,23 @@ GENERATIVE_C_API int64_t gen_vocab_add(
     return static_cast<int64_t>(engine().vocab.entries.size() - 1);
 }
 
-GENERATIVE_C_API int gen_vocab_add_embedding(
+GENERATIVE_C_API int gen_vocab_set_centroid(
     size_t idx,
-    const char* model,
-    const float* embedding,
-    size_t dim
+    double x,
+    double y,
+    double z,
+    double m
 ) {
     if (idx >= engine().vocab.entries.size()) {
         return -1;
     }
     
-    std::vector<float> emb(embedding, embedding + dim);
-    engine().vocab.add_embedding(idx, model ? model : "", emb);
+    engine().vocab.set_centroid(idx, x, y, z, m);
     return 0;
 }
 
 GENERATIVE_C_API void gen_vocab_finalize(void) {
-    engine().vocab.compute_average_embeddings();
-    engine().vocab.build_flat_embeddings();
+    // No longer needed for embedding computation, but kept for API compat
 }
 
 GENERATIVE_C_API size_t gen_vocab_count(void) {
@@ -103,6 +102,44 @@ GENERATIVE_C_API size_t gen_bigram_count(void) {
     return engine().bigrams.pmi_scores.size();
 }
 
+GENERATIVE_C_API double gen_bigram_get(
+    const uint8_t* left_id,
+    const uint8_t* right_id
+) {
+    return engine().bigrams.get(bytes_to_hash(left_id), bytes_to_hash(right_id));
+}
+
+GENERATIVE_C_API int gen_bigram_debug_find(
+    const uint8_t* left_id,
+    const uint8_t* right_id,
+    double* out_score
+) {
+    Blake3Hash left = bytes_to_hash(left_id);
+    Blake3Hash right = bytes_to_hash(right_id);
+    
+    // Try to find exact match
+    BigramKey key{left, right};
+    auto it = engine().bigrams.pmi_scores.find(key);
+    if (it != engine().bigrams.pmi_scores.end()) {
+        *out_score = it->second;
+        return 1;  // Found
+    }
+    
+    // Count how many entries have this left key
+    int count = 0;
+    for (const auto& [k, v] : engine().bigrams.pmi_scores) {
+        if (k.left == left) {
+            count++;
+            if (count <= 5) {
+                // Return first few for debug
+            }
+        }
+    }
+    
+    *out_score = 0.0;
+    return -count;  // Not found, return negative count of left matches
+}
+
 // =============================================================================
 // Attention Cache Management
 // =============================================================================
@@ -132,12 +169,12 @@ GENERATIVE_C_API size_t gen_attention_count(void) {
 // =============================================================================
 
 GENERATIVE_C_API void gen_config_set_weights(
-    double w_shape,
+    double w_centroid,
     double w_pmi,
     double w_attn,
     double w_global
 ) {
-    engine().config.w_shape = w_shape;
+    engine().config.w_centroid = w_centroid;
     engine().config.w_pmi = w_pmi;
     engine().config.w_attn = w_attn;
     engine().config.w_global = w_global;
@@ -195,7 +232,7 @@ GENERATIVE_C_API size_t gen_generate(
         int64_t idx = engine().vocab.find_label(tokens[i]);
         results[i].token_index = (idx >= 0) ? static_cast<size_t>(idx) : 0;
         // Score components not available from generate() directly
-        results[i].score_shape = 0;
+        results[i].score_centroid = 0;
         results[i].score_pmi = 0;
         results[i].score_attn = 0;
         results[i].score_global = 0;
@@ -233,7 +270,7 @@ GENERATIVE_C_API size_t gen_score_candidates(
     size_t n = std::min(scored.size(), top_k);
     for (size_t i = 0; i < n; ++i) {
         results[i].token_index = scored[i].index;
-        results[i].score_shape = scored[i].score_shape;
+        results[i].score_centroid = scored[i].score_centroid;
         results[i].score_pmi = scored[i].score_pmi;
         results[i].score_attn = scored[i].score_attn;
         results[i].score_global = scored[i].score_global;

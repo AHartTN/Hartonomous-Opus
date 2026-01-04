@@ -254,7 +254,8 @@ embedding_cache_dim(PG_FUNCTION_ARGS)
 
 /* ==========================================================================
  * embedding_cache_load(model_name TEXT) -> BIGINT
- * Loads all embeddings for a model into C++ cache via SPI
+ * Loads all 4D centroids from composition table into C++ cache via SPI
+ * The model_name parameter is ignored (centroids are model-agnostic)
  * ========================================================================== */
 
 PG_FUNCTION_INFO_V1(embedding_cache_load);
@@ -262,18 +263,9 @@ PG_FUNCTION_INFO_V1(embedding_cache_load);
 Datum
 embedding_cache_load(PG_FUNCTION_ARGS)
 {
-    text *model_arg;
-    char *model_name;
-    StringInfoData sql;
     int ret;
     uint64 i;
     int64 count = 0;
-    
-    if (PG_ARGISNULL(0))
-        PG_RETURN_INT64(0);
-    
-    model_arg = PG_GETARG_TEXT_PP(0);
-    model_name = text_to_cstring(model_arg);
     
     /* Initialize and clear cache */
     embedding_c_cache_init();
@@ -284,21 +276,17 @@ embedding_cache_load(PG_FUNCTION_ARGS)
         ereport(ERROR, (errmsg("SPI_connect failed")));
     }
     
-    /* Query to extract embeddings as float4[] */
-    initStringInfo(&sql);
-    appendStringInfo(&sql,
+    /* Query to extract 4D centroids as float4[] */
+    ret = SPI_execute(
         "SELECT c.id, c.label, "
-        "       (SELECT array_agg(ST_Y(geom) ORDER BY ST_X(geom))::float4[] "
-        "        FROM ST_DumpPoints(s.embedding)) AS emb "
-        "FROM shape s "
-        "JOIN composition c ON c.id = s.entity_id "
-        "WHERE s.model_name = '%s' "
+        "       ARRAY[ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid)]::float4[] AS emb "
+        "FROM composition c "
+        "WHERE c.centroid IS NOT NULL "
         "  AND c.label IS NOT NULL "
-        "  AND c.label NOT LIKE '[%%' "
+        "  AND c.label NOT LIKE '[%' "
         "ORDER BY c.label",
-        model_name);
+        true, 0);
     
-    ret = SPI_execute(sql.data, true, 0);
     if (ret != SPI_OK_SELECT) {
         SPI_finish();
         ereport(ERROR, (errmsg("SPI query failed")));
@@ -321,14 +309,14 @@ embedding_cache_load(PG_FUNCTION_ARGS)
         if (isnull) continue;
         char *label = TextDatumGetCString(label_datum);
         
-        /* Get embedding array */
+        /* Get 4D centroid array */
         Datum emb_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
         if (isnull) continue;
         ArrayType *emb_arr = DatumGetArrayTypeP(emb_datum);
         int dim = ArrayGetNItems(ARR_NDIM(emb_arr), ARR_DIMS(emb_arr));
         float *emb = (float *)ARR_DATA_PTR(emb_arr);
         
-        /* Add to cache */
+        /* Add to cache (4D centroid) */
         if (embedding_c_cache_add(id_data, id_len, label, emb, (size_t)dim) >= 0) {
             count++;
         }
@@ -337,10 +325,8 @@ embedding_cache_load(PG_FUNCTION_ARGS)
     }
     
     SPI_finish();
-    pfree(sql.data);
-    pfree(model_name);
     
-    ereport(NOTICE, (errmsg("Loaded %lld embeddings into cache", (long long)count)));
+    ereport(NOTICE, (errmsg("Loaded %lld 4D centroids into cache", (long long)count)));
     
     PG_RETURN_INT64(count);
 }

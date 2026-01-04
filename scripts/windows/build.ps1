@@ -84,22 +84,60 @@ try {
         Write-Host "Target lib dir: $pgLibDir"
         Write-Host "Target ext dir: $pgExtDir"
         
-        # Copy DLLs
-        Write-Host "`nCopying extension DLLs..."
-        Copy-Item "hypercube.dll" "$pgLibDir\" -Force
-        Copy-Item "semantic_ops.dll" "$pgLibDir\" -Force
-        Write-Host "  hypercube.dll" -ForegroundColor Green
-        Write-Host "  semantic_ops.dll" -ForegroundColor Green
-        
-        # Copy SQL and control files
-        Write-Host "`nCopying extension metadata..."
-        Copy-Item "..\sql\hypercube--1.0.sql" "$pgExtDir\" -Force
-        Copy-Item "..\hypercube.control" "$pgExtDir\" -Force
-        Copy-Item "..\sql\semantic_ops--1.0.sql" "$pgExtDir\" -Force
-        Copy-Item "..\sql\semantic_ops.control" "$pgExtDir\" -Force
-        Write-Host "  SQL and control files installed" -ForegroundColor Green
+        # Use CMake install target (installs ALL extensions properly)
+        Write-Host "`nRunning CMake install..."
+        & cmake --install . --config $env:HC_BUILD_TYPE
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "CMake install failed, falling back to manual copy..." -ForegroundColor Yellow
+            
+            # Manual fallback - ALL extension DLLs
+            $dllsToCopy = @(
+                "hypercube_c.dll",
+                "hypercube.dll",
+                "hypercube_ops.dll",
+                "semantic_ops.dll",
+                "embedding_c.dll",
+                "embedding_ops.dll",
+                "generative_c.dll",
+                "generative.dll"
+            )
+            
+            Write-Host "`nCopying extension DLLs..."
+            foreach ($dll in $dllsToCopy) {
+                if (Test-Path $dll) {
+                    Copy-Item $dll "$pgLibDir\" -Force
+                    Write-Host "  $dll" -ForegroundColor Green
+                } else {
+                    Write-Host "  $dll (not found, skipping)" -ForegroundColor Yellow
+                }
+            }
+            
+            # ALL SQL and control files
+            $sqlFiles = @(
+                @{sql="..\sql\hypercube--1.0.sql"; ctrl="..\hypercube.control"},
+                @{sql="..\sql\hypercube_ops--1.0.sql"; ctrl="..\sql\hypercube_ops.control"},
+                @{sql="..\sql\semantic_ops--1.0.sql"; ctrl="..\sql\semantic_ops.control"},
+                @{sql="..\sql\embedding_ops--1.0.sql"; ctrl="..\sql\embedding_ops.control"},
+                @{sql="..\sql\generative--1.0.sql"; ctrl="..\sql\generative.control"}
+            )
+            
+            Write-Host "`nCopying extension metadata..."
+            foreach ($ext in $sqlFiles) {
+                if (Test-Path $ext.sql) {
+                    Copy-Item $ext.sql "$pgExtDir\" -Force
+                    Write-Host "  $(Split-Path -Leaf $ext.sql)" -ForegroundColor Green
+                }
+                if (Test-Path $ext.ctrl) {
+                    Copy-Item $ext.ctrl "$pgExtDir\" -Force
+                    Write-Host "  $(Split-Path -Leaf $ext.ctrl)" -ForegroundColor Green
+                }
+            }
+        } else {
+            Write-Host "  CMake install completed" -ForegroundColor Green
+        }
         
         Write-Host "`n=== Extensions Installed ===" -ForegroundColor Green
+        Write-Host "Installed extensions: hypercube, hypercube_ops, semantic_ops, embedding_ops, generative"
         Write-Host "Run setup-db.ps1 to load into database"
     }
     

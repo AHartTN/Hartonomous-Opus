@@ -2,8 +2,7 @@
  * Generative Walk Engine
  * 
  * LLM-like generation using the hypercube substrate:
- * - Multi-model embedding support
- * - Shape similarity (cosine in embedding space)
+ * - 4D centroid similarity (Laplacian eigenmap projected)
  * - PMI / co-occurrence scoring
  * - Attention relation scoring
  * - Hilbert proximity pre-filtering
@@ -52,10 +51,47 @@ struct Blake3Equal {
     }
 };
 
+// 4D Centroid (Laplacian eigenmap projection)
+// Coordinates are stored as uint32 cast to double (range 0 to 4.3 billion)
+// For similarity, we normalize to unit scale
+struct Centroid4D {
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+    double m = 0.0;
+    
+    static constexpr double COORD_MAX = 4294967295.0;  // UINT32_MAX
+    
+    bool valid() const { return x != 0.0 || y != 0.0 || z != 0.0 || m != 0.0; }
+    bool has_coordinates() const { return valid(); }
+    
+    // Normalized coordinates (0 to 1)
+    double x_norm() const { return x / COORD_MAX; }
+    double y_norm() const { return y / COORD_MAX; }
+    double z_norm() const { return z / COORD_MAX; }
+    double m_norm() const { return m / COORD_MAX; }
+    
+    // Euclidean distance in normalized 4D space (range 0 to 2.0)
+    double distance(const Centroid4D& other) const {
+        double dx = x_norm() - other.x_norm();
+        double dy = y_norm() - other.y_norm();
+        double dz = z_norm() - other.z_norm();
+        double dm = m_norm() - other.m_norm();
+        return std::sqrt(dx*dx + dy*dy + dz*dz + dm*dm);
+    }
+    
+    // Similarity (inverse distance, normalized to [0, 1])
+    // Max distance in 4D unit hypercube is 2.0 (diagonal)
+    double similarity(const Centroid4D& other) const {
+        double d = distance(other);
+        return 1.0 - (d / 2.0);  // Linear similarity: 1 at d=0, 0 at d=2
+    }
+};
+
 struct TokenCandidate {
     Blake3Hash id;
     std::string label;
-    std::vector<float> embedding;  // Primary model embedding
+    Centroid4D centroid;          // 4D projected coordinates
     double hilbert_index;
     double frequency;              // Usage frequency (for global prior)
 };
@@ -63,13 +99,13 @@ struct TokenCandidate {
 struct TokenState {
     Blake3Hash id;
     std::string label;
-    std::vector<float> embedding;
+    Centroid4D centroid;          // Current token's 4D position
     double hilbert_index;
 };
 
 struct ScoredCandidate {
     size_t index;           // Index in candidate list
-    double score_shape;
+    double score_centroid;  // 4D proximity score (renamed from score_shape)
     double score_pmi;
     double score_attn;
     double score_global;
@@ -78,7 +114,7 @@ struct ScoredCandidate {
 
 struct GenerationConfig {
     // Scoring weights
-    double w_shape = 0.4;
+    double w_centroid = 0.4;  // 4D centroid similarity weight
     double w_pmi = 0.3;
     double w_attn = 0.2;
     double w_global = 0.1;
@@ -97,7 +133,7 @@ struct GenerationConfig {
 };
 
 // =============================================================================
-// Multi-Model Vocabulary Cache
+// 4D Centroid-Based Vocabulary Cache
 // =============================================================================
 
 struct VocabEntry {
@@ -107,11 +143,8 @@ struct VocabEntry {
     double frequency;
     double hilbert_index;
     
-    // Embeddings per model (model_name -> embedding)
-    std::unordered_map<std::string, std::vector<float>> embeddings;
-    
-    // Precomputed average embedding across all models
-    std::vector<float> avg_embedding;
+    // 4D centroid (from Laplacian eigenmap projection)
+    Centroid4D centroid;
 };
 
 class VocabularyCache {
@@ -119,21 +152,11 @@ public:
     std::vector<VocabEntry> entries;
     std::unordered_map<std::string, size_t> label_to_index;
     std::unordered_map<Blake3Hash, size_t, Blake3Hasher, Blake3Equal> id_to_index;
-    std::vector<std::string> model_names;
-    size_t embedding_dim = 0;
-    
-    // Flat embedding array for SIMD (all entries, avg embedding)
-    std::vector<float> flat_embeddings;
-    bool flat_valid = false;
     
     void clear() {
         entries.clear();
         label_to_index.clear();
         id_to_index.clear();
-        model_names.clear();
-        flat_embeddings.clear();
-        embedding_dim = 0;
-        flat_valid = false;
     }
     
     void add_entry(const VocabEntry& entry) {
@@ -141,71 +164,11 @@ public:
         entries.push_back(entry);
         label_to_index[entry.label] = idx;
         id_to_index[entry.id] = idx;
-        flat_valid = false;
     }
     
-    void add_embedding(size_t idx, const std::string& model, const std::vector<float>& emb) {
+    void set_centroid(size_t idx, double x, double y, double z, double m) {
         if (idx >= entries.size()) return;
-        entries[idx].embeddings[model] = emb;
-        
-        // Track model names
-        if (std::find(model_names.begin(), model_names.end(), model) == model_names.end()) {
-            model_names.push_back(model);
-        }
-        
-        if (embedding_dim == 0) {
-            embedding_dim = emb.size();
-        }
-        
-        flat_valid = false;
-    }
-    
-    void compute_average_embeddings() {
-        for (auto& e : entries) {
-            if (e.embeddings.empty()) continue;
-            
-            size_t dim = 0;
-            for (const auto& [model, emb] : e.embeddings) {
-                if (dim == 0) dim = emb.size();
-            }
-            
-            e.avg_embedding.assign(dim, 0.0f);
-            
-            for (const auto& [model, emb] : e.embeddings) {
-                for (size_t i = 0; i < dim && i < emb.size(); ++i) {
-                    e.avg_embedding[i] += emb[i];
-                }
-            }
-            
-            float n = static_cast<float>(e.embeddings.size());
-            for (auto& v : e.avg_embedding) {
-                v /= n;
-            }
-        }
-        
-        embedding_dim = entries.empty() ? 0 : 
-                       (entries[0].avg_embedding.empty() ? 0 : entries[0].avg_embedding.size());
-    }
-    
-    void build_flat_embeddings() {
-        if (flat_valid) return;
-        if (entries.empty() || embedding_dim == 0) {
-            flat_embeddings.clear();
-            flat_valid = true;
-            return;
-        }
-        
-        compute_average_embeddings();
-        
-        flat_embeddings.resize(entries.size() * embedding_dim);
-        for (size_t i = 0; i < entries.size(); ++i) {
-            const auto& emb = entries[i].avg_embedding;
-            for (size_t j = 0; j < embedding_dim && j < emb.size(); ++j) {
-                flat_embeddings[i * embedding_dim + j] = emb[j];
-            }
-        }
-        
-        flat_valid = true;
+        entries[idx].centroid = Centroid4D{x, y, z, m};
     }
     
     int64_t find_label(const std::string& label) const {
@@ -215,6 +178,14 @@ public:
     
     const VocabEntry* get_entry(size_t idx) const {
         return (idx < entries.size()) ? &entries[idx] : nullptr;
+    }
+    
+    size_t count_with_centroid() const {
+        size_t count = 0;
+        for (const auto& e : entries) {
+            if (e.centroid.valid()) ++count;
+        }
+        return count;
     }
 };
 
@@ -295,53 +266,6 @@ public:
 };
 
 // =============================================================================
-// SIMD Cosine Similarity (reuse from embedding_ops)
-// =============================================================================
-
-inline double cosine_similarity(const float* a, const float* b, size_t n) {
-    double dot = 0.0, norm_a = 0.0, norm_b = 0.0;
-    
-#ifdef __AVX2__
-    size_t simd_n = (n / 8) * 8;
-    __m256 sum_dot = _mm256_setzero_ps();
-    __m256 sum_a = _mm256_setzero_ps();
-    __m256 sum_b = _mm256_setzero_ps();
-    
-    for (size_t i = 0; i < simd_n; i += 8) {
-        __m256 va = _mm256_loadu_ps(a + i);
-        __m256 vb = _mm256_loadu_ps(b + i);
-        
-        sum_dot = _mm256_fmadd_ps(va, vb, sum_dot);
-        sum_a = _mm256_fmadd_ps(va, va, sum_a);
-        sum_b = _mm256_fmadd_ps(vb, vb, sum_b);
-    }
-    
-    float tmp[8];
-    _mm256_storeu_ps(tmp, sum_dot);
-    dot = tmp[0] + tmp[1] + tmp[2] + tmp[3] + tmp[4] + tmp[5] + tmp[6] + tmp[7];
-    _mm256_storeu_ps(tmp, sum_a);
-    norm_a = tmp[0] + tmp[1] + tmp[2] + tmp[3] + tmp[4] + tmp[5] + tmp[6] + tmp[7];
-    _mm256_storeu_ps(tmp, sum_b);
-    norm_b = tmp[0] + tmp[1] + tmp[2] + tmp[3] + tmp[4] + tmp[5] + tmp[6] + tmp[7];
-    
-    for (size_t i = simd_n; i < n; ++i) {
-        dot += a[i] * b[i];
-        norm_a += a[i] * a[i];
-        norm_b += b[i] * b[i];
-    }
-#else
-    for (size_t i = 0; i < n; ++i) {
-        dot += a[i] * b[i];
-        norm_a += a[i] * a[i];
-        norm_b += b[i] * b[i];
-    }
-#endif
-    
-    double denom = std::sqrt(norm_a) * std::sqrt(norm_b);
-    return (denom > 1e-10) ? dot / denom : 0.0;
-}
-
-// =============================================================================
 // Generative Engine
 // =============================================================================
 
@@ -365,19 +289,14 @@ public:
     }
     
     // =========================================================================
-    // Scoring Functions
+    // Scoring Functions (4D Centroid-Based)
     // =========================================================================
     
-    double score_shape(const TokenState& current, const VocabEntry& candidate) const {
-        if (current.embedding.empty() || candidate.avg_embedding.empty()) {
+    double score_centroid(const TokenState& current, const VocabEntry& candidate) const {
+        if (!current.centroid.valid() || !candidate.centroid.valid()) {
             return 0.0;
         }
-        
-        return cosine_similarity(
-            current.embedding.data(),
-            candidate.avg_embedding.data(),
-            std::min(current.embedding.size(), candidate.avg_embedding.size())
-        );
+        return current.centroid.similarity(candidate.centroid);
     }
     
     double score_pmi(const TokenState& current, const VocabEntry& candidate) const {
@@ -402,13 +321,13 @@ public:
         
         ScoredCandidate sc;
         sc.index = candidate_idx;
-        sc.score_shape = score_shape(current, cand);
+        sc.score_centroid = score_centroid(current, cand);
         sc.score_pmi = score_pmi(current, cand);
         sc.score_attn = score_attn(current, cand);
         sc.score_global = score_global(cand);
         
         sc.score_total = 
-            config.w_shape * sc.score_shape +
+            config.w_centroid * sc.score_centroid +
             config.w_pmi * sc.score_pmi +
             config.w_attn * sc.score_attn +
             config.w_global * sc.score_global;
@@ -426,7 +345,7 @@ public:
         
         for (size_t i = 0; i < vocab.entries.size(); ++i) {
             const auto& e = vocab.entries[i];
-            if (e.depth != 1 || e.label.empty() || e.avg_embedding.empty()) {
+            if (e.depth != 1 || e.label.empty() || !e.centroid.valid()) {
                 continue;
             }
             
@@ -454,7 +373,7 @@ public:
         std::vector<size_t> result;
         for (size_t i = 0; i < vocab.entries.size(); ++i) {
             const auto& e = vocab.entries[i];
-            if (e.depth == 1 && !e.label.empty() && !e.avg_embedding.empty()) {
+            if (e.depth == 1 && !e.label.empty() && e.centroid.has_coordinates()) {
                 result.push_back(i);
             }
         }
@@ -508,7 +427,7 @@ public:
         TokenState ts;
         ts.id = e.id;
         ts.label = e.label;
-        ts.embedding = e.avg_embedding;
+        ts.centroid = e.centroid;
         ts.hilbert_index = e.hilbert_index;
         return ts;
     }
@@ -583,12 +502,12 @@ public:
         std::vector<ScoredCandidate> all_scored;
         for (size_t i = 0; i < vocab.entries.size(); ++i) {
             if (i == (size_t)idx) continue;
-            if (vocab.entries[i].avg_embedding.empty()) continue;
+            if (!vocab.entries[i].centroid.has_coordinates()) continue;
             
             ScoredCandidate sc;
             sc.index = i;
-            sc.score_shape = score_shape(current, vocab.entries[i]);
-            sc.score_total = sc.score_shape;
+            sc.score_centroid = score_centroid(current, vocab.entries[i]);
+            sc.score_total = sc.score_centroid;
             all_scored.push_back(sc);
         }
         

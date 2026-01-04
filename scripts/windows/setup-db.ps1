@@ -60,12 +60,31 @@ try {
     
     # Load C++ extensions (idempotent - IF NOT EXISTS)
     Write-Host "`nLoading C++ extensions..."
-    $extResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "CREATE EXTENSION IF NOT EXISTS hypercube; CREATE EXTENSION IF NOT EXISTS semantic_ops;" 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "C++ extensions loaded" -ForegroundColor Green
+    
+    # All extensions in dependency order
+    $extensions = @(
+        "hypercube",        # Base extension (hilbert, blake3, coordinates)
+        "hypercube_ops",    # Batch operations  
+        "semantic_ops",     # Semantic tree operations
+        "embedding_ops",    # SIMD embedding operations
+        "generative"        # Generative walk engine
+    )
+    
+    $allLoaded = $true
+    foreach ($ext in $extensions) {
+        $extResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "CREATE EXTENSION IF NOT EXISTS $ext;" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  $ext" -ForegroundColor Green
+        } else {
+            Write-Host "  $ext - not available" -ForegroundColor Yellow
+            $allLoaded = $false
+        }
+    }
+    
+    if ($allLoaded) {
+        Write-Host "All C++ extensions loaded" -ForegroundColor Green
     } else {
-        Write-Host "Warning: C++ extensions not available (run build.ps1 -Install)" -ForegroundColor Yellow
-        Write-Host "  $extResult"
+        Write-Host "Warning: Some C++ extensions not available (run build.ps1 -Install)" -ForegroundColor Yellow
     }
 
     # Check atom count (atoms table in 4-table schema = leaf atoms only)
@@ -94,29 +113,21 @@ try {
         Write-Host "Atoms already seeded" -ForegroundColor Green
     }
 
-    # Run manifold projection if embeddings exist but centroids are missing
-    Write-Host "`nChecking for manifold projection..."
-    $needsProjection = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM shape s JOIN composition c ON c.id = s.entity_id WHERE c.centroid IS NULL AND s.dim_count = 384"
+    # Recompute centroids for any compositions that exist but have incorrect centroids
+    # (e.g., after ingestion with Laplacian eigenmap instead of atom-based)
+    Write-Host "`nChecking for centroid recomputation..."
+    $compCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL" 2>&1
     
-    if ([int]$needsProjection -gt 0) {
-        Write-Host "  $needsProjection compositions need projection..."
-        
-        $projector = "$env:HC_BUILD_DIR\manifold_project.exe"
-        if (-not (Test-Path $projector)) {
-            $projector = "$env:HC_BUILD_DIR\Release\manifold_project.exe"
-        }
-        if (Test-Path $projector) {
-            & $projector --batch 5000
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "Manifold projection complete" -ForegroundColor Green
-            } else {
-                Write-Host "Manifold projection failed" -ForegroundColor Yellow
-            }
+    if ([int]$compCount -gt 0) {
+        Write-Host "  Recomputing centroids for $compCount compositions..."
+        $result = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT recompute_composition_centroids(10000)" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Updated $result compositions" -ForegroundColor Green
         } else {
-            Write-Host "  Projector not found, run: project_all_embeddings() in psql" -ForegroundColor Yellow
+            Write-Host "  Centroid recomputation skipped (function may not exist)" -ForegroundColor Yellow
         }
     } else {
-        Write-Host "  All embeddings already projected" -ForegroundColor Green
+        Write-Host "  No compositions to recompute (run ingest-safetensor.ps1 first)" -ForegroundColor Gray
     }
 
     Write-Host "`n=== Setup Complete ===" -ForegroundColor Green

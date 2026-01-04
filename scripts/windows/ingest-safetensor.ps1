@@ -55,12 +55,27 @@ $env:PGPASSWORD = $env:HC_DB_PASS
 & $ingester -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -t $Threshold $ModelDir
 $exitCode = $LASTEXITCODE
 
+if ($exitCode -eq 0) {
+    Write-Host "`nModel files ingested successfully" -ForegroundColor Green
+    
+    # CRITICAL: Recompute composition centroids from atom children
+    # The C++ ingester uses Laplacian eigenmap which destroys semantic relationships.
+    # Correct centroids must be computed from averaging atom children's 4D coordinates.
+    Write-Host "`nRecomputing composition centroids from atom children..."
+    
+    $centroidResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT recompute_composition_centroids(10000)" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  Centroids recomputed: $centroidResult compositions updated" -ForegroundColor Green
+    } else {
+        Write-Host "  Centroid recomputation warning: $centroidResult" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "`nModel ingestion failed" -ForegroundColor Red
+    Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+    exit 1
+}
+
 # Clean up password from environment
 Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
 
-if ($exitCode -eq 0) {
-    Write-Host "`nModel ingestion complete" -ForegroundColor Green
-} else {
-    Write-Host "`nModel ingestion failed" -ForegroundColor Red
-    exit 1
-}
+Write-Host "`nIngestion complete" -ForegroundColor Green

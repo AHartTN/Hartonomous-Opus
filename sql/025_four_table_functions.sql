@@ -266,15 +266,15 @@ CREATE OR REPLACE FUNCTION atom_stats()
 RETURNS TABLE(
     atoms BIGINT,
     compositions BIGINT,
+    compositions_with_centroid BIGINT,
     relations BIGINT,
-    shapes BIGINT,
     max_depth INTEGER
 ) AS $$
     SELECT 
         (SELECT COUNT(*) FROM atom),
         (SELECT COUNT(*) FROM composition),
+        (SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL),
         (SELECT COUNT(*) FROM relation),
-        (SELECT COUNT(*) FROM shape),
         (SELECT COALESCE(MAX(depth), 0) FROM composition);
 $$ LANGUAGE SQL STABLE;
 

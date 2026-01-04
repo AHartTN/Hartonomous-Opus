@@ -454,16 +454,16 @@ CREATE OR REPLACE FUNCTION db_stats()
 RETURNS TABLE (
     atoms BIGINT,
     compositions BIGINT,
+    compositions_with_centroid BIGINT,
     relations BIGINT,
-    shapes BIGINT,
     models TEXT[]
 ) AS $$
     SELECT 
         (SELECT COUNT(*) FROM atom),
         (SELECT COUNT(*) FROM composition),
+        (SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL),
         (SELECT COUNT(*) FROM relation),
-        (SELECT COUNT(*) FROM shape),
-        (SELECT array_agg(DISTINCT model_name) FROM shape WHERE model_name IS NOT NULL);
+        (SELECT array_agg(DISTINCT source_model) FROM relation WHERE source_model IS NOT NULL AND source_model != '');
 $$ LANGUAGE SQL STABLE PARALLEL SAFE;
 
 DROP FUNCTION IF EXISTS db_depth_distribution() CASCADE;

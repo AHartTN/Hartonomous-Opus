@@ -90,16 +90,17 @@ RETURNS BIGINT
 AS 'MODULE_PATHNAME', 'embedding_cache_dim'
 LANGUAGE C STABLE;
 
--- Load embeddings from shape table into cache
-CREATE FUNCTION embedding_cache_load(model_name TEXT)
+-- Load 4D centroids from composition table into cache
+CREATE FUNCTION embedding_cache_load(model_name TEXT DEFAULT NULL)
 RETURNS BIGINT
 AS 'MODULE_PATHNAME', 'embedding_cache_load'
 LANGUAGE C VOLATILE;
 
 COMMENT ON FUNCTION embedding_cache_load(TEXT) IS
-'Load all embeddings for a model into C++ memory cache for fast search.
-Returns the number of embeddings loaded.
-Example: SELECT embedding_cache_load(''sentence-transformers/all-MiniLM-L6-v2'')';
+'Load all 4D centroids from composition table into C++ memory cache for fast search.
+The model_name parameter is ignored (centroids are model-agnostic).
+Returns the number of centroids loaded.
+Example: SELECT embedding_cache_load()';
 
 -- =============================================================================
 -- Cached Similarity Search
@@ -112,7 +113,7 @@ AS 'MODULE_PATHNAME', 'embedding_similar'
 LANGUAGE C STABLE STRICT;
 
 COMMENT ON FUNCTION embedding_similar(TEXT, INTEGER) IS
-'Find K most similar tokens using cached embeddings (SIMD-accelerated).
+'Find K most similar tokens using cached 4D centroids (SIMD-accelerated).
 Requires embedding_cache_load() to be called first.
 Example: SELECT * FROM embedding_similar(''whale'', 10)';
 
@@ -132,8 +133,8 @@ AS 'MODULE_PATHNAME', 'embedding_analogy'
 LANGUAGE C STABLE STRICT;
 
 COMMENT ON FUNCTION embedding_analogy(TEXT, TEXT, TEXT, INTEGER) IS
-'Vector analogy using cached embeddings (SIMD-accelerated).
-Computes: query + (positive - negative) and finds nearest neighbors.
+'Vector analogy using cached 4D centroids (SIMD-accelerated).
+Computes: query + (positive - negative) and finds nearest neighbors in 4D space.
 Requires embedding_cache_load() to be called first.
 Example: SELECT * FROM embedding_analogy(''king'', ''man'', ''woman'', 5)';
 
@@ -141,22 +142,24 @@ Example: SELECT * FROM embedding_analogy(''king'', ''man'', ''woman'', 5)';
 -- Convenience Wrappers
 -- =============================================================================
 
--- Extract embedding from shape table as float4[]
-CREATE OR REPLACE FUNCTION shape_to_array(
-    entity_id BYTEA,
-    model_name TEXT DEFAULT 'minilm'
+-- Extract 4D centroid from composition table as float4[]
+CREATE OR REPLACE FUNCTION centroid_to_array(
+    entity_id BYTEA
 )
 RETURNS float4[]
 LANGUAGE SQL STABLE AS $$
-    SELECT array_agg(ST_Y(geom) ORDER BY ST_X(geom))::float4[]
-    FROM ST_DumpPoints(
-        (SELECT embedding FROM shape 
-         WHERE shape.entity_id = $1 AND shape.model_name = $2)
-    );
+    SELECT ARRAY[
+        ST_X(centroid)::float4,
+        ST_Y(centroid)::float4,
+        ST_Z(centroid)::float4,
+        ST_M(centroid)::float4
+    ]
+    FROM composition
+    WHERE id = $1 AND centroid IS NOT NULL;
 $$;
 
-COMMENT ON FUNCTION shape_to_array(BYTEA, TEXT) IS
-'Extract embedding from shape table as float4[] for SIMD operations.';
+COMMENT ON FUNCTION centroid_to_array(BYTEA) IS
+'Extract 4D centroid from composition table as float4[] for SIMD operations.';
 
 -- Quick similar search with auto-cache
 CREATE OR REPLACE FUNCTION similar(query_label TEXT, k INTEGER DEFAULT 10)
@@ -167,15 +170,15 @@ BEGIN
     IF embedding_cache_count() > 0 THEN
         RETURN QUERY SELECT * FROM embedding_similar(query_label, k);
     ELSE
-        -- Load cache and retry
-        PERFORM embedding_cache_load('minilm');
+        -- Load cache and retry (model-agnostic 4D centroids)
+        PERFORM embedding_cache_load();
         RETURN QUERY SELECT * FROM embedding_similar(query_label, k);
     END IF;
 END;
 $$;
 
 COMMENT ON FUNCTION similar(TEXT, INTEGER) IS
-'Find similar tokens with auto-cache loading.
+'Find similar tokens using 4D centroids with auto-cache loading.
 Example: SELECT * FROM similar(''whale'', 10)';
 
 -- Quick analogy with auto-cache

@@ -576,6 +576,18 @@ if(PostgreSQL_FOUND)
     add_executable(ingest src/ingest/main.cpp)
     target_link_libraries(ingest hypercube_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
+    # Model discovery tool (scans HC_MODEL_PATHS for HuggingFace models)
+    add_executable(model_discovery src/ingest/model_discovery.cpp)
+    target_link_libraries(model_discovery Threads::Threads)
+    
+    # Vocabulary extractor (extracts vocab from any model as text)
+    add_executable(vocab_extract src/ingest/vocab_extract.cpp)
+    target_link_libraries(vocab_extract Threads::Threads)
+    
+    # Streaming vocabulary ingester (one token at a time through PMI) - standalone
+    add_executable(vocab_ingest src/ingest/vocab_ingest.cpp)
+    target_link_libraries(vocab_ingest Threads::Threads)
+    
     # Integration tests with libpq
     add_executable(test_integration tests/test_integration.cpp)
     target_include_directories(test_integration PRIVATE ${PostgreSQL_INCLUDE_DIRS})

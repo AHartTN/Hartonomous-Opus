@@ -1,15 +1,14 @@
 /**
  * Integration Tests for Hartonomous Hypercube
  * 
- * Validates the complete 4-table schema and core functionality.
+ * Validates the complete 3-table schema and core functionality.
  * Shows human-readable output with query results.
  * 
  * Schema:
- * - atom: Unicode codepoints (leaf atoms only)
- * - composition: BPE tokens and aggregations
- * - composition_child: Ordered children links
- * - relation: Semantic edges from embedding models
- * - shape: Embedding vectors per entity/model
+ * - atom: Unicode codepoints (leaf atoms with 4D coordinates)
+ * - composition: BPE tokens and aggregations (with 4D centroid)
+ * - composition_child: Ordered children links (auxiliary)
+ * - relation: Semantic edges from embedding models (PMI, attention)
  */
 
 #include <iostream>
@@ -84,14 +83,13 @@ double qdbl(const char* q, bool show = true) {
 void test_tables() {
     section("SCHEMA VERIFICATION");
     
-    test("Checking 4-table schema exists");
+    test("Checking 3-table schema exists");
     
     struct { const char* name; const char* desc; } tables[] = {
         {"atom", "Unicode codepoints (leaves)"},
         {"composition", "BPE tokens and aggregations"},
         {"composition_child", "Ordered child links"},
-        {"relation", "Semantic edges"},
-        {"shape", "Embedding vectors"}
+        {"relation", "Semantic edges"}
     };
     
     for (auto& t : tables) {
@@ -320,7 +318,7 @@ int main() {
     std::cout << "\n" << BOLD;
     std::cout << "+--------------------------------------------------------------+\n";
     std::cout << "|     Hartonomous Hypercube - Integration Tests               |\n";
-    std::cout << "|     4-Table Schema Validation                               |\n";
+    std::cout << "|     3-Table Schema Validation                               |\n";
     std::cout << "+--------------------------------------------------------------+\n";
     std::cout << RESET;
     

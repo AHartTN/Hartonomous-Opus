@@ -81,7 +81,7 @@ Test-Result "PostGIS" ($gisVer -match "\d") "v$gisVer"
 
 # ═══════════════════════════════════════════════════════════════════════════
 Write-Host ""
-Write-Host "─── 4-Table Schema ────────────────────────────────────────" -ForegroundColor Blue
+Write-Host "─── 3-Table Schema ────────────────────────────────────────" -ForegroundColor Blue
 
 $atomExists = (SafeTrim (SQL "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='atom'")) -eq "1"
 Test-Result "atom table" $atomExists $(if($atomExists){"exists"}else{"MISSING"})
@@ -92,8 +92,8 @@ Test-Result "composition table" $compExists $(if($compExists){"exists"}else{"MIS
 $relExists = (SafeTrim (SQL "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='relation'")) -eq "1"
 Test-Result "relation table" $relExists $(if($relExists){"exists"}else{"MISSING"})
 
-$shapeExists = (SafeTrim (SQL "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='shape'")) -eq "1"
-Test-Result "shape table" $shapeExists $(if($shapeExists){"exists"}else{"MISSING"})
+$ccExists = (SafeTrim (SQL "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='composition_child'")) -eq "1"
+Test-Result "composition_child table" $ccExists $(if($ccExists){"exists"}else{"MISSING"})
 
 $gistIdx = (SafeTrim (SQL "SELECT COUNT(*) FROM pg_indexes WHERE indexname='idx_atom_geom'")) -eq "1"
 Test-Result "GIST index (idx_atom_geom)" $gistIdx $(if($gistIdx){"exists for spatial queries"}else{"MISSING"})

@@ -7,11 +7,11 @@
  * - The results returned
  * - Pass/fail with explanation
  * 
- * Uses 4-Table Schema:
- * - atom: Unicode codepoints only (leaves)
- * - composition: Aggregations (depth > 0)
- * - composition_child: Ordered children
- * - relation: Semantic edges
+ * Uses 3-Table Schema:
+ * - atom: Unicode codepoints (leaves with 4D coordinates)
+ * - composition: Aggregations (with 4D centroid)
+ * - composition_child: Ordered children (auxiliary)
+ * - relation: Semantic edges (PMI, attention)
  */
 
 #include <iostream>
@@ -164,11 +164,11 @@ void query_table(const char* sql, int max_rows = 10) {
 // =============================================================================
 
 void test_schema_tables() {
-    print_section("4-TABLE SCHEMA VERIFICATION");
+    print_section("3-TABLE SCHEMA VERIFICATION");
     
     print_test("Checking required tables exist");
     
-    const char* tables[] = {"atom", "composition", "composition_child", "relation", "shape"};
+    const char* tables[] = {"atom", "composition", "composition_child", "relation"};
     for (const char* table : tables) {
         std::string sql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '" + 
                           std::string(table) + "' AND table_schema = 'public'";

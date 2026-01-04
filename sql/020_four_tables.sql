@@ -1,10 +1,14 @@
 -- =============================================================================
--- FOUR TABLES TO CHANGE THE WORLD
+-- THREE TABLES TO CHANGE THE WORLD
 -- =============================================================================
 -- Atom:        Unicode seeds only, YOUR coordinate system
 -- Composition: Aggregations of atoms/compositions (BPE, words, phrases)
+--              Centroids are 4D projections via Laplacian eigenmap
 -- Relation:    Semantic edges with weights (the knowledge graph)
--- Shape:       External model embeddings (how models see entities)
+-- =============================================================================
+-- Note: N-dimensional embeddings from AI models are projected to 4D during
+-- ingestion via Laplacian Eigenmaps + Gram-Schmidt orthonormalization.
+-- Raw embeddings NEVER touch the database - only 4D coordinates.
 -- =============================================================================
 
 BEGIN;
@@ -97,53 +101,7 @@ CREATE INDEX idx_relation_target ON relation(target_id);
 CREATE INDEX idx_relation_type ON relation(relation_type);
 CREATE INDEX idx_relation_model ON relation(source_model) WHERE source_model IS NOT NULL;
 
--- =============================================================================
--- 4. SHAPE: External model embeddings
--- =============================================================================
--- How OTHER models see YOUR atoms/compositions.
--- Same entity can have different shapes from different models.
-
-CREATE TABLE shape (
-    id              BIGSERIAL PRIMARY KEY,
-    entity_type     CHAR(1) NOT NULL,               -- 'A' = atom, 'C' = composition
-    entity_id       BYTEA NOT NULL,                 -- References atom.id or composition.id
-    model_name      TEXT NOT NULL,                  -- 'minilm', 'llama4', 'gpt4', etc.
-    embedding       GEOMETRY(LINESTRINGZM, 0) NOT NULL, -- X=dim_index, Y=value, Z=0, M=0
-    dim_count       INTEGER NOT NULL,               -- Number of dimensions (for quick lookup)
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    
-    UNIQUE (entity_id, model_name)
-);
-
-CREATE INDEX idx_shape_entity ON shape(entity_id);
-CREATE INDEX idx_shape_model ON shape(model_name);
-CREATE INDEX idx_shape_embedding ON shape USING GIST(embedding);
-
 COMMIT;
-
--- =============================================================================
--- Helper: Insert or update shape with proper conflict handling
--- =============================================================================
-CREATE OR REPLACE FUNCTION upsert_shape(
-    p_entity_type CHAR(1),
-    p_entity_id BYTEA,
-    p_model_name TEXT,
-    p_embedding GEOMETRY,
-    p_dim_count INTEGER
-) RETURNS BIGINT AS $$
-DECLARE
-    v_id BIGINT;
-BEGIN
-    INSERT INTO shape (entity_type, entity_id, model_name, embedding, dim_count)
-    VALUES (p_entity_type, p_entity_id, p_model_name, p_embedding, p_dim_count)
-    ON CONFLICT (entity_id, model_name) DO UPDATE SET
-        embedding = EXCLUDED.embedding,
-        dim_count = EXCLUDED.dim_count
-    RETURNING id INTO v_id;
-    
-    RETURN v_id;
-END;
-$$ LANGUAGE plpgsql;
 
 -- =============================================================================
 -- Helper: Upsert relation with weight averaging

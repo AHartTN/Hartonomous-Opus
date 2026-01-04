@@ -53,23 +53,25 @@ GENERATIVE_C_API int64_t gen_vocab_add(
 );
 
 /**
- * Add an embedding for a vocabulary entry.
+ * Add a 4D centroid for a vocabulary entry.
  * 
  * @param idx       Entry index
- * @param model     Model name
- * @param embedding Embedding vector
- * @param dim       Dimension
+ * @param x         X coordinate
+ * @param y         Y coordinate
+ * @param z         Z coordinate
+ * @param m         M coordinate
  * @return          0 on success, -1 on error
  */
-GENERATIVE_C_API int gen_vocab_add_embedding(
+GENERATIVE_C_API int gen_vocab_set_centroid(
     size_t idx,
-    const char* model,
-    const float* embedding,
-    size_t dim
+    double x,
+    double y,
+    double z,
+    double m
 );
 
 /**
- * Finalize vocabulary (compute average embeddings, build flat array).
+ * Finalize vocabulary (no longer needed for embeddings, but kept for API compat).
  */
 GENERATIVE_C_API void gen_vocab_finalize(void);
 
@@ -117,6 +119,32 @@ GENERATIVE_C_API void gen_bigram_add(
  */
 GENERATIVE_C_API size_t gen_bigram_count(void);
 
+/**
+ * Lookup a bigram PMI score.
+ * 
+ * @param left_id   Left token ID (32 bytes)
+ * @param right_id  Right token ID (32 bytes)
+ * @return          PMI score (0.0 if not found)
+ */
+GENERATIVE_C_API double gen_bigram_get(
+    const uint8_t* left_id,
+    const uint8_t* right_id
+);
+
+/**
+ * Debug function to find a bigram and count left-key matches.
+ * 
+ * @param left_id   Left token ID (32 bytes)
+ * @param right_id  Right token ID (32 bytes)
+ * @param out_score Output: the score if found
+ * @return          1 if found, or negative count of left-key matches if not
+ */
+GENERATIVE_C_API int gen_bigram_debug_find(
+    const uint8_t* left_id,
+    const uint8_t* right_id,
+    double* out_score
+);
+
 /* ==========================================================================
  * Attention Cache Management
  * ========================================================================== */
@@ -152,7 +180,7 @@ GENERATIVE_C_API size_t gen_attention_count(void);
  * Set scoring weights.
  */
 GENERATIVE_C_API void gen_config_set_weights(
-    double w_shape,
+    double w_centroid,
     double w_pmi,
     double w_attn,
     double w_global
@@ -209,7 +237,7 @@ GENERATIVE_C_API size_t gen_find_similar(
 
 typedef struct {
     size_t token_index;
-    double score_shape;
+    double score_centroid;
     double score_pmi;
     double score_attn;
     double score_global;

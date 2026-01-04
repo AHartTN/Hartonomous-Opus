@@ -14,7 +14,7 @@ CREATE TYPE gen_similar_result AS (
 
 CREATE TYPE gen_candidate_result AS (
     label TEXT,
-    score_shape DOUBLE PRECISION,
+    score_centroid DOUBLE PRECISION,
     score_pmi DOUBLE PRECISION,
     score_attn DOUBLE PRECISION,
     score_global DOUBLE PRECISION,
@@ -30,15 +30,15 @@ CREATE TYPE gen_stats_result AS (
 -- Cache Loading Functions
 -- =============================================================================
 
--- Load vocabulary from composition + shape tables (all models)
+-- Load vocabulary from composition table with 4D centroids
 CREATE FUNCTION gen_load_vocab()
 RETURNS BIGINT
 AS 'MODULE_PATHNAME', 'gen_load_vocab'
 LANGUAGE C VOLATILE;
 
 COMMENT ON FUNCTION gen_load_vocab() IS
-'Load vocabulary entries from composition table with embeddings from all models.
-This aggregates embeddings across models for each token.';
+'Load vocabulary entries from composition table with 4D Laplacian-projected centroids.
+Centroids enable similarity scoring in the unified 4D hypercube space.';
 
 -- Load bigram PMI scores
 CREATE FUNCTION gen_load_bigrams()
@@ -59,6 +59,19 @@ LANGUAGE C VOLATILE;
 COMMENT ON FUNCTION gen_load_attention() IS
 'Load attention edges from relation table (type A).';
 
+-- Debug function to lookup a specific bigram PMI score
+CREATE FUNCTION gen_lookup_bigram(
+    left_label TEXT,
+    right_label TEXT
+)
+RETURNS DOUBLE PRECISION
+AS 'MODULE_PATHNAME', 'gen_lookup_bigram'
+LANGUAGE C VOLATILE;
+
+COMMENT ON FUNCTION gen_lookup_bigram(TEXT, TEXT) IS
+'Debug: Lookup a specific bigram PMI score from the in-memory cache.
+Returns 0.0 if not found. Useful for debugging score calculations.';
+
 -- Load everything in one call
 CREATE FUNCTION gen_load_all()
 RETURNS TEXT
@@ -75,7 +88,7 @@ Returns summary of loaded counts.';
 
 -- Configure scoring weights and selection policy
 CREATE FUNCTION gen_config(
-    w_shape DOUBLE PRECISION DEFAULT 0.4,
+    w_centroid DOUBLE PRECISION DEFAULT 0.4,
     w_pmi DOUBLE PRECISION DEFAULT 0.3,
     w_attn DOUBLE PRECISION DEFAULT 0.2,
     w_global DOUBLE PRECISION DEFAULT 0.1,
@@ -88,7 +101,7 @@ LANGUAGE C VOLATILE;
 
 COMMENT ON FUNCTION gen_config(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, BOOLEAN, DOUBLE PRECISION) IS
 'Configure the generative engine.
-- w_shape: Weight for embedding similarity (default 0.4)
+- w_centroid: Weight for 4D centroid similarity (default 0.4)
 - w_pmi: Weight for PMI/co-occurrence (default 0.3)
 - w_attn: Weight for attention relations (default 0.2)
 - w_global: Weight for frequency prior (default 0.1)
@@ -113,15 +126,15 @@ COMMENT ON FUNCTION gen_config_filter(INTEGER, DOUBLE PRECISION) IS
 -- Similarity Search
 -- =============================================================================
 
--- Find similar tokens by shape (embedding similarity)
+-- Find similar tokens by 4D centroid distance
 CREATE FUNCTION gen_similar(label TEXT, k INTEGER DEFAULT 10)
 RETURNS SETOF gen_similar_result
 AS 'MODULE_PATHNAME', 'gen_similar'
 LANGUAGE C STABLE STRICT;
 
 COMMENT ON FUNCTION gen_similar(TEXT, INTEGER) IS
-'Find K most similar tokens by embedding similarity.
-Uses averaged embeddings across all models.
+'Find K most similar tokens by 4D centroid distance.
+Uses Laplacian-projected centroids in unified hypercube space.
 Example: SELECT * FROM gen_similar(''whale'', 10)';
 
 -- =============================================================================
@@ -212,8 +225,8 @@ RETURNS VOID
 LANGUAGE PLPGSQL AS $$
 BEGIN
     CASE preset_name
-        WHEN 'shape_only' THEN
-            -- Pure embedding similarity
+        WHEN 'centroid_only' THEN
+            -- Pure 4D centroid similarity
             PERFORM gen_config(1.0, 0.0, 0.0, 0.0, true, 1.0);
         WHEN 'pmi_only' THEN
             -- Pure co-occurrence
@@ -231,11 +244,11 @@ BEGIN
             -- Greedy with low temperature
             PERFORM gen_config(0.5, 0.3, 0.2, 0.0, true, 0.5);
         ELSE
-            RAISE EXCEPTION 'Unknown preset: %. Use: shape_only, pmi_only, attention_only, balanced, creative, focused', preset_name;
+            RAISE EXCEPTION 'Unknown preset: %. Use: centroid_only, pmi_only, attention_only, balanced, creative, focused', preset_name;
     END CASE;
 END;
 $$;
 
 COMMENT ON FUNCTION gen_preset(TEXT) IS
 'Apply a configuration preset.
-Presets: shape_only, pmi_only, attention_only, balanced, creative, focused';
+Presets: centroid_only, pmi_only, attention_only, balanced, creative, focused';
