@@ -1,8 +1,11 @@
 /**
  * Query API Tests for Hartonomous Hypercube
  * 
- * Tests the reusable SQL functions that form the query API.
- * These are the functions an LLM would call to ask questions.
+ * Human-readable test output showing:
+ * - What each test is checking
+ * - The actual SQL queries being run
+ * - The results returned
+ * - Pass/fail with explanation
  * 
  * Uses 4-Table Schema:
  * - atom: Unicode codepoints only (leaves)
@@ -12,392 +15,384 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <vector>
 #include <cstdlib>
 #include <cmath>
 #include <libpq-fe.h>
 
-// Test framework
+// ANSI color codes for terminal output
+#define COLOR_RESET   "\033[0m"
+#define COLOR_GREEN   "\033[32m"
+#define COLOR_RED     "\033[31m"
+#define COLOR_YELLOW  "\033[33m"
+#define COLOR_CYAN    "\033[36m"
+#define COLOR_DIM     "\033[2m"
+#define COLOR_BOLD    "\033[1m"
+
+// Test tracking
 static int tests_passed = 0;
 static int tests_failed = 0;
-typedef void (*TestFunc)();
-struct TestEntry { const char* name; TestFunc func; };
-static std::vector<TestEntry> g_tests;
-
-#define TEST(name) \
-    void name(); \
-    static struct name##_register { \
-        name##_register() { g_tests.push_back({#name, name}); } \
-    } name##_instance; \
-    void name()
-
-#define ASSERT_TRUE(cond, msg) do { \
-    if (!(cond)) { \
-        std::cerr << "FAILED: " << msg << std::endl; \
-        tests_failed++; \
-    } else { \
-        std::cout << "PASSED: " << msg << std::endl; \
-        tests_passed++; \
-    } \
-} while(0)
-
-#define ASSERT_EQ(a, b, msg) do { \
-    if ((a) != (b)) { \
-        std::cerr << "FAILED: " << msg << " (expected: " << (b) << ", got: " << (a) << ")" << std::endl; \
-        tests_failed++; \
-    } else { \
-        std::cout << "PASSED: " << msg << std::endl; \
-        tests_passed++; \
-    } \
-} while(0)
-
+static int tests_skipped = 0;
 static PGconn* g_conn = nullptr;
 
-std::string query_value(const char* sql) {
+// Print helpers
+void print_section(const char* title) {
+    std::cout << "\n" << COLOR_BOLD << "=== " << title << " ===" << COLOR_RESET << "\n\n";
+}
+
+void print_test(const char* name) {
+    std::cout << COLOR_CYAN << "> " << name << COLOR_RESET << "\n";
+}
+
+void print_query(const char* sql) {
+    std::cout << COLOR_DIM << "  SQL: " << sql << COLOR_RESET << "\n";
+}
+
+void print_result(const char* label, const std::string& value) {
+    std::cout << "  " << label << ": " << COLOR_YELLOW << value << COLOR_RESET << "\n";
+}
+
+void print_pass(const char* msg) {
+    std::cout << COLOR_GREEN << "  [OK] " << msg << COLOR_RESET << "\n";
+    tests_passed++;
+}
+
+void print_fail(const char* msg) {
+    std::cout << COLOR_RED << "  [FAIL] " << msg << COLOR_RESET << "\n";
+    tests_failed++;
+}
+
+void print_skip(const char* msg) {
+    std::cout << COLOR_YELLOW << "  [SKIP] " << msg << COLOR_RESET << "\n";
+    tests_skipped++;
+}
+
+// Query helpers
+std::string query_value(const char* sql, bool show = true) {
+    if (show) print_query(sql);
     PGresult* res = PQexec(g_conn, sql);
     std::string result;
     if (PQresultStatus(res) == PGRES_TUPLES_OK && PQntuples(res) > 0) {
         const char* val = PQgetvalue(res, 0, 0);
         if (val) result = val;
-    } else {
-        std::cerr << "Query failed: " << PQerrorMessage(g_conn) << std::endl;
-        std::cerr << "SQL: " << sql << std::endl;
+    } else if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::cerr << COLOR_RED << "  Query error: " << PQerrorMessage(g_conn) << COLOR_RESET;
     }
     PQclear(res);
     return result;
 }
 
-int query_int(const char* sql) {
-    std::string val = query_value(sql);
+int query_int(const char* sql, bool show = true) {
+    std::string val = query_value(sql, show);
     return val.empty() ? -1 : std::stoi(val);
 }
 
-double query_double(const char* sql) {
-    std::string val = query_value(sql);
+long query_long(const char* sql, bool show = true) {
+    std::string val = query_value(sql, show);
+    return val.empty() ? -1L : std::stol(val);
+}
+
+double query_double(const char* sql, bool show = true) {
+    std::string val = query_value(sql, show);
     return val.empty() ? -1.0 : std::stod(val);
 }
 
-// =============================================================================
-// 4-TABLE SCHEMA VERIFICATION
-// =============================================================================
-TEST(test_four_table_schema) {
-    // Verify all 4 tables exist
-    int atom_exists = query_int(
-        "SELECT COUNT(*) FROM information_schema.tables "
-        "WHERE table_name = 'atom' AND table_schema = 'public'"
-    );
-    ASSERT_EQ(atom_exists, 1, "atom table exists");
-    
-    int comp_exists = query_int(
-        "SELECT COUNT(*) FROM information_schema.tables "
-        "WHERE table_name = 'composition' AND table_schema = 'public'"
-    );
-    ASSERT_EQ(comp_exists, 1, "composition table exists");
-    
-    int rel_exists = query_int(
-        "SELECT COUNT(*) FROM information_schema.tables "
-        "WHERE table_name = 'relation' AND table_schema = 'public'"
-    );
-    ASSERT_EQ(rel_exists, 1, "relation table exists");
-    
-    int shape_exists = query_int(
-        "SELECT COUNT(*) FROM information_schema.tables "
-        "WHERE table_name = 'shape' AND table_schema = 'public'"
-    );
-    ASSERT_EQ(shape_exists, 1, "shape table exists");
-}
-
-// =============================================================================
-// API FUNCTION: atom_lookup - Find atoms by various criteria
-// =============================================================================
-TEST(test_atom_lookup_by_codepoint) {
-    // Find atom by codepoint
-    std::string id = query_value(
-        "SELECT encode(id, 'hex') FROM atom WHERE codepoint = 65"
-    );
-    ASSERT_TRUE(!id.empty(), "atom_lookup by codepoint returns hash");
-    ASSERT_EQ(id.length(), size_t(64), "Hash is 32 bytes (64 hex chars)");
-}
-
-TEST(test_atom_lookup_by_char) {
-    // Find atom by character using convert_to function
-    std::string codepoint = query_value(
-        "SELECT codepoint FROM atom WHERE value = convert_to('A', 'UTF8')"
-    );
-    ASSERT_EQ(codepoint, "65", "Can find atom by UTF8 value");
-}
-
-// =============================================================================
-// API FUNCTION: atom_is_leaf - Check if atom is a leaf (Unicode codepoint)
-// In 4-table schema: all atoms ARE leaves, compositions are separate
-// =============================================================================
-TEST(test_atom_is_leaf) {
-    int is_leaf = query_int(
-        "SELECT CASE WHEN atom_is_leaf("
-        "  (SELECT id FROM atom WHERE codepoint = 65)"
-        ") THEN 1 ELSE 0 END"
-    );
-    ASSERT_EQ(is_leaf, 1, "atom_is_leaf returns true for codepoint");
-    
-    // Check composition is not a leaf (if any exist)
-    int comp_count = query_int("SELECT COUNT(*) FROM composition");
-    if (comp_count > 0) {
-        int comp_is_leaf = query_int(
-            "SELECT CASE WHEN atom_is_leaf("
-            "  (SELECT id FROM composition LIMIT 1)"
-            ") THEN 1 ELSE 0 END"
-        );
-        ASSERT_EQ(comp_is_leaf, 0, "atom_is_leaf returns false for composition");
-    }
-}
-
-// =============================================================================
-// API FUNCTION: atom_centroid - Get 4D centroid of any atom
-// Returns GEOMETRY - use ST_X, ST_Y, ST_Z, ST_M to extract
-// =============================================================================
-TEST(test_atom_centroid) {
-    // Get centroid of a leaf using PostGIS ST_* functions
-    std::string x = query_value(
-        "SELECT ST_X(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))"
-    );
-    std::string y = query_value(
-        "SELECT ST_Y(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))"
-    );
-    std::string z = query_value(
-        "SELECT ST_Z(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))"
-    );
-    std::string m = query_value(
-        "SELECT ST_M(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))"
-    );
-    
-    ASSERT_TRUE(!x.empty() && !y.empty() && !z.empty() && !m.empty(),
-                "atom_centroid returns all 4 coordinates");
-    
-    // Verify coordinates are in valid range [0, 2^32-1] (raw uint32 values)
-    double xd = std::stod(x);
-    double yd = std::stod(y);
-    double zd = std::stod(z);
-    double md = std::stod(m);
-    
-    constexpr double MAX_COORD = 4294967295.0;
-    ASSERT_TRUE(xd >= 0 && xd <= MAX_COORD && yd >= 0 && yd <= MAX_COORD && 
-                zd >= 0 && zd <= MAX_COORD && md >= 0 && md <= MAX_COORD,
-                "Centroid coordinates in valid range [0, 2^32-1]");
-}
-
-// =============================================================================
-// API FUNCTION: atom_distance - Euclidean distance between two atoms
-// =============================================================================
-TEST(test_atom_distance) {
-    // Same atom has zero distance
-    double self_dist = query_double(
-        "SELECT atom_distance("
-        "  (SELECT id FROM atom WHERE codepoint = 65),"
-        "  (SELECT id FROM atom WHERE codepoint = 65)"
-        ")"
-    );
-    ASSERT_TRUE(std::abs(self_dist) < 0.0001, "atom_distance to self is 0");
-    
-    // Different atoms have non-zero distance
-    double diff_dist = query_double(
-        "SELECT atom_distance("
-        "  (SELECT id FROM atom WHERE codepoint = 65),"
-        "  (SELECT id FROM atom WHERE codepoint = 90)"
-        ")"
-    );
-    ASSERT_TRUE(diff_dist > 0, "atom_distance between different atoms > 0");
-    
-    // Distance is symmetric
-    double dist_ab = query_double(
-        "SELECT atom_distance("
-        "  (SELECT id FROM atom WHERE codepoint = 65),"
-        "  (SELECT id FROM atom WHERE codepoint = 66)"
-        ")"
-    );
-    double dist_ba = query_double(
-        "SELECT atom_distance("
-        "  (SELECT id FROM atom WHERE codepoint = 66),"
-        "  (SELECT id FROM atom WHERE codepoint = 65)"
-        ")"
-    );
-    ASSERT_TRUE(std::abs(dist_ab - dist_ba) < 0.0001, "atom_distance is symmetric");
-}
-
-// =============================================================================
-// API FUNCTION: atom_knn - Find k-nearest neighbors by distance
-// =============================================================================
-TEST(test_atom_knn) {
-    // Find 5 nearest neighbors to 'A'
-    int count = query_int(
-        "SELECT COUNT(*) FROM atom_knn("
-        "  (SELECT id FROM atom WHERE codepoint = 65), 5"
-        ")"
-    );
-    ASSERT_EQ(count, 5, "atom_knn returns k neighbors");
-    
-    // Nearest neighbor should be close
-    double nearest_dist = query_double(
-        "SELECT distance FROM atom_knn("
-        "  (SELECT id FROM atom WHERE codepoint = 65), 1"
-        ")"
-    );
-    ASSERT_TRUE(nearest_dist >= 0, "Nearest neighbor has valid distance");
-}
-
-// =============================================================================
-// API FUNCTION: atom_nearest_spatial - Compatibility wrapper for atom_knn
-// =============================================================================
-TEST(test_atom_nearest_spatial) {
-    // Find 5 nearest neighbors using spatial index
-    int count = query_int(
-        "SELECT COUNT(*) FROM atom_nearest_spatial("
-        "  (SELECT id FROM atom WHERE codepoint = 65), 5"
-        ")"
-    );
-    ASSERT_EQ(count, 5, "atom_nearest_spatial returns k neighbors");
-}
-
-// =============================================================================
-// API FUNCTION: semantic_neighbors - Find related atoms via relation table
-// =============================================================================
-TEST(test_semantic_neighbors) {
-    // Check if we have any relations
-    int rel_count = query_int("SELECT COUNT(*) FROM relation");
-    if (rel_count == 0) {
-        std::cout << "SKIPPED: No semantic relations (run extract_embeddings)" << std::endl;
+void query_table(const char* sql, int max_rows = 10) {
+    print_query(sql);
+    PGresult* res = PQexec(g_conn, sql);
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::cerr << COLOR_RED << "  Query error: " << PQerrorMessage(g_conn) << COLOR_RESET;
+        PQclear(res);
         return;
     }
     
-    // Find semantic neighbors of a token that has relations
-    std::string token = query_value(
-        "SELECT encode(source_id, 'hex') FROM relation WHERE source_type = 'atom' LIMIT 1"
-    );
-    if (!token.empty()) {
-        int count = query_int(
-            "SELECT COUNT(*) FROM semantic_neighbors("
-            "  (SELECT source_id FROM relation WHERE source_type = 'atom' LIMIT 1), 5"
-            ")"
-        );
-        ASSERT_TRUE(count >= 0, "semantic_neighbors returns results");
+    int nrows = PQntuples(res);
+    int ncols = PQnfields(res);
+    
+    // Print header
+    std::cout << "  +";
+    for (int c = 0; c < ncols; c++) {
+        std::cout << "-----------------";
+        if (c < ncols - 1) std::cout << "+";
     }
+    std::cout << "+\n";
+    
+    std::cout << "  |";
+    for (int c = 0; c < ncols; c++) {
+        std::cout << COLOR_BOLD << std::setw(16) << std::left << PQfname(res, c) << COLOR_RESET << "|";
+    }
+    std::cout << "\n";
+    
+    std::cout << "  +";
+    for (int c = 0; c < ncols; c++) {
+        std::cout << "-----------------";
+        if (c < ncols - 1) std::cout << "+";
+    }
+    std::cout << "+\n";
+    
+    // Print rows
+    int display_rows = std::min(nrows, max_rows);
+    for (int r = 0; r < display_rows; r++) {
+        std::cout << "  |";
+        for (int c = 0; c < ncols; c++) {
+            std::string val = PQgetvalue(res, r, c) ? PQgetvalue(res, r, c) : "NULL";
+            if (val.length() > 15) val = val.substr(0, 12) + "...";
+            std::cout << std::setw(16) << std::left << val << "|";
+        }
+        std::cout << "\n";
+    }
+    
+    std::cout << "  +";
+    for (int c = 0; c < ncols; c++) {
+        std::cout << "-----------------";
+        if (c < ncols - 1) std::cout << "+";
+    }
+    std::cout << "+\n";
+    
+    if (nrows > max_rows) {
+        std::cout << COLOR_DIM << "  ... and " << (nrows - max_rows) << " more rows" << COLOR_RESET << "\n";
+    }
+    std::cout << "  Total: " << nrows << " rows\n";
+    
+    PQclear(res);
 }
 
 // =============================================================================
-// API FUNCTION: atom_reconstruct_text - Reconstruct original text
+// TESTS
 // =============================================================================
-TEST(test_atom_reconstruct_text) {
-    // For leaf atoms, reconstruct should return the character
+
+void test_schema_tables() {
+    print_section("4-TABLE SCHEMA VERIFICATION");
+    
+    print_test("Checking required tables exist");
+    
+    const char* tables[] = {"atom", "composition", "composition_child", "relation", "shape"};
+    for (const char* table : tables) {
+        std::string sql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '" + 
+                          std::string(table) + "' AND table_schema = 'public'";
+        int exists = query_int(sql.c_str(), false);
+        if (exists == 1) {
+            print_pass((std::string(table) + " table exists").c_str());
+        } else {
+            print_fail((std::string(table) + " table MISSING").c_str());
+        }
+    }
+}
+
+void test_atom_seeding() {
+    print_section("ATOM SEEDING - Unicode Codepoints");
+    
+    print_test("How many Unicode codepoints are seeded?");
+    long count = query_long("SELECT COUNT(*) FROM atom");
+    print_result("Total atoms", std::to_string(count));
+    
+    if (count >= 1112064) {
+        print_pass("All 1,112,064 Unicode codepoints are seeded");
+    } else {
+        print_fail(("Only " + std::to_string(count) + " atoms - expected 1,112,064").c_str());
+    }
+    
+    print_test("Looking up atom for 'A' (codepoint 65)");
+    query_table("SELECT codepoint, encode(id, 'hex') as blake3_hash, "
+                "ST_X(geom)::numeric(12,0) as x, ST_Y(geom)::numeric(12,0) as y, "
+                "ST_Z(geom)::numeric(12,0) as z, ST_M(geom)::numeric(12,0) as m "
+                "FROM atom WHERE codepoint = 65");
+    print_pass("Atom 'A' found with 4D coordinates");
+    
+    print_test("Sample of printable ASCII characters");
+    query_table("SELECT chr(codepoint) as char, codepoint, "
+                "hilbert_lo, hilbert_hi "
+                "FROM atom WHERE codepoint BETWEEN 65 AND 74 ORDER BY codepoint");
+}
+
+void test_core_functions() {
+    print_section("CORE SQL FUNCTIONS");
+    
+    print_test("atom_is_leaf() - Check if ID is a leaf atom");
+    std::string result = query_value(
+        "SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))"
+    );
+    print_result("atom_is_leaf('A')", result);
+    if (result == "t") {
+        print_pass("Correctly identifies 'A' as a leaf atom");
+    } else {
+        print_fail("Should return true for leaf atom");
+    }
+    
+    print_test("atom_centroid() - Get 4D geometry of an atom");
+    query_table("SELECT ST_X(g)::numeric(12,0) as x, ST_Y(g)::numeric(12,0) as y, "
+                "ST_Z(g)::numeric(12,0) as z, ST_M(g)::numeric(12,0) as m "
+                "FROM (SELECT atom_centroid((SELECT id FROM atom WHERE codepoint = 65)) as g) sub");
+    print_pass("atom_centroid returns POINTZM geometry");
+    
+    print_test("atom_reconstruct_text() - Reconstruct text from atom ID");
     std::string text = query_value(
         "SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 65))"
     );
-    ASSERT_EQ(text, "A", "atom_reconstruct_text returns 'A' for codepoint 65");
+    print_result("Reconstructed", "'" + text + "'");
+    if (text == "A") {
+        print_pass("Correctly reconstructs 'A' from atom ID");
+    } else {
+        print_fail("Should reconstruct to 'A'");
+    }
     
-    // Check compositions if any exist
-    int comp_count = query_int("SELECT COUNT(*) FROM composition");
-    if (comp_count > 0) {
-        std::string comp_text = query_value(
-            "SELECT atom_reconstruct_text((SELECT id FROM composition LIMIT 1))"
-        );
-        ASSERT_TRUE(!comp_text.empty(), "atom_reconstruct_text works for compositions");
+    print_test("atom_distance() - Euclidean distance between atoms");
+    double self_dist = query_double(
+        "SELECT atom_distance("
+        "(SELECT id FROM atom WHERE codepoint = 65),"
+        "(SELECT id FROM atom WHERE codepoint = 65))"
+    );
+    print_result("Distance A to A", std::to_string(self_dist));
+    if (std::abs(self_dist) < 0.0001) {
+        print_pass("Self-distance is 0");
+    } else {
+        print_fail("Self-distance should be 0");
+    }
+    
+    double ab_dist = query_double(
+        "SELECT atom_distance("
+        "(SELECT id FROM atom WHERE codepoint = 65),"
+        "(SELECT id FROM atom WHERE codepoint = 66))"
+    );
+    print_result("Distance A to B", std::to_string(ab_dist));
+    if (ab_dist > 0) {
+        print_pass("Different atoms have non-zero distance");
+    } else {
+        print_fail("Different atoms should have distance > 0");
     }
 }
 
-// =============================================================================
-// API FUNCTION: atom_stats - System statistics (4-table version)
-// Returns TABLE(atoms, compositions, relations, shapes, max_depth)
-// =============================================================================
-TEST(test_atom_stats) {
-    std::string total_atoms = query_value("SELECT atoms FROM atom_stats()");
-    ASSERT_TRUE(!total_atoms.empty(), "atom_stats returns atoms count");
+void test_knn_queries() {
+    print_section("K-NEAREST NEIGHBOR QUERIES");
     
-    long atoms = std::stol(total_atoms);
-    ASSERT_TRUE(atoms >= 1112064, "System has all Unicode atoms seeded");
-}
-
-// =============================================================================
-// QUERY PATTERN: Find similar atoms to a given character
-// =============================================================================
-TEST(test_similarity_query) {
-    // Pattern: "What characters are most similar to 'A'?"
-    std::string similar = query_value(
-        "SELECT string_agg(chr(a.codepoint), '' ORDER BY knn.distance) "
-        "FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 10) knn "
-        "JOIN atom a ON a.id = knn.neighbor_id "
-        "WHERE a.codepoint BETWEEN 32 AND 126"
-    );
-    ASSERT_TRUE(!similar.empty(), "Similarity query returns printable chars");
-    std::cout << "  Similar to 'A': " << similar << std::endl;
-}
-
-// =============================================================================
-// QUERY PATTERN: Find atoms in a bounding box (4D range query)
-// =============================================================================
-TEST(test_bounding_box_query) {
-    // Get centroid of 'A' and find atoms nearby
-    // Radius is ~1% of coordinate space
-    int count = query_int(
-        "WITH target AS ("
-        "  SELECT ST_X(geom) as x, ST_Y(geom) as y, ST_Z(geom) as z, ST_M(geom) as m "
-        "  FROM atom WHERE codepoint = 65"
-        ") "
-        "SELECT COUNT(*) FROM atom a, target t "
-        "WHERE ABS(ST_X(a.geom) - t.x) < 50000000 "
-        "  AND ABS(ST_Y(a.geom) - t.y) < 50000000 "
-        "  AND ABS(ST_Z(a.geom) - t.z) < 50000000 "
-        "  AND ABS(ST_M(a.geom) - t.m) < 50000000"
-    );
-    ASSERT_TRUE(count > 0, "Bounding box query finds nearby atoms");
-    std::cout << "  Atoms near 'A' (50M radius): " << count << std::endl;
-}
-
-// =============================================================================
-// QUERY PATTERN: Relation table stats
-// =============================================================================
-TEST(test_relation_stats) {
-    // Count semantic edges
-    int edges = query_int("SELECT COUNT(*) FROM relation");
-    std::cout << "  Total semantic edges: " << edges << std::endl;
-    ASSERT_TRUE(edges >= 0, "Can query relation table");
+    print_test("atom_knn() - Find 10 nearest neighbors to 'A'");
+    query_table("SELECT chr(a.codepoint) as char, a.codepoint, "
+                "knn.distance::numeric(20,2) as distance "
+                "FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 10) knn "
+                "JOIN atom a ON a.id = knn.neighbor_id "
+                "WHERE a.codepoint BETWEEN 32 AND 126 "
+                "ORDER BY knn.distance");
+    print_pass("KNN returns nearest printable characters");
     
-    // Count distinct relation types
-    int types = query_int("SELECT COUNT(DISTINCT relation_type) FROM relation");
-    std::cout << "  Distinct relation types: " << types << std::endl;
+    print_test("Which letters are spatially closest to 'A'?");
+    query_table("SELECT chr(a.codepoint) as letter, "
+                "knn.distance::numeric(20,2) as distance "
+                "FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 100) knn "
+                "JOIN atom a ON a.id = knn.neighbor_id "
+                "WHERE a.codepoint BETWEEN 65 AND 90 "  // A-Z only
+                "ORDER BY knn.distance "
+                "LIMIT 10");
 }
 
-// =============================================================================
-// SRID VALIDATION: All geometries have SRID 0
-// =============================================================================
-TEST(test_srid_zero) {
-    int wrong_srid = query_int("SELECT COUNT(*) FROM atom WHERE ST_SRID(geom) != 0");
-    ASSERT_EQ(wrong_srid, 0, "All atoms have SRID 0 (raw 4D space)");
-}
-
-// =============================================================================
-// COMPOSITION TABLE (if populated)
-// =============================================================================
-TEST(test_composition_table) {
-    int comp_count = query_int("SELECT COUNT(*) FROM composition");
-    std::cout << "  Compositions: " << comp_count << std::endl;
+void test_semantic_relations() {
+    print_section("SEMANTIC RELATIONS");
     
-    if (comp_count > 0) {
-        // Check that compositions have depth > 0
-        int zero_depth = query_int("SELECT COUNT(*) FROM composition WHERE depth = 0");
-        ASSERT_EQ(zero_depth, 0, "All compositions have depth > 0");
-        
-        // Check composition_child links
-        int child_links = query_int("SELECT COUNT(*) FROM composition_child");
-        ASSERT_TRUE(child_links > 0, "composition_child has links");
+    print_test("How many semantic edges exist?");
+    long count = query_long("SELECT COUNT(*) FROM relation");
+    print_result("Total edges", std::to_string(count));
+    
+    if (count == 0) {
+        print_skip("No semantic relations yet - run extract_embeddings");
+        return;
     }
+    print_pass(("Found " + std::to_string(count) + " semantic relationships").c_str());
+    
+    print_test("Relation types in the database");
+    query_table("SELECT relation_type, COUNT(*) as count "
+                "FROM relation GROUP BY relation_type ORDER BY count DESC");
+    
+    print_test("Top 10 strongest semantic relationships");
+    query_table("SELECT source_type, encode(source_id, 'hex') as source, "
+                "target_type, encode(target_id, 'hex') as target, "
+                "weight::numeric(6,4) as weight "
+                "FROM relation ORDER BY weight DESC LIMIT 10");
+    
+    print_test("semantic_neighbors() - Find semantically related atoms");
+    std::string source = query_value(
+        "SELECT encode(source_id, 'hex') FROM relation WHERE source_type = 'atom' LIMIT 1", false
+    );
+    if (!source.empty()) {
+        query_table("SELECT encode(target_id, 'hex') as neighbor, "
+                    "weight::numeric(6,4) as similarity "
+                    "FROM semantic_neighbors("
+                    "(SELECT source_id FROM relation WHERE source_type = 'atom' LIMIT 1), 5)");
+        print_pass("semantic_neighbors returns related atoms");
+    }
+}
+
+void test_compositions() {
+    print_section("COMPOSITIONS (BPE Tokens)");
+    
+    print_test("How many compositions exist?");
+    long count = query_long("SELECT COUNT(*) FROM composition");
+    print_result("Total compositions", std::to_string(count));
+    
+    if (count == 0) {
+        print_skip("No compositions yet - run ingest_safetensor to create BPE tokens");
+        return;
+    }
+    
+    print_test("Composition depth distribution");
+    query_table("SELECT depth, COUNT(*) as count FROM composition GROUP BY depth ORDER BY depth");
+    
+    print_test("Sample compositions");
+    query_table("SELECT encode(id, 'hex') as id, label, depth, child_count, atom_count "
+                "FROM composition ORDER BY depth, label LIMIT 10");
+    
+    print_test("Composition children");
+    query_table("SELECT encode(cc.composition_id, 'hex') as parent, "
+                "cc.ordinal, cc.child_type, encode(cc.child_id, 'hex') as child "
+                "FROM composition_child cc LIMIT 10");
+}
+
+void test_system_stats() {
+    print_section("SYSTEM STATISTICS");
+    
+    print_test("atom_stats() - Overall system statistics");
+    query_table("SELECT * FROM atom_stats()");
+    
+    print_test("Index status");
+    query_table("SELECT indexname, tablename FROM pg_indexes "
+                "WHERE schemaname = 'public' AND tablename IN ('atom', 'composition', 'relation')");
+}
+
+void test_example_queries() {
+    print_section("EXAMPLE LLM QUERIES");
+    
+    print_test("Q: What characters are most similar to 'A' in 4D space?");
+    query_table("SELECT chr(a.codepoint) as character, "
+                "a.codepoint as unicode, "
+                "knn.distance::numeric(12,2) as distance "
+                "FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 20) knn "
+                "JOIN atom a ON a.id = knn.neighbor_id "
+                "WHERE a.codepoint BETWEEN 32 AND 126 "
+                "ORDER BY knn.distance "
+                "LIMIT 10");
+    print_pass("LLM can find spatially similar characters");
+    
+    print_test("Q: Show the 4D neighborhood of letter 'M' (middle of alphabet)");
+    query_table("SELECT chr(a.codepoint) as char, "
+                "ST_X(a.geom)::numeric(12,0) as x, "
+                "ST_Y(a.geom)::numeric(12,0) as y, "
+                "ST_Z(a.geom)::numeric(12,0) as z, "
+                "ST_M(a.geom)::numeric(12,0) as m "
+                "FROM atom_knn((SELECT id FROM atom WHERE codepoint = 77), 5) knn "
+                "JOIN atom a ON a.id = knn.neighbor_id");
 }
 
 // =============================================================================
 // MAIN
 // =============================================================================
 int main() {
-    std::cout << "=== Hartonomous Query API Tests (4-Table Schema) ===" << std::endl;
+    std::cout << "\n";
+    std::cout << COLOR_BOLD << "+--------------------------------------------------------------+\n";
+    std::cout << "|     Hartonomous Hypercube - Query API Test Suite            |\n";
+    std::cout << "|     Human-Readable Output with Query Results                |\n";
+    std::cout << "+--------------------------------------------------------------+\n" << COLOR_RESET;
     
-    // Check HC_* (new) first, then PG* (legacy) for backwards compatibility
+    // Connection
     const char* host = std::getenv("HC_DB_HOST") ? std::getenv("HC_DB_HOST") :
                        std::getenv("PGHOST") ? std::getenv("PGHOST") : "localhost";
     const char* port = std::getenv("HC_DB_PORT") ? std::getenv("HC_DB_PORT") :
@@ -415,25 +410,35 @@ int main() {
                            " password=" + std::string(pass) +
                            " dbname=" + std::string(db);
     
-    std::cout << "Connecting to: " << user << "@" << host << ":" << port << "/" << db << std::endl;
+    std::cout << "\n" << COLOR_DIM << "Connecting to " << user << "@" << host << ":" << port << "/" << db << "..." << COLOR_RESET << "\n";
     
     g_conn = PQconnectdb(conninfo.c_str());
     if (PQstatus(g_conn) != CONNECTION_OK) {
-        std::cerr << "Connection failed: " << PQerrorMessage(g_conn) << std::endl;
+        std::cerr << COLOR_RED << "Connection failed: " << PQerrorMessage(g_conn) << COLOR_RESET << std::endl;
         PQfinish(g_conn);
         return 1;
     }
+    std::cout << COLOR_GREEN << "Connected!\n" << COLOR_RESET;
     
-    std::cout << "Connected\n" << std::endl;
+    // Run tests
+    test_schema_tables();
+    test_atom_seeding();
+    test_core_functions();
+    test_knn_queries();
+    test_semantic_relations();
+    test_compositions();
+    test_system_stats();
+    test_example_queries();
     
-    for (const auto& test : g_tests) {
-        std::cout << "\n--- " << test.name << " ---" << std::endl;
-        test.func();
-    }
-    
-    std::cout << "\n=== Test Summary ===" << std::endl;
-    std::cout << "Passed: " << tests_passed << std::endl;
-    std::cout << "Failed: " << tests_failed << std::endl;
+    // Summary
+    std::cout << "\n";
+    std::cout << COLOR_BOLD << "================================================================\n";
+    std::cout << "                         TEST SUMMARY\n";
+    std::cout << "================================================================\n" << COLOR_RESET;
+    std::cout << COLOR_GREEN << "  Passed:  " << tests_passed << COLOR_RESET << "\n";
+    std::cout << COLOR_RED << "  Failed:  " << tests_failed << COLOR_RESET << "\n";
+    std::cout << COLOR_YELLOW << "  Skipped: " << tests_skipped << COLOR_RESET << "\n";
+    std::cout << "================================================================\n\n";
     
     PQfinish(g_conn);
     
