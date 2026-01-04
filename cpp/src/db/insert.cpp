@@ -14,9 +14,9 @@ std::unordered_set<std::string> check_existing_compositions(
     if (comps.empty()) return existing;
 
     // Build array of hashes to check (batch query)
-    // Use VALUES list for efficient bulk lookup
+    // Look in COMPOSITION table, not atom
     std::ostringstream query;
-    query << "SELECT encode(id, 'hex') FROM atom WHERE id IN (";
+    query << "SELECT encode(id, 'hex') FROM composition WHERE id IN (";
 
     for (size_t i = 0; i < comps.size(); ++i) {
         if (i > 0) query << ",";
@@ -90,52 +90,38 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     PGresult* res = PQexec(conn, "BEGIN");
     PQclear(res);
     
-    // Use SQL function to prepare staging table
-    res = PQexec(conn, "SELECT batch_insert_prepare()");
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        std::cerr << "Failed to prepare batch: " << PQerrorMessage(conn) << std::endl;
-        PQclear(res);
-        PQexec(conn, "ROLLBACK");
-        return false;
-    }
-    PQclear(res);
+    // =========================================================================
+    // NEW 4-TABLE SCHEMA: Insert into composition + composition_child tables
+    // =========================================================================
     
-    // COPY atoms into staging table - use TEXT format (tab delimited)
-    res = PQexec(conn, "COPY tmp_atom FROM STDIN WITH (FORMAT text)");
+    // Step 1: COPY compositions into composition table
+    res = PQexec(conn, "COPY composition (id, label, depth, child_count, atom_count) FROM STDIN WITH (FORMAT text)");
     if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "COPY failed: " << PQerrorMessage(conn) << std::endl;
+        std::cerr << "COPY composition failed: " << PQerrorMessage(conn) << std::endl;
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
     PQclear(res);
     
-    // Send atom data rows (tab-delimited, \N for NULL)
+    // Send composition rows
     for (const auto& c : comps) {
         std::ostringstream line;
         
-        // id (bytea hex format: \x followed by hex)
+        // id (bytea hex format)
         line << "\\\\x" << c.hash.to_hex() << "\t";
         
-        // geom (EWKB hex) - build LINESTRINGZM from all N children
-        std::vector<std::array<int32_t, 4>> points;
-        points.reserve(c.children.size());
-        for (const auto& child : c.children) {
-            points.push_back({child.x, child.y, child.z, child.m});
-        }
-        line << build_linestringzm_ewkb(points) << "\t";
-        
-        // value (NULL for compositions)
+        // label (NULL for auto-discovered patterns)
         line << "\\N\t";
         
-        // hilbert_lo, hilbert_hi, depth, atom_count, node_role
-        line << c.hilbert_lo << "\t" << c.hilbert_hi << "\t"
-             << c.depth << "\t" << c.atom_count << "\t"
-             << static_cast<int16_t>(c.node_role) << "\n";
+        // depth, child_count, atom_count
+        line << c.depth << "\t"
+             << c.children.size() << "\t"
+             << c.atom_count << "\n";
         
         std::string data = line.str();
         if (PQputCopyData(conn, data.c_str(), static_cast<int>(data.size())) != 1) {
-            std::cerr << "PQputCopyData failed\n";
+            std::cerr << "PQputCopyData composition failed\n";
             PQputCopyEnd(conn, "error");
             PQexec(conn, "ROLLBACK");
             return false;
@@ -143,69 +129,74 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     }
     
     if (PQputCopyEnd(conn, nullptr) != 1) {
-        std::cerr << "PQputCopyEnd failed\n";
+        std::cerr << "PQputCopyEnd composition failed\n";
         PQexec(conn, "ROLLBACK");
         return false;
     }
     
     res = PQgetResult(conn);
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "COPY result: " << PQerrorMessage(conn) << std::endl;
+        std::cerr << "COPY composition result: " << PQerrorMessage(conn) << std::endl;
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
     PQclear(res);
     
-    // Use SQL function to finalize atoms (upsert from staging to atom)
-    res = PQexec(conn, "SELECT batch_insert_finalize()");
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        std::cerr << "Finalize failed: " << PQerrorMessage(conn) << std::endl;
-        PQclear(res);
-        PQexec(conn, "ROLLBACK");
-        return false;
-    }
-    int inserted = std::atoi(PQgetvalue(res, 0, 0));
-    PQclear(res);
+    size_t comp_inserted = comps.size();
     
-    // Now insert relations (composition type 'C')
-    res = PQexec(conn, "COPY relation (parent_id, child_id, ordinal, relation_type) FROM STDIN WITH (FORMAT text)");
+    // Step 2: COPY children into composition_child table
+    res = PQexec(conn, "COPY composition_child (composition_id, ordinal, child_type, child_id) FROM STDIN WITH (FORMAT text)");
     if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "COPY relation failed: " << PQerrorMessage(conn) << std::endl;
+        std::cerr << "COPY composition_child failed: " << PQerrorMessage(conn) << std::endl;
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
     PQclear(res);
     
-    // Send relation rows
+    // Send child rows
+    size_t child_count = 0;
     for (const auto& c : comps) {
+        // If composition depth == 1, all children are atoms ('A')
+        // If depth > 1, children are compositions ('C')
+        char child_type = (c.depth == 1) ? 'A' : 'C';
+        
         for (size_t i = 0; i < c.children.size(); ++i) {
             std::ostringstream line;
-            line << "\\\\x" << c.hash.to_hex() << "\t"           // parent_id
-                 << "\\\\x" << c.children[i].hash.to_hex() << "\t"  // child_id
-                 << (i + 1) << "\t"                                  // ordinal (1-based)
-                 << "C\n";                                           // relation_type
+            
+            // composition_id
+            line << "\\\\x" << c.hash.to_hex() << "\t";
+            
+            // ordinal (0-based)
+            line << i << "\t";
+            
+            // child_type
+            line << child_type << "\t";
+            
+            // child_id
+            line << "\\\\x" << c.children[i].hash.to_hex() << "\n";
             
             std::string data = line.str();
             if (PQputCopyData(conn, data.c_str(), static_cast<int>(data.size())) != 1) {
-                std::cerr << "PQputCopyData relation failed\n";
+                std::cerr << "PQputCopyData child failed\n";
                 PQputCopyEnd(conn, "error");
                 PQexec(conn, "ROLLBACK");
                 return false;
             }
+            child_count++;
         }
     }
     
     if (PQputCopyEnd(conn, nullptr) != 1) {
-        std::cerr << "PQputCopyEnd relation failed\n";
+        std::cerr << "PQputCopyEnd child failed\n";
         PQexec(conn, "ROLLBACK");
         return false;
     }
     
     res = PQgetResult(conn);
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "COPY relation result: " << PQerrorMessage(conn) << std::endl;
+        std::cerr << "COPY composition_child result: " << PQerrorMessage(conn) << std::endl;
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
@@ -217,7 +208,8 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cerr << "[DB] Inserted " << inserted << " atoms with relations in " << ms << " ms\n";
+    std::cerr << "[DB] Inserted " << comp_inserted << " compositions with " 
+              << child_count << " children in " << ms << " ms\n";
     
     return true;
 }

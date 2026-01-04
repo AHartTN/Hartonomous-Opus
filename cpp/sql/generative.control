@@ -1,0 +1,6 @@
+# generative extension
+comment = 'Generative walk engine for hypercube substrate'
+default_version = '1.0'
+module_pathname = '$libdir/generative'
+relocatable = true
+requires = 'postgis'

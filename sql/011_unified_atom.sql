@@ -58,6 +58,10 @@ CREATE TABLE IF NOT EXISTS relation (
     child_id        BYTEA NOT NULL REFERENCES atom(id) ON DELETE CASCADE,
     ordinal         INTEGER NOT NULL,               -- Position: 1,2 for binary; 1,2,3... for sequence
     relation_type   CHAR(1) NOT NULL DEFAULT 'C',   -- C=composition, S=sequence, M=metadata, R=reference
+    weight          REAL NOT NULL DEFAULT 0.0,      -- Normalized edge weight [-1, 1], averaged across sources
+    source_count    INTEGER NOT NULL DEFAULT 1,     -- Number of sources attesting this edge
+    traversal_count BIGINT NOT NULL DEFAULT 0,      -- Traffic: times used in successful queries
+    elo             REAL NOT NULL DEFAULT 1500.0,   -- ELO ranking for path selection
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     
     PRIMARY KEY (parent_id, ordinal, relation_type),

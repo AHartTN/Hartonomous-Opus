@@ -1,0 +1,6 @@
+# embedding_ops extension
+comment = 'SIMD-accelerated embedding operations for hypercube'
+default_version = '1.0'
+module_pathname = '$libdir/embedding_ops'
+relocatable = true
+requires = 'postgis'

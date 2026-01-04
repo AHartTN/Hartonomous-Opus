@@ -283,6 +283,122 @@ if(BUILD_PG_EXTENSION)
     )
     
     # -------------------------------------------------------------------------
+    # embedding_ops PostgreSQL Extension (pure C - SIMD embedding operations)
+    # -------------------------------------------------------------------------
+    
+    # C bridge library for embedding operations (C++ with C API)
+    add_library(embedding_c SHARED
+        src/embedding_c.cpp
+    )
+    
+    target_include_directories(embedding_c PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    
+    target_link_libraries(embedding_c
+        PRIVATE hypercube_core
+        PRIVATE Threads::Threads
+    )
+    
+    if(WIN32)
+        target_compile_definitions(embedding_c PRIVATE EMBEDDING_C_EXPORTS)
+    endif()
+    
+    set_target_properties(embedding_c PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "embedding_c"
+    )
+    
+    # Pure C PostgreSQL extension
+    add_library(embedding_ops SHARED
+        src/pg/embedding_ops_pg.c
+    )
+    
+    set_source_files_properties(src/pg/embedding_ops_pg.c PROPERTIES LANGUAGE C)
+    
+    target_include_directories(embedding_ops PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PG_INCLUDE_DIRS}
+    )
+    
+    target_compile_definitions(embedding_ops PRIVATE
+        ${PG_COMPILE_DEFS}
+    )
+    
+    set_target_properties(embedding_ops PROPERTIES LINKER_LANGUAGE C)
+    
+    target_link_libraries(embedding_ops
+        PRIVATE embedding_c
+    )
+    
+    if(WIN32 AND POSTGRES_LIB)
+        target_link_libraries(embedding_ops PRIVATE ${POSTGRES_LIB})
+    endif()
+    
+    set_target_properties(embedding_ops PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "embedding_ops"
+    )
+    
+    # -------------------------------------------------------------------------
+    # generative PostgreSQL Extension (generative walk engine)
+    # -------------------------------------------------------------------------
+    
+    # C bridge library for generative engine (C++ with C API)
+    add_library(generative_c SHARED
+        src/generative_c.cpp
+    )
+    
+    target_include_directories(generative_c PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    
+    target_link_libraries(generative_c
+        PRIVATE hypercube_core
+        PRIVATE Threads::Threads
+    )
+    
+    if(WIN32)
+        target_compile_definitions(generative_c PRIVATE GENERATIVE_C_EXPORTS)
+    endif()
+    
+    set_target_properties(generative_c PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "generative_c"
+    )
+    
+    # Pure C PostgreSQL extension
+    add_library(generative SHARED
+        src/pg/generative_pg.c
+    )
+    
+    set_source_files_properties(src/pg/generative_pg.c PROPERTIES LANGUAGE C)
+    
+    target_include_directories(generative PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PG_INCLUDE_DIRS}
+    )
+    
+    target_compile_definitions(generative PRIVATE
+        ${PG_COMPILE_DEFS}
+    )
+    
+    set_target_properties(generative PROPERTIES LINKER_LANGUAGE C)
+    
+    target_link_libraries(generative
+        PRIVATE generative_c
+    )
+    
+    if(WIN32 AND POSTGRES_LIB)
+        target_link_libraries(generative PRIVATE ${POSTGRES_LIB})
+    endif()
+    
+    set_target_properties(generative PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "generative"
+    )
+    
+    # -------------------------------------------------------------------------
     # Installation
     # -------------------------------------------------------------------------
 
@@ -323,6 +439,38 @@ if(BUILD_PG_EXTENSION)
     install(FILES
         sql/hypercube_ops--1.0.sql
         sql/hypercube_ops.control
+        DESTINATION ${PG_SHAREDIR}/extension
+    )
+    
+    install(TARGETS embedding_c
+        LIBRARY DESTINATION ${PG_PKGLIBDIR}
+        RUNTIME DESTINATION ${PG_PKGLIBDIR}
+    )
+    
+    install(TARGETS embedding_ops
+        LIBRARY DESTINATION ${PG_PKGLIBDIR}
+        RUNTIME DESTINATION ${PG_PKGLIBDIR}
+    )
+    
+    install(FILES
+        sql/embedding_ops--1.0.sql
+        sql/embedding_ops.control
+        DESTINATION ${PG_SHAREDIR}/extension
+    )
+    
+    install(TARGETS generative_c
+        LIBRARY DESTINATION ${PG_PKGLIBDIR}
+        RUNTIME DESTINATION ${PG_PKGLIBDIR}
+    )
+    
+    install(TARGETS generative
+        LIBRARY DESTINATION ${PG_PKGLIBDIR}
+        RUNTIME DESTINATION ${PG_PKGLIBDIR}
+    )
+    
+    install(FILES
+        sql/generative--1.0.sql
+        sql/generative.control
         DESTINATION ${PG_SHAREDIR}/extension
     )
 endif()

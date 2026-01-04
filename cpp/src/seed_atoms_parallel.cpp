@@ -149,10 +149,10 @@ bool copy_partition(const std::string& conninfo, int partition_id,
         return false;
     }
 
-    // COPY to unified atom table
-    // Schema: id, geom, value, codepoint, hilbert_lo, hilbert_hi, depth, atom_count
+    // COPY to atom table
+    // New schema: id, codepoint, value, geom, hilbert_lo, hilbert_hi
     std::string copy_cmd =
-        "COPY atom (id, geom, value, codepoint, hilbert_lo, hilbert_hi, depth, atom_count) "
+        "COPY atom (id, codepoint, value, geom, hilbert_lo, hilbert_hi) "
         "FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')";
 
     PGresult* res = PQexec(conn, copy_cmd.c_str());
@@ -198,17 +198,17 @@ bool copy_partition(const std::string& conninfo, int partition_id,
         batch += a.hash.to_hex();
         batch += '\t';
 
-        // geom (POINTZM)
-        batch += ewkb;
+        // codepoint
+        snprintf(num_buf, sizeof(num_buf), "%d", a.codepoint);
+        batch += num_buf;
         batch += '\t';
 
         // value (UTF-8 bytes)
         batch += encode_utf8_value(static_cast<uint32_t>(a.codepoint));
         batch += '\t';
 
-        // codepoint
-        snprintf(num_buf, sizeof(num_buf), "%d", a.codepoint);
-        batch += num_buf;
+        // geom (POINTZM)
+        batch += ewkb;
         batch += '\t';
 
         // hilbert_lo
@@ -219,14 +219,6 @@ bool copy_partition(const std::string& conninfo, int partition_id,
         // hilbert_hi
         snprintf(num_buf, sizeof(num_buf), "%lld", static_cast<long long>(a.hilbert_hi));
         batch += num_buf;
-        batch += '\t';
-
-        // depth (0 for atoms)
-        batch += "0";
-        batch += '\t';
-
-        // atom_count (1 for atoms)
-        batch += "1";
         batch += '\n';
 
         // Send when buffer full
@@ -368,10 +360,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Drop all indexes for fast bulk insert (unified schema)
+    // Drop all indexes for fast bulk insert
     PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_geom");
     PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_hilbert");
-    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_depth");
     PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_codepoint");
 
     // Truncate for clean seed
@@ -407,13 +398,12 @@ int main(int argc, char* argv[]) {
     auto copy_ms = std::chrono::duration_cast<std::chrono::milliseconds>(copy_time - setup_time).count();
     std::cerr << "      Parallel COPY in " << copy_ms << " ms\n";
     
-    // === STEP 5: Rebuild indexes (unified schema) ===
+    // === STEP 5: Rebuild indexes ===
     std::cerr << "[5/5] Building indexes...\n";
 
-    PQexec(main_conn, "CREATE INDEX idx_atom_geom ON atom USING GIST(geom)");
+    PQexec(main_conn, "CREATE INDEX idx_atom_codepoint ON atom(codepoint)");
     PQexec(main_conn, "CREATE INDEX idx_atom_hilbert ON atom(hilbert_hi, hilbert_lo)");
-    PQexec(main_conn, "CREATE INDEX idx_atom_depth ON atom(depth)");
-    PQexec(main_conn, "CREATE INDEX idx_atom_codepoint ON atom(codepoint) WHERE codepoint IS NOT NULL");
+    PQexec(main_conn, "CREATE INDEX idx_atom_geom ON atom USING GIST(geom)");
     PQexec(main_conn, "ANALYZE atom");
     
     auto end_time = std::chrono::high_resolution_clock::now();
