@@ -39,9 +39,10 @@ find_package(Threads REQUIRED)
 
 if(MSVC)
     message(STATUS "Compiler: MSVC ${CMAKE_CXX_COMPILER_VERSION}")
-    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG /W3 /EHsc")
+    # Enable AVX2 for SIMD optimizations
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG /W3 /EHsc /arch:AVX2")
     set(CMAKE_CXX_FLAGS_DEBUG "/Od /DDEBUG /W3 /Zi /EHsc")
-    set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG /W3")
+    set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG /W3 /arch:AVX2")
     set(CMAKE_C_FLAGS_DEBUG "/Od /DDEBUG /W3 /Zi")
     add_compile_options(/wd4244 /wd4267 /wd4996 /wd4005 /wd4200)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -522,10 +523,15 @@ if(PostgreSQL_FOUND)
     target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
-    # Manifold projection tool (384D -> 4D)
+    # Manifold projection tool (384D -> 4D) - old JL-based version
     add_executable(manifold_project src/manifold_project.cpp)
     target_include_directories(manifold_project PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(manifold_project hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
+    # Manifold projection tool (N-D -> 4D) - Laplacian Eigenmaps + Gram-Schmidt
+    add_executable(manifold_4d src/manifold_4d.cpp)
+    target_include_directories(manifold_4d PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(manifold_4d ${PostgreSQL_LIBRARIES} Threads::Threads)
     
     # -------------------------------------------------------------------------
     # New modular ingester library

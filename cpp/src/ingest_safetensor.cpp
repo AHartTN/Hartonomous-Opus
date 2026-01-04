@@ -1547,7 +1547,7 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
                     batch_str += edge.tgt_hash.to_hex();
                     batch_str += "\t"; 
                     batch_str += std::to_string(edge.weight);
-                    batch_str += "\t\\N\tembed_sim\n";
+                    batch_str += "\t-1\tembed_sim\n";
                     
                     if (batch_str.size() > (1 << 20)) {
                         PQputCopyData(conn, batch_str.c_str(), static_cast<int>(batch_str.size()));
@@ -1664,7 +1664,7 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
                     batch += "C\t\\\\x" + from_hash.to_hex() + "\t";
                     batch += "C\t\\\\x" + to_hash.to_hex() + "\t";
                     batch += std::to_string(normalized) + "\t";
-                    batch += (layer >= 0 ? std::to_string(layer) : "\\N") + "\t";
+                    batch += (layer >= 0 ? std::to_string(layer) : "-1") + "\t";
                     batch += component + "\n";
                     tensor_edges++;
                     

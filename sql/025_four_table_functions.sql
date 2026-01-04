@@ -111,8 +111,7 @@ BEGIN
         ORDER BY cc.ordinal
     LOOP
         IF v_child.child_type = 'A' THEN
-            -- Child is an atom
-            SELECT chr(codepoint) INTO v_result FROM atom WHERE id = v_child.child_id;
+            -- Child is an atom: append character
             v_result := v_result || COALESCE((SELECT chr(codepoint) FROM atom WHERE id = v_child.child_id), '');
         ELSE
             -- Child is a composition: recurse

@@ -305,13 +305,14 @@ bool batch_insert_edges(PGconn* conn, const std::vector<SemanticEdge>& edges) {
     PQclear(res);
 
     // Insert edges into relation table (4-table schema)
+    // Using layer=-1 and component='' as defaults for embedding similarity edges
     res = PQexec(conn,
-        "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model) "
-        "SELECT 'A', e.src_id, 'A', e.dst_id, 'S', e.weight, 'minilm' "
+        "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) "
+        "SELECT 'A', e.src_id, 'A', e.dst_id, 'S', e.weight, 'minilm', -1, 'embed_sim' "
         "FROM tmp_semantic_edge e "
         "WHERE EXISTS (SELECT 1 FROM atom WHERE id = e.src_id) "
         "  AND EXISTS (SELECT 1 FROM atom WHERE id = e.dst_id) "
-        "ON CONFLICT (source_id, target_id, relation_type, source_model) "
+        "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) "
         "DO UPDATE SET weight = GREATEST(relation.weight, EXCLUDED.weight), "
         "  source_count = relation.source_count + 1"
     );

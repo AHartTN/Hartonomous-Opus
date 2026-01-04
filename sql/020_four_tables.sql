@@ -83,11 +83,13 @@ CREATE TABLE relation (
     target_id       BYTEA NOT NULL,                 -- References atom.id or composition.id
     relation_type   CHAR(1) NOT NULL,               -- S=sequence, A=attention, P=proximity
     weight          REAL NOT NULL DEFAULT 1.0,      -- Intensity/strength of relation
-    source_model    TEXT,                           -- Which model contributed this edge
+    source_model    TEXT NOT NULL DEFAULT '',       -- Which model contributed this edge
     source_count    INTEGER NOT NULL DEFAULT 1,     -- How many times seen (for averaging)
+    layer           INTEGER NOT NULL DEFAULT -1,    -- Model layer that produced this edge (-1 = N/A)
+    component       TEXT NOT NULL DEFAULT '',       -- Model component (attention, mlp, etc.)
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     
-    UNIQUE (source_id, target_id, relation_type, source_model)
+    UNIQUE (source_id, target_id, relation_type, source_model, layer, component)
 );
 
 CREATE INDEX idx_relation_source ON relation(source_id);
@@ -153,14 +155,17 @@ CREATE OR REPLACE FUNCTION upsert_relation(
     p_target_id BYTEA,
     p_relation_type CHAR(1),
     p_weight REAL,
-    p_source_model TEXT DEFAULT NULL
+    p_source_model TEXT DEFAULT '',
+    p_layer INTEGER DEFAULT -1,
+    p_component TEXT DEFAULT ''
 ) RETURNS BIGINT AS $$
 DECLARE
     v_id BIGINT;
 BEGIN
-    INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model)
-    VALUES (p_source_type, p_source_id, p_target_type, p_target_id, p_relation_type, p_weight, p_source_model)
-    ON CONFLICT (source_id, target_id, relation_type, source_model) DO UPDATE SET
+    INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component)
+    VALUES (p_source_type, p_source_id, p_target_type, p_target_id, p_relation_type, p_weight, 
+            COALESCE(p_source_model, ''), COALESCE(p_layer, -1), COALESCE(p_component, ''))
+    ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET
         weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1),
         source_count = relation.source_count + 1
     RETURNING id INTO v_id;
