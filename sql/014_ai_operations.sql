@@ -110,7 +110,7 @@ RETURNS TABLE(step INTEGER, node_id BYTEA) AS $$
         WHERE w.step < p_steps AND w.node IS NOT NULL
     )
     SELECT step, node FROM walk WHERE node IS NOT NULL;
-$$ LANGUAGE SQL STABLE;
+$$ LANGUAGE SQL VOLATILE;
 
 -- =============================================================================
 -- Path Finding - Pure SQL fallback (BFS, limited depth)
