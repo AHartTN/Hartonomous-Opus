@@ -167,9 +167,9 @@ int main(int argc, char* argv[]) {
                   << std::fixed << std::setprecision(2) << file_secs << "s)\n";
     }
     
-    // Phase 4: Insert to database
+    // Phase 4: Insert to database (with cross-session deduplication)
     if (!all_comps.empty()) {
-        db::insert_compositions(conn.get(), all_comps);
+        db::insert_new_compositions(conn.get(), all_comps);
     }
     
     auto end = std::chrono::high_resolution_clock::now();

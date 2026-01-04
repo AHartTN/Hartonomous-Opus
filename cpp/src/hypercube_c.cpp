@@ -460,45 +460,32 @@ hc_hash_t hc_content_hash_codepoints(const uint32_t* /* codepoints */, size_t co
                                       const hc_hash_t* atom_hashes) {
     hc_hash_t result;
     std::memset(result.bytes, 0, 32);
-    
+
     if (atom_hashes == nullptr || count == 0) {
         return result;
     }
-    
+
     if (count == 1) {
         return atom_hashes[0];
     }
-    
-    // CPE cascade: binary tree merging
-    std::vector<hc_hash_t> hashes(atom_hashes, atom_hashes + count);
-    
-    // Little-endian ordinal constants
-    uint8_t ord0[4] = {0, 0, 0, 0};  // ordinal 0
-    uint8_t ord1[4] = {1, 0, 0, 0};  // ordinal 1
-    
-    while (hashes.size() > 1) {
-        std::vector<hc_hash_t> merged;
-        merged.reserve((hashes.size() + 1) / 2);
-        
-        for (size_t i = 0; i < hashes.size(); i += 2) {
-            if (i + 1 < hashes.size()) {
-                // Merge pair: BLAKE3(ord0 || left || ord1 || right)
-                uint8_t input[72];  // 4 + 32 + 4 + 32
-                std::memcpy(input, ord0, 4);
-                std::memcpy(input + 4, hashes[i].bytes, 32);
-                std::memcpy(input + 36, ord1, 4);
-                std::memcpy(input + 40, hashes[i + 1].bytes, 32);
-                
-                merged.push_back(hc_blake3(input, 72));
-            } else {
-                // Odd element - carry forward
-                merged.push_back(hashes[i]);
-            }
-        }
-        hashes = std::move(merged);
+
+    // N-ary composition hash: BLAKE3(ord0 || hash0 || ord1 || hash1 || ... || ordN-1 || hashN-1)
+    // This matches hash_children_ordered and cpe.cpp create_composition
+    std::vector<uint8_t> input;
+    input.reserve(count * 36);  // 4 bytes ordinal + 32 bytes hash per child
+
+    for (size_t i = 0; i < count; ++i) {
+        // Little-endian ordinal
+        uint32_t ordinal = static_cast<uint32_t>(i);
+        input.push_back(static_cast<uint8_t>(ordinal));
+        input.push_back(static_cast<uint8_t>(ordinal >> 8));
+        input.push_back(static_cast<uint8_t>(ordinal >> 16));
+        input.push_back(static_cast<uint8_t>(ordinal >> 24));
+        // Hash
+        input.insert(input.end(), atom_hashes[i].bytes, atom_hashes[i].bytes + 32);
     }
-    
-    return hashes[0];
+
+    return hc_blake3(input.data(), input.size());
 }
 
 hc_hash_t hc_content_hash(const uint8_t* /* text */, size_t /* len */,

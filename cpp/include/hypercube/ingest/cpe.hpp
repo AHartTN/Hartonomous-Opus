@@ -4,10 +4,54 @@
 #include "hypercube/db/atom_cache.hpp"
 #include <vector>
 #include <unordered_map>
+#include <functional>
 #include <cstdint>
 #include <string>
 
 namespace hypercube::ingest {
+
+// ============================================================================
+// PLUGGABLE TOKENIZATION - Language-agnostic configuration
+// ============================================================================
+
+// Tokenizer configuration for pluggable language support
+// Defaults are Unicode-based (works for most scripts)
+struct TokenizerConfig {
+    // Detect word boundaries (whitespace/separator)
+    // Default: Unicode Zs category + common whitespace
+    std::function<bool(uint32_t)> is_whitespace;
+
+    // Detect sentence-ending punctuation
+    // Default: covers Latin, CJK, Arabic, Devanagari, etc.
+    std::function<bool(uint32_t)> is_sentence_end;
+
+    // Detect paragraph boundaries (returns true if prev+curr form a paragraph break)
+    // Default: double newline or explicit paragraph separator
+    std::function<bool(uint32_t prev, uint32_t curr)> is_paragraph_break;
+
+    // Optional: custom word segmentation for languages without whitespace
+    // If set, bypasses default whitespace tokenization
+    // Takes codepoints, returns vector of word boundaries (indices)
+    std::function<std::vector<size_t>(const std::vector<uint32_t>&)> segment_words;
+
+    // Create with Unicode defaults (works for most languages)
+    static TokenizerConfig unicode_default();
+
+    // Create for CJK (no whitespace word boundaries - character-based)
+    static TokenizerConfig cjk_character();
+
+    // Create for whitespace-only (simple tokenization)
+    static TokenizerConfig whitespace_only();
+};
+
+// Default Unicode-based predicates (used by TokenizerConfig::unicode_default)
+namespace unicode {
+    bool is_whitespace(uint32_t cp);
+    bool is_sentence_end(uint32_t cp);
+    bool is_paragraph_break(uint32_t prev, uint32_t curr);
+}
+
+
 
 // Child info for building LINESTRINGZM
 struct ChildInfo {
@@ -49,6 +93,16 @@ Blake3Hash ingest_text(
     const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache,
     std::vector<CompositionRecord>& new_compositions,
     std::unordered_map<std::string, CompositionRecord>& comp_cache
+);
+
+// Token-aware ingestion with custom tokenizer configuration
+// Use this for language-specific tokenization rules
+Blake3Hash ingest_text(
+    const std::vector<uint32_t>& codepoints,
+    const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache,
+    std::vector<CompositionRecord>& new_compositions,
+    std::unordered_map<std::string, CompositionRecord>& comp_cache,
+    const TokenizerConfig& config
 );
 
 // Create composition for a single token (word/punctuation)

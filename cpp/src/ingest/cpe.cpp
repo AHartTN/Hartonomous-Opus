@@ -12,66 +12,130 @@ namespace {
     inline uint32_t int32_to_uint32(int32_t val) {
         return static_cast<uint32_t>(val);
     }
-    
+
     inline int32_t uint32_to_int32(uint32_t val) {
         return static_cast<int32_t>(val);
     }
-    
-    // ============================================================================
-    // UNICODE-BASED SEGMENTATION (Language-Agnostic per UAX #29)
-    // ============================================================================
-    
-    // Unicode General Category: Separator, Space (Zs)
-    inline bool is_whitespace(uint32_t cp) {
-        // ASCII whitespace
-        if (cp == 0x0009 || cp == 0x000A || cp == 0x000B || cp == 0x000C || 
-            cp == 0x000D || cp == 0x0020) return true;
-        // Unicode Zs (Space Separators)
-        if (cp == 0x00A0 || cp == 0x1680 || (cp >= 0x2000 && cp <= 0x200A) ||
-            cp == 0x202F || cp == 0x205F || cp == 0x3000) return true;
-        // Line/paragraph separators
-        if (cp == 0x2028 || cp == 0x2029) return true;
-        return false;
-    }
-    
-    // Unicode sentence-ending punctuation (language-agnostic)
-    // Covers Latin, CJK, Arabic, Devanagari, etc.
-    inline bool is_sentence_end(uint32_t cp) {
-        // ASCII sentence-enders
-        if (cp == '.' || cp == '!' || cp == '?') return true;
-        // CJK sentence-enders
-        if (cp == 0x3002 || cp == 0xFF01 || cp == 0xFF1F || cp == 0xFF0E) return true;
-        // Arabic/Persian
-        if (cp == 0x06D4 || cp == 0x061F) return true;  // Arabic full stop, question mark
-        // Devanagari
-        if (cp == 0x0964 || cp == 0x0965) return true;  // Danda, double danda
-        // Armenian
-        if (cp == 0x0589 || cp == 0x055C || cp == 0x055E) return true;
-        // Greek
-        if (cp == 0x037E) return true;  // Greek question mark
-        // Ethiopic
-        if (cp == 0x1362 || cp == 0x1367 || cp == 0x1368) return true;
-        // Thai (no explicit sentence-ender, but space after Maiyamok)
-        // Myanmar
-        if (cp == 0x104A || cp == 0x104B) return true;
-        // Tibetan
-        if (cp == 0x0F0D || cp == 0x0F0E) return true;
-        return false;
-    }
-    
-    // Unicode paragraph/line break detection
-    inline bool is_paragraph_end(uint32_t cp) {
-        return cp == 0x000A || cp == 0x000D ||  // LF, CR
-               cp == 0x2028 || cp == 0x2029 ||  // Line/Paragraph separator
-               cp == 0x0085;                     // NEL (Next Line)
-    }
-    
-    // Check for double newline (paragraph boundary in most text)
-    inline bool is_double_newline(uint32_t prev, uint32_t curr) {
-        return (prev == 0x000A && curr == 0x000A) ||  // \n\n
-               (prev == 0x2029) ||                     // Explicit paragraph separator
-               (prev == 0x000D && curr == 0x000A);     // \r\n (treat as single)
-    }
+}
+
+// ============================================================================
+// UNICODE-BASED SEGMENTATION (Language-Agnostic per UAX #29)
+// These are public in the unicode namespace for use in TokenizerConfig
+// ============================================================================
+
+namespace unicode {
+
+bool is_whitespace(uint32_t cp) {
+    // ASCII whitespace
+    if (cp == 0x0009 || cp == 0x000A || cp == 0x000B || cp == 0x000C ||
+        cp == 0x000D || cp == 0x0020) return true;
+    // Unicode Zs (Space Separators)
+    if (cp == 0x00A0 || cp == 0x1680 || (cp >= 0x2000 && cp <= 0x200A) ||
+        cp == 0x202F || cp == 0x205F || cp == 0x3000) return true;
+    // Line/paragraph separators
+    if (cp == 0x2028 || cp == 0x2029) return true;
+    return false;
+}
+
+bool is_sentence_end(uint32_t cp) {
+    // ASCII sentence-enders
+    if (cp == '.' || cp == '!' || cp == '?') return true;
+    // CJK sentence-enders
+    if (cp == 0x3002 || cp == 0xFF01 || cp == 0xFF1F || cp == 0xFF0E) return true;
+    // Arabic/Persian
+    if (cp == 0x06D4 || cp == 0x061F) return true;
+    // Devanagari
+    if (cp == 0x0964 || cp == 0x0965) return true;
+    // Armenian
+    if (cp == 0x0589 || cp == 0x055C || cp == 0x055E) return true;
+    // Greek
+    if (cp == 0x037E) return true;
+    // Ethiopic
+    if (cp == 0x1362 || cp == 0x1367 || cp == 0x1368) return true;
+    // Myanmar
+    if (cp == 0x104A || cp == 0x104B) return true;
+    // Tibetan
+    if (cp == 0x0F0D || cp == 0x0F0E) return true;
+    // Georgian
+    if (cp == 0x10FB) return true;
+    // Khmer
+    if (cp == 0x17D4 || cp == 0x17D5) return true;
+    // Lao (uses whitespace typically)
+    // Thai has no sentence punctuation - uses space
+    return false;
+}
+
+bool is_paragraph_break(uint32_t prev, uint32_t curr) {
+    // Double newline
+    if (prev == 0x000A && curr == 0x000A) return true;
+    // Explicit paragraph separator
+    if (prev == 0x2029 || curr == 0x2029) return true;
+    // Form feed
+    if (prev == 0x000C || curr == 0x000C) return true;
+    return false;
+}
+
+} // namespace unicode
+
+// ============================================================================
+// TOKENIZER CONFIGURATION FACTORY FUNCTIONS
+// ============================================================================
+
+TokenizerConfig TokenizerConfig::unicode_default() {
+    TokenizerConfig config;
+    config.is_whitespace = unicode::is_whitespace;
+    config.is_sentence_end = unicode::is_sentence_end;
+    config.is_paragraph_break = unicode::is_paragraph_break;
+    config.segment_words = nullptr;  // Use default whitespace tokenization
+    return config;
+}
+
+TokenizerConfig TokenizerConfig::cjk_character() {
+    TokenizerConfig config;
+    // CJK scripts typically use punctuation as separators
+    // Each character is treated as a potential word
+    config.is_whitespace = unicode::is_whitespace;
+    config.is_sentence_end = unicode::is_sentence_end;
+    config.is_paragraph_break = unicode::is_paragraph_break;
+
+    // Custom word segmentation: each CJK character is a "word"
+    // Non-CJK sequences are kept together
+    config.segment_words = [](const std::vector<uint32_t>& cps) -> std::vector<size_t> {
+        std::vector<size_t> boundaries;
+        boundaries.push_back(0);
+
+        for (size_t i = 0; i < cps.size(); ++i) {
+            uint32_t cp = cps[i];
+            // CJK Unified Ideographs and extensions
+            bool is_cjk = (cp >= 0x4E00 && cp <= 0x9FFF) ||   // CJK Unified
+                          (cp >= 0x3400 && cp <= 0x4DBF) ||   // CJK Ext A
+                          (cp >= 0x20000 && cp <= 0x2A6DF) || // CJK Ext B
+                          (cp >= 0x2A700 && cp <= 0x2CEAF) || // CJK Ext C-F
+                          (cp >= 0x3040 && cp <= 0x30FF) ||   // Hiragana + Katakana
+                          (cp >= 0xAC00 && cp <= 0xD7AF);     // Hangul
+
+            if (is_cjk && i > 0) {
+                boundaries.push_back(i);
+            }
+        }
+
+        if (boundaries.back() != cps.size()) {
+            boundaries.push_back(cps.size());
+        }
+        return boundaries;
+    };
+
+    return config;
+}
+
+TokenizerConfig TokenizerConfig::whitespace_only() {
+    TokenizerConfig config;
+    config.is_whitespace = unicode::is_whitespace;
+    // No sentence detection - just whitespace tokenization
+    config.is_sentence_end = [](uint32_t) { return false; };
+    config.is_paragraph_break = [](uint32_t, uint32_t) { return false; };
+    config.segment_words = nullptr;
+    return config;
 }
 
 // ============================================================================
@@ -88,16 +152,23 @@ std::pair<CompositionRecord, bool> create_composition(
         return {CompositionRecord{}, false};
     }
     
-    // Hash = BLAKE3(ordered concatenation of child hashes)
-    // No ordinal prefix needed - order is implicit from position
+    // Hash = BLAKE3(ord0 || hash0 || ord1 || hash1 || ... || ordN-1 || hashN-1)
+    // Uses little-endian ordinals to match C API (hc_blake3_children_ordered)
+    // This ensures consistency between C++ ingestion and SQL lookups
     std::vector<uint8_t> hash_input;
-    hash_input.reserve(children.size() * 32);
-    
-    for (const auto& child : children) {
-        hash_input.insert(hash_input.end(), 
-            child.hash.bytes.begin(), child.hash.bytes.end());
+    hash_input.reserve(children.size() * 36);  // 4 bytes ordinal + 32 bytes hash per child
+
+    for (size_t i = 0; i < children.size(); ++i) {
+        // Little-endian ordinal
+        uint32_t ordinal = static_cast<uint32_t>(i);
+        hash_input.insert(hash_input.end(),
+            reinterpret_cast<uint8_t*>(&ordinal),
+            reinterpret_cast<uint8_t*>(&ordinal) + 4);
+        // Child hash
+        hash_input.insert(hash_input.end(),
+            children[i].hash.bytes.begin(), children[i].hash.bytes.end());
     }
-    
+
     Blake3Hash hash = Blake3Hasher::hash(std::span<const uint8_t>(hash_input));
     
     // Check cache first
@@ -107,7 +178,9 @@ std::pair<CompositionRecord, bool> create_composition(
         return {it->second, false};  // Already exists
     }
     
-    // Compute centroid as average of all child centroids
+    // Compute centroid as average of all child centroids, scaled inward by depth
+    // Atoms are on the 3-sphere surface; compositions move inward toward center
+    // This creates a layered structure where deeper compositions are more central
     uint64_t sum_x = 0, sum_y = 0, sum_z = 0, sum_m = 0;
     for (const auto& child : children) {
         sum_x += static_cast<uint64_t>(int32_to_uint32(child.x));
@@ -115,12 +188,28 @@ std::pair<CompositionRecord, bool> create_composition(
         sum_z += static_cast<uint64_t>(int32_to_uint32(child.z));
         sum_m += static_cast<uint64_t>(int32_to_uint32(child.m));
     }
-    
+
     size_t n = children.size();
-    uint32_t cx = static_cast<uint32_t>(sum_x / n);
-    uint32_t cy = static_cast<uint32_t>(sum_y / n);
-    uint32_t cz = static_cast<uint32_t>(sum_z / n);
-    uint32_t cm = static_cast<uint32_t>(sum_m / n);
+    uint64_t avg_x = sum_x / n;
+    uint64_t avg_y = sum_y / n;
+    uint64_t avg_z = sum_z / n;
+    uint64_t avg_m = sum_m / n;
+
+    // Scale toward center based on depth
+    // Center of 32-bit coordinate space is 2^31 = 2147483648
+    // Scale factor = 1 / (depth + 2), so depth 1 → 0.33, depth 2 → 0.25, etc.
+    // This moves centroids inward while preserving relative positions
+    constexpr uint64_t center = 2147483648ULL;
+    uint32_t depth = max_child_depth + 1;
+    double scale = 1.0 / static_cast<double>(depth + 2);
+
+    // Interpolate: result = center + (avg - center) * (1 - scale)
+    // This scales the deviation from center
+    double factor = 1.0 - scale;
+    uint32_t cx = static_cast<uint32_t>(center + static_cast<int64_t>((static_cast<int64_t>(avg_x) - static_cast<int64_t>(center)) * factor));
+    uint32_t cy = static_cast<uint32_t>(center + static_cast<int64_t>((static_cast<int64_t>(avg_y) - static_cast<int64_t>(center)) * factor));
+    uint32_t cz = static_cast<uint32_t>(center + static_cast<int64_t>((static_cast<int64_t>(avg_z) - static_cast<int64_t>(center)) * factor));
+    uint32_t cm = static_cast<uint32_t>(center + static_cast<int64_t>((static_cast<int64_t>(avg_m) - static_cast<int64_t>(center)) * factor));
     
     // Hilbert index from centroid
     Point4D coords(cx, cy, cz, cm);
@@ -189,20 +278,21 @@ Blake3Hash create_token_composition(
     return rec.hash;
 }
 
-// Main ingestion function: builds proper hierarchical compositions
-// Tier 0: Unicode atoms (codepoints) - already seeded
-// Tier 1: Words (sequences between whitespace)
-// Tier 2: Sentences (sequences ending in sentence punctuation)
-// Tier 3: Paragraphs (sequences between double newlines)
-// Tier 4: Document (root composition)
+// Main ingestion function with configurable tokenizer
 Blake3Hash ingest_text(
     const std::vector<uint32_t>& codepoints,
     const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache,
     std::vector<CompositionRecord>& new_compositions,
-    std::unordered_map<std::string, CompositionRecord>& comp_cache
+    std::unordered_map<std::string, CompositionRecord>& comp_cache,
+    const TokenizerConfig& config
 ) {
     if (codepoints.empty()) return Blake3Hash();
-    
+
+    // Use config functions or defaults
+    auto is_ws = config.is_whitespace ? config.is_whitespace : unicode::is_whitespace;
+    auto is_sent = config.is_sentence_end ? config.is_sentence_end : unicode::is_sentence_end;
+    auto is_para = config.is_paragraph_break ? config.is_paragraph_break : unicode::is_paragraph_break;
+
     // ========================================================================
     // TIER 1: Tokenize into words (sequences between whitespace)
     // ========================================================================
@@ -211,29 +301,29 @@ Blake3Hash ingest_text(
         bool ends_sentence;
         bool ends_paragraph;
     };
-    
+
     std::vector<TokenInfo> tokens;
     std::vector<uint32_t> current_token;
     uint32_t prev_cp = 0;
-    
+
     for (size_t i = 0; i < codepoints.size(); ++i) {
         uint32_t cp = codepoints[i];
-        
-        if (is_whitespace(cp)) {
+
+        if (is_ws(cp)) {
             if (!current_token.empty()) {
                 TokenInfo ti;
                 ti.codepoints = std::move(current_token);
                 ti.ends_sentence = false;
                 ti.ends_paragraph = false;
                 // Check if last codepoint of token is sentence-ender
-                if (!ti.codepoints.empty() && is_sentence_end(ti.codepoints.back())) {
+                if (!ti.codepoints.empty() && is_sent(ti.codepoints.back())) {
                     ti.ends_sentence = true;
                 }
                 tokens.push_back(std::move(ti));
                 current_token.clear();
             }
-            // Check for paragraph break (double newline)
-            if (!tokens.empty() && is_double_newline(prev_cp, cp)) {
+            // Check for paragraph break
+            if (!tokens.empty() && is_para(prev_cp, cp)) {
                 tokens.back().ends_paragraph = true;
             }
         } else {
@@ -244,7 +334,7 @@ Blake3Hash ingest_text(
     if (!current_token.empty()) {
         TokenInfo ti;
         ti.codepoints = std::move(current_token);
-        ti.ends_sentence = !ti.codepoints.empty() && is_sentence_end(ti.codepoints.back());
+        ti.ends_sentence = !ti.codepoints.empty() && is_sent(ti.codepoints.back());
         ti.ends_paragraph = true;  // End of document = end of paragraph
         tokens.push_back(std::move(ti));
     }
@@ -424,6 +514,17 @@ Blake3Hash ingest_text(
     }
     
     return root_rec.hash;
+}
+
+// Default overload uses Unicode defaults
+Blake3Hash ingest_text(
+    const std::vector<uint32_t>& codepoints,
+    const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache,
+    std::vector<CompositionRecord>& new_compositions,
+    std::unordered_map<std::string, CompositionRecord>& comp_cache
+) {
+    return ingest_text(codepoints, atom_cache, new_compositions, comp_cache,
+                       TokenizerConfig::unicode_default());
 }
 
 // ============================================================================

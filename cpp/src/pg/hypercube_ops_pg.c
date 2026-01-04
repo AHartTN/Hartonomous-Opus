@@ -624,8 +624,69 @@ Datum hypercube_batch_lookup(PG_FUNCTION_ARGS)
 
 /* ============================================================================
  * PostgreSQL Function: hypercube_batch_reconstruct
- * Uses existing semantic_reconstruct for now (optimization later)
+ * Batch reconstruct text from multiple atom IDs
+ * Uses CTE with RECURSIVE to load all descendants in ONE query
  * ============================================================================ */
+
+typedef struct AtomNode {
+    uint8   id[HASH_SIZE];
+    uint8  *children;       /* Array of child hashes, N * HASH_SIZE bytes */
+    int     child_count;
+    char   *value;          /* UTF-8 text for leaves, NULL otherwise */
+    int     value_len;
+} AtomNode;
+
+/* Hash table for fast atom lookup during reconstruction */
+#define ATOM_HASH_SIZE 16384
+
+typedef struct AtomHashEntry {
+    uint8       id[HASH_SIZE];
+    AtomNode   *node;
+    struct AtomHashEntry *next;
+} AtomHashEntry;
+
+static unsigned int hash_id(const uint8 *id) {
+    /* Use first 4 bytes as hash - BLAKE3 is well-distributed */
+    return (id[0] | (id[1] << 8) | (id[2] << 16) | (id[3] << 24)) & (ATOM_HASH_SIZE - 1);
+}
+
+static AtomNode *find_atom(AtomHashEntry **table, const uint8 *id) {
+    unsigned int h = hash_id(id);
+    AtomHashEntry *e = table[h];
+    while (e) {
+        if (memcmp(e->id, id, HASH_SIZE) == 0) return e->node;
+        e = e->next;
+    }
+    return NULL;
+}
+
+static void insert_atom(AtomHashEntry **table, AtomNode *node, MemoryContext ctx) {
+    unsigned int h = hash_id(node->id);
+    AtomHashEntry *e = MemoryContextAlloc(ctx, sizeof(AtomHashEntry));
+    memcpy(e->id, node->id, HASH_SIZE);
+    e->node = node;
+    e->next = table[h];
+    table[h] = e;
+}
+
+/* Recursive in-memory text reconstruction */
+static void reconstruct_node(AtomHashEntry **table, const uint8 *id,
+                             StringInfo result, int max_depth) {
+    if (max_depth <= 0) return;
+
+    AtomNode *node = find_atom(table, id);
+    if (!node) return;
+
+    if (node->value && node->value_len > 0) {
+        /* Leaf node - append value */
+        appendBinaryStringInfo(result, node->value, node->value_len);
+    } else if (node->children && node->child_count > 0) {
+        /* Composition - recurse into children in order */
+        for (int i = 0; i < node->child_count; i++) {
+            reconstruct_node(table, node->children + i * HASH_SIZE, result, max_depth - 1);
+        }
+    }
+}
 
 typedef struct {
     int     current;
@@ -639,97 +700,182 @@ Datum hypercube_batch_reconstruct(PG_FUNCTION_ARGS)
 {
     FuncCallContext *funcctx;
     BatchReconstructState *state;
-    
+
     if (SRF_IS_FIRSTCALL()) {
         MemoryContext oldcontext;
         funcctx = SRF_FIRSTCALL_INIT();
         oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
-        
+
         ArrayType *ids_arr = PG_GETARG_ARRAYTYPE_P(0);
         Datum *elems;
         bool *nulls;
         int nelems;
         deconstruct_array(ids_arr, BYTEAOID, -1, false, TYPALIGN_INT,
                          &elems, &nulls, &nelems);
-        
+
         state = (BatchReconstructState *)palloc0(sizeof(BatchReconstructState));
         state->total = nelems;
         state->ids = (uint8 *)palloc(nelems * HASH_SIZE);
         state->texts = (text **)palloc0(nelems * sizeof(text *));
-        
+
         for (int i = 0; i < nelems; i++) {
             if (!nulls[i]) {
                 bytea_to_hash(DatumGetByteaP(elems[i]), state->ids + i * HASH_SIZE);
             }
         }
-        
-        /* Call semantic_reconstruct for each (TODO: batch optimize later) */
+
         if (SPI_connect() != SPI_OK_CONNECT) {
             ereport(ERROR, (errmsg("SPI_connect failed")));
         }
-        
+
+        /* Build IN clause for root IDs */
+        StringInfoData in_clause;
+        initStringInfo(&in_clause);
+        appendStringInfoString(&in_clause, "VALUES ");
         for (int i = 0; i < nelems; i++) {
-            char query[256];
-            char hex[65];
+            if (i > 0) appendStringInfoChar(&in_clause, ',');
+            appendStringInfoString(&in_clause, "('\\x");
             for (int j = 0; j < HASH_SIZE; j++) {
-                snprintf(hex + j*2, 3, "%02x", state->ids[i * HASH_SIZE + j]);
+                appendStringInfo(&in_clause, "%02x", state->ids[i * HASH_SIZE + j]);
             }
-            
-            snprintf(query, sizeof(query),
-                "SELECT semantic_reconstruct('\\x%s'::bytea)", hex);
-            
-            int ret = SPI_execute(query, true, 1);
-            if (ret == SPI_OK_SELECT && SPI_processed > 0) {
+            appendStringInfoString(&in_clause, "'::bytea)");
+        }
+
+        /* Single recursive CTE query to load ALL descendants at once */
+        StringInfoData query;
+        initStringInfo(&query);
+        appendStringInfo(&query,
+            "WITH RECURSIVE roots(id) AS (%s), "
+            "tree AS ("
+            "  SELECT a.id, a.children, a.value, a.depth "
+            "  FROM atom a JOIN roots r ON a.id = r.id "
+            "  UNION "
+            "  SELECT a.id, a.children, a.value, a.depth "
+            "  FROM atom a "
+            "  JOIN tree t ON a.id = ANY(t.children) "
+            "  WHERE t.depth > 0"
+            ") "
+            "SELECT DISTINCT id, children, value FROM tree",
+            in_clause.data);
+
+        int ret = SPI_execute(query.data, true, 0);
+
+        /* Build in-memory hash table of all atoms */
+        AtomHashEntry **atom_table = palloc0(ATOM_HASH_SIZE * sizeof(AtomHashEntry *));
+
+        if (ret == SPI_OK_SELECT) {
+            for (uint64 i = 0; i < SPI_processed; i++) {
+                HeapTuple tuple = SPI_tuptable->vals[i];
+                TupleDesc tupdesc = SPI_tuptable->tupdesc;
                 bool isnull;
-                Datum d = SPI_getbinval(SPI_tuptable->vals[0], 
-                                        SPI_tuptable->tupdesc, 1, &isnull);
+
+                Datum id_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
+                if (isnull) continue;
+
+                AtomNode *node = MemoryContextAlloc(funcctx->multi_call_memory_ctx,
+                                                    sizeof(AtomNode));
+                memset(node, 0, sizeof(AtomNode));
+
+                bytea *id_bytea = DatumGetByteaP(id_datum);
+                memcpy(node->id, VARDATA_ANY(id_bytea), HASH_SIZE);
+
+                /* Get children array */
+                Datum children_datum = SPI_getbinval(tuple, tupdesc, 2, &isnull);
                 if (!isnull) {
-                    /* Copy to multi_call context */
-                    text *t = DatumGetTextP(d);
-                    state->texts[i] = (text *)MemoryContextAlloc(
-                        funcctx->multi_call_memory_ctx,
-                        VARSIZE(t)
-                    );
-                    memcpy(state->texts[i], t, VARSIZE(t));
+                    ArrayType *children_arr = DatumGetArrayTypeP(children_datum);
+                    Datum *child_elems;
+                    bool *child_nulls;
+                    int nchildren;
+                    deconstruct_array(children_arr, BYTEAOID, -1, false, TYPALIGN_INT,
+                                     &child_elems, &child_nulls, &nchildren);
+
+                    if (nchildren > 0) {
+                        node->child_count = nchildren;
+                        node->children = MemoryContextAlloc(funcctx->multi_call_memory_ctx,
+                                                            nchildren * HASH_SIZE);
+                        for (int j = 0; j < nchildren; j++) {
+                            if (!child_nulls[j]) {
+                                bytea *child_bytea = DatumGetByteaP(child_elems[j]);
+                                memcpy(node->children + j * HASH_SIZE,
+                                       VARDATA_ANY(child_bytea), HASH_SIZE);
+                            }
+                        }
+                    }
                 }
+
+                /* Get value (for leaves) */
+                Datum value_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
+                if (!isnull) {
+                    bytea *value_bytea = DatumGetByteaP(value_datum);
+                    int vlen = VARSIZE_ANY_EXHDR(value_bytea);
+                    if (vlen > 0) {
+                        node->value = MemoryContextAlloc(funcctx->multi_call_memory_ctx, vlen);
+                        memcpy(node->value, VARDATA_ANY(value_bytea), vlen);
+                        node->value_len = vlen;
+                    }
+                }
+
+                insert_atom(atom_table, node, funcctx->multi_call_memory_ctx);
             }
         }
-        
+
+        pfree(query.data);
+        pfree(in_clause.data);
         SPI_finish();
-        
+
+        /* Reconstruct each requested ID from in-memory data */
+        for (int i = 0; i < nelems; i++) {
+            StringInfoData result;
+            initStringInfo(&result);
+
+            reconstruct_node(atom_table, state->ids + i * HASH_SIZE, &result, 1000);
+
+            if (result.len > 0) {
+                state->texts[i] = (text *)MemoryContextAlloc(
+                    funcctx->multi_call_memory_ctx,
+                    VARHDRSZ + result.len
+                );
+                SET_VARSIZE(state->texts[i], VARHDRSZ + result.len);
+                memcpy(VARDATA(state->texts[i]), result.data, result.len);
+            }
+            pfree(result.data);
+        }
+
+        pfree(atom_table);
+
         TupleDesc tupdesc;
         if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE) {
             ereport(ERROR, (errmsg("function must return composite")));
         }
-        
+
         funcctx->user_fctx = state;
         funcctx->tuple_desc = BlessTupleDesc(tupdesc);
         funcctx->max_calls = nelems;
-        
+
         MemoryContextSwitchTo(oldcontext);
     }
-    
+
     funcctx = SRF_PERCALL_SETUP();
     state = (BatchReconstructState *)funcctx->user_fctx;
-    
+
     if (funcctx->call_cntr < funcctx->max_calls) {
         int idx = funcctx->call_cntr;
-        
+
         Datum values[2];
         bool isnulls[2] = {false, false};
-        
+
         values[0] = PointerGetDatum(hash_to_bytea(state->ids + idx * HASH_SIZE));
-        
+
         if (state->texts[idx]) {
             values[1] = PointerGetDatum(state->texts[idx]);
         } else {
             isnulls[1] = true;
         }
-        
+
         HeapTuple tuple = heap_form_tuple(funcctx->tuple_desc, values, isnulls);
         SRF_RETURN_NEXT(funcctx, HeapTupleGetDatum(tuple));
     }
-    
+
     SRF_RETURN_DONE(funcctx);
 }
 /* ============================================================================

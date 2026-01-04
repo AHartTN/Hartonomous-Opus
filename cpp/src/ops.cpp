@@ -237,6 +237,21 @@ void AtomCache::clear() {
     centroid_cache_valid_ = false;
 }
 
+std::vector<std::pair<HilbertIndex, Blake3Hash>> AtomCache::get_sorted_hilbert_indices() const {
+    std::vector<std::pair<HilbertIndex, Blake3Hash>> indices;
+    indices.reserve(atoms_.size());
+
+    for (const auto& [id, atom] : atoms_) {
+        indices.emplace_back(atom.hilbert, id);
+    }
+
+    // Sort by Hilbert index for locality-preserving partitioning
+    std::sort(indices.begin(), indices.end(),
+        [](const auto& a, const auto& b) { return a.first < b.first; });
+
+    return indices;
+}
+
 void AtomCache::rebuild_centroid_cache() const {
     if (centroid_cache_valid_) return;
     
@@ -534,22 +549,54 @@ std::vector<DistanceResult> AtomCache::knn_by_hilbert(
 
 std::vector<HilbertPartition> partition_by_hilbert(
     const AtomCache& cache,
-    size_t /* num_partitions */
+    size_t num_partitions
 ) {
-    // Collect all Hilbert indices
-    std::vector<std::pair<HilbertIndex, Blake3Hash>> indices;
-    indices.reserve(cache.size());
-    
-    // Would need iterator access to cache - for now return single partition
-    // TODO: Add iterator to AtomCache
-    
     std::vector<HilbertPartition> result;
-    result.push_back({
-        {0, 0},
-        {UINT64_MAX, UINT64_MAX},
-        cache.size()
-    });
-    
+
+    if (cache.size() == 0 || num_partitions == 0) {
+        return result;
+    }
+
+    // Get sorted Hilbert indices
+    auto indices = cache.get_sorted_hilbert_indices();
+
+    if (indices.empty()) {
+        return result;
+    }
+
+    // Handle case where we have fewer atoms than partitions
+    if (indices.size() <= num_partitions) {
+        // One partition per atom (or fewer partitions than requested)
+        for (size_t i = 0; i < indices.size(); ++i) {
+            result.push_back({indices[i].first, indices[i].first, 1});
+        }
+        return result;
+    }
+
+    // Divide atoms into roughly equal partitions
+    size_t atoms_per_partition = indices.size() / num_partitions;
+    size_t remainder = indices.size() % num_partitions;
+
+    size_t start_idx = 0;
+    for (size_t p = 0; p < num_partitions; ++p) {
+        // Distribute remainder among first partitions
+        size_t partition_size = atoms_per_partition + (p < remainder ? 1 : 0);
+        size_t end_idx = start_idx + partition_size - 1;
+
+        if (end_idx >= indices.size()) {
+            end_idx = indices.size() - 1;
+        }
+
+        result.push_back({
+            indices[start_idx].first,  // lo: first Hilbert index in partition
+            indices[end_idx].first,    // hi: last Hilbert index in partition
+            partition_size
+        });
+
+        start_idx = end_idx + 1;
+        if (start_idx >= indices.size()) break;
+    }
+
     return result;
 }
 

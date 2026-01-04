@@ -185,7 +185,19 @@ public:
     
     // Clear cache
     void clear();
-    
+
+    // Iterators for partitioning and batch operations
+    using iterator = std::unordered_map<Blake3Hash, AtomData, Blake3HashHasher>::iterator;
+    using const_iterator = std::unordered_map<Blake3Hash, AtomData, Blake3HashHasher>::const_iterator;
+
+    const_iterator begin() const { return atoms_.begin(); }
+    const_iterator end() const { return atoms_.end(); }
+    iterator begin() { return atoms_.begin(); }
+    iterator end() { return atoms_.end(); }
+
+    // Get all Hilbert indices sorted (for partitioning)
+    std::vector<std::pair<HilbertIndex, Blake3Hash>> get_sorted_hilbert_indices() const;
+
 private:
     std::unordered_map<Blake3Hash, AtomData, Blake3HashHasher> atoms_;
     std::unordered_map<Blake3Hash, std::vector<std::pair<Blake3Hash, double>>, 

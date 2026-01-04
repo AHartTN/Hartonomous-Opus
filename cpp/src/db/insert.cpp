@@ -6,6 +6,82 @@
 
 namespace hypercube::db {
 
+std::unordered_set<std::string> check_existing_compositions(
+    PGconn* conn,
+    const std::vector<ingest::CompositionRecord>& comps) {
+
+    std::unordered_set<std::string> existing;
+    if (comps.empty()) return existing;
+
+    // Build array of hashes to check (batch query)
+    // Use VALUES list for efficient bulk lookup
+    std::ostringstream query;
+    query << "SELECT encode(id, 'hex') FROM atom WHERE id IN (";
+
+    for (size_t i = 0; i < comps.size(); ++i) {
+        if (i > 0) query << ",";
+        query << "'\\x" << comps[i].hash.to_hex() << "'::bytea";
+    }
+    query << ")";
+
+    PGresult* res = PQexec(conn, query.str().c_str());
+    if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+        int nrows = PQntuples(res);
+        for (int i = 0; i < nrows; ++i) {
+            existing.insert(PQgetvalue(res, i, 0));
+        }
+    }
+    PQclear(res);
+
+    return existing;
+}
+
+std::vector<ingest::CompositionRecord> filter_new_compositions(
+    PGconn* conn,
+    const std::vector<ingest::CompositionRecord>& comps) {
+
+    if (comps.empty()) return {};
+
+    auto existing = check_existing_compositions(conn, comps);
+
+    std::vector<ingest::CompositionRecord> new_comps;
+    new_comps.reserve(comps.size() - existing.size());
+
+    for (const auto& c : comps) {
+        if (existing.find(c.hash.to_hex()) == existing.end()) {
+            new_comps.push_back(c);
+        }
+    }
+
+    return new_comps;
+}
+
+size_t insert_new_compositions(PGconn* conn, const std::vector<ingest::CompositionRecord>& comps) {
+    if (comps.empty()) return 0;
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // Filter to only new compositions
+    auto new_comps = filter_new_compositions(conn, comps);
+
+    auto filter_end = std::chrono::high_resolution_clock::now();
+    auto filter_ms = std::chrono::duration_cast<std::chrono::milliseconds>(filter_end - start).count();
+
+    size_t skipped = comps.size() - new_comps.size();
+    if (skipped > 0) {
+        std::cerr << "[DEDUP] Skipped " << skipped << " existing compositions ("
+                  << filter_ms << " ms to check)\n";
+    }
+
+    if (new_comps.empty()) return 0;
+
+    // Insert only new compositions
+    if (insert_compositions(conn, new_comps)) {
+        return new_comps.size();
+    }
+    return 0;
+}
+
 bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionRecord>& comps) {
     if (comps.empty()) return true;
     

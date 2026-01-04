@@ -262,10 +262,10 @@ struct Composition {
 struct SemanticEdge {
     Blake3Hash source;
     Blake3Hash target;
-    float weight;  // Relationship strength (cosine similarity, frequency, etc.)
-    
+    double weight;  // Relationship strength (cosine similarity, frequency, etc.)
+
     SemanticEdge() = default;
-    SemanticEdge(const Blake3Hash& src, const Blake3Hash& tgt, float w)
+    SemanticEdge(const Blake3Hash& src, const Blake3Hash& tgt, double w)
         : source(src), target(tgt), weight(w) {}
 };
 
