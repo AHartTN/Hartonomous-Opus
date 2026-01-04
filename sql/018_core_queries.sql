@@ -190,6 +190,7 @@ $$ LANGUAGE sql STABLE;
 -- =============================================================================
 
 -- Get atoms in Hilbert range
+-- FIXED: Uses composite (hilbert_hi, hilbert_lo) ordering for proper 128-bit locality
 CREATE OR REPLACE FUNCTION hilbert_range(
     p_center_lo BIGINT,
     p_center_hi BIGINT,
@@ -200,22 +201,33 @@ RETURNS TABLE (
     id BYTEA,
     depth INTEGER,
     hilbert_lo BIGINT,
-    hilbert_hi BIGINT
+    hilbert_hi BIGINT,
+    hilbert_dist NUMERIC
 ) AS $$
-    SELECT a.id, a.depth, a.hilbert_lo, a.hilbert_hi
+    SELECT 
+        a.id, 
+        a.depth, 
+        a.hilbert_lo, 
+        a.hilbert_hi,
+        -- Proper 128-bit distance
+        ABS(
+            (a.hilbert_hi::NUMERIC - p_center_hi::NUMERIC) * 18446744073709551616::NUMERIC +
+            (a.hilbert_lo::NUMERIC - p_center_lo::NUMERIC)
+        ) AS hilbert_dist
     FROM atom a
-    WHERE a.hilbert_hi = p_center_hi
+    WHERE a.hilbert_hi BETWEEN p_center_hi - 1 AND p_center_hi + 1
       AND a.hilbert_lo BETWEEN p_center_lo - p_range AND p_center_lo + p_range
-    ORDER BY ABS(a.hilbert_lo - p_center_lo)
+    ORDER BY (a.hilbert_hi, a.hilbert_lo)  -- Composite ordering for 128-bit
     LIMIT p_limit;
-$$ LANGUAGE sql STABLE;
+$$ LANGUAGE sql STABLE PARALLEL SAFE;
 
 -- Get nearest by Hilbert index
+-- FIXED: Uses composite (hilbert_hi, hilbert_lo) ordering for proper 128-bit locality
 CREATE OR REPLACE FUNCTION hilbert_nearest(p_id BYTEA, p_limit INTEGER DEFAULT 10)
 RETURNS TABLE (
     id BYTEA,
     depth INTEGER,
-    distance BIGINT
+    distance NUMERIC
 ) AS $$
     WITH target AS (
         SELECT hilbert_lo, hilbert_hi FROM atom WHERE id = p_id
@@ -223,13 +235,16 @@ RETURNS TABLE (
     SELECT 
         a.id,
         a.depth,
-        ABS(a.hilbert_lo - t.hilbert_lo)::BIGINT as distance
+        -- Proper 128-bit distance
+        ABS(
+            (a.hilbert_hi::NUMERIC - t.hilbert_hi::NUMERIC) * 18446744073709551616::NUMERIC +
+            (a.hilbert_lo::NUMERIC - t.hilbert_lo::NUMERIC)
+        ) AS distance
     FROM atom a, target t
     WHERE a.id != p_id
-      AND a.hilbert_hi = t.hilbert_hi
-    ORDER BY ABS(a.hilbert_lo - t.hilbert_lo)
+    ORDER BY (a.hilbert_hi, a.hilbert_lo)  -- Composite ordering
     LIMIT p_limit;
-$$ LANGUAGE sql STABLE;
+$$ LANGUAGE sql STABLE PARALLEL SAFE;
 
 -- =============================================================================
 -- Spatial Queries

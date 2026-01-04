@@ -99,6 +99,8 @@ add_library(hypercube_core STATIC
     src/ops.cpp
     src/util/utf8.cpp
     src/atom_calculator.cpp
+    src/laplacian_4d.cpp
+    src/lanczos.cpp
 )
 
 target_include_directories(hypercube_core PUBLIC 
@@ -502,6 +504,10 @@ add_executable(test_clustering tests/test_clustering.cpp)
 target_link_libraries(test_clustering hypercube_core)
 add_test(NAME ClusteringTest COMMAND test_clustering)
 
+add_executable(test_laplacian_4d tests/test_laplacian_4d.cpp)
+target_link_libraries(test_laplacian_4d hypercube_core)
+add_test(NAME Laplacian4DTest COMMAND test_laplacian_4d)
+
 # ============================================================================
 # PostgreSQL Tools (require libpq client library)
 # ============================================================================
@@ -511,6 +517,34 @@ find_package(PostgreSQL QUIET)
 if(PostgreSQL_FOUND)
     message(STATUS "Found PostgreSQL client library: ${PostgreSQL_LIBRARIES}")
     
+    # -------------------------------------------------------------------------
+    # Modular ingester library (must be defined before tools that link to it)
+    # -------------------------------------------------------------------------
+    add_library(hypercube_ingest STATIC
+        src/db/atom_cache.cpp
+        src/db/geometry.cpp
+        src/db/insert.cpp
+        src/ingest/cpe.cpp
+        src/ingest/universal.cpp
+        src/ingest/parallel_cpe.cpp
+        src/ingest/sequitur.cpp
+        src/ingest/pmi_contraction.cpp
+        src/ingest/projection_db.cpp
+    )
+    target_include_directories(hypercube_ingest PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PostgreSQL_INCLUDE_DIRS}
+    )
+    target_link_libraries(hypercube_ingest
+        hypercube_core
+        ${PostgreSQL_LIBRARIES}
+        Threads::Threads
+    )
+    
+    # -------------------------------------------------------------------------
+    # PostgreSQL CLI tools
+    # -------------------------------------------------------------------------
+    
     add_executable(seed_atoms_parallel src/seed_atoms_parallel.cpp)
     target_include_directories(seed_atoms_parallel PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(seed_atoms_parallel hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
@@ -518,6 +552,11 @@ if(PostgreSQL_FOUND)
     add_executable(ingest_safetensor src/ingest_safetensor.cpp)
     target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(ingest_safetensor hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
+    # Safetensor ingestion with 4D Laplacian projection (no shape table)
+    add_executable(ingest_safetensor_4d src/ingest_safetensor_4d.cpp)
+    target_include_directories(ingest_safetensor_4d PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(ingest_safetensor_4d hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
     
     add_executable(extract_embeddings src/extract_embeddings.cpp)
     target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
@@ -532,29 +571,6 @@ if(PostgreSQL_FOUND)
     add_executable(manifold_4d src/manifold_4d.cpp)
     target_include_directories(manifold_4d PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(manifold_4d ${PostgreSQL_LIBRARIES} Threads::Threads)
-    
-    # -------------------------------------------------------------------------
-    # New modular ingester library
-    # -------------------------------------------------------------------------
-    add_library(hypercube_ingest STATIC
-        src/db/atom_cache.cpp
-        src/db/geometry.cpp
-        src/db/insert.cpp
-        src/ingest/cpe.cpp
-        src/ingest/universal.cpp
-        src/ingest/parallel_cpe.cpp
-        src/ingest/sequitur.cpp
-        src/ingest/pmi_contraction.cpp
-    )
-    target_include_directories(hypercube_ingest PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${PostgreSQL_INCLUDE_DIRS}
-    )
-    target_link_libraries(hypercube_ingest
-        hypercube_core
-        ${PostgreSQL_LIBRARIES}
-        Threads::Threads
-    )
     
     # New unified ingester tool
     add_executable(ingest src/ingest/main.cpp)

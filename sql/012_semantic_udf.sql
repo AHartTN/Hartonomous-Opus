@@ -98,7 +98,7 @@ RETURNS DOUBLE PRECISION AS $$
     )
     FROM atom a, atom b
     WHERE a.id = p_id1 AND b.id = p_id2;
-$$ LANGUAGE SQL STABLE;
+$$ LANGUAGE SQL STABLE PARALLEL SAFE;
 
 -- K-nearest neighbors (uses GIST index on centroid)
 CREATE OR REPLACE FUNCTION atom_knn(p_id BYTEA, p_k INTEGER DEFAULT 10)
@@ -109,20 +109,27 @@ RETURNS TABLE(neighbor_id BYTEA, distance DOUBLE PRECISION, depth INTEGER) AS $$
     WHERE a.id != p_id
     ORDER BY a.centroid <-> t.centroid
     LIMIT p_k;
-$$ LANGUAGE SQL STABLE;
+$$ LANGUAGE SQL STABLE PARALLEL SAFE;
 
--- Find atoms within Hilbert range (uses NUMERIC to avoid overflow)
+-- Find atoms within Hilbert range
+-- FIXED: Uses proper 128-bit composite ordering (hilbert_hi, hilbert_lo)
 CREATE OR REPLACE FUNCTION atom_hilbert_range(p_id BYTEA, p_range BIGINT, p_limit INTEGER DEFAULT 100)
 RETURNS TABLE(neighbor_id BYTEA, hilbert_dist NUMERIC) AS $$
-    WITH t AS (SELECT hilbert_lo::NUMERIC AS lo, hilbert_hi::NUMERIC AS hi FROM atom WHERE id = p_id)
-    SELECT a.id, ABS(a.hilbert_lo::NUMERIC - t.lo)
+    WITH t AS (SELECT hilbert_lo, hilbert_hi FROM atom WHERE id = p_id)
+    SELECT 
+        a.id, 
+        -- Proper 128-bit distance: |((hi1 - hi2) << 64) + (lo1 - lo2)|
+        ABS(
+            (a.hilbert_hi::NUMERIC - t.hilbert_hi::NUMERIC) * 18446744073709551616::NUMERIC +
+            (a.hilbert_lo::NUMERIC - t.hilbert_lo::NUMERIC)
+        ) AS hilbert_dist
     FROM atom a, t
     WHERE a.id != p_id
-      AND ABS(a.hilbert_hi::NUMERIC - t.hi) <= 1
-      AND ABS(a.hilbert_lo::NUMERIC - t.lo) <= p_range::NUMERIC
-    ORDER BY ABS(a.hilbert_lo::NUMERIC - t.lo)
+      AND a.hilbert_hi BETWEEN t.hilbert_hi - 1 AND t.hilbert_hi + 1
+      AND a.hilbert_lo BETWEEN t.hilbert_lo - p_range AND t.hilbert_lo + p_range
+    ORDER BY (a.hilbert_hi, a.hilbert_lo)  -- Composite ordering for 128-bit locality
     LIMIT p_limit;
-$$ LANGUAGE SQL STABLE;
+$$ LANGUAGE SQL STABLE PARALLEL SAFE;
 
 -- =============================================================================
 -- Composition Queries
