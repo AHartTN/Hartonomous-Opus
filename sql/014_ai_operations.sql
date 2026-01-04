@@ -5,7 +5,7 @@
 -- These SQL versions are fallbacks when C extension is unavailable.
 -- =============================================================================
 
-BEGIN;
+-- No transaction - allow partial success
 
 -- =============================================================================
 -- Semantic Edge Queries
@@ -92,21 +92,45 @@ RETURNS TABLE(result_id BYTEA, similarity DOUBLE PRECISION) AS $$
 $$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
--- Random Walk - USE C++ EXTENSION
+-- Random Walk - Pure SQL fallback (limited depth)
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION random_walk(p_seed BYTEA, p_steps INTEGER DEFAULT 10)
 RETURNS TABLE(step INTEGER, node_id BYTEA) AS $$
-    SELECT step, atom_id FROM hypercube_semantic_walk(p_seed, p_steps);
+    WITH RECURSIVE walk AS (
+        SELECT 0 AS step, p_seed AS node
+        UNION ALL
+        SELECT w.step + 1, 
+               (SELECT neighbor_id FROM semantic_neighbors(w.node, 100) ORDER BY random() LIMIT 1)
+        FROM walk w
+        WHERE w.step < p_steps AND w.node IS NOT NULL
+    )
+    SELECT step, node FROM walk WHERE node IS NOT NULL;
 $$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
--- Path Finding - USE C++ EXTENSION
+-- Path Finding - Pure SQL fallback (BFS, limited depth)
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION semantic_path(p_from BYTEA, p_to BYTEA, p_max_depth INTEGER DEFAULT 6)
 RETURNS TABLE(step INTEGER, node_id BYTEA) AS $$
-    SELECT step, atom_id FROM hypercube_semantic_path(p_from, p_to, p_max_depth);
+    -- Simple BFS returning first path found to target
+    WITH RECURSIVE bfs AS (
+        SELECT 0 AS step, p_from AS node, ARRAY[p_from] AS path, FALSE AS found
+        UNION ALL
+        SELECT b.step + 1, n.neighbor_id, b.path || n.neighbor_id,
+               n.neighbor_id = p_to
+        FROM bfs b
+        CROSS JOIN LATERAL semantic_neighbors(b.node, 20) n
+        WHERE b.step < p_max_depth 
+          AND NOT b.found
+          AND n.neighbor_id != ALL(b.path)
+    )
+    SELECT step, unnest(path) AS node_id 
+    FROM bfs 
+    WHERE found 
+    ORDER BY step 
+    LIMIT 1;
 $$ LANGUAGE SQL STABLE;
 
 -- =============================================================================

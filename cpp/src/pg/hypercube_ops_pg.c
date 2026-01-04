@@ -51,20 +51,21 @@ typedef struct WalkStep {
 
 /* ============================================================================
  * Load Semantic Edges from Database (ONE query)
- * Uses simple approach - avoid array operations that might crash
+ * Uses relation table for proper edge traversal
  * ============================================================================ */
 
 static SemanticEdge *load_all_edges(int *out_count)
 {
     int ret;
     
-    /* Query using unnest to get individual child elements */
+    /* Query using relation table to get composition children */
     const char *query = 
-        "SELECT c[1] as child1, c[2] as child2, "
-        "COALESCE(ST_M(ST_StartPoint(geom)), 1.0) as weight "
-        "FROM atom, LATERAL (SELECT children as c) sub "
-        "WHERE depth = 1 AND atom_count = 2 "
-        "AND array_length(children, 1) = 2 "
+        "SELECT r1.child_id as child1, r2.child_id as child2, "
+        "COALESCE(ST_M(ST_StartPoint(a.geom)), 1.0) as weight "
+        "FROM atom a "
+        "JOIN relation r1 ON r1.parent_id = a.id AND r1.relation_type = 'C' AND r1.ordinal = 1 "
+        "JOIN relation r2 ON r2.parent_id = a.id AND r2.relation_type = 'C' AND r2.ordinal = 2 "
+        "WHERE a.depth = 1 AND a.atom_count = 2 "
         "LIMIT 50000";
     
     ret = SPI_execute(query, true, 0);
@@ -529,18 +530,13 @@ Datum hypercube_batch_lookup(PG_FUNCTION_ARGS)
             }
         }
         
-        /* Build IN clause query */
-        if (SPI_connect() != SPI_OK_CONNECT) {
-            ereport(ERROR, (errmsg("SPI_connect failed")));
-        }
-        
-        /* Query with array */
+        /* Query with relation table for child counts */
         StringInfoData query;
         initStringInfo(&query);
         appendStringInfoString(&query, 
-            "SELECT id, depth, (value IS NOT NULL) as is_leaf, "
-            "array_length(children, 1) as child_count, ST_X(centroid) "
-            "FROM atom WHERE id = ANY(ARRAY[");
+            "SELECT a.id, a.depth, (a.value IS NOT NULL) as is_leaf, "
+            "(SELECT COUNT(*) FROM relation r WHERE r.parent_id = a.id AND r.relation_type = 'C')::int as child_count, ST_X(a.centroid) "
+            "FROM atom a WHERE a.id = ANY(ARRAY[");
         
         for (int i = 0; i < nelems; i++) {
             if (i > 0) appendStringInfoChar(&query, ',');
@@ -741,21 +737,24 @@ Datum hypercube_batch_reconstruct(PG_FUNCTION_ARGS)
             appendStringInfoString(&in_clause, "'::bytea)");
         }
 
-        /* Single recursive CTE query to load ALL descendants at once */
+        /* Single recursive CTE query using relation table */
         StringInfoData query;
         initStringInfo(&query);
         appendStringInfo(&query,
             "WITH RECURSIVE roots(id) AS (%s), "
             "tree AS ("
-            "  SELECT a.id, a.children, a.value, a.depth "
+            "  SELECT a.id, a.value, a.depth "
             "  FROM atom a JOIN roots r ON a.id = r.id "
             "  UNION "
-            "  SELECT a.id, a.children, a.value, a.depth "
+            "  SELECT a.id, a.value, a.depth "
             "  FROM atom a "
-            "  JOIN tree t ON a.id = ANY(t.children) "
+            "  JOIN relation rel ON rel.child_id = a.id AND rel.relation_type = 'C' "
+            "  JOIN tree t ON rel.parent_id = t.id "
             "  WHERE t.depth > 0"
             ") "
-            "SELECT DISTINCT id, children, value FROM tree",
+            "SELECT DISTINCT t.id, t.value, "
+            "  (SELECT array_agg(r.child_id ORDER BY r.ordinal) FROM relation r WHERE r.parent_id = t.id AND r.relation_type = 'C') as children "
+            "FROM tree t",
             in_clause.data);
 
         int ret = SPI_execute(query.data, true, 0);
@@ -779,8 +778,20 @@ Datum hypercube_batch_reconstruct(PG_FUNCTION_ARGS)
                 bytea *id_bytea = DatumGetByteaP(id_datum);
                 memcpy(node->id, VARDATA_ANY(id_bytea), HASH_SIZE);
 
-                /* Get children array */
-                Datum children_datum = SPI_getbinval(tuple, tupdesc, 2, &isnull);
+                /* Get value (for leaves) - now at column 2 */
+                Datum value_datum = SPI_getbinval(tuple, tupdesc, 2, &isnull);
+                if (!isnull) {
+                    bytea *value_bytea = DatumGetByteaP(value_datum);
+                    int vlen = VARSIZE_ANY_EXHDR(value_bytea);
+                    if (vlen > 0) {
+                        node->value = MemoryContextAlloc(funcctx->multi_call_memory_ctx, vlen);
+                        memcpy(node->value, VARDATA_ANY(value_bytea), vlen);
+                        node->value_len = vlen;
+                    }
+                }
+
+                /* Get children array (now at column 3, from subquery) */
+                Datum children_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
                 if (!isnull) {
                     ArrayType *children_arr = DatumGetArrayTypeP(children_datum);
                     Datum *child_elems;
@@ -800,18 +811,6 @@ Datum hypercube_batch_reconstruct(PG_FUNCTION_ARGS)
                                        VARDATA_ANY(child_bytea), HASH_SIZE);
                             }
                         }
-                    }
-                }
-
-                /* Get value (for leaves) */
-                Datum value_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
-                if (!isnull) {
-                    bytea *value_bytea = DatumGetByteaP(value_datum);
-                    int vlen = VARSIZE_ANY_EXHDR(value_bytea);
-                    if (vlen > 0) {
-                        node->value = MemoryContextAlloc(funcctx->multi_call_memory_ctx, vlen);
-                        memcpy(node->value, VARDATA_ANY(value_bytea), vlen);
-                        node->value_len = vlen;
                     }
                 }
 

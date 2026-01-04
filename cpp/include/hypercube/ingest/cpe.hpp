@@ -53,6 +53,21 @@ namespace unicode {
 
 
 
+// Node roles for semantic typing within the Merkle DAG
+enum class NodeRole : int16_t {
+    Generic = 0,            // default composition
+    UnicodeAtom = 1,        // leaf (codepoint)
+    Token = 2,              // word/subword
+    Sentence = 3,           // sentence
+    Paragraph = 4,          // paragraph
+    DocumentContentRoot = 5,// root of document content tree
+    FileInfoRoot = 6,       // file info node (name, size, etc.)
+    FileMetadataRoot = 7,   // file metadata node (hash, timestamp, etc.)
+    FileRoot = 8,           // parent ingestion node (combines info+meta+content)
+    AstNode = 9,            // AST node (for code/structured content)
+    KvPair = 10             // key-value metadata pair
+};
+
 // Child info for building LINESTRINGZM
 struct ChildInfo {
     Blake3Hash hash;
@@ -68,6 +83,7 @@ struct CompositionRecord {
     int64_t hilbert_lo, hilbert_hi;
     uint32_t depth;                               // Depth tier (1 = direct child of leaves)
     uint64_t atom_count;                          // Total leaves in subtree
+    NodeRole node_role = NodeRole::Generic;       // Semantic role in DAG
     
     std::vector<ChildInfo> children;              // N children, ordered (NOT just 2)
 };

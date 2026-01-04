@@ -1,11 +1,14 @@
 // Safetensor Package Ingester
 // Ingests complete HuggingFace model packages:
-// - vocab.txt -> token compositions  
+// - vocab.txt -> token compositions (from atoms, zero DB roundtrips)
 // - tokenizer.json -> BPE merge rules -> semantic edges
 // - model.safetensors -> weight matrix -> sparse semantic edges
 //
 // The embedding vectors are IGNORED - we only extract relationships.
 // Weights become edge strengths (M coordinate).
+//
+// KEY INSIGHT: All atom/composition properties are computed client-side
+// using AtomCalculator. No database roundtrips for property computation.
 
 #include <iostream>
 #include <fstream>
@@ -21,6 +24,7 @@
 #include "hypercube/types.hpp"
 #include "hypercube/blake3.hpp"
 #include "hypercube/hilbert.hpp"
+#include "hypercube/atom_calculator.hpp"
 
 namespace fs = std::filesystem;
 using namespace hypercube;
@@ -32,11 +36,10 @@ struct IngestConfig {
     bool verbose = false;
 };
 
+// TokenInfo now stores full composition data computed locally
 struct TokenInfo {
     std::string text;
-    Blake3Hash hash;
-    int32_t coord_x, coord_y, coord_z, coord_m;
-    int64_t hilbert_lo, hilbert_hi;
+    CompositionRecord comp;  // Full composition with hash, coords, children, etc.
 };
 
 // Use unified SemanticEdge from types.hpp
@@ -46,7 +49,13 @@ static std::unordered_map<std::string, size_t> g_token_to_idx;
 
 // Forward declarations
 std::vector<SemanticEdge> extract_safetensor_weights(const fs::path& safetensor_path, const IngestConfig& config);
+bool insert_vocab_compositions(PGconn* conn);
 
+/**
+ * Parse vocab.txt and compute compositions for each token
+ * All computation is done client-side via AtomCalculator
+ * ZERO database roundtrips during parsing
+ */
 bool parse_vocab(const fs::path& vocab_path) {
     std::ifstream file(vocab_path);
     if (!file) {
@@ -60,13 +69,17 @@ bool parse_vocab(const fs::path& vocab_path) {
         
         TokenInfo info;
         info.text = line;
-        info.hash = Blake3Hasher::hash(std::string_view(line));
+        
+        // Compute full composition client-side (no DB access!)
+        // "captain" -> decode to codepoints -> compute atom coords/hashes
+        // -> compute composition hash, centroid, hilbert, depth, atom_count
+        info.comp = AtomCalculator::compute_vocab_token(line);
         
         g_token_to_idx[line] = g_vocab.size();
         g_vocab.push_back(info);
     }
     
-    std::cerr << "[VOCAB] Loaded " << g_vocab.size() << " tokens\n";
+    std::cerr << "[VOCAB] Loaded " << g_vocab.size() << " tokens (computed locally)\n";
     return true;
 }
 
@@ -129,14 +142,173 @@ std::vector<SemanticEdge> merges_to_edges(
         
         float weight = (max_weight - static_cast<float>(i)) / max_weight;
         
-        Blake3Hash left_hash = Blake3Hasher::hash(std::string_view(left));
-        Blake3Hash right_hash = Blake3Hasher::hash(std::string_view(right));
+        // Use proper composition hashes, not string hashes
+        CompositionRecord left_comp = AtomCalculator::compute_vocab_token(left);
+        CompositionRecord right_comp = AtomCalculator::compute_vocab_token(right);
         
-        edges.push_back({left_hash, right_hash, weight});
+        edges.push_back({left_comp.hash, right_comp.hash, weight});
     }
     
     std::cerr << "[BPE] Created " << edges.size() << " semantic edges\n";
     return edges;
+}
+
+// Helper to build LINESTRINGZM EWKB hex
+std::string build_linestringzm_ewkb(const std::vector<Point4D>& points) {
+    if (points.size() < 2) return "";
+    
+    std::string ewkb;
+    ewkb.reserve(26 + points.size() * 64);
+    
+    // Header: little-endian (01), type=LINESTRINGZM with SRID (020000e0), SRID=0 (00000000)
+    ewkb += "01";           // Little-endian
+    ewkb += "020000e0";     // LINESTRINGZM with SRID flag
+    ewkb += "00000000";     // SRID = 0
+    
+    // Number of points (4 bytes little-endian)
+    uint32_t n = static_cast<uint32_t>(points.size());
+    char buf[9];
+    snprintf(buf, sizeof(buf), "%02x%02x%02x%02x",
+             n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF);
+    ewkb += buf;
+    
+    // Each point: x, y, z, m as little-endian doubles
+    for (const auto& pt : points) {
+        // Convert int32 coords to double
+        auto write_double = [&ewkb](int32_t coord) {
+            double d = static_cast<double>(coord);
+            uint64_t bits;
+            std::memcpy(&bits, &d, sizeof(bits));
+            char hex[17];
+            for (int i = 0; i < 8; ++i) {
+                snprintf(hex + i * 2, 3, "%02x", static_cast<unsigned>(bits & 0xFF));
+                bits >>= 8;
+            }
+            ewkb += hex;
+        };
+        
+        write_double(static_cast<int32_t>(pt.x));
+        write_double(static_cast<int32_t>(pt.y));
+        write_double(static_cast<int32_t>(pt.z));
+        write_double(static_cast<int32_t>(pt.m));
+    }
+    
+    return ewkb;
+}
+
+/**
+ * Insert vocab token compositions into the database
+ * All properties already computed client-side by AtomCalculator
+ * Single batch COPY with zero roundtrips during computation
+ */
+bool insert_vocab_compositions(PGconn* conn) {
+    if (g_vocab.empty()) return true;
+    
+    std::cerr << "[VOCAB] Inserting " << g_vocab.size() << " token compositions...\n";
+    
+    PGresult* res = PQexec(conn, "BEGIN");
+    PQclear(res);
+    
+    res = PQexec(conn,
+        "CREATE TEMP TABLE tmp_atom ("
+        "  id BYTEA,"
+        "  geom TEXT,"
+        "  children BYTEA[],"
+        "  hilbert_lo BIGINT,"
+        "  hilbert_hi BIGINT,"
+        "  depth INTEGER,"
+        "  atom_count BIGINT"
+        ") ON COMMIT DROP");
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "Create tmp_atom failed: " << PQerrorMessage(conn) << "\n";
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    PQclear(res);
+    
+    res = PQexec(conn, "COPY tmp_atom FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+    if (PQresultStatus(res) != PGRES_COPY_IN) {
+        std::cerr << "COPY start failed\n";
+        PQclear(res);
+        return false;
+    }
+    PQclear(res);
+    
+    std::string batch;
+    batch.reserve(1 << 20);
+    
+    for (const auto& token : g_vocab) {
+        const auto& c = token.comp;
+        
+        // Skip single-char tokens (they're just atoms, already seeded)
+        if (c.children.size() <= 1) continue;
+        
+        // id (hash)
+        batch += "\\\\x";
+        batch += c.hash.to_hex();
+        batch += "\t";
+        
+        // geom (LINESTRINGZM EWKB)
+        batch += build_linestringzm_ewkb(c.child_coords);
+        batch += "\t";
+        
+        // children array
+        batch += "{";
+        for (size_t i = 0; i < c.children.size(); ++i) {
+            if (i > 0) batch += ",";
+            batch += "\"\\\\\\\\x";
+            batch += c.children[i].to_hex();
+            batch += "\"";
+        }
+        batch += "}\t";
+        
+        // hilbert_lo, hilbert_hi, depth, atom_count
+        batch += std::to_string(static_cast<int64_t>(c.hilbert.lo));
+        batch += "\t";
+        batch += std::to_string(static_cast<int64_t>(c.hilbert.hi));
+        batch += "\t";
+        batch += std::to_string(c.depth);
+        batch += "\t";
+        batch += std::to_string(c.atom_count);
+        batch += "\n";
+        
+        if (batch.size() > (1 << 19)) {
+            PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+            batch.clear();
+        }
+    }
+    
+    if (!batch.empty()) {
+        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+    }
+    
+    PQputCopyEnd(conn, nullptr);
+    res = PQgetResult(conn);
+    PQclear(res);
+    
+    // Insert with upsert (on conflict do nothing)
+    res = PQexec(conn,
+        "INSERT INTO atom (id, geom, children, hilbert_lo, hilbert_hi, depth, atom_count) "
+        "SELECT id, geom::geometry, children, hilbert_lo, hilbert_hi, depth, atom_count "
+        "FROM tmp_atom "
+        "ON CONFLICT (id) DO NOTHING");
+    
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "Vocab insert failed: " << PQerrorMessage(conn) << "\n";
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    
+    int inserted = atoi(PQcmdTuples(res));
+    PQclear(res);
+    
+    res = PQexec(conn, "COMMIT");
+    PQclear(res);
+    
+    std::cerr << "[VOCAB] Inserted " << inserted << " new token compositions\n";
+    return true;
 }
 
 bool insert_edges(PGconn* conn, const std::vector<SemanticEdge>& edges, float threshold) {
@@ -292,6 +464,10 @@ int main(int argc, char* argv[]) {
     if (!vocab_path.empty()) {
         std::cerr << "[1] Parsing vocab: " << vocab_path << "\n";
         parse_vocab(vocab_path);
+        
+        // Insert vocab tokens as compositions (computed locally, single batch write)
+        std::cerr << "[1b] Inserting vocab compositions...\n";
+        insert_vocab_compositions(conn);
     }
     
     if (!tokenizer_path.empty()) {
@@ -419,9 +595,9 @@ std::vector<SemanticEdge> extract_safetensor_weights(const fs::path& safetensor_
             }
         }
         
-        // Create edges
+        // Create edges using proper composition hashes
         for (auto [weight, j] : top_k) {
-            edges.push_back({g_vocab[i].hash, g_vocab[j].hash, weight});
+            edges.push_back({g_vocab[i].comp.hash, g_vocab[j].comp.hash, weight});
         }
         
         file.seekg(current_pos);

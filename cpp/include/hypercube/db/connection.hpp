@@ -1,17 +1,31 @@
 #pragma once
 
 #include <string>
+#include <cstdlib>
 #include <libpq-fe.h>
 
 namespace hypercube::db {
 
 // Database connection configuration
 struct ConnectionConfig {
-    std::string dbname = "hypercube";
-    std::string host = "localhost";
-    std::string port = "5432";
+    std::string dbname;
+    std::string host;
+    std::string port;
     std::string user;
     std::string password;
+    
+    ConnectionConfig() {
+        // Read from HC_DB_* env vars with defaults
+        auto get_env = [](const char* name, const char* def) -> std::string {
+            const char* val = std::getenv(name);
+            return val ? val : def;
+        };
+        dbname = get_env("HC_DB_NAME", "hypercube");
+        host = get_env("HC_DB_HOST", "localhost");
+        port = get_env("HC_DB_PORT", "5432");
+        user = get_env("HC_DB_USER", "hartonomous");
+        password = get_env("HC_DB_PASS", "hartonomous");
+    }
     
     // Build libpq connection string
     std::string to_conninfo() const {
@@ -41,6 +55,10 @@ struct ConnectionConfig {
         }
         if ((arg == "-U" || arg == "--user") && i + 1 < argc) {
             user = argv[++i];
+            return true;
+        }
+        if ((arg == "-W" || arg == "--password") && i + 1 < argc) {
+            password = argv[++i];
             return true;
         }
         return false;

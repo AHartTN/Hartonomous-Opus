@@ -326,18 +326,18 @@ Datum semantic_reconstruct(PG_FUNCTION_ARGS)
     if (SPI_connect() != SPI_OK_CONNECT)
         ereport(ERROR, (errmsg("SPI_connect failed")));
     
-    /* Use a CTE to do the traversal in SQL - much safer than recursive SPI */
+    /* Use a CTE with relation table for traversal */
     char query[1024];
     snprintf(query, sizeof(query),
         "WITH RECURSIVE tree AS ("
-        "  SELECT id, children, value, 1 as ord, ARRAY[1] as path "
+        "  SELECT id, value, 1 as ord, ARRAY[1] as path "
         "  FROM atom WHERE id = '\\x%s' "
         "  UNION ALL "
-        "  SELECT a.id, a.children, a.value, c.ordinal::int, t.path || c.ordinal::int "
+        "  SELECT a.id, a.value, r.ordinal, t.path || r.ordinal "
         "  FROM tree t "
-        "  CROSS JOIN LATERAL unnest(t.children) WITH ORDINALITY AS c(child_id, ordinal) "
-        "  JOIN atom a ON a.id = c.child_id "
-        "  WHERE t.children IS NOT NULL "
+        "  JOIN relation r ON r.parent_id = t.id AND r.relation_type = 'C' "
+        "  JOIN atom a ON a.id = r.child_id "
+        "  WHERE t.value IS NULL "
         ") "
         "SELECT convert_from(string_agg(value, ''::bytea ORDER BY path), 'UTF8') "
         "FROM tree WHERE value IS NOT NULL",

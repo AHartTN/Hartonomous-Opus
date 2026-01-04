@@ -150,9 +150,9 @@ bool copy_partition(const std::string& conninfo, int partition_id,
     }
 
     // COPY to unified atom table
-    // Schema: id, geom, children, value, codepoint, hilbert_lo, hilbert_hi, depth, atom_count
+    // Schema: id, geom, value, codepoint, hilbert_lo, hilbert_hi, depth, atom_count
     std::string copy_cmd =
-        "COPY atom (id, geom, children, value, codepoint, hilbert_lo, hilbert_hi, depth, atom_count) "
+        "COPY atom (id, geom, value, codepoint, hilbert_lo, hilbert_hi, depth, atom_count) "
         "FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')";
 
     PGresult* res = PQexec(conn, copy_cmd.c_str());
@@ -200,10 +200,6 @@ bool copy_partition(const std::string& conninfo, int partition_id,
 
         // geom (POINTZM)
         batch += ewkb;
-        batch += '\t';
-
-        // children (NULL for leaves)
-        batch += "\\N";
         batch += '\t';
 
         // value (UTF-8 bytes)

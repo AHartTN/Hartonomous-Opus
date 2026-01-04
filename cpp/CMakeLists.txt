@@ -96,6 +96,8 @@ add_library(hypercube_core STATIC
     src/coordinates.cpp
     src/blake3_pg.cpp
     src/ops.cpp
+    src/util/utf8.cpp
+    src/atom_calculator.cpp
 )
 
 target_include_directories(hypercube_core PUBLIC 
@@ -376,11 +378,14 @@ if(PostgreSQL_FOUND)
     # New modular ingester library
     # -------------------------------------------------------------------------
     add_library(hypercube_ingest STATIC
-        src/util/utf8.cpp
         src/db/atom_cache.cpp
         src/db/geometry.cpp
         src/db/insert.cpp
         src/ingest/cpe.cpp
+        src/ingest/universal.cpp
+        src/ingest/parallel_cpe.cpp
+        src/ingest/sequitur.cpp
+        src/ingest/pmi_contraction.cpp
     )
     target_include_directories(hypercube_ingest PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -389,6 +394,7 @@ if(PostgreSQL_FOUND)
     target_link_libraries(hypercube_ingest
         hypercube_core
         ${PostgreSQL_LIBRARIES}
+        Threads::Threads
     )
     
     # New unified ingester tool

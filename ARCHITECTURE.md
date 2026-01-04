@@ -130,31 +130,62 @@ atom (
 
 ## Ingestion Pipeline
 
-### Current Implementation (C++ N-ary Ingester)
+### Universal Substrate Ingester (C++ Implementation)
 
 ```
-File → UTF-8 decode → Codepoints → Tokenize → Hierarchical Tiers → Batch Insert
+Input → Integer Sequence → Sliding Window → Vocabulary Match → Hierarchical Tiers → Batch Insert
 ```
 
-**Hierarchical Tiering (Language-Agnostic via Unicode UAX #29)**:
+**The substrate is COMPLETELY AGNOSTIC.** It doesn't know or care what it's ingesting:
+
+| Input Type | Tier 0 Alphabet | Example |
+|------------|-----------------|---------|
+| Text | Unicode codepoints (1.1M) | "Hello" = [H,e,l,l,o] |
+| Binary | Byte values (256) | [0x48,0x65,0x6c,0x6c,0x6f] |
+| Audio | Sample amplitudes | [-32768...32767] or [0...65535] |
+| Image | Pixel values | [0...255] per channel |
+| Numbers | Codepoints | "0.987" = [0,.,9,8,7] |
+
+**All are just sequences of integers.** Same algorithm, same storage, same semantics.
+
+### Greedy Pattern Matching (Vocabulary-driven)
+
 ```
-Tier 0: Unicode atoms (codepoints) - pre-seeded on perimeter
-Tier 1: Words - sequences between Unicode whitespace (Zs category)
-Tier 2: Sentences - groups ending at Unicode sentence punctuation
-Tier 3: Paragraphs - groups between paragraph separators (double newline, U+2029)
-Tier 4: Document - root composition of all paragraphs
+Tier 0: Atoms (seeded alphabet - Unicode codepoints, bytes, etc.)
+        "The cat sat" → [T,h,e, ,c,a,t, ,s,a,t] (11 atoms, including spaces)
+        
+Tier 1+: N-ary compositions discovered through greedy matching
+         First pass (empty vocab): composition([T,h,e, ,c,a,t, ,s,a,t])
+         After learning "the", "cat", "sat" patterns:
+           composition([The, ,cat, ,sat]) where The=composition([T,h,e])
 ```
 
-**Tokenization is Language-Agnostic**:
-- Uses Unicode General Categories, not hardcoded English punctuation
-- Whitespace: ASCII + Unicode Zs (space separators) + line/paragraph separators
-- Sentence-end: `.!?` + CJK (。！？) + Arabic (۔؟) + Devanagari (।॥) + etc.
-- Paragraph: Double newline, U+2029 (Paragraph Separator), etc.
+**No linguistic rules. No language detection. No special cases.**
 
-**Hash Computation**:
+- "Hello world" = H,e,l,l,o, ,w,o,r,l,d (11 atoms) - space is codepoint 32
+- "public class" = p,u,b,l,i,c, ,c,l,a,s,s (12 atoms)  
+- "{ get; set; }" = {, ,g,e,t,;, ,s,e,t,;, ,} (13 atoms)
+- "0.987" = 0,.,9,8,7 (5 atoms)
+- Attention weight 0.987 in a model? Same thing - text representation.
+
+**The vocabulary trie builds organically through usage:**
+1. Ingest content → greedy match against known vocabulary
+2. Unmatched sequences become new compositions
+3. New compositions added to vocabulary trie
+4. Next ingest → trie matches known patterns, creates new for unknown
+5. Over time → vocabulary grows, compression improves, patterns emerge
+
+**Depth and atom_count computation:**
 ```
-hash = BLAKE3(child[0].hash || child[1].hash || ... || child[N-1].hash)
+depth = max(child depths) + 1      // Atoms are depth 0
+atom_count = sum(child atom_counts) // Atoms have atom_count 1
 ```
+
+**Hash Computation (N-ary, position-sensitive):**
+```
+hash = BLAKE3(ord_0 || hash_0 || ord_1 || hash_1 || ... || ord_N-1 || hash_N-1)
+```
+Each ordinal is 4 bytes (uint32), position in the sequence matters.
 
 **Centroid Computation**:
 ```
@@ -165,10 +196,10 @@ centroid.m = average(child[i].m for all i)
 ```
 
 ### What C++ Does (Heavy Lifting)
-1. Load atom cache once (codepoint → hash, coords)
-2. UTF-8 decode
-3. Unicode-based tokenization (UAX #29 compliant)
-4. Hierarchical tier building (words → sentences → paragraphs → document)
+1. Load atom cache once (token ID → hash, coords)
+2. Decode input to integer sequence (codepoints, bytes, samples, etc.)
+3. Greedy longest-match against vocabulary trie
+4. Create N-ary compositions for unmatched sequences
 5. Hash computation (BLAKE3), centroid calculation, Hilbert indexing
 6. Batch COPY to PostgreSQL (parallel connections)
 
@@ -228,11 +259,11 @@ uint32_to_int32(BIGINT) → INTEGER  -- Subtract 2^32 if >= 2^31
    ST_X(coords) * 4294967295  -- Double precision loses bits
    ```
 
-3. **Sliding window n-grams**:
-   ```sql
-   -- BAD: O(n²) explosion, not natural tokenization
-   FOR i IN 1..(len - ngram_size + 1)
-       v_ngram_ids := array_append(v_ngram_ids, substring(...))
+3. **Linguistic tokenization**:
+   ```c++
+   // BAD: Language-specific, loses semantic structure
+   split_on_whitespace("Hello world");  // Assumes English-like words
+   sentence_boundary_detection();        // Language-specific rules
    ```
 
 4. **Line-by-line ingestion**:
@@ -261,11 +292,11 @@ uint32_to_int32(BIGINT) → INTEGER  -- Subtract 2^32 if >= 2^31
    centroid.x = sum_x / children.size();
    ```
 
-3. **Whole-file ingestion with tokenization**:
+3. **Whole-file ingestion as codepoint sequence**:
    ```c++
-   auto codepoints = decode_utf8(read_file(path));
-   auto tokens = tokenize(codepoints);  // Split at whitespace
-   auto compositions = build_hierarchy(tokens);
+   auto codepoints = decode_utf8(read_file(path));  // No tokenization!
+   auto root = ingester.ingest(codepoints, atom_cache, new_comps);
+   // Greedy vocabulary matching handles composition boundaries
    ```
 
 4. **COPY for batch insert**:

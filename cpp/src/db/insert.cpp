@@ -100,7 +100,7 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     }
     PQclear(res);
     
-    // COPY into staging table - use TEXT format (tab delimited)
+    // COPY atoms into staging table - use TEXT format (tab delimited)
     res = PQexec(conn, "COPY tmp_atom FROM STDIN WITH (FORMAT text)");
     if (PQresultStatus(res) != PGRES_COPY_IN) {
         std::cerr << "COPY failed: " << PQerrorMessage(conn) << std::endl;
@@ -110,7 +110,7 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     }
     PQclear(res);
     
-    // Send data rows (tab-delimited, \N for NULL)
+    // Send atom data rows (tab-delimited, \N for NULL)
     for (const auto& c : comps) {
         std::ostringstream line;
         
@@ -125,21 +125,13 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
         }
         line << build_linestringzm_ewkb(points) << "\t";
         
-        // children array - PostgreSQL array literal format for bytea[]
-        // Format: {"\\x<hex>","\\x<hex>",...}
-        line << "{";
-        for (size_t i = 0; i < c.children.size(); ++i) {
-            if (i > 0) line << ",";
-            line << "\"\\\\\\\\x" << c.children[i].hash.to_hex() << "\"";
-        }
-        line << "}\t";
-        
         // value (NULL for compositions)
         line << "\\N\t";
         
-        // hilbert_lo, hilbert_hi, depth, atom_count
+        // hilbert_lo, hilbert_hi, depth, atom_count, node_role
         line << c.hilbert_lo << "\t" << c.hilbert_hi << "\t"
-             << c.depth << "\t" << c.atom_count << "\n";
+             << c.depth << "\t" << c.atom_count << "\t"
+             << static_cast<int16_t>(c.node_role) << "\n";
         
         std::string data = line.str();
         if (PQputCopyData(conn, data.c_str(), static_cast<int>(data.size())) != 1) {
@@ -165,7 +157,7 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     }
     PQclear(res);
     
-    // Use SQL function to finalize (upsert from staging to atom)
+    // Use SQL function to finalize atoms (upsert from staging to atom)
     res = PQexec(conn, "SELECT batch_insert_finalize()");
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         std::cerr << "Finalize failed: " << PQerrorMessage(conn) << std::endl;
@@ -176,13 +168,56 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     int inserted = std::atoi(PQgetvalue(res, 0, 0));
     PQclear(res);
     
+    // Now insert relations (composition type 'C')
+    res = PQexec(conn, "COPY relation (parent_id, child_id, ordinal, relation_type) FROM STDIN WITH (FORMAT text)");
+    if (PQresultStatus(res) != PGRES_COPY_IN) {
+        std::cerr << "COPY relation failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    PQclear(res);
+    
+    // Send relation rows
+    for (const auto& c : comps) {
+        for (size_t i = 0; i < c.children.size(); ++i) {
+            std::ostringstream line;
+            line << "\\\\x" << c.hash.to_hex() << "\t"           // parent_id
+                 << "\\\\x" << c.children[i].hash.to_hex() << "\t"  // child_id
+                 << (i + 1) << "\t"                                  // ordinal (1-based)
+                 << "C\n";                                           // relation_type
+            
+            std::string data = line.str();
+            if (PQputCopyData(conn, data.c_str(), static_cast<int>(data.size())) != 1) {
+                std::cerr << "PQputCopyData relation failed\n";
+                PQputCopyEnd(conn, "error");
+                PQexec(conn, "ROLLBACK");
+                return false;
+            }
+        }
+    }
+    
+    if (PQputCopyEnd(conn, nullptr) != 1) {
+        std::cerr << "PQputCopyEnd relation failed\n";
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    
+    res = PQgetResult(conn);
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "COPY relation result: " << PQerrorMessage(conn) << std::endl;
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    PQclear(res);
+    
     res = PQexec(conn, "COMMIT");
     PQclear(res);
     
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cerr << "[DB] Inserted " << inserted << " of " << comps.size() 
-              << " compositions in " << ms << " ms\n";
+    std::cerr << "[DB] Inserted " << inserted << " atoms with relations in " << ms << " ms\n";
     
     return true;
 }

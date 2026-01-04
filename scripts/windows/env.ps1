@@ -91,6 +91,10 @@ function HC-PSQL-File {
     Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
 }
 
-Write-Host "Hartonomous environment loaded"
-Write-Host "  Database: $env:HC_DB_NAME @ $env:HC_DB_HOST`:$env:HC_DB_PORT"
-Write-Host "  Project:  $env:HC_PROJECT_ROOT"
+# Only print banner once per session
+if (-not $env:HC_ENV_LOADED) {
+    $env:HC_ENV_LOADED = "1"
+    Write-Host "Hartonomous environment loaded"
+    Write-Host "  Database: $env:HC_DB_NAME @ $env:HC_DB_HOST`:$env:HC_DB_PORT"
+    Write-Host "  Project:  $env:HC_PROJECT_ROOT"
+}

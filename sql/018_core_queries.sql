@@ -268,12 +268,12 @@ BEGIN
     CREATE TEMP TABLE tmp_atom (
         id BYTEA,
         geom TEXT,
-        children BYTEA[],
         value BYTEA,
         hilbert_lo BIGINT,
         hilbert_hi BIGINT,
         depth INTEGER,
-        atom_count BIGINT
+        atom_count BIGINT,
+        node_role SMALLINT DEFAULT 0
     ) ON COMMIT DROP;
 END;
 $$ LANGUAGE plpgsql;
@@ -284,8 +284,8 @@ RETURNS INTEGER AS $$
 DECLARE
     v_count INTEGER;
 BEGIN
-    INSERT INTO atom (id, geom, children, value, hilbert_lo, hilbert_hi, depth, atom_count)
-    SELECT id, geom::geometry, children, value, hilbert_lo, hilbert_hi, depth, atom_count
+    INSERT INTO atom (id, geom, value, hilbert_lo, hilbert_hi, depth, atom_count, node_role)
+    SELECT id, geom::geometry, value, hilbert_lo, hilbert_hi, depth, atom_count, COALESCE(node_role, 0)
     FROM tmp_atom
     ON CONFLICT (id) DO NOTHING;
     
@@ -313,11 +313,13 @@ BEGIN
     details := CASE WHEN passed THEN 'OK' ELSE 'Found leaves without codepoints' END;
     RETURN NEXT;
     
-    -- Check 2: All compositions have children
-    check_name := 'compositions_have_children';
+    -- Check 2: All compositions have relations
+    check_name := 'compositions_have_relations';
     SELECT COUNT(*) = 0 INTO passed
-    FROM atom WHERE depth > 0 AND children IS NULL;
-    details := CASE WHEN passed THEN 'OK' ELSE 'Found compositions without children' END;
+    FROM atom a
+    WHERE a.depth > 0 
+      AND NOT EXISTS (SELECT 1 FROM relation r WHERE r.parent_id = a.id AND r.relation_type = 'C');
+    details := CASE WHEN passed THEN 'OK' ELSE 'Found compositions without relations' END;
     RETURN NEXT;
     
     -- Check 3: All have valid geometry

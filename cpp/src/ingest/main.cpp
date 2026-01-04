@@ -1,23 +1,25 @@
 /**
- * Unified Ingester - N-ary token-aware ingestion
+ * Universal Substrate Ingester
  * 
- * Single tool for ingesting content into the Hypercube:
- * 1. Scan files to extract unique codepoints
+ * Single tool for ingesting any content into the Hypercube:
+ * 1. Scan files to extract integer sequence (codepoints, bytes, etc.)
  * 2. Load only needed atoms from database
- * 3. Build Merkle DAG via N-ary compositions (NOT binary trees)
+ * 3. Sliding window pattern discovery (like BPE/Sequitur)
  * 4. Batch insert compositions
  * 
- * Compositions are built at natural token boundaries:
- * - "the" = ONE composition with children [t, h, e]
- * - Sentences = composition of word compositions
- * - Documents = hierarchical composition of all content
+ * The substrate is COMPLETELY AGNOSTIC:
+ * - "Hello world" = [H,e,l,l,o, ,w,o,r,l,d]
+ * - "public class" = [p,u,b,l,i,c, ,c,l,a,s,s]
+ * - "0.987" = [0,.,9,8,7]
+ * 
+ * No linguistic rules. No language detection. Pure pattern discovery.
  */
 
 #include "hypercube/util/utf8.hpp"
 #include "hypercube/db/atom_cache.hpp"
 #include "hypercube/db/insert.hpp"
 #include "hypercube/db/connection.hpp"
-#include "hypercube/ingest/cpe.hpp"
+#include "hypercube/ingest/pmi_contraction.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -89,7 +91,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    std::cerr << "=== Hypercube Ingester (N-ary) ===\n";
+    std::cerr << "=== Hypercube Universal Ingester ===\n";
     std::cerr << "Target: " << target << "\n\n";
     
     // Phase 1: Collect files and extract unique codepoints
@@ -125,65 +127,53 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Phase 2: Connect and load atoms
-    db::Connection conn(config);
-    if (!conn.ok()) {
-        std::cerr << "Connection failed: " << conn.error() << "\n";
-        return 1;
-    }
-    
-    std::unordered_map<uint32_t, db::AtomInfo> atom_cache;
-    if (!db::load_atoms_for_codepoints(conn.get(), all_codepoints, atom_cache)) {
-        return 1;
-    }
-    
-    // Phase 3: Process files with N-ary token-aware ingestion
+    // Phase 2: PMI-Based Geometric Contraction - ZERO DATABASE until final insert
+    // Uses Pointwise Mutual Information for cohesion, geodesic midpoints for positioning
+    ingest::PMIIngester ingester(0, 0.0);  // Auto-detect threads, PMI threshold 0
     std::vector<ingest::CompositionRecord> all_comps;
-    std::unordered_map<std::string, ingest::CompositionRecord> comp_cache;
     all_comps.reserve(1000000);
     
     for (const auto& [fpath, content] : files) {
-        size_t before = all_comps.size();
         auto start_file = std::chrono::high_resolution_clock::now();
         
-        // Decode UTF-8 to codepoints
-        auto codepoints = util::decode_utf8(content);
+        // Parallel CPE ingestion
+        auto roots = ingester.ingest(content, all_comps);
         
-        if (codepoints.size() > 1) {
-            // Use new N-ary token-aware ingestion
-            // "the" = ONE composition [t, h, e], NOT binary tree
-            Blake3Hash root = ingest::ingest_text(codepoints, atom_cache, all_comps, comp_cache);
-            
-            if (files.size() == 1 && !root.is_zero()) {
-                std::cout << root.to_hex() << "\n";
-            }
+        if (files.size() == 1 && !roots.empty() && !roots[0].is_zero()) {
+            std::cout << roots[0].to_hex() << "\n";
         }
         
         auto end_file = std::chrono::high_resolution_clock::now();
         double file_secs = std::chrono::duration<double>(end_file - start_file).count();
         
         std::cerr << "[OK] " << content.size() << " bytes → " 
-                  << (all_comps.size() - before) << " compositions (" 
+                  << all_comps.size() << " compositions (" 
                   << std::fixed << std::setprecision(2) << file_secs << "s)\n";
     }
     
-    // Phase 4: Insert to database (with cross-session deduplication)
+    // Phase 3: Connect and insert (ONLY database operation)
     if (!all_comps.empty()) {
+        std::cerr << "[DB] Connecting...\n";
+        db::Connection conn(config);
+        if (!conn.ok()) {
+            std::cerr << "Connection failed: " << conn.error() << "\n";
+            return 1;
+        }
         db::insert_new_compositions(conn.get(), all_comps);
+        
+        // Stats using SQL function
+        PGresult* res = PQexec(conn.get(), "SELECT * FROM db_stats()");
+        if (PQresultStatus(res) == PGRES_TUPLES_OK && PQntuples(res) > 0) {
+            std::cerr << "\nDatabase: " << PQgetvalue(res, 0, 0) << " atoms, "
+                      << PQgetvalue(res, 0, 1) << " compositions, "
+                      << "depth " << PQgetvalue(res, 0, 2) << ", "
+                      << PQgetvalue(res, 0, 3) << "\n";
+        }
+        PQclear(res);
     }
     
     auto end = std::chrono::high_resolution_clock::now();
     double secs = std::chrono::duration<double>(end - start).count();
-    
-    // Stats using SQL function
-    PGresult* res = PQexec(conn.get(), "SELECT * FROM db_stats()");
-    if (PQresultStatus(res) == PGRES_TUPLES_OK && PQntuples(res) > 0) {
-        std::cerr << "\nDatabase: " << PQgetvalue(res, 0, 0) << " atoms, "
-                  << PQgetvalue(res, 0, 1) << " compositions, "
-                  << "depth " << PQgetvalue(res, 0, 2) << ", "
-                  << PQgetvalue(res, 0, 3) << "\n";
-    }
-    PQclear(res);
     
     std::cerr << "Completed in " << std::fixed << std::setprecision(2) << secs << "s\n";
     
