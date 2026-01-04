@@ -1,8 +1,9 @@
 -- =============================================================================
--- Hartonomous Hypercube - AI Operations v4
+-- Hartonomous Hypercube - AI Operations v5
 -- =============================================================================
 -- High-level AI operations. Complex graph algorithms use C extensions.
 -- These SQL versions are fallbacks when C extension is unavailable.
+-- Uses relation table for all edge traversal.
 -- =============================================================================
 
 -- No transaction - allow partial success
@@ -17,12 +18,14 @@
 CREATE OR REPLACE FUNCTION semantic_neighbors(p_id BYTEA, p_k INTEGER DEFAULT 20)
 RETURNS TABLE(neighbor_id BYTEA, weight DOUBLE PRECISION) AS $$
     SELECT 
-        CASE WHEN children[1] = p_id THEN children[2] ELSE children[1] END,
-        ST_M(ST_StartPoint(geom))
-    FROM atom
-    WHERE depth = 1 AND atom_count = 2
-      AND (children[1] = p_id OR children[2] = p_id)
-    ORDER BY ST_M(ST_StartPoint(geom)) DESC
+        CASE WHEN r1.child_id = p_id THEN r2.child_id ELSE r1.child_id END,
+        ST_M(ST_StartPoint(a.geom))
+    FROM atom a
+    JOIN relation r1 ON r1.parent_id = a.id AND r1.relation_type = 'C' AND r1.ordinal = 1
+    JOIN relation r2 ON r2.parent_id = a.id AND r2.relation_type = 'C' AND r2.ordinal = 2
+    WHERE a.depth = 1 AND a.atom_count = 2
+      AND (r1.child_id = p_id OR r2.child_id = p_id)
+    ORDER BY ST_M(ST_StartPoint(a.geom)) DESC
     LIMIT p_k;
 $$ LANGUAGE SQL STABLE;
 
@@ -30,18 +33,19 @@ $$ LANGUAGE SQL STABLE;
 CREATE OR REPLACE FUNCTION semantic_degree(p_id BYTEA)
 RETURNS INTEGER AS $$
     SELECT COUNT(*)::INTEGER
-    FROM atom
-    WHERE depth = 1 AND atom_count = 2
-      AND (children[1] = p_id OR children[2] = p_id);
+    FROM relation r
+    WHERE r.child_id = p_id AND r.relation_type = 'C';
 $$ LANGUAGE SQL STABLE;
 
 -- Top semantic edges by weight
 CREATE OR REPLACE FUNCTION semantic_top_edges(p_limit INTEGER DEFAULT 50)
 RETURNS TABLE(atom1 BYTEA, atom2 BYTEA, weight DOUBLE PRECISION) AS $$
-    SELECT children[1], children[2], ST_M(ST_StartPoint(geom))
-    FROM atom
-    WHERE depth = 1 AND atom_count = 2
-    ORDER BY ST_M(ST_StartPoint(geom)) DESC
+    SELECT r1.child_id, r2.child_id, ST_M(ST_StartPoint(a.geom))
+    FROM atom a
+    JOIN relation r1 ON r1.parent_id = a.id AND r1.relation_type = 'C' AND r1.ordinal = 1
+    JOIN relation r2 ON r2.parent_id = a.id AND r2.relation_type = 'C' AND r2.ordinal = 2
+    WHERE a.depth = 1 AND a.atom_count = 2
+    ORDER BY ST_M(ST_StartPoint(a.geom)) DESC
     LIMIT p_limit;
 $$ LANGUAGE SQL STABLE;
 
@@ -139,12 +143,16 @@ $$ LANGUAGE SQL STABLE;
 
 CREATE OR REPLACE FUNCTION related_by_children(p_id BYTEA, p_min_shared INTEGER DEFAULT 1, p_limit INTEGER DEFAULT 20)
 RETURNS TABLE(related_id BYTEA, shared_count INTEGER) AS $$
-    WITH my_children AS (SELECT unnest(children) AS child FROM atom WHERE id = p_id)
-    SELECT a.id, COUNT(*)::INTEGER
-    FROM atom a
-    JOIN my_children mc ON mc.child = ANY(a.children)
-    WHERE a.id != p_id
-    GROUP BY a.id
+    WITH my_children AS (
+        SELECT child_id AS child 
+        FROM relation 
+        WHERE parent_id = p_id AND relation_type = 'C'
+    )
+    SELECT r.parent_id, COUNT(*)::INTEGER
+    FROM relation r
+    JOIN my_children mc ON mc.child = r.child_id
+    WHERE r.parent_id != p_id AND r.relation_type = 'C'
+    GROUP BY r.parent_id
     HAVING COUNT(*) >= p_min_shared
     ORDER BY COUNT(*) DESC
     LIMIT p_limit;

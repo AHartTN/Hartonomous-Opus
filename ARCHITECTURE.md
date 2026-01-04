@@ -1,7 +1,7 @@
 # Hartonomous Hypercube - Architecture Document
 
-**Last Updated**: 2026-01-03
-**Status**: Canonical - N-ary Merkle DAG (v4)
+**Last Updated**: 2025-01-16
+**Status**: Canonical - Binary PMI Merkle DAG (v5)
 
 ---
 
@@ -10,19 +10,21 @@
 The Hypercube is a **deterministic, lossless, content-addressable geometric semantic substrate**. All digital content is decomposed into a Merkle DAG where:
 
 1. **Atoms** (Unicode codepoints) form the perimeter landmarks at fixed 4D coordinates (POINTZM)
-2. **Compositions** are N-ary ordered sequences (LINESTRINGZM) - NOT binary trees
-3. **Children** array stores references to component atoms/compositions in order
+2. **Compositions** are binary pairs forming a deduplicated dictionary (not content directly)
+3. **Relations** explicitly store parent-child edges with ordinals for ordering
 4. **Deduplication** is global - identical patterns share the same hash regardless of source
-5. **Reconstruction** is bit-perfect via DFS traversal of children arrays
+5. **Reconstruction** is bit-perfect via ordered traversal of the relation table
 
-### The Single Table Model (IMPLEMENTED)
+### The Two Table Model (IMPLEMENTED)
 
-The system uses a **single `atom` table** where:
-- **POINTZM** = Unicode codepoints (the seeded perimeter - depth 0)
-- **LINESTRINGZM** = Compositions (ordered path through N child centroids - depth > 0)
+The system uses:
+- **`atom` table**: Nodes (codepoints and compositions)
+- **`relation` table**: Edges (parent→child with ordinal and type)
 
-The `geom GEOMETRY(GEOMETRYZM, 0)` column stores both geometry types.
-The `children BYTEA[]` column stores N child hash references (any number, not just 2).
+This is the **dictionary model**:
+- We build a dictionary of binary compositions via PMI contraction
+- Content references the dictionary through sequences of edges
+- The dictionary grows logarithmically while content grows linearly
 
 ---
 
@@ -31,11 +33,11 @@ The `children BYTEA[]` column stores N child hash references (any number, not ju
 ### 1. Determinism
 - Same bytes → same composition ID, always
 - No randomness, no floating-point conversion, no approximations
-- Hash = BLAKE3 of canonical ordered child sequence
+- Hash = BLAKE3 of canonical ordered child pair
 
 ### 2. Losslessness
-- Bit-perfect reconstruction from root composition
-- DFS traversal of children → original byte sequence
+- Bit-perfect reconstruction from composition
+- DFS traversal of relations (ordinal 1 then 2) → original byte sequence
 - All coordinates stored as 32-bit signed integers (bit pattern same as uint32)
 
 ### 3. Global Deduplication
@@ -43,34 +45,40 @@ The `children BYTEA[]` column stores N child hash references (any number, not ju
 - First ingest creates the pattern; subsequent ingests only add references
 - The more you ingest, the more deduplication occurs
 
-### 4. N-ary Compositions (NOT Binary Trees)
+### 4. Binary Compositions (PMI Contraction)
 
-**"the" = ONE composition with children [t, h, e]**
+**Binary pairs form the dictionary:**
+- PMI (Pointwise Mutual Information) identifies significant co-occurrences
+- Highest PMI pairs are contracted into new compositions
+- Process repeats until single root composition remains
+- Result: Logarithmic growth of dictionary, linear growth of content
 
-This is fundamentally different from binary tree nonsense:
-- Binary tree (WRONG): `th` = `[t, h]`, then `the` = `[th, e]` - artificial nesting
-- N-ary (CORRECT): `the` = `[t, h, e]` - one composition, three children
+**Example:** "the" might decompose as:
+- `th` = composition of `[t, h]` (ordinal 1, ordinal 2)
+- `the` = composition of `[th, e]` (ordinal 1, ordinal 2)
 
-**Tokenization determines composition boundaries:**
-- Words: sequences of codepoints between whitespace
-- Sentences: sequences of words ending in sentence punctuation
-- Paragraphs: sequences of sentences
-- Documents: hierarchical composition of all content
-
-**LINESTRINGZM geometry** represents the ordered path through child centroids:
-- `ST_MakeLine(child1.centroid, child2.centroid, ..., childN.centroid)`
+**LINESTRINGZM geometry** represents the path through 2 child centroids:
+- `ST_MakeLine(child1.centroid, child2.centroid)`
 - The trajectory shape IS semantic information (Fréchet distance for similarity)
 
-### 5. Hypersphere Geometry
+### 5. Relation Table for Edges
+
+**Explicit edge storage:**
+- `relation(parent_id, child_id, ordinal, relation_type)`
+- `ordinal` = 1 or 2 for binary compositions
+- `relation_type` = 'C' (composition), 'S' (sequence), 'M' (metadata), 'R' (reference)
+- Enables rich graph traversal and pattern matching
+
+### 6. Hypersphere Geometry
 
 **Leaves on perimeter, compositions move inward:**
 - Depth 0 (atoms): On the outer surface of the 4D hypersphere
-- Depth 1 (words): Centroid of component atoms, radius decreases
+- Depth 1 (pairs): Centroid of component atoms, radius decreases
 - Depth N: Further inward, approaching origin as complexity increases
 
 **Origin = most abstract/complex, Perimeter = most atomic**
 
-### 6. Emergent Topology as Semantics
+### 7. Emergent Topology as Semantics
 
 **The structure IS the meaning.** This is fundamentally different from:
 - Vector embeddings (opaque dimensions)
@@ -87,7 +95,7 @@ Semantic signal emerges from:
 
 ## Data Model
 
-### Unified Atom Table
+### Atom Table (Nodes)
 ```sql
 atom (
     -- Content-addressed identifier
@@ -97,11 +105,8 @@ atom (
     geom            GEOMETRY(GEOMETRYZM, 0) NOT NULL,
     centroid        GEOMETRY(POINTZM, 0),   -- Pre-computed 4D centroid
 
-    -- Child references for compositions (NULL for leaves)
-    children        BYTEA[],                -- Array of N child hashes in order
-
-    -- Canonical value for leaves only (UTF-8 bytes)
-    value           BYTEA,                  -- NULL for compositions
+    -- Canonical content for leaves only (NULL for compositions)
+    content         BYTEA,                  -- Raw bytes for depth 0
 
     -- Unicode codepoint for leaf atoms (NULL for compositions)
     codepoint       INTEGER UNIQUE,
@@ -110,7 +115,7 @@ atom (
     hilbert_lo      BIGINT NOT NULL,
     hilbert_hi      BIGINT NOT NULL,
 
-    -- Depth in DAG (0 = leaf, 1 = word, 2 = sentence, etc.)
+    -- Depth in DAG (0 = leaf, 1+ = composition)
     depth           INTEGER NOT NULL DEFAULT 0,
 
     -- Total leaf atoms in subtree (1 for leaves)
@@ -118,22 +123,42 @@ atom (
 )
 ```
 
+### Relation Table (Edges)
+```sql
+relation (
+    -- References
+    parent_id       BYTEA NOT NULL REFERENCES atom(id),
+    child_id        BYTEA NOT NULL REFERENCES atom(id),
+
+    -- Order within parent (1 or 2 for binary compositions)
+    ordinal         INTEGER NOT NULL,
+
+    -- Relationship type
+    relation_type   CHAR(1) NOT NULL DEFAULT 'C',
+    -- 'C' = Composition (binary tree structure)
+    -- 'S' = Sequence (document content referencing dictionary)
+    -- 'M' = Metadata (annotations, provenance)
+    -- 'R' = Reference (cross-links)
+
+    PRIMARY KEY (parent_id, ordinal, relation_type)
+)
+```
+
 **Key Points**:
-- Single table for ALL content - atoms AND compositions
-- `depth = 0` means leaf (POINTZM geometry, has value and codepoint)
-- `depth > 0` means composition (LINESTRINGZM geometry, has N children)
-- LINESTRINGZM vertices are child centroids in sequence order
-- ST_Centroid(geom) gives the 4D centroid for Hilbert encoding
-- DFS traversal of children arrays = original byte sequence
+- Two tables: `atom` for nodes, `relation` for edges
+- `depth = 0` means leaf (POINTZM geometry, has content and codepoint)
+- `depth > 0` means composition (LINESTRINGZM geometry, 2 children via relation table)
+- Ordinals 1 and 2 preserve binary order for reconstruction
+- DFS traversal of relations (ordinal 1 first, then 2) = original byte sequence
 
 ---
 
 ## Ingestion Pipeline
 
-### Universal Substrate Ingester (C++ Implementation)
+### PMI-Based Binary Contraction (C++ Implementation)
 
 ```
-Input → Integer Sequence → Sliding Window → Vocabulary Match → Hierarchical Tiers → Batch Insert
+Input → Codepoint Sequence → PMI Calculation → Highest-Pair Contraction → Binary Merkle DAG
 ```
 
 **The substrate is COMPLETELY AGNOSTIC.** It doesn't know or care what it's ingesting:

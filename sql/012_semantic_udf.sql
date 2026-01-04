@@ -1,7 +1,8 @@
 -- =============================================================================
--- Hartonomous Hypercube - Core Functions v4
+-- Hartonomous Hypercube - Core Functions v5
 -- =============================================================================
 -- Minimal SQL functions. Heavy operations use C extensions.
+-- Uses relation table for all child traversal.
 -- =============================================================================
 
 BEGIN;
@@ -26,14 +27,18 @@ $$ LANGUAGE SQL STABLE;
 -- Get children of a composition
 CREATE OR REPLACE FUNCTION atom_children(p_id BYTEA)
 RETURNS TABLE(child_id BYTEA, ordinal INTEGER) AS $$
-    SELECT unnest(children), generate_series(1, array_length(children, 1))
-    FROM atom WHERE id = p_id;
+    SELECT r.child_id, r.ordinal
+    FROM relation r
+    WHERE r.parent_id = p_id AND r.relation_type = 'C'
+    ORDER BY r.ordinal;
 $$ LANGUAGE SQL STABLE;
 
 -- Get child count
 CREATE OR REPLACE FUNCTION atom_child_count(p_id BYTEA)
 RETURNS INTEGER AS $$
-    SELECT COALESCE(array_length(children, 1), 0) FROM atom WHERE id = p_id;
+    SELECT COUNT(*)::INTEGER 
+    FROM relation 
+    WHERE parent_id = p_id AND relation_type = 'C';
 $$ LANGUAGE SQL STABLE;
 
 -- Lookup by codepoint
@@ -55,25 +60,14 @@ $$ LANGUAGE SQL STABLE;
 -- Reconstruct bytes from composition using recursive CTE
 CREATE OR REPLACE FUNCTION atom_reconstruct(p_id BYTEA) RETURNS BYTEA AS $$
     WITH RECURSIVE tree AS (
-        SELECT id, children, value, atom_count, ARRAY[]::INTEGER[] AS path
-        FROM atom WHERE id = p_id
+        SELECT a.id, a.value, ARRAY[]::INTEGER[] AS path
+        FROM atom a WHERE a.id = p_id
         UNION ALL
-        SELECT a.id, a.children, a.value, a.atom_count, t.path || c.ord::INTEGER
+        SELECT a.id, a.value, t.path || r.ordinal
         FROM tree t
-        CROSS JOIN LATERAL (
-            SELECT t.children[1] AS child_id, g.n AS ord
-            FROM generate_series(1, 
-                CASE WHEN array_length(t.children, 1) = 1 AND t.atom_count > 1 
-                THEN t.atom_count::INTEGER ELSE array_length(t.children, 1) END
-            ) g(n)
-            WHERE array_length(t.children, 1) = 1 AND t.atom_count > 1
-            UNION ALL
-            SELECT child_id, ord::INTEGER
-            FROM unnest(t.children) WITH ORDINALITY AS u(child_id, ord)
-            WHERE array_length(t.children, 1) != 1 OR t.atom_count = 1
-        ) c
-        JOIN atom a ON a.id = c.child_id
-        WHERE t.children IS NOT NULL
+        JOIN relation r ON r.parent_id = t.id AND r.relation_type = 'C'
+        JOIN atom a ON a.id = r.child_id
+        WHERE t.value IS NULL
     )
     SELECT string_agg(value, ''::BYTEA ORDER BY path)
     FROM tree WHERE value IS NOT NULL;
@@ -137,10 +131,11 @@ $$ LANGUAGE SQL STABLE;
 -- Find parents containing a child
 CREATE OR REPLACE FUNCTION atom_parents(p_child_id BYTEA, p_limit INTEGER DEFAULT 20)
 RETURNS TABLE(parent_id BYTEA, depth INTEGER, atom_count BIGINT) AS $$
-    SELECT id, depth, atom_count
-    FROM atom
-    WHERE p_child_id = ANY(children)
-    ORDER BY depth
+    SELECT a.id, a.depth, a.atom_count
+    FROM relation r
+    JOIN atom a ON a.id = r.parent_id
+    WHERE r.child_id = p_child_id AND r.relation_type = 'C'
+    ORDER BY a.depth
     LIMIT p_limit;
 $$ LANGUAGE SQL STABLE;
 

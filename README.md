@@ -94,23 +94,23 @@ PGDATABASE=hypercube
    - All atoms distributed on the 3-sphere surface (S³ in 4D)
    - **Lossless**: PostGIS GEOMETRY stores full double precision (2^53 mantissa)
 
-2. **Compositions**: Merkle DAG via Cascading Pair Encoding (CPE)
-   - Sliding window at ALL tiers - captures ALL n-grams
-   - "Hello" → He,el,ll,lo → Hel,ell,llo → Hell,ello → Hello
-   - O(n²) compositions but globally deduplicated across all content
+2. **Compositions**: Binary Merkle DAG via PMI Contraction
+   - PMI (Pointwise Mutual Information) identifies significant co-occurrences
+   - Highest-PMI pairs contracted into new compositions recursively
+   - Result: Logarithmic dictionary growth, linear content growth
    - Content-addressed: "the" from any document = same ID
-   - Geometry = LINESTRINGZM trajectory through child centroids
+   - Geometry = LINESTRINGZM trajectory through 2 child centroids
 
-3. **Unified Single Table Model**
-   - `atom` table stores BOTH leaves (POINTZM) and compositions (LINESTRINGZM)
-   - `children BYTEA[]` stores ordered child references for reconstruction
-   - `depth = 0` for leaves, `depth > 0` for compositions
-   - No separate `relation` or `relation_edge` tables
+3. **Two Table Model**
+   - `atom` table stores nodes (leaves and compositions)
+   - `relation` table stores edges (parent→child with ordinal)
+   - `ordinal = 1` for left child, `ordinal = 2` for right child
+   - `relation_type = 'C'` for composition edges
 
 4. **Global Deduplication**
    - First ingest creates patterns; subsequent ingests reuse existing compositions
    - The more content ingested, the more deduplication occurs
-   - ~83% deduplication on typical text corpora
+   - Binary tree structure = exactly 2 children per composition
 
 ### Performance
 
@@ -118,8 +118,7 @@ PGDATABASE=hypercube
 |-----------|------|------|
 | Atom generation (1.1M) | ~200ms | 5.5M atoms/sec |
 | Full database seeding | ~30s | 37K atoms/sec |
-| CPE file processing | - | ~1 MB/s |
-| CPE DB insert | - | ~14K comps/sec |
+| Moby Dick ingestion | ~30s | 30K compositions |
 | Hilbert range queries | O(log N) | Sub-millisecond |
 
 ### Type System
