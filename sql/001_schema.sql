@@ -11,10 +11,13 @@
 -- Raw embeddings NEVER touch the database - only 4D coordinates.
 -- =============================================================================
 
-BEGIN;
+-- Required extensions
+CREATE EXTENSION IF NOT EXISTS postgis;
 
--- Drop old unified schema
+-- Drop old tables in correct order (foreign keys)
+DROP TABLE IF EXISTS composition_child CASCADE;
 DROP TABLE IF EXISTS relation CASCADE;
+DROP TABLE IF EXISTS composition CASCADE;
 DROP TABLE IF EXISTS atom CASCADE;
 
 -- =============================================================================
@@ -99,9 +102,7 @@ CREATE TABLE relation (
 CREATE INDEX idx_relation_source ON relation(source_id);
 CREATE INDEX idx_relation_target ON relation(target_id);
 CREATE INDEX idx_relation_type ON relation(relation_type);
-CREATE INDEX idx_relation_model ON relation(source_model) WHERE source_model IS NOT NULL;
-
-COMMIT;
+CREATE INDEX idx_relation_model ON relation(source_model) WHERE source_model != '';
 
 -- =============================================================================
 -- Helper: Upsert relation with weight averaging

@@ -568,7 +568,10 @@ bool ingest_with_laplacian_projection(PGconn* conn, const IngestConfig& config) 
     for (int64_t i = 0; i < vocab_size; ++i) {
         tok_labels[i] = g_vocab_tokens[i].text;
         tok_hashes[i] = g_vocab_tokens[i].comp.hash;
-        tok_is_atom[i] = (g_vocab_tokens[i].comp.children.size() <= 1);
+        // Vocab tokens from embedding models are ALWAYS compositions, not atoms.
+        // Atoms are only Unicode codepoints seeded by seed_atoms_parallel.
+        // The atom table requires a codepoint column that vocab tokens don't have.
+        tok_is_atom[i] = false;
     }
     
     db::PersistConfig db_config;

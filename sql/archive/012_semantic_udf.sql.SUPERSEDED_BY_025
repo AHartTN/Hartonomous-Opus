@@ -1,0 +1,453 @@
+-- =============================================================================
+-- Hartonomous Hypercube - Core Functions v6 (020 Schema Compatible)
+-- =============================================================================
+-- SQL functions for the THREE-TABLE schema:
+--   atom (Unicode seeds) | composition (aggregations) | relation (semantic edges)
+-- Uses composition_child for parent-child traversal, relation for semantic edges.
+-- =============================================================================
+
+BEGIN;
+
+-- =============================================================================
+-- Basic Accessors (fast, indexed)
+-- =============================================================================
+
+-- Check if an entity is a leaf atom (atoms have no children)
+CREATE OR REPLACE FUNCTION atom_is_leaf(p_id BYTEA)
+RETURNS BOOLEAN AS $$
+    SELECT EXISTS(SELECT 1 FROM atom WHERE id = p_id);
+$$ LANGUAGE SQL STABLE;
+
+-- Get 4D coordinates from atom (uses geom, not centroid)
+CREATE OR REPLACE FUNCTION atom_coords(p_id BYTEA)
+RETURNS TABLE(x DOUBLE PRECISION, y DOUBLE PRECISION, z DOUBLE PRECISION, m DOUBLE PRECISION) AS $$
+    SELECT ST_X(geom), ST_Y(geom), ST_Z(geom), ST_M(geom)
+    FROM atom WHERE id = p_id;
+$$ LANGUAGE SQL STABLE;
+
+-- Legacy alias for backwards compatibility (atoms use geom, compositions use centroid)
+CREATE OR REPLACE FUNCTION atom_centroid(p_id BYTEA)
+RETURNS geometry AS $$
+    SELECT COALESCE(
+        (SELECT geom FROM atom WHERE id = p_id),
+        (SELECT centroid FROM composition WHERE id = p_id)
+    );
+$$ LANGUAGE SQL STABLE;
+
+-- Get 4D centroid from composition
+CREATE OR REPLACE FUNCTION composition_centroid(p_id BYTEA)
+RETURNS TABLE(x DOUBLE PRECISION, y DOUBLE PRECISION, z DOUBLE PRECISION, m DOUBLE PRECISION) AS $$
+    SELECT ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid)
+    FROM composition WHERE id = p_id;
+$$ LANGUAGE SQL STABLE;
+
+-- Get children of a composition (uses composition_child, NOT relation)
+CREATE OR REPLACE FUNCTION composition_children(p_id BYTEA)
+RETURNS TABLE(child_id BYTEA, child_type CHAR(1), ordinal SMALLINT) AS $$
+    SELECT cc.child_id, cc.child_type, cc.ordinal
+    FROM composition_child cc
+    WHERE cc.composition_id = p_id
+    ORDER BY cc.ordinal;
+$$ LANGUAGE SQL STABLE;
+
+-- Get child count of a composition
+CREATE OR REPLACE FUNCTION composition_child_count(p_id BYTEA)
+RETURNS INTEGER AS $$
+    SELECT child_count FROM composition WHERE id = p_id;
+$$ LANGUAGE SQL STABLE;
+
+-- Lookup atom by codepoint
+CREATE OR REPLACE FUNCTION atom_by_codepoint(p_cp INTEGER)
+RETURNS BYTEA AS $$
+    SELECT id FROM atom WHERE codepoint = p_cp;
+$$ LANGUAGE SQL STABLE;
+
+-- Check if hash exists (in atom OR composition)
+CREATE OR REPLACE FUNCTION entity_exists(p_id BYTEA)
+RETURNS BOOLEAN AS $$
+    SELECT EXISTS(SELECT 1 FROM atom WHERE id = p_id)
+        OR EXISTS(SELECT 1 FROM composition WHERE id = p_id);
+$$ LANGUAGE SQL STABLE;
+
+-- Alias for backwards compatibility
+CREATE OR REPLACE FUNCTION atom_exists(p_id BYTEA)
+RETURNS BOOLEAN AS $$
+    SELECT entity_exists(p_id);
+$$ LANGUAGE SQL STABLE;
+
+-- =============================================================================
+-- Text Reconstruction (uses composition_child, not relation)
+-- =============================================================================
+
+-- Reconstruct bytes from composition using recursive CTE
+CREATE OR REPLACE FUNCTION composition_reconstruct(p_id BYTEA) RETURNS BYTEA AS $$
+    WITH RECURSIVE tree AS (
+        -- Start with the composition
+        SELECT p_id AS id, NULL::BYTEA AS value, ARRAY[]::INTEGER[] AS path, 'C'::CHAR(1) AS node_type
+        UNION ALL
+        SELECT 
+            cc.child_id, 
+            CASE WHEN cc.child_type = 'A' THEN (SELECT a.value FROM atom a WHERE a.id = cc.child_id) ELSE NULL END,
+            t.path || cc.ordinal::INTEGER,
+            cc.child_type
+        FROM tree t
+        JOIN composition_child cc ON cc.composition_id = t.id
+        WHERE t.node_type = 'C'
+    )
+    SELECT string_agg(value, ''::BYTEA ORDER BY path)
+    FROM tree WHERE value IS NOT NULL;
+$$ LANGUAGE SQL STABLE;
+
+-- Reconstruct as UTF-8 text
+CREATE OR REPLACE FUNCTION composition_text(p_id BYTEA) RETURNS TEXT AS $$
+    SELECT convert_from(COALESCE(composition_reconstruct(p_id), ''::BYTEA), 'UTF8');
+$$ LANGUAGE SQL STABLE;
+
+-- Legacy alias: atom_reconstruct (now works with compositions)
+CREATE OR REPLACE FUNCTION atom_reconstruct(p_id BYTEA) RETURNS BYTEA AS $$
+    -- First try as atom (returns single byte value)
+    SELECT COALESCE(
+        (SELECT value FROM atom WHERE id = p_id),
+        composition_reconstruct(p_id)
+    );
+$$ LANGUAGE SQL STABLE;
+
+-- Legacy alias: atom_text
+CREATE OR REPLACE FUNCTION atom_text(p_id BYTEA) RETURNS TEXT AS $$
+    SELECT COALESCE(
+        (SELECT convert_from(value, 'UTF8') FROM atom WHERE id = p_id),
+        composition_text(p_id)
+    );
+$$ LANGUAGE SQL STABLE;
+
+-- Alias for backwards compatibility  
+CREATE OR REPLACE FUNCTION atom_reconstruct_text(p_id BYTEA) RETURNS TEXT AS $$
+    SELECT atom_text(p_id);
+$$ LANGUAGE SQL STABLE;
+
+-- =============================================================================
+-- Distance Functions (for compositions - atoms use their geom directly)
+-- =============================================================================
+
+-- 4D Euclidean distance between compositions (uses centroid)
+CREATE OR REPLACE FUNCTION composition_distance(p_id1 BYTEA, p_id2 BYTEA)
+RETURNS DOUBLE PRECISION AS $$
+    SELECT sqrt(
+        power(ST_X(a.centroid) - ST_X(b.centroid), 2) +
+        power(ST_Y(a.centroid) - ST_Y(b.centroid), 2) +
+        power(ST_Z(a.centroid) - ST_Z(b.centroid), 2) +
+        power(ST_M(a.centroid) - ST_M(b.centroid), 2)
+    )
+    FROM composition a, composition b
+    WHERE a.id = p_id1 AND b.id = p_id2;
+$$ LANGUAGE SQL STABLE PARALLEL SAFE;
+
+-- 4D Euclidean distance between atoms (uses geom)
+CREATE OR REPLACE FUNCTION atom_distance(p_id1 BYTEA, p_id2 BYTEA)
+RETURNS DOUBLE PRECISION AS $$
+    SELECT sqrt(
+        power(ST_X(a.geom) - ST_X(b.geom), 2) +
+        power(ST_Y(a.geom) - ST_Y(b.geom), 2) +
+        power(ST_Z(a.geom) - ST_Z(b.geom), 2) +
+        power(ST_M(a.geom) - ST_M(b.geom), 2)
+    )
+    FROM atom a, atom b
+    WHERE a.id = p_id1 AND b.id = p_id2;
+$$ LANGUAGE SQL STABLE PARALLEL SAFE;
+
+-- K-nearest neighbor compositions (uses GIST index on centroid)
+CREATE OR REPLACE FUNCTION composition_knn(p_id BYTEA, p_k INTEGER DEFAULT 10)
+RETURNS TABLE(neighbor_id BYTEA, distance DOUBLE PRECISION, depth INTEGER) AS $$
+    WITH target AS (SELECT centroid FROM composition WHERE id = p_id)
+    SELECT c.id, c.centroid <-> t.centroid, c.depth
+    FROM composition c, target t
+    WHERE c.id != p_id
+    ORDER BY c.centroid <-> t.centroid
+    LIMIT p_k;
+$$ LANGUAGE SQL STABLE PARALLEL SAFE;
+
+-- K-nearest neighbor atoms (uses GIST index on geom)
+CREATE OR REPLACE FUNCTION atom_knn(p_id BYTEA, p_k INTEGER DEFAULT 10)
+RETURNS TABLE(neighbor_id BYTEA, distance DOUBLE PRECISION, codepoint INTEGER) AS $$
+    WITH target AS (SELECT geom FROM atom WHERE id = p_id)
+    SELECT a.id, a.geom <-> t.geom, a.codepoint
+    FROM atom a, target t
+    WHERE a.id != p_id
+    ORDER BY a.geom <-> t.geom
+    LIMIT p_k;
+$$ LANGUAGE SQL STABLE PARALLEL SAFE;
+
+-- Find atoms within Hilbert range
+-- FIXED: Uses proper 128-bit composite ordering (hilbert_hi, hilbert_lo)
+CREATE OR REPLACE FUNCTION atom_hilbert_range(p_id BYTEA, p_range BIGINT, p_limit INTEGER DEFAULT 100)
+RETURNS TABLE(neighbor_id BYTEA, hilbert_dist NUMERIC) AS $$
+    WITH t AS (SELECT hilbert_lo, hilbert_hi FROM atom WHERE id = p_id)
+    SELECT 
+        a.id, 
+        -- Proper 128-bit distance: |((hi1 - hi2) << 64) + (lo1 - lo2)|
+        ABS(
+            (a.hilbert_hi::NUMERIC - t.hilbert_hi::NUMERIC) * 18446744073709551616::NUMERIC +
+            (a.hilbert_lo::NUMERIC - t.hilbert_lo::NUMERIC)
+        ) AS hilbert_dist
+    FROM atom a, t
+    WHERE a.id != p_id
+      AND a.hilbert_hi BETWEEN t.hilbert_hi - 1 AND t.hilbert_hi + 1
+      AND a.hilbert_lo BETWEEN t.hilbert_lo - p_range AND t.hilbert_lo + p_range
+    ORDER BY (a.hilbert_hi, a.hilbert_lo)  -- Composite ordering for 128-bit locality
+    LIMIT p_limit;
+$$ LANGUAGE SQL STABLE PARALLEL SAFE;
+
+-- Find compositions within Hilbert range
+CREATE OR REPLACE FUNCTION composition_hilbert_range(p_id BYTEA, p_range BIGINT, p_limit INTEGER DEFAULT 100)
+RETURNS TABLE(neighbor_id BYTEA, hilbert_dist NUMERIC) AS $$
+    WITH t AS (SELECT hilbert_lo, hilbert_hi FROM composition WHERE id = p_id)
+    SELECT 
+        c.id, 
+        ABS(
+            (c.hilbert_hi::NUMERIC - t.hilbert_hi::NUMERIC) * 18446744073709551616::NUMERIC +
+            (c.hilbert_lo::NUMERIC - t.hilbert_lo::NUMERIC)
+        ) AS hilbert_dist
+    FROM composition c, t
+    WHERE c.id != p_id
+      AND c.hilbert_hi IS NOT NULL
+      AND c.hilbert_hi BETWEEN t.hilbert_hi - 1 AND t.hilbert_hi + 1
+      AND c.hilbert_lo BETWEEN t.hilbert_lo - p_range AND t.hilbert_lo + p_range
+    ORDER BY (c.hilbert_hi, c.hilbert_lo)
+    LIMIT p_limit;
+$$ LANGUAGE SQL STABLE PARALLEL SAFE;
+
+-- =============================================================================
+-- Composition Queries (using composition_child for parent-child)
+-- =============================================================================
+
+-- Find parents containing a child (uses composition_child, NOT relation)
+CREATE OR REPLACE FUNCTION composition_parents(p_child_id BYTEA, p_limit INTEGER DEFAULT 20)
+RETURNS TABLE(parent_id BYTEA, depth INTEGER, atom_count BIGINT) AS $$
+    SELECT c.id, c.depth, c.atom_count
+    FROM composition_child cc
+    JOIN composition c ON c.id = cc.composition_id
+    WHERE cc.child_id = p_child_id
+    ORDER BY c.depth
+    LIMIT p_limit;
+$$ LANGUAGE SQL STABLE;
+
+-- Legacy alias: atom_parents (now queries compositions)
+CREATE OR REPLACE FUNCTION atom_parents(p_child_id BYTEA, p_limit INTEGER DEFAULT 20)
+RETURNS TABLE(parent_id BYTEA, depth INTEGER, atom_count BIGINT) AS $$
+    SELECT * FROM composition_parents(p_child_id, p_limit);
+$$ LANGUAGE SQL STABLE;
+
+-- Find composition by text pattern (searches labels)
+CREATE OR REPLACE FUNCTION composition_search(p_pattern TEXT, p_limit INTEGER DEFAULT 20)
+RETURNS TABLE(id BYTEA, depth INTEGER, atom_count BIGINT, label TEXT) AS $$
+    SELECT c.id, c.depth, c.atom_count, c.label
+    FROM composition c
+    WHERE c.label ILIKE '%' || p_pattern || '%'
+    ORDER BY c.depth, c.atom_count
+    LIMIT p_limit;
+$$ LANGUAGE SQL STABLE;
+
+-- Legacy alias: atom_search (now searches compositions)
+CREATE OR REPLACE FUNCTION atom_search(p_pattern TEXT, p_limit INTEGER DEFAULT 20)
+RETURNS TABLE(id BYTEA, depth INTEGER, atom_count BIGINT, content TEXT) AS $$
+    SELECT c.id, c.depth, c.atom_count, c.label
+    FROM composition c
+    WHERE c.label ILIKE '%' || p_pattern || '%'
+    ORDER BY c.depth, c.atom_count
+    LIMIT p_limit;
+$$ LANGUAGE SQL STABLE;
+
+-- Find exact composition by label
+CREATE OR REPLACE FUNCTION composition_find(p_label TEXT)
+RETURNS BYTEA AS $$
+    SELECT id FROM composition
+    WHERE label = p_label
+    LIMIT 1;
+$$ LANGUAGE SQL STABLE;
+
+-- Legacy alias
+CREATE OR REPLACE FUNCTION atom_find(p_text TEXT)
+RETURNS BYTEA AS $$
+    SELECT composition_find(p_text);
+$$ LANGUAGE SQL STABLE;
+
+-- =============================================================================
+-- Statistics Views (THREE-TABLE schema)
+-- =============================================================================
+
+CREATE OR REPLACE VIEW v_atom_stats AS
+SELECT
+    (SELECT COUNT(*) FROM atom) AS atoms,
+    (SELECT COUNT(*) FROM composition) AS compositions,
+    (SELECT COUNT(*) FROM relation) AS relations,
+    (SELECT MAX(depth) FROM composition) AS max_depth,
+    pg_size_pretty(pg_total_relation_size('atom')) AS atom_size,
+    pg_size_pretty(pg_total_relation_size('composition')) AS composition_size,
+    pg_size_pretty(pg_total_relation_size('relation')) AS relation_size;
+
+CREATE OR REPLACE VIEW v_depth_stats AS
+SELECT depth, COUNT(*) AS count, AVG(atom_count)::NUMERIC(10,2) AS avg_atoms
+FROM composition GROUP BY depth ORDER BY depth;
+
+-- Quick stats function
+CREATE OR REPLACE FUNCTION stats()
+RETURNS TABLE(atoms BIGINT, compositions BIGINT, relations BIGINT, max_depth INTEGER, atom_size TEXT, comp_size TEXT, rel_size TEXT) AS $$
+    SELECT atoms, compositions, relations, max_depth, atom_size, composition_size, relation_size 
+    FROM v_atom_stats;
+$$ LANGUAGE SQL STABLE;
+
+-- =============================================================================
+-- Legacy Views (updated for THREE-TABLE schema)
+-- =============================================================================
+
+CREATE OR REPLACE VIEW atom_stats AS
+SELECT
+    depth,
+    COUNT(*) as count,
+    AVG(atom_count)::NUMERIC(10,2) as avg_atoms,
+    SUM(atom_count) as total_atoms,
+    pg_size_pretty(pg_total_relation_size('composition')) as table_size
+FROM composition
+GROUP BY depth
+ORDER BY depth;
+
+CREATE OR REPLACE VIEW atom_type_stats AS
+SELECT
+    ST_GeometryType(centroid) as geom_type,
+    depth,
+    COUNT(*) as count
+FROM composition
+GROUP BY ST_GeometryType(centroid), depth
+ORDER BY depth, geom_type;
+
+-- =============================================================================
+-- Legacy Neighbor Functions (updated for THREE-TABLE schema)
+-- =============================================================================
+
+-- Find nearest neighbors by Hilbert index (for atoms)
+CREATE OR REPLACE FUNCTION atom_nearest_hilbert(p_id BYTEA, p_limit INTEGER DEFAULT 10)
+RETURNS TABLE(neighbor_id BYTEA, hilbert_distance NUMERIC) AS $$
+    WITH target AS (
+        SELECT hilbert_lo, hilbert_hi FROM atom WHERE id = p_id
+    )
+    SELECT
+        a.id,
+        ABS(a.hilbert_lo::NUMERIC - t.hilbert_lo::NUMERIC) +
+        ABS(a.hilbert_hi::NUMERIC - t.hilbert_hi::NUMERIC) * 9223372036854775808::NUMERIC
+    FROM atom a, target t
+    WHERE a.id != p_id
+    ORDER BY ABS(a.hilbert_hi::NUMERIC - t.hilbert_hi::NUMERIC),
+             ABS(a.hilbert_lo::NUMERIC - t.hilbert_lo::NUMERIC)
+    LIMIT p_limit;
+$$ LANGUAGE SQL STABLE;
+
+-- Find nearest neighbors by spatial distance (for atoms, uses geom)
+CREATE OR REPLACE FUNCTION atom_nearest_spatial(p_id BYTEA, p_limit INTEGER DEFAULT 10)
+RETURNS TABLE(neighbor_id BYTEA, distance DOUBLE PRECISION) AS $$
+    SELECT a.id, 
+           sqrt(
+               power(ST_X(t.geom) - ST_X(a.geom), 2) + 
+               power(ST_Y(t.geom) - ST_Y(a.geom), 2) + 
+               power(ST_Z(t.geom) - ST_Z(a.geom), 2) + 
+               power(ST_M(t.geom) - ST_M(a.geom), 2)
+           ) as dist
+    FROM atom a, (SELECT geom FROM atom WHERE id = p_id) t
+    WHERE a.id != p_id
+    ORDER BY dist
+    LIMIT p_limit;
+$$ LANGUAGE SQL STABLE;
+
+-- Find nearest neighbors by spatial distance (for compositions, uses centroid)
+CREATE OR REPLACE FUNCTION composition_nearest_spatial(p_id BYTEA, p_limit INTEGER DEFAULT 10)
+RETURNS TABLE(neighbor_id BYTEA, distance DOUBLE PRECISION, label TEXT) AS $$
+    SELECT c.id, 
+           sqrt(
+               power(ST_X(t.centroid) - ST_X(c.centroid), 2) + 
+               power(ST_Y(t.centroid) - ST_Y(c.centroid), 2) + 
+               power(ST_Z(t.centroid) - ST_Z(c.centroid), 2) + 
+               power(ST_M(t.centroid) - ST_M(c.centroid), 2)
+           ) as dist,
+           c.label
+    FROM composition c, (SELECT centroid FROM composition WHERE id = p_id) t
+    WHERE c.id != p_id
+    ORDER BY dist
+    LIMIT p_limit;
+$$ LANGUAGE SQL STABLE;
+
+-- =============================================================================
+-- Convenience Aliases (updated for THREE-TABLE schema)
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION txt(p_id BYTEA) RETURNS TEXT AS $$
+    SELECT atom_text(p_id);
+$$ LANGUAGE SQL STABLE;
+
+-- knn for compositions (primary use case)
+CREATE OR REPLACE FUNCTION knn(p_id BYTEA, p_k INTEGER DEFAULT 10)
+RETURNS TABLE(id BYTEA, dist DOUBLE PRECISION, label TEXT) AS $$
+    SELECT neighbor_id, distance, label FROM composition_nearest_spatial(p_id, p_k);
+$$ LANGUAGE SQL STABLE;
+
+-- =============================================================================
+-- Content Hash Lookup (CPE-compatible) - Updated for compositions
+-- =============================================================================
+
+-- Compute content hash using C extension (fast CPE cascade)
+-- This computes the composition hash for a text string
+CREATE OR REPLACE FUNCTION composition_content_hash(p_text TEXT)
+RETURNS BYTEA AS $$
+DECLARE
+    v_hashes BYTEA[];
+BEGIN
+    -- Get atom hashes in order
+    SELECT array_agg(a.id ORDER BY ordinality)
+    INTO v_hashes
+    FROM unnest(string_to_array(p_text, NULL)) WITH ORDINALITY AS chars(chr, ordinality)
+    JOIN atom a ON a.codepoint = ascii(chr);
+
+    IF v_hashes IS NULL OR array_length(v_hashes, 1) = 0 THEN
+        RETURN NULL;
+    END IF;
+
+    IF array_length(v_hashes, 1) = 1 THEN
+        RETURN v_hashes[1];
+    END IF;
+
+    -- Use C extension for CPE cascade (much faster than plpgsql loops)
+    RETURN hypercube_content_hash(v_hashes);
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Legacy alias
+CREATE OR REPLACE FUNCTION atom_content_hash(p_text TEXT)
+RETURNS BYTEA AS $$
+    SELECT composition_content_hash(p_text);
+$$ LANGUAGE SQL STABLE;
+
+-- Find composition by content hash
+CREATE OR REPLACE FUNCTION composition_find_by_hash(p_text TEXT)
+RETURNS BYTEA AS $$
+    SELECT id FROM composition WHERE id = composition_content_hash(p_text);
+$$ LANGUAGE SQL STABLE;
+
+-- Alias for backwards compatibility
+CREATE OR REPLACE FUNCTION atom_find_exact(p_text TEXT)
+RETURNS BYTEA AS $$
+    SELECT composition_find_by_hash(p_text);
+$$ LANGUAGE SQL STABLE;
+
+-- Get composition with text verification
+CREATE OR REPLACE FUNCTION composition_get(p_text TEXT)
+RETURNS TABLE(id BYTEA, content TEXT, depth INTEGER, atom_count BIGINT) AS $$
+    SELECT c.id, c.label, c.depth, c.atom_count
+    FROM composition c
+    WHERE c.id = composition_content_hash(p_text);
+$$ LANGUAGE SQL STABLE;
+
+-- Legacy alias
+CREATE OR REPLACE FUNCTION atom_get(p_text TEXT)
+RETURNS TABLE(id BYTEA, content TEXT, depth INTEGER, atom_count BIGINT) AS $$
+    SELECT * FROM composition_get(p_text);
+$$ LANGUAGE SQL STABLE;
+
+COMMIT;

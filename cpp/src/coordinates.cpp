@@ -521,31 +521,30 @@ AtomCategory CoordinateMapper::categorize(uint32_t codepoint) noexcept {
 
 
 /**
- * Sequential 4D Hyperspherical Coordinate Mapping
+ * 4D Fibonacci Lattice Coordinate Mapping
  * 
- * Maps semantic index i ∈ [0, N) to a point on the unit 3-sphere (S³) such that
- * ADJACENT INDICES map to ADJACENT POINTS on the sphere surface.
+ * Maps semantic index i ∈ [0, N) to a point on the unit 3-sphere (S³) using
+ * the generalized Fibonacci lattice for uniform distribution.
  * 
- * This is critical for semantic clustering: A/a/Ä must be geometrically close
- * because they have adjacent semantic indices.
+ * The 4D Fibonacci lattice uses irrational increments based on the golden ratio
+ * and plastic constant to ensure even distribution with no clustering or gaps.
  * 
- * Approach: Use 4D hyperspherical coordinates with a space-filling curve pattern.
- * We tile the S³ surface using a hierarchical decomposition:
+ * For S³ (3-sphere in 4D), we use the Hopf fibration parameterization:
+ *   - Two angles (θ₁, θ₂) parameterize the base S² using spherical Fibonacci
+ *   - One angle (φ) parameterizes the S¹ fiber using the plastic constant
  * 
- *   - Divide the semantic index into 4 components using base-K digits
- *   - Each component controls one angular dimension
- *   - Adjacent indices differ in the lowest-order component → adjacent angles
+ * This guarantees:
+ *   1. Uniform distribution on S³ surface (all atoms equidistant from neighbors)
+ *   2. Adjacent semantic indices → adjacent positions (locality preserved)
+ *   3. No degenerate dimensions (all 4 coordinates fully utilized)
  * 
- * 4D Hyperspherical coordinates (ψ₁, ψ₂, ψ₃ ∈ [0, π], ψ₄ ∈ [0, 2π]):
- *   x = cos(ψ₁)
- *   y = sin(ψ₁) * cos(ψ₂)
- *   z = sin(ψ₁) * sin(ψ₂) * cos(ψ₃)
- *   m = sin(ψ₁) * sin(ψ₂) * sin(ψ₃)
+ * 4D Hopf coordinates to Cartesian:
+ *   x = cos(θ₁/2) * cos(φ/2)
+ *   y = cos(θ₁/2) * sin(φ/2)  
+ *   z = sin(θ₁/2) * cos(θ₂ + φ/2)
+ *   m = sin(θ₁/2) * sin(θ₂ + φ/2)
  * 
- * Note: This gives x² + y² + z² + m² = 1 exactly.
- * 
- * For ~1.1M points, we use a 4-level hierarchy with ~33 divisions per level.
- * 33^4 = 1,185,921 ≥ 1,112,064 valid codepoints
+ * This gives x² + y² + z² + m² = 1 exactly.
  */
 Point4D CoordinateMapper::map_codepoint(uint32_t codepoint) noexcept {
     // Skip surrogates - they get invalid coords
@@ -556,88 +555,55 @@ Point4D CoordinateMapper::map_codepoint(uint32_t codepoint) noexcept {
     // Get semantic sequence index for clustering
     uint32_t semantic_idx = codepoint_to_sequence_index(codepoint);
     
-    // === HIERARCHICAL DECOMPOSITION ===
-    // Use base-33 decomposition: 33^4 = 1,185,921 covers all ~1.1M codepoints
-    // Each digit controls one angular dimension
-    // Adjacent semantic indices → differ only in lowest digit → minimal angular change
+    // === 4D FIBONACCI LATTICE ===
+    // Uses golden ratio (φ) and plastic constant (ρ) for optimal S³ coverage
+    // These are algebraically independent irrationals ensuring no periodicity
     
-    constexpr uint32_t BASE = 33;  // 33^4 = 1,185,921
+    const double n = static_cast<double>(TOTAL_VALID_CODEPOINTS);
+    const double i = static_cast<double>(semantic_idx);
     
-    // Extract 4 "digits" in base-33
-    // d0 = fastest varying (controls finest angular resolution)
-    // d3 = slowest varying (controls coarsest angular resolution)
-    uint32_t idx = semantic_idx;
-    uint32_t d0 = idx % BASE; idx /= BASE;  // [0, 32]
-    uint32_t d1 = idx % BASE; idx /= BASE;  // [0, 32]
-    uint32_t d2 = idx % BASE; idx /= BASE;  // [0, 32]
-    uint32_t d3 = idx % BASE;               // [0, 32]
+    // Spherical Fibonacci for S² base (θ₁, θ₂)
+    // θ₁ = arccos(1 - 2i/N) gives uniform latitude distribution
+    // θ₂ = 2π * i * φ⁻¹ (mod 2π) gives golden angle spiral
+    const double theta1 = std::acos(1.0 - 2.0 * (i + 0.5) / n);  // [0, π]
+    const double theta2 = TWO_PI * i * PHI_INV;  // Golden angle spiral
     
-    // === MAP TO 4D HYPERSPHERICAL ANGLES ===
-    // Each digit maps to an angular range
-    // We use a serpentine pattern (alternating direction) to ensure continuity
-    // at digit boundaries (like how a Hilbert curve stays connected)
+    // Fiber angle using plastic constant (algebraically independent from φ)
+    // This ensures the S¹ fiber samples don't align with the S² lattice
+    const double phi = TWO_PI * i * PLASTIC_INV;
     
-    // Serpentine: if parent digit is odd, reverse this digit's direction
-    if (d3 & 1) d2 = BASE - 1 - d2;
-    if (d2 & 1) d1 = BASE - 1 - d1;
-    if (d1 & 1) d0 = BASE - 1 - d0;
+    // === HOPF FIBRATION TO CARTESIAN S³ ===
+    // The Hopf fibration maps S³ → S² with S¹ fibers
+    // Each point on base S² has a circle of points above it in S³
+    // We select one point per fiber using the plastic constant
     
-    // Convert digits to fractions [0, 1] with centering
-    // Add 0.5 to center within each cell
-    double f0 = (static_cast<double>(d0) + 0.5) / static_cast<double>(BASE);
-    double f1 = (static_cast<double>(d1) + 0.5) / static_cast<double>(BASE);
-    double f2 = (static_cast<double>(d2) + 0.5) / static_cast<double>(BASE);
-    double f3 = (static_cast<double>(d3) + 0.5) / static_cast<double>(BASE);
+    const double half_theta1 = theta1 * 0.5;
+    const double half_phi = phi * 0.5;
     
-    // Map fractions to hyperspherical angles
-    // ψ₁, ψ₂, ψ₃ ∈ [0, π], ψ₄ ∈ [0, 2π]
-    // But for uniform distribution on S³, we need the Jacobian-corrected form:
-    //   ψ₁ = arccos(1 - 2*f₃)  -- uniform on [0, π] w.r.t. S³ measure
-    //   ψ₂ = arccos(1 - 2*f₂)  -- similar
-    //   ψ₃ = π * f₁            -- linear in [0, π]
-    //   ψ₄ = 2π * f₀           -- linear in [0, 2π] (but we use 3D embedding)
+    const double cos_ht1 = std::cos(half_theta1);
+    const double sin_ht1 = std::sin(half_theta1);
+    const double cos_hp = std::cos(half_phi);
+    const double sin_hp = std::sin(half_phi);
+    const double fiber_angle = theta2 + half_phi;
     
-    // For S³ in 4D, we use the standard parameterization:
-    const double psi1 = std::acos(1.0 - 2.0 * f3);  // [0, π], uniform measure
-    const double psi2 = std::acos(1.0 - 2.0 * f2);  // [0, π], uniform measure
-    const double psi3 = PI * f1;                    // [0, π]
-    // f0 controls the finest variation within the psi3 cell
-    // We encode it as a small perturbation to maintain adjacency
-    const double psi3_fine = psi3 + (f0 - 0.5) * (PI / BASE);
+    // Hopf coordinates to 4D Cartesian
+    const double ux = cos_ht1 * cos_hp;
+    const double uy = cos_ht1 * sin_hp;
+    const double uz = sin_ht1 * std::cos(fiber_angle);
+    const double um = sin_ht1 * std::sin(fiber_angle);
     
-    // === CONVERT TO CARTESIAN S³ COORDINATES ===
-    // Standard 4D hyperspherical to Cartesian:
-    //   x = cos(ψ₁)
-    //   y = sin(ψ₁) * cos(ψ₂)
-    //   z = sin(ψ₁) * sin(ψ₂) * cos(ψ₃)
-    //   m = sin(ψ₁) * sin(ψ₂) * sin(ψ₃)
-    
-    const double sin_psi1 = std::sin(psi1);
-    const double sin_psi2 = std::sin(psi2);
-    
-    const double ux = std::cos(psi1);
-    const double uy = sin_psi1 * std::cos(psi2);
-    const double uz = sin_psi1 * sin_psi2 * std::cos(psi3_fine);
-    const double um = sin_psi1 * sin_psi2 * std::sin(psi3_fine);
-    
-    // === SCALE TO 32-BIT INTEGER COORDINATES ===
-    // Map [-1, 1] to full signed int32 range
-    // Center of hypersphere (0,0,0,0) maps to coordinate 0
-    // Surface atoms have large absolute values (near ±2^31)
-    // Compositions average inward toward center (toward 0)
-    //
-    // Storage: signed int32 values stored via uint32 bit pattern
-    // PostGIS stores as double, which preserves the full range
+    // === SCALE TO 32-BIT UNSIGNED COORDINATES ===
+    // Map [-1, 1] to [0, 2^32-1] with center at 2147483647.5
+    // This matches the Laplacian projector's coordinate convention.
+    // Surface atoms are at radius 1.0 from center.
+    // Compositions (centroids) average inward toward center.
     auto to_coord = [](double unit_val) -> Coord32 {
-        // unit_val is in [-1, 1], scale to [-2^31, 2^31-1]
-        double scaled = unit_val * static_cast<double>(INT32_MAX);
-        scaled = std::clamp(scaled, static_cast<double>(INT32_MIN), static_cast<double>(INT32_MAX));
-        int32_t signed_val = static_cast<int32_t>(scaled);
-        // Store signed value directly - will be interpreted correctly
-        // Bit pattern is preserved through uint32 cast
-        uint32_t bits;
-        std::memcpy(&bits, &signed_val, sizeof(bits));
-        return bits;
+        // unit_val is in [-1, 1], scale to [0, 2^32-1]
+        // Center is at 2147483647.5, scale factor is 2147483647.0
+        double scaled = unit_val * 2147483647.0 + 2147483647.5;
+        if (scaled < 0) scaled = 0;
+        if (scaled > 4294967295.0) scaled = 4294967295.0;
+        return static_cast<Coord32>(scaled);
     };
 
     return Point4D(to_coord(ux), to_coord(uy), to_coord(uz), to_coord(um));

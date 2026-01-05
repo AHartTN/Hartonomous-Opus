@@ -941,11 +941,11 @@ Datum hypercube_knn_batch(PG_FUNCTION_ARGS)
         if (SPI_connect() != SPI_OK_CONNECT)
             ereport(ERROR, (errmsg("SPI_connect failed")));
         
-        /* Load target centroid */
+        /* Load target centroid from composition table */
         char query[512];
         snprintf(query, sizeof(query),
             "SELECT ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
-            "FROM atom WHERE id = '\\x");
+            "FROM composition WHERE id = '\\x");
         for (int i = 0; i < HASH_SIZE; i++)
             snprintf(query + strlen(query), sizeof(query) - strlen(query), "%02x", target_id[i]);
         strcat(query, "'::bytea");
@@ -965,15 +965,15 @@ Datum hypercube_knn_batch(PG_FUNCTION_ARGS)
         double tz = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 3, &isnull));
         double tm = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 4, &isnull));
         
-        /* Load all atoms and compute distances */
+        /* Load all compositions and compute distances */
         if (depth_filter >= 0)
             snprintf(query, sizeof(query),
                 "SELECT id, ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
-                "FROM atom WHERE depth = %d LIMIT 100000", depth_filter);
+                "FROM composition WHERE depth = %d LIMIT 100000", depth_filter);
         else
             snprintf(query, sizeof(query),
                 "SELECT id, ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
-                "FROM atom LIMIT 100000");
+                "FROM composition LIMIT 100000");
         
         ret = SPI_execute(query, true, 0);
         if (ret != SPI_OK_SELECT)
@@ -1078,11 +1078,11 @@ Datum hypercube_attention(PG_FUNCTION_ARGS)
         if (SPI_connect() != SPI_OK_CONNECT)
             ereport(ERROR, (errmsg("SPI_connect failed")));
         
-        /* Load target centroid */
+        /* Load target centroid from composition */
         char query[512];
         snprintf(query, sizeof(query),
             "SELECT ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
-            "FROM atom WHERE id = '\\x");
+            "FROM composition WHERE id = '\\x");
         for (int i = 0; i < HASH_SIZE; i++)
             snprintf(query + strlen(query), sizeof(query) - strlen(query), "%02x", target_id[i]);
         strcat(query, "'::bytea");
@@ -1102,10 +1102,10 @@ Datum hypercube_attention(PG_FUNCTION_ARGS)
         double tz = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 3, &isnull));
         double tm = DatumGetFloat8(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 4, &isnull));
         
-        /* Load compositions and compute attention scores */
+        /* Load all compositions and compute attention scores */
         snprintf(query, sizeof(query),
             "SELECT id, ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
-            "FROM atom WHERE depth > 0 LIMIT 100000");
+            "FROM composition LIMIT 100000");
         
         ret = SPI_execute(query, true, 0);
         if (ret != SPI_OK_SELECT)

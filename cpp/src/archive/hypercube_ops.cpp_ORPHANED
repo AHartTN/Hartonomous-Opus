@@ -105,19 +105,21 @@ static bytea* hash_to_bytea(const HashKey& hash) {
 }
 
 // =============================================================================
-// Batch Cache Loading
+// Batch Cache Loading (THREE-TABLE schema: atom, composition, composition_child)
 // =============================================================================
 
 /**
- * Load atoms by depth range into memory cache.
- * This is the key optimization - one query loads all needed data.
+ * Load compositions by depth range into memory cache.
+ * Uses composition table + composition_child for children.
+ * Note: Atoms are codepoints only (depth=0), compositions have depth >= 1
  */
 static void load_atoms_by_depth(AtomCache& cache, int min_depth, int max_depth) {
-    char query[512];
+    char query[1024];
     snprintf(query, sizeof(query),
-        "SELECT id, value, children, depth, "
-        "ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
-        "FROM atom WHERE depth >= %d AND depth <= %d",
+        "SELECT c.id, c.label, c.depth, c.atom_count, "
+        "ST_X(c.centroid), ST_Y(c.centroid), ST_Z(c.centroid), ST_M(c.centroid), "
+        "(SELECT array_agg(cc.child_id ORDER BY cc.ordinal) FROM composition_child cc WHERE cc.composition_id = c.id) as children "
+        "FROM composition c WHERE c.depth >= %d AND c.depth <= %d",
         min_depth, max_depth);
     
     int ret = SPI_execute(query, true, 0);
@@ -130,47 +132,22 @@ static void load_atoms_by_depth(AtomCache& cache, int min_depth, int max_depth) 
         AtomData atom;
         bool isnull;
         
+        // Column order: id(1), label(2), depth(3), atom_count(4), cx(5), cy(6), cz(7), cm(8), children(9)
+        
         // id
         Datum id_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
         if (isnull) continue;
         bytea_to_hash(DatumGetByteaP(id_datum), atom.id);
         
-        // value (for leaves)
-        Datum value_datum = SPI_getbinval(tuple, tupdesc, 2, &isnull);
-        if (!isnull) {
-            bytea* val = DatumGetByteaP(value_datum);
-            atom.value.assign((uint8_t*)VARDATA_ANY(val), 
-                             (uint8_t*)VARDATA_ANY(val) + VARSIZE_ANY_EXHDR(val));
-            atom.is_leaf = true;
-        } else {
-            atom.is_leaf = false;
-        }
+        // Compositions are never leaves (they have children by definition)
+        atom.is_leaf = false;
+        atom.value.clear();
         
-        // children
-        Datum children_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
-        if (!isnull) {
-            ArrayType* arr = DatumGetArrayTypeP(children_datum);
-            Datum* elems;
-            bool* nulls;
-            int nelems;
-            deconstruct_array(arr, BYTEAOID, -1, false, TYPALIGN_INT,
-                             &elems, &nulls, &nelems);
-            
-            atom.children.reserve(nelems);
-            for (int j = 0; j < nelems; j++) {
-                if (!nulls[j]) {
-                    HashKey child;
-                    bytea_to_hash(DatumGetByteaP(elems[j]), child);
-                    atom.children.push_back(child);
-                }
-            }
-        }
-        
-        // depth
-        Datum depth_datum = SPI_getbinval(tuple, tupdesc, 4, &isnull);
+        // depth (column 3)
+        Datum depth_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
         atom.depth = isnull ? 0 : DatumGetInt32(depth_datum);
         
-        // centroid
+        // centroid (columns 5-8)
         Datum cx = SPI_getbinval(tuple, tupdesc, 5, &isnull);
         atom.centroid_x = isnull ? 0 : DatumGetFloat8(cx);
         
@@ -183,55 +160,8 @@ static void load_atoms_by_depth(AtomCache& cache, int min_depth, int max_depth) 
         Datum cm = SPI_getbinval(tuple, tupdesc, 8, &isnull);
         atom.centroid_m = isnull ? 0 : DatumGetFloat8(cm);
         
-        cache[atom.id] = std::move(atom);
-    }
-}
-
-/**
- * Load specific atoms by ID list.
- * Uses IN clause with array for efficiency.
- */
-static void load_atoms_by_ids(AtomCache& cache, const std::vector<HashKey>& ids) {
-    if (ids.empty()) return;
-    
-    // Build array literal
-    std::string array_lit = "ARRAY[";
-    for (size_t i = 0; i < ids.size(); i++) {
-        if (i > 0) array_lit += ",";
-        array_lit += "'\\x" + ids[i].to_hex() + "'::bytea";
-    }
-    array_lit += "]";
-    
-    std::string query = 
-        "SELECT id, value, children, depth, "
-        "ST_X(centroid), ST_Y(centroid), ST_Z(centroid), ST_M(centroid) "
-        "FROM atom WHERE id = ANY(" + array_lit + ")";
-    
-    int ret = SPI_execute(query.c_str(), true, 0);
-    if (ret != SPI_OK_SELECT) return;
-    
-    for (uint64 i = 0; i < SPI_processed; i++) {
-        HeapTuple tuple = SPI_tuptable->vals[i];
-        TupleDesc tupdesc = SPI_tuptable->tupdesc;
-        
-        AtomData atom;
-        bool isnull;
-        
-        Datum id_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
-        if (isnull) continue;
-        bytea_to_hash(DatumGetByteaP(id_datum), atom.id);
-        
-        Datum value_datum = SPI_getbinval(tuple, tupdesc, 2, &isnull);
-        if (!isnull) {
-            bytea* val = DatumGetByteaP(value_datum);
-            atom.value.assign((uint8_t*)VARDATA_ANY(val), 
-                             (uint8_t*)VARDATA_ANY(val) + VARSIZE_ANY_EXHDR(val));
-            atom.is_leaf = true;
-        } else {
-            atom.is_leaf = false;
-        }
-        
-        Datum children_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
+        // children (column 9)
+        Datum children_datum = SPI_getbinval(tuple, tupdesc, 9, &isnull);
         if (!isnull) {
             ArrayType* arr = DatumGetArrayTypeP(children_datum);
             Datum* elems;
@@ -250,34 +180,149 @@ static void load_atoms_by_ids(AtomCache& cache, const std::vector<HashKey>& ids)
             }
         }
         
-        Datum depth_datum = SPI_getbinval(tuple, tupdesc, 4, &isnull);
-        atom.depth = isnull ? 0 : DatumGetInt32(depth_datum);
-        
-        atom.centroid_x = 0; atom.centroid_y = 0;
-        atom.centroid_z = 0; atom.centroid_m = 0;
-        
-        Datum cx = SPI_getbinval(tuple, tupdesc, 5, &isnull);
-        if (!isnull) atom.centroid_x = DatumGetFloat8(cx);
-        Datum cy = SPI_getbinval(tuple, tupdesc, 6, &isnull);
-        if (!isnull) atom.centroid_y = DatumGetFloat8(cy);
-        Datum cz = SPI_getbinval(tuple, tupdesc, 7, &isnull);
-        if (!isnull) atom.centroid_z = DatumGetFloat8(cz);
-        Datum cm = SPI_getbinval(tuple, tupdesc, 8, &isnull);
-        if (!isnull) atom.centroid_m = DatumGetFloat8(cm);
-        
         cache[atom.id] = std::move(atom);
     }
 }
 
 /**
- * Load semantic edges (depth=1, atom_count=2) into edge map.
+ * Load specific entities by ID list.
+ * Tries composition first, then atom (for codepoints).
+ */
+static void load_atoms_by_ids(AtomCache& cache, const std::vector<HashKey>& ids) {
+    if (ids.empty()) return;
+    
+    // Build array literal
+    std::string array_lit = "ARRAY[";
+    for (size_t i = 0; i < ids.size(); i++) {
+        if (i > 0) array_lit += ",";
+        array_lit += "'\\x" + ids[i].to_hex() + "'::bytea";
+    }
+    array_lit += "]";
+    
+    // First try compositions
+    std::string query = 
+        "SELECT c.id, c.label, c.depth, c.atom_count, "
+        "ST_X(c.centroid), ST_Y(c.centroid), ST_Z(c.centroid), ST_M(c.centroid), "
+        "(SELECT array_agg(cc.child_id ORDER BY cc.ordinal) FROM composition_child cc WHERE cc.composition_id = c.id) as children "
+        "FROM composition c WHERE c.id = ANY(" + array_lit + ")";
+    
+    int ret = SPI_execute(query.c_str(), true, 0);
+    if (ret == SPI_OK_SELECT) {
+        for (uint64 i = 0; i < SPI_processed; i++) {
+            HeapTuple tuple = SPI_tuptable->vals[i];
+            TupleDesc tupdesc = SPI_tuptable->tupdesc;
+            
+            AtomData atom;
+            bool isnull;
+            
+            // Column order: id(1), label(2), depth(3), atom_count(4), cx(5), cy(6), cz(7), cm(8), children(9)
+            Datum id_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
+            if (isnull) continue;
+            bytea_to_hash(DatumGetByteaP(id_datum), atom.id);
+            
+            atom.is_leaf = false;
+            atom.value.clear();
+            
+            Datum depth_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
+            atom.depth = isnull ? 0 : DatumGetInt32(depth_datum);
+            
+            atom.centroid_x = 0; atom.centroid_y = 0;
+            atom.centroid_z = 0; atom.centroid_m = 0;
+            
+            Datum cx = SPI_getbinval(tuple, tupdesc, 5, &isnull);
+            if (!isnull) atom.centroid_x = DatumGetFloat8(cx);
+            Datum cy = SPI_getbinval(tuple, tupdesc, 6, &isnull);
+            if (!isnull) atom.centroid_y = DatumGetFloat8(cy);
+            Datum cz = SPI_getbinval(tuple, tupdesc, 7, &isnull);
+            if (!isnull) atom.centroid_z = DatumGetFloat8(cz);
+            Datum cm = SPI_getbinval(tuple, tupdesc, 8, &isnull);
+            if (!isnull) atom.centroid_m = DatumGetFloat8(cm);
+            
+            // children (column 9)
+            Datum children_datum = SPI_getbinval(tuple, tupdesc, 9, &isnull);
+            if (!isnull) {
+                ArrayType* arr = DatumGetArrayTypeP(children_datum);
+                Datum* elems;
+                bool* nulls;
+                int nelems;
+                deconstruct_array(arr, BYTEAOID, -1, false, TYPALIGN_INT,
+                                 &elems, &nulls, &nelems);
+                
+                atom.children.reserve(nelems);
+                for (int j = 0; j < nelems; j++) {
+                    if (!nulls[j]) {
+                        HashKey child;
+                        bytea_to_hash(DatumGetByteaP(elems[j]), child);
+                        atom.children.push_back(child);
+                    }
+                }
+            }
+            
+            cache[atom.id] = std::move(atom);
+        }
+    }
+    
+    // Then load atoms (for leaf codepoints)
+    query = 
+        "SELECT a.id, a.value, ST_X(a.geom), ST_Y(a.geom), ST_Z(a.geom), ST_M(a.geom) "
+        "FROM atom a WHERE a.id = ANY(" + array_lit + ")";
+    
+    ret = SPI_execute(query.c_str(), true, 0);
+    if (ret == SPI_OK_SELECT) {
+        for (uint64 i = 0; i < SPI_processed; i++) {
+            HeapTuple tuple = SPI_tuptable->vals[i];
+            TupleDesc tupdesc = SPI_tuptable->tupdesc;
+            
+            AtomData atom;
+            bool isnull;
+            
+            Datum id_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
+            if (isnull) continue;
+            bytea_to_hash(DatumGetByteaP(id_datum), atom.id);
+            
+            // Skip if already loaded from composition
+            if (cache.find(atom.id) != cache.end()) continue;
+            
+            // value (column 2)
+            Datum value_datum = SPI_getbinval(tuple, tupdesc, 2, &isnull);
+            if (!isnull) {
+                bytea* val = DatumGetByteaP(value_datum);
+                atom.value.assign((uint8_t*)VARDATA_ANY(val), 
+                                 (uint8_t*)VARDATA_ANY(val) + VARSIZE_ANY_EXHDR(val));
+            }
+            atom.is_leaf = true;
+            atom.depth = 0;
+            
+            // geom coords (columns 3-6)
+            atom.centroid_x = 0; atom.centroid_y = 0;
+            atom.centroid_z = 0; atom.centroid_m = 0;
+            Datum cx = SPI_getbinval(tuple, tupdesc, 3, &isnull);
+            if (!isnull) atom.centroid_x = DatumGetFloat8(cx);
+            Datum cy = SPI_getbinval(tuple, tupdesc, 4, &isnull);
+            if (!isnull) atom.centroid_y = DatumGetFloat8(cy);
+            Datum cz = SPI_getbinval(tuple, tupdesc, 5, &isnull);
+            if (!isnull) atom.centroid_z = DatumGetFloat8(cz);
+            Datum cm = SPI_getbinval(tuple, tupdesc, 6, &isnull);
+            if (!isnull) atom.centroid_m = DatumGetFloat8(cm);
+            
+            cache[atom.id] = std::move(atom);
+        }
+    }
+}
+
+/**
+ * Load semantic edges from bigram compositions (depth=1, atom_count=2).
+ * Uses composition table + composition_child for children lookup.
  */
 static void load_semantic_edges(EdgeMap& edges, int limit = 100000) {
-    char query[256];
+    char query[512];
     snprintf(query, sizeof(query),
-        "SELECT children, ST_M(ST_StartPoint(geom)) as weight "
-        "FROM atom WHERE depth = 1 AND atom_count = 2 "
-        "AND ST_M(ST_StartPoint(geom)) < 100000 "
+        "SELECT "
+        "  (SELECT cc1.child_id FROM composition_child cc1 WHERE cc1.composition_id = c.id AND cc1.ordinal = 0) as child1, "
+        "  (SELECT cc2.child_id FROM composition_child cc2 WHERE cc2.composition_id = c.id AND cc2.ordinal = 1) as child2, "
+        "  1.0::float8 as weight "
+        "FROM composition c "
+        "WHERE c.depth = 1 AND c.atom_count = 2 "
         "LIMIT %d", limit);
     
     int ret = SPI_execute(query, true, 0);
@@ -286,26 +331,20 @@ static void load_semantic_edges(EdgeMap& edges, int limit = 100000) {
     for (uint64 i = 0; i < SPI_processed; i++) {
         HeapTuple tuple = SPI_tuptable->vals[i];
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
-        bool isnull;
+        bool isnull1, isnull2;
         
-        Datum children_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
-        if (isnull) continue;
+        Datum d1 = SPI_getbinval(tuple, tupdesc, 1, &isnull1);
+        Datum d2 = SPI_getbinval(tuple, tupdesc, 2, &isnull2);
         
-        ArrayType* arr = DatumGetArrayTypeP(children_datum);
-        Datum* elems;
-        bool* nulls;
-        int nelems;
-        deconstruct_array(arr, BYTEAOID, -1, false, TYPALIGN_INT,
-                         &elems, &nulls, &nelems);
-        
-        if (nelems != 2 || nulls[0] || nulls[1]) continue;
+        if (isnull1 || isnull2) continue;
         
         HashKey a, b;
-        bytea_to_hash(DatumGetByteaP(elems[0]), a);
-        bytea_to_hash(DatumGetByteaP(elems[1]), b);
+        bytea_to_hash(DatumGetByteaP(d1), a);
+        bytea_to_hash(DatumGetByteaP(d2), b);
         
-        Datum weight_datum = SPI_getbinval(tuple, tupdesc, 2, &isnull);
-        double weight = isnull ? 1.0 : DatumGetFloat8(weight_datum);
+        bool isnull_w;
+        Datum weight_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull_w);
+        double weight = isnull_w ? 1.0 : DatumGetFloat8(weight_datum);
         
         // Bidirectional edges
         edges[a].push_back({b, weight});

@@ -4,8 +4,6 @@
 -- Tracks discovered models and their ingestion status
 -- =============================================================================
 
-BEGIN;
-
 CREATE TABLE IF NOT EXISTS model (
     id              BIGSERIAL PRIMARY KEY,
     name            TEXT NOT NULL UNIQUE,           -- e.g., "sentence-transformers/all-MiniLM-L6-v2"
@@ -78,5 +76,3 @@ SELECT
     m.last_scanned
 FROM model m
 ORDER BY m.name;
-
-COMMIT;

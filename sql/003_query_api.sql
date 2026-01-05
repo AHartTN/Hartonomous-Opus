@@ -5,8 +5,6 @@
 -- Atom/Composition/Relation with 4D Laplacian-projected centroids.
 -- =============================================================================
 
-BEGIN;
-
 -- =============================================================================
 -- TEXT RECONSTRUCTION: Decode compositions back to readable text
 -- =============================================================================
@@ -273,9 +271,44 @@ RETURNS TABLE(
     answer TEXT,
     distance DOUBLE PRECISION
 ) AS $$
-    -- Uses vector_analogy from generative_engine
-    SELECT * FROM vector_analogy(p_a, p_b, p_c, p_k);
-$$ LANGUAGE SQL STABLE;
+DECLARE
+    v_a GEOMETRY;
+    v_b GEOMETRY;
+    v_c GEOMETRY;
+    v_target GEOMETRY;
+BEGIN
+    -- Get centroids
+    SELECT centroid INTO v_a FROM composition WHERE label = p_a AND centroid IS NOT NULL LIMIT 1;
+    SELECT centroid INTO v_b FROM composition WHERE label = p_b AND centroid IS NOT NULL LIMIT 1;
+    SELECT centroid INTO v_c FROM composition WHERE label = p_c AND centroid IS NOT NULL LIMIT 1;
+    
+    IF v_a IS NULL OR v_b IS NULL OR v_c IS NULL THEN
+        RAISE WARNING 'One or more tokens not found with centroid';
+        RETURN;
+    END IF;
+    
+    -- Compute target: C + (B - A)
+    v_target := ST_SetSRID(ST_MakePoint(
+        ST_X(v_c) + (ST_X(v_b) - ST_X(v_a)),
+        ST_Y(v_c) + (ST_Y(v_b) - ST_Y(v_a)),
+        ST_Z(v_c) + (ST_Z(v_b) - ST_Z(v_a)),
+        ST_M(v_c) + (ST_M(v_b) - ST_M(v_a))
+    ), 0);
+    
+    -- Find nearest to target
+    RETURN QUERY
+    SELECT 
+        c.label,
+        centroid_distance(c.centroid, v_target)
+    FROM composition c
+    WHERE c.centroid IS NOT NULL
+      AND c.label IS NOT NULL
+      AND c.label NOT IN (p_a, p_b, p_c)
+      AND c.label NOT LIKE '[%'
+    ORDER BY centroid_distance(c.centroid, v_target) ASC
+    LIMIT p_k;
+END;
+$$ LANGUAGE plpgsql STABLE;
 
 -- =============================================================================
 -- DATABASE STATISTICS
@@ -296,5 +329,3 @@ RETURNS TABLE(
         (SELECT count(*) FROM relation),
         (SELECT array_agg(DISTINCT source_model) FROM relation WHERE source_model IS NOT NULL AND source_model != '');
 $$ LANGUAGE SQL STABLE;
-
-COMMIT;

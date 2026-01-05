@@ -2,8 +2,6 @@
 -- Enables text-based search and question answering across compositions
 -- Usage: SELECT ask('What is the ship in Moby Dick?');
 
-BEGIN;
-
 -- Drop existing functions
 DROP FUNCTION IF EXISTS qa_search(TEXT, INTEGER) CASCADE;
 DROP FUNCTION IF EXISTS qa_answer(TEXT) CASCADE;
@@ -159,8 +157,6 @@ BEGIN
     LIMIT 100;
 END;
 $$ LANGUAGE plpgsql;
-
-COMMIT;
 
 -- Comments
 COMMENT ON FUNCTION search_text IS 'Search compositions by keyword pattern, returns matches with scores';

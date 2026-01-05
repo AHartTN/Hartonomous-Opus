@@ -10,8 +10,6 @@
 -- All similarity uses 4D Euclidean distance on composition.centroid.
 -- =============================================================================
 
-BEGIN;
-
 -- =============================================================================
 -- 4D SIMILARITY OPERATIONS
 -- =============================================================================
@@ -313,13 +311,13 @@ $$ LANGUAGE plpgsql STABLE;
 -- =============================================================================
 
 -- Generate text completion as a single string
--- Uses C extension gen_complete for performance
 CREATE OR REPLACE FUNCTION complete(
     p_prompt TEXT,
     p_max_tokens INTEGER DEFAULT 20
 )
 RETURNS TEXT AS $$
-    SELECT gen_complete(p_prompt, p_max_tokens);
+    SELECT string_agg(token, ' ' ORDER BY pos)
+    FROM generate_sql(p_prompt, p_max_tokens, 0.7, 40);
 $$ LANGUAGE SQL STABLE;
 
 -- Semantic analogy: A is to B as C is to ?
@@ -442,5 +440,3 @@ RETURNS TABLE(
     UNION ALL
     SELECT 'pmi_edges', COUNT(*) FROM relation WHERE relation_type = 'S';
 $$ LANGUAGE SQL STABLE;
-
-COMMIT;

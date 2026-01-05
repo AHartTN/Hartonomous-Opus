@@ -50,9 +50,12 @@ try {
     $sqlFiles = Get-ChildItem -Path "$env:HC_PROJECT_ROOT\sql\*.sql" | Sort-Object Name
     foreach ($sqlFile in $sqlFiles) {
         Write-Host "  $($sqlFile.Name)..." -NoNewline
-        & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -f $sqlFile.FullName -q 2>&1 | Out-Null
+        $output = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -v ON_ERROR_STOP=1 -f $sqlFile.FullName 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host " FAILED" -ForegroundColor Red
+            Write-Host "    Error: $output" -ForegroundColor Red
+            Write-Host "Database setup failed!" -ForegroundColor Red
+            exit 1
         } else {
             Write-Host " OK" -ForegroundColor Green
         }
@@ -113,22 +116,9 @@ try {
         Write-Host "Atoms already seeded" -ForegroundColor Green
     }
 
-    # Recompute centroids for any compositions that exist but have incorrect centroids
-    # (e.g., after ingestion with Laplacian eigenmap instead of atom-based)
-    Write-Host "`nChecking for centroid recomputation..."
-    $compCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL" 2>&1
-    
-    if ([int]$compCount -gt 0) {
-        Write-Host "  Recomputing centroids for $compCount compositions..."
-        $result = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT recompute_composition_centroids(10000)" 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Updated $result compositions" -ForegroundColor Green
-        } else {
-            Write-Host "  Centroid recomputation skipped (function may not exist)" -ForegroundColor Yellow
-        }
-    } else {
-        Write-Host "  No compositions to recompute (run ingest-safetensor.ps1 first)" -ForegroundColor Gray
-    }
+    # NOTE: Do NOT recompute centroids here. The Laplacian eigenmap projections
+    # from ingest-safetensor.ps1 are the correct semantic coordinates.
+    # Recomputing from atom children would destroy the semantic relationships.
 
     # Generate k-NN semantic edges from composition centroids
     Write-Host "`nChecking for k-NN edge generation..."

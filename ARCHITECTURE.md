@@ -1,30 +1,35 @@
 # Hartonomous Hypercube - Architecture Document
 
-**Last Updated**: 2025-01-16
-**Status**: Canonical - Binary PMI Merkle DAG (v5)
+**Last Updated**: 2026-01-05  
+**Status**: Canonical - 3-Table Schema with Laplacian Eigenmaps (v6)
 
 ---
 
 ## Executive Summary
 
-The Hypercube is a **deterministic, lossless, content-addressable geometric semantic substrate**. All digital content is decomposed into a Merkle DAG where:
+The Hypercube is a **deterministic, lossless, content-addressable geometric semantic substrate**. All digital content is decomposed into a Merkle DAG stored in PostgreSQL/PostGIS with 4D spatial indexing:
 
-1. **Atoms** (Unicode codepoints) form the perimeter landmarks at fixed 4D coordinates (POINTZM)
-2. **Compositions** are binary pairs forming a deduplicated dictionary (not content directly)
-3. **Relations** explicitly store parent-child edges with ordinals for ordering
-4. **Deduplication** is global - identical patterns share the same hash regardless of source
-5. **Reconstruction** is bit-perfect via ordered traversal of the relation table
+1. **Atoms** (~1.1M Unicode codepoints) are fixed landmarks at 4D coordinates (POINTZM)
+2. **Compositions** aggregate atoms/compositions with 4D Laplacian-projected centroids
+3. **Relations** store semantic edges (attention, PMI, sequence) between nodes
+4. **Deduplication** is global - identical patterns share the same hash
+5. **Reconstruction** is bit-perfect via ordered traversal of composition_child
 
-### The Two Table Model (IMPLEMENTED)
+### The Three Table Model
 
-The system uses:
-- **`atom` table**: Nodes (codepoints and compositions)
-- **`relation` table**: Edges (parent→child with ordinal and type)
+| Table | Purpose | Row Count |
+|-------|---------|-----------|
+| `atom` | Unicode codepoints (leaves only) | ~1.1M fixed |
+| `composition` | Aggregations (BPE tokens, words, phrases) | Grows with content |
+| `relation` | Semantic edges (attention, PMI, sequence) | Grows with models |
 
-This is the **dictionary model**:
-- We build a dictionary of binary compositions via PMI contraction
-- Content references the dictionary through sequences of edges
-- The dictionary grows logarithmically while content grows linearly
+Supporting junction table:
+
+| Table | Purpose |
+|-------|---------|
+| `composition_child` | Ordered children of compositions |
+
+**Key Innovation**: N-dimensional embeddings from AI models are projected to 4D during ingestion via **Laplacian Eigenmaps + Gram-Schmidt orthonormalization**. Raw embeddings NEVER touch the database - only 4D coordinates.
 
 ---
 
@@ -32,358 +37,250 @@ This is the **dictionary model**:
 
 ### 1. Determinism
 - Same bytes → same composition ID, always
-- No randomness, no floating-point conversion, no approximations
-- Hash = BLAKE3 of canonical ordered child pair
+- No randomness, no floating-point approximations
+- Hash = BLAKE3 of canonical ordered child hashes concatenated
 
 ### 2. Losslessness
 - Bit-perfect reconstruction from composition
-- DFS traversal of relations (ordinal 1 then 2) → original byte sequence
-- All coordinates stored as 32-bit signed integers (bit pattern same as uint32)
+- DFS traversal of composition_child → original byte sequence
+- All coordinates stored with full precision in POINTZM geometry
 
 ### 3. Global Deduplication
-- "the" from Moby Dick = "the" from a children's book = same composition ID
-- First ingest creates the pattern; subsequent ingests only add references
+- "the" from Moby Dick = "the" from Python docs = same composition ID
+- First ingest creates the pattern; subsequent ingests reference it
 - The more you ingest, the more deduplication occurs
 
-### 4. Binary Compositions (PMI Contraction)
+### 4. 4D Laplacian Projection
+- Model embeddings (384D, 768D, 4096D) are projected to 4D
+- Uses Laplacian Eigenmaps for structure-preserving projection
+- Gram-Schmidt orthonormalization ensures orthogonal axes
+- Spatial proximity in 4D = semantic similarity
 
-**Binary pairs form the dictionary:**
-- PMI (Pointwise Mutual Information) identifies significant co-occurrences
-- Highest PMI pairs are contracted into new compositions
-- Process repeats until single root composition remains
-- Result: Logarithmic growth of dictionary, linear growth of content
-
-**Example:** "the" might decompose as:
-- `th` = composition of `[t, h]` (ordinal 1, ordinal 2)
-- `the` = composition of `[th, e]` (ordinal 1, ordinal 2)
-
-**LINESTRINGZM geometry** represents the path through 2 child centroids:
-- `ST_MakeLine(child1.centroid, child2.centroid)`
-- The trajectory shape IS semantic information (Fréchet distance for similarity)
-
-### 5. Relation Table for Edges
-
-**Explicit edge storage:**
-- `relation(parent_id, child_id, ordinal, relation_type)`
-- `ordinal` = 1 or 2 for binary compositions
-- `relation_type` = 'C' (composition), 'S' (sequence), 'M' (metadata), 'R' (reference)
-- Enables rich graph traversal and pattern matching
-
-### 6. Hypersphere Geometry
-
-**Leaves on perimeter, compositions move inward:**
-- Depth 0 (atoms): On the outer surface of the 4D hypersphere
-- Depth 1 (pairs): Centroid of component atoms, radius decreases
-- Depth N: Further inward, approaching origin as complexity increases
-
-**Origin = most abstract/complex, Perimeter = most atomic**
-
-### 7. Emergent Topology as Semantics
-
-**The structure IS the meaning.** This is fundamentally different from:
-- Vector embeddings (opaque dimensions)
-- Probability distributions (training artifacts)
-- Learned projections (black box)
-
-Semantic signal emerges from:
-- **Connectivity**: How many compositions include this atom?
-- **Trajectory shape**: What path through 4D space? (Fréchet distance)
-- **Neighborhood density**: How clustered are connections?
-- **Path multiplicity**: How many ways to reach X from Y?
+### 5. Hypersphere Geometry
+- Atoms: On the surface of the 4D hypersphere (YOUR coordinate system)
+- Compositions: Centroids move inward as depth increases
+- Origin = most abstract/complex, Perimeter = most atomic
 
 ---
 
 ## Data Model
 
-### Atom Table (Nodes)
+### 1. Atom Table (Leaves Only)
 ```sql
-atom (
-    -- Content-addressed identifier
-    id              BYTEA PRIMARY KEY,      -- BLAKE3 hash (32 bytes)
+CREATE TABLE atom (
+    id              BYTEA PRIMARY KEY,              -- BLAKE3(codepoint bytes)
+    codepoint       INTEGER NOT NULL UNIQUE,        -- Unicode codepoint (0-0x10FFFF)
+    value           BYTEA NOT NULL,                 -- UTF-8 bytes of the character
+    geom            GEOMETRY(POINTZM, 0) NOT NULL,  -- YOUR 4D coordinate mapping
+    hilbert_lo      BIGINT NOT NULL,                -- Hilbert index (low 64 bits)
+    hilbert_hi      BIGINT NOT NULL,                -- Hilbert index (high 64 bits)
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+**~1.1M rows seeded once via Hopf fibration coordinate mapping.**
 
-    -- Geometry: POINTZM for leaves, LINESTRINGZM for compositions
-    geom            GEOMETRY(GEOMETRYZM, 0) NOT NULL,
-    centroid        GEOMETRY(POINTZM, 0),   -- Pre-computed 4D centroid
-
-    -- Canonical content for leaves only (NULL for compositions)
-    content         BYTEA,                  -- Raw bytes for depth 0
-
-    -- Unicode codepoint for leaf atoms (NULL for compositions)
-    codepoint       INTEGER UNIQUE,
-
-    -- 128-bit Hilbert index (from centroid -> 4D coords)
-    hilbert_lo      BIGINT NOT NULL,
-    hilbert_hi      BIGINT NOT NULL,
-
-    -- Depth in DAG (0 = leaf, 1+ = composition)
-    depth           INTEGER NOT NULL DEFAULT 0,
-
-    -- Total leaf atoms in subtree (1 for leaves)
-    atom_count      BIGINT NOT NULL DEFAULT 1
-)
+### 2. Composition Table (Aggregations)
+```sql
+CREATE TABLE composition (
+    id              BYTEA PRIMARY KEY,              -- BLAKE3(child_ids concatenated)
+    label           TEXT,                           -- Human-readable (e.g., "whale", "##ing")
+    depth           INTEGER NOT NULL DEFAULT 1,     -- 1 = direct atom children, 2+ = nested
+    child_count     INTEGER NOT NULL,               -- Number of direct children
+    atom_count      BIGINT NOT NULL,                -- Total leaf atoms in subtree
+    geom            GEOMETRY(LINESTRINGZM, 0),      -- Path through child centroids
+    centroid        GEOMETRY(POINTZM, 0),           -- 4D centroid (Laplacian projected)
+    hilbert_lo      BIGINT,                         -- Hilbert index (low 64 bits)
+    hilbert_hi      BIGINT,                         -- Hilbert index (high 64 bits)
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 ```
 
-### Relation Table (Edges)
+### 3. Composition Children (Junction Table)
 ```sql
-relation (
-    -- References
-    parent_id       BYTEA NOT NULL REFERENCES atom(id),
-    child_id        BYTEA NOT NULL REFERENCES atom(id),
-
-    -- Order within parent (1 or 2 for binary compositions)
-    ordinal         INTEGER NOT NULL,
-
-    -- Relationship type
-    relation_type   CHAR(1) NOT NULL DEFAULT 'C',
-    -- 'C' = Composition (binary tree structure)
-    -- 'S' = Sequence (document content referencing dictionary)
-    -- 'M' = Metadata (annotations, provenance)
-    -- 'R' = Reference (cross-links)
-
-    PRIMARY KEY (parent_id, ordinal, relation_type)
-)
+CREATE TABLE composition_child (
+    composition_id  BYTEA NOT NULL REFERENCES composition(id),
+    ordinal         SMALLINT NOT NULL,              -- Position in sequence (0-based)
+    child_type      CHAR(1) NOT NULL,               -- 'A' = atom, 'C' = composition
+    child_id        BYTEA NOT NULL,                 -- References atom.id or composition.id
+    PRIMARY KEY (composition_id, ordinal)
+);
 ```
 
-**Key Points**:
-- Two tables: `atom` for nodes, `relation` for edges
-- `depth = 0` means leaf (POINTZM geometry, has content and codepoint)
-- `depth > 0` means composition (LINESTRINGZM geometry, 2 children via relation table)
-- Ordinals 1 and 2 preserve binary order for reconstruction
-- DFS traversal of relations (ordinal 1 first, then 2) = original byte sequence
+### 4. Relation Table (Semantic Edges)
+```sql
+CREATE TABLE relation (
+    id              BIGSERIAL PRIMARY KEY,
+    source_type     CHAR(1) NOT NULL,               -- 'A' = atom, 'C' = composition
+    source_id       BYTEA NOT NULL,                 -- References atom.id or composition.id
+    target_type     CHAR(1) NOT NULL,               -- 'A' = atom, 'C' = composition
+    target_id       BYTEA NOT NULL,                 -- References atom.id or composition.id
+    relation_type   CHAR(1) NOT NULL,               -- S=sequence, A=attention, P=proximity
+    weight          REAL NOT NULL DEFAULT 1.0,      -- Edge weight/strength
+    source_model    TEXT NOT NULL DEFAULT '',       -- Which model contributed this edge
+    source_count    INTEGER NOT NULL DEFAULT 1,     -- Occurrence count (for averaging)
+    layer           INTEGER NOT NULL DEFAULT -1,    -- Model layer (-1 = N/A)
+    component       TEXT NOT NULL DEFAULT '',       -- Model component (attention, mlp)
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    
+    UNIQUE (source_id, target_id, relation_type, source_model, layer, component)
+);
+```
+
+**Relation Types:**
+- `S` = Sequence (document order)
+- `A` = Attention (from model attention matrices)
+- `P` = Proximity (spatial neighborhood)
+- `T` = Temporal (time-based relationships)
 
 ---
 
 ## Ingestion Pipeline
 
-### PMI-Based Binary Contraction (C++ Implementation)
-
+### Text/Content Ingestion
 ```
-Input → Codepoint Sequence → PMI Calculation → Highest-Pair Contraction → Binary Merkle DAG
-```
-
-**The substrate is COMPLETELY AGNOSTIC.** It doesn't know or care what it's ingesting:
-
-| Input Type | Tier 0 Alphabet | Example |
-|------------|-----------------|---------|
-| Text | Unicode codepoints (1.1M) | "Hello" = [H,e,l,l,o] |
-| Binary | Byte values (256) | [0x48,0x65,0x6c,0x6c,0x6f] |
-| Audio | Sample amplitudes | [-32768...32767] or [0...65535] |
-| Image | Pixel values | [0...255] per channel |
-| Numbers | Codepoints | "0.987" = [0,.,9,8,7] |
-
-**All are just sequences of integers.** Same algorithm, same storage, same semantics.
-
-### Greedy Pattern Matching (Vocabulary-driven)
-
-```
-Tier 0: Atoms (seeded alphabet - Unicode codepoints, bytes, etc.)
-        "The cat sat" → [T,h,e, ,c,a,t, ,s,a,t] (11 atoms, including spaces)
-        
-Tier 1+: N-ary compositions discovered through greedy matching
-         First pass (empty vocab): composition([T,h,e, ,c,a,t, ,s,a,t])
-         After learning "the", "cat", "sat" patterns:
-           composition([The, ,cat, ,sat]) where The=composition([T,h,e])
+Input → UTF-8 → Codepoints → Greedy Vocabulary Match → Compositions
 ```
 
-**No linguistic rules. No language detection. No special cases.**
+1. Content decoded to UTF-8 codepoints
+2. Codepoints mapped to existing atoms
+3. PMI/CPE algorithm creates compositions
+4. Compositions stored with geometry computed from children
 
-- "Hello world" = H,e,l,l,o, ,w,o,r,l,d (11 atoms) - space is codepoint 32
-- "public class" = p,u,b,l,i,c, ,c,l,a,s,s (12 atoms)  
-- "{ get; set; }" = {, ,g,e,t,;, ,s,e,t,;, ,} (13 atoms)
-- "0.987" = 0,.,9,8,7 (5 atoms)
-- Attention weight 0.987 in a model? Same thing - text representation.
-
-**The vocabulary trie builds organically through usage:**
-1. Ingest content → greedy match against known vocabulary
-2. Unmatched sequences become new compositions
-3. New compositions added to vocabulary trie
-4. Next ingest → trie matches known patterns, creates new for unknown
-5. Over time → vocabulary grows, compression improves, patterns emerge
-
-**Depth and atom_count computation:**
+### Model Ingestion (Safetensor)
 ```
-depth = max(child depths) + 1      // Atoms are depth 0
-atom_count = sum(child atom_counts) // Atoms have atom_count 1
+Safetensor → Token Embeddings → Laplacian Eigenmaps → 4D Centroids → Compositions
 ```
 
-**Hash Computation (N-ary, position-sensitive):**
-```
-hash = BLAKE3(ord_0 || hash_0 || ord_1 || hash_1 || ... || ord_N-1 || hash_N-1)
-```
-Each ordinal is 4 bytes (uint32), position in the sequence matters.
-
-**Centroid Computation**:
-```
-centroid.x = average(child[i].x for all i)
-centroid.y = average(child[i].y for all i)
-centroid.z = average(child[i].z for all i)
-centroid.m = average(child[i].m for all i)
-```
-
-### What C++ Does (Heavy Lifting)
-1. Load atom cache once (token ID → hash, coords)
-2. Decode input to integer sequence (codepoints, bytes, samples, etc.)
-3. Greedy longest-match against vocabulary trie
-4. Create N-ary compositions for unmatched sequences
-5. Hash computation (BLAKE3), centroid calculation, Hilbert indexing
-6. Batch COPY to PostgreSQL (parallel connections)
-
-### What SQL Does (Orchestration ONLY)
-1. Store compositions (INSERT...ON CONFLICT DO NOTHING)
-2. Spatial queries (PostGIS GIST index)
-3. Hilbert range queries for neighborhood search
-4. Simple lookups and joins
+1. Parse safetensor metadata to find embedding matrices
+2. Extract token embeddings (N-dimensional vectors)
+3. Build k-NN graph for Laplacian matrix
+4. Compute top 4 eigenvectors via Lanczos iteration
+5. Apply Gram-Schmidt orthonormalization
+6. Store as 4D centroids on compositions
 
 ---
 
-## Type System - CRITICAL
+## File Structure
 
-### Coordinate Storage
-
-| Field | PostgreSQL Type | Interpretation | Range |
-|-------|----------------|----------------|-------|
-| coord_x/y/z/m | INTEGER | Signed 32-bit | -2,147,483,648 to 2,147,483,647 |
-| (As uint32) | N/A | Unsigned 32-bit | 0 to 4,294,967,295 |
-
-**Conversion** (lossless bit reinterpretation):
-```c++
-// C++
-uint32_t as_unsigned = static_cast<uint32_t>(signed_val);
-int32_t as_signed = static_cast<int32_t>(unsigned_val);
-
-// SQL
-int32_to_uint32(INTEGER) → BIGINT  -- Add 2^32 if negative
-uint32_to_int32(BIGINT) → INTEGER  -- Subtract 2^32 if >= 2^31
 ```
-
-### Hash Storage
-- `BYTEA(32)` - 256-bit BLAKE3 hash
-- Domain: `blake3_hash` with length check
-
-### Hilbert Index
-- 128-bit split into two `BIGINT` columns
-- `hilbert_hi` (upper 64 bits), `hilbert_lo` (lower 64 bits)
-- Stored as signed but interpreted as unsigned for ordering
-
----
-
-## FORBIDDEN Patterns
-
-### ❌ Never Do This:
-
-1. **Binary tree compositions**:
-   ```c++
-   // WRONG: Creates artificial nesting
-   composition("th", [t, h]);
-   composition("the", [th, e]);
-   ```
-
-2. **Lossy double conversion**:
-   ```sql
-   -- BAD: Loses precision!
-   ST_X(coords) * 4294967295  -- Double precision loses bits
-   ```
-
-3. **Linguistic tokenization**:
-   ```c++
-   // BAD: Language-specific, loses semantic structure
-   split_on_whitespace("Hello world");  // Assumes English-like words
-   sentence_boundary_detection();        // Language-specific rules
-   ```
-
-4. **Line-by-line ingestion**:
-   ```bash
-   # BAD: Creates disconnected compositions per line
-   while read line; do psql -c "SELECT ingest('$line')"; done
-   ```
-
-5. **Recursion/loops in SQL**:
-   ```sql
-   -- BAD: C++ should do heavy computation
-   WITH RECURSIVE tree AS (...)  -- Only for simple traversal
-   ```
-
-### ✅ Always Do This:
-
-1. **N-ary compositions at natural boundaries**:
-   ```c++
-   // "the" = single composition with 3 children
-   composition = {hash, children: [t_id, h_id, e_id]};
-   ```
-
-2. **Integer arithmetic for centroids**:
-   ```c++
-   for (child : children) sum_x += child.x;
-   centroid.x = sum_x / children.size();
-   ```
-
-3. **Whole-file ingestion as codepoint sequence**:
-   ```c++
-   auto codepoints = decode_utf8(read_file(path));  // No tokenization!
-   auto root = ingester.ingest(codepoints, atom_cache, new_comps);
-   // Greedy vocabulary matching handles composition boundaries
-   ```
-
-4. **COPY for batch insert**:
-   ```c++
-   PQexec(conn, "COPY atom FROM STDIN...");
-   for (comp : compositions) send_row(comp);
-   ```
-
----
-
-## Reconstruction
-
-To reconstruct original content from a composition ID:
-
-```sql
--- Using the built-in function
-SELECT semantic_reconstruct('\x...'::BYTEA);
-
--- Manual recursive traversal
-WITH RECURSIVE tree AS (
-    SELECT id, children, value, 1 as ord, ARRAY[1] as path
-    FROM atom WHERE id = $root_id
-
-    UNION ALL
-
-    SELECT a.id, a.children, a.value, c.ordinal, t.path || c.ordinal
-    FROM tree t
-    CROSS JOIN LATERAL unnest(t.children) WITH ORDINALITY AS c(child_id, ordinal)
-    JOIN atom a ON a.id = c.child_id
-    WHERE t.children IS NOT NULL
-)
-SELECT convert_from(string_agg(value, ''::BYTEA ORDER BY path), 'UTF8')
-FROM tree WHERE value IS NOT NULL;
+Hartonomous-Opus/
+├── cpp/
+│   ├── CMakeLists.txt          # Build configuration
+│   ├── include/hypercube/      # Header files
+│   │   ├── types.hpp           # Core type definitions
+│   │   ├── coordinates.hpp     # Hopf fibration mapping
+│   │   ├── hilbert.hpp         # 128-bit Hilbert curve
+│   │   ├── blake3.hpp          # BLAKE3 hashing
+│   │   ├── lanczos.hpp         # Eigensolver
+│   │   ├── laplacian_4d.hpp    # 4D projection
+│   │   └── db/                 # Database abstractions
+│   │       ├── atom_cache.hpp
+│   │       ├── geometry.hpp
+│   │       └── insert.hpp
+│   ├── src/
+│   │   ├── pg/                 # PostgreSQL extensions (pure C)
+│   │   │   ├── hypercube_pg.c
+│   │   │   ├── semantic_ops_pg.c
+│   │   │   ├── hypercube_ops_pg.c
+│   │   │   ├── embedding_ops_pg.c
+│   │   │   └── generative_pg.c
+│   │   ├── ingest/             # Ingestion algorithms
+│   │   │   ├── cpe.cpp         # Cascading Pair Encoding
+│   │   │   ├── sequitur.cpp    # Grammar compression
+│   │   │   └── pmi_contraction.cpp
+│   │   └── db/                 # Database layer
+│   └── tests/                  # C++ unit tests
+├── sql/
+│   ├── 001_schema.sql          # 3-table schema definition
+│   ├── 002_core_functions.sql  # Core SQL functions
+│   ├── 003_query_api.sql       # Query layer
+│   ├── 004_generative_engine.sql
+│   ├── 005_bigram_stats.sql    # PMI/bigram tables
+│   ├── 006_qa_search.sql       # Q&A search
+│   └── 007_model_registry.sql  # Model tracking
+├── scripts/
+│   ├── linux/                  # Linux shell scripts
+│   └── windows/                # PowerShell scripts
+├── tests/sql/                  # SQL test files
+└── test-data/                  # Test fixtures
 ```
 
 ---
 
-## Performance Expectations
+## Build Architecture
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Init (seed atoms) | ~10s | 1.1M Unicode codepoints (parallel COPY) |
-| Ingest text | ~10 MB/s | N-ary tokenization in C++ |
-| Query similar | <100ms | Hilbert + GIST indexes |
-| Reconstruct | O(n) | DFS traversal of children |
+### Layer 1: hypercube_core (C++ Static Library)
+Pure C++20 library with no PostgreSQL dependencies:
+- Hilbert curve, coordinates, BLAKE3, SIMD operations
+- Lanczos eigensolver, Laplacian projection
+
+### Layer 2: C API Bridges (Shared Libraries)
+Expose C++ functionality via `extern "C"`:
+- `hypercube_c` - Core operations
+- `embedding_c` - Embedding operations
+- `generative_c` - Generative engine
+
+### Layer 3: PostgreSQL Extensions (Pure C)
+Link to C bridges, include PostgreSQL headers:
+- `hypercube` - Core extension
+- `semantic_ops` - Semantic queries
+- `hypercube_ops` - Batch operations
+- `embedding_ops` - SIMD embeddings
+- `generative` - Generative walks
+
+### Layer 4: CLI Tools
+Executables requiring libpq:
+- `seed_atoms_parallel` - Parallel Unicode seeding
+- `ingest_safetensor_4d` - Model ingestion with Laplacian projection
+- `ingest` - Universal content ingester
+- `model_discovery` - HuggingFace model scanner
 
 ---
 
-## Change Log
+## Key Algorithms
 
-### 2026-01-03 - N-ary Merkle DAG (v4)
-- **REMOVED**: Binary tree/CPE cascade - fundamentally wrong approach
-- **ADDED**: N-ary compositions with arbitrary children count
-- **ADDED**: Token-aware ingestion (words, sentences, paragraphs)
-- **FIXED**: "the" is now ONE composition with 3 children, not nested binary tree
-- **UPDATED**: CompositionRecord uses vector<ChildInfo> instead of left/right
-- **UPDATED**: LINESTRINGZM built from all N child centroids
+### Hopf Fibration (Coordinate Mapping)
+Maps Unicode codepoints to S³ hypersphere surface via Hopf fibration:
+- Category → spherical angle θ
+- Subcategory → spherical angle φ
+- Codepoint → fiber angle ψ
+- All coordinates deterministic and reproducible
 
-### 2026-01-02 - Unified Schema (v3)
-- Single `atom` table replaces atom + relation + relation_edge
-- GEOMETRY(GEOMETRYZM, 0) for both POINTZM and LINESTRINGZM
+### Laplacian Eigenmaps
+Structure-preserving dimensionality reduction:
+1. Build k-NN graph from high-D embeddings
+2. Construct graph Laplacian: L = D - W
+3. Solve generalized eigenvalue problem: L·v = λ·D·v
+4. Take bottom 4 non-trivial eigenvectors as 4D coordinates
 
-### 2026-01-02 - Course Correction (v2)
-- Removed PostGIS coords from relation table
-- Added lossless integer coordinates
+### Gram-Schmidt Orthonormalization
+Ensures orthogonal 4D axes after Laplacian projection:
+- Iteratively orthogonalize columns
+- Normalize to unit vectors
+- Preserves relative distances
+
+---
+
+## Performance Characteristics
+
+| Operation | Complexity | Notes |
+|-----------|------------|-------|
+| Atom lookup by codepoint | O(1) | Indexed |
+| Composition lookup by hash | O(1) | Primary key |
+| Spatial KNN query | O(log n) | GIST index |
+| Hilbert range query | O(log n) | B-tree index |
+| Text reconstruction | O(k) | k = leaf count |
+| Laplacian projection | O(n²) | n = vocab size, done once per model |
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| v6 | 2026-01-05 | 3-table schema, Laplacian projection, major cleanup |
+| v5 | 2025-01-16 | Binary PMI Merkle DAG |
+| v4 | 2025-01-10 | Unified atom table |
+| v3 | 2025-01-05 | Relation-edge separation |
+| v2 | 2024-12-20 | Initial PostGIS integration |
+| v1 | 2024-12-01 | Proof of concept |

@@ -58,17 +58,9 @@ $exitCode = $LASTEXITCODE
 if ($exitCode -eq 0) {
     Write-Host "`nModel files ingested successfully" -ForegroundColor Green
     
-    # CRITICAL: Recompute composition centroids from atom children
-    # The C++ ingester uses Laplacian eigenmap which destroys semantic relationships.
-    # Correct centroids must be computed from averaging atom children's 4D coordinates.
-    Write-Host "`nRecomputing composition centroids from atom children..."
-    
-    $centroidResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT recompute_composition_centroids(10000)" 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  Centroids recomputed: $centroidResult compositions updated" -ForegroundColor Green
-    } else {
-        Write-Host "  Centroid recomputation warning: $centroidResult" -ForegroundColor Yellow
-    }
+    # NOTE: The C++ ingester uses Laplacian eigenmap which PRESERVES semantic relationships.
+    # The Laplacian-projected centroids are the correct semantic coordinates.
+    # DO NOT recompute centroids from atom children - that would destroy the semantics.
     
     # Generate k-NN semantic edges if none exist
     Write-Host "`nChecking for k-NN edge generation..."
@@ -90,7 +82,6 @@ if ($exitCode -eq 0) {
     exit 1
 }
 
-# Clean up password from environment
-Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+# NOTE: Don't remove PGPASSWORD - parent scripts may need it
 
 Write-Host "`nIngestion complete" -ForegroundColor Green

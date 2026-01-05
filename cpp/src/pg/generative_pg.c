@@ -207,6 +207,7 @@ gen_load_bigrams(PG_FUNCTION_ARGS)
 
 /* ==========================================================================
  * Internal helper: load attention
+ * Uses 'A' (explicit attention), 'W' (weight), or 'S' (similarity) edges
  * ========================================================================== */
 
 static int64 load_attention_internal(void)
@@ -221,11 +222,12 @@ static int64 load_attention_internal(void)
         ereport(ERROR, (errmsg("SPI_connect failed")));
     }
     
-    /* Load attention relations - 'A' explicit attention, 'W' weight edges from model */
+    /* Load attention relations - 'A' explicit attention, 'W' weight, 'S' similarity edges */
+    /* Try A/W first, fall back to S if none exist */
     ret = SPI_execute(
         "SELECT source_id, target_id, weight "
         "FROM relation "
-        "WHERE relation_type IN ('A', 'W') "
+        "WHERE relation_type IN ('A', 'W', 'S') "
         "  AND ABS(weight) > 0.1",  /* Weight edges can be negative */
         true, 0
     );

@@ -1,14 +1,13 @@
 -- =============================================================================
--- FOUR TABLE SCHEMA - Core Functions
+-- THREE TABLE SCHEMA - Core Functions
 -- =============================================================================
--- These functions work with the 4-table schema:
---   atom:             Unicode codepoints only (ALL are leaves)
---   composition:      Aggregations with depth
---   composition_child: Ordered children
---   relation:         Semantic edges
+-- These functions work with the 3-table schema:
+--   atom:             Unicode codepoints only (ALL are leaves, ~1.1M rows)
+--   composition:      Aggregations with 4D Laplacian-projected centroids
+--   relation:         Semantic edges (attention, PMI, sequence)
+-- Supporting table:
+--   composition_child: Ordered children junction table
 -- =============================================================================
-
-BEGIN;
 
 -- Drop ALL old functions that assume unified schema (different signatures too)
 DROP FUNCTION IF EXISTS atom_is_leaf(BYTEA) CASCADE;
@@ -23,6 +22,29 @@ DROP FUNCTION IF EXISTS attention(BYTEA, INTEGER) CASCADE;
 DROP FUNCTION IF EXISTS analogy(BYTEA, BYTEA, BYTEA, INTEGER) CASCADE;
 DROP FUNCTION IF EXISTS atom_hilbert_range(BIGINT, BIGINT, BIGINT, BIGINT) CASCADE;
 DROP FUNCTION IF EXISTS atom_distance(BYTEA, BYTEA) CASCADE;
+
+-- =============================================================================
+-- 4D GEOMETRY DISTANCE FUNCTIONS
+-- =============================================================================
+-- Core distance/similarity functions used throughout the system.
+-- Must be defined early since other files depend on them.
+
+-- Euclidean distance between two 4D points (POINTZM geometry)
+CREATE OR REPLACE FUNCTION centroid_distance(p_a GEOMETRY, p_b GEOMETRY)
+RETURNS DOUBLE PRECISION AS $$
+    SELECT sqrt(
+        power(ST_X(p_a) - ST_X(p_b), 2) +
+        power(ST_Y(p_a) - ST_Y(p_b), 2) +
+        power(ST_Z(p_a) - ST_Z(p_b), 2) +
+        power(ST_M(p_a) - ST_M(p_b), 2)
+    )
+$$ LANGUAGE SQL IMMUTABLE PARALLEL SAFE;
+
+-- Convert distance to similarity (inverse, normalized)
+CREATE OR REPLACE FUNCTION centroid_similarity(p_a GEOMETRY, p_b GEOMETRY)
+RETURNS DOUBLE PRECISION AS $$
+    SELECT 1.0 / (1.0 + centroid_distance(p_a, p_b))
+$$ LANGUAGE SQL IMMUTABLE PARALLEL SAFE;
 
 -- =============================================================================
 -- ATOM FUNCTIONS (leaf-only table)
@@ -339,4 +361,109 @@ RETURNS TABLE(neighbor_id BYTEA, distance DOUBLE PRECISION) AS $$
     SELECT * FROM atom_knn(p_id, p_limit);
 $$ LANGUAGE SQL STABLE;
 
-COMMIT;
+-- =============================================================================
+-- 4D CENTROID FUNCTIONS
+-- =============================================================================
+-- PostGIS ST_Centroid only handles 2D, so we need custom 4D centroid
+
+-- Compute 4D centroid (average of all points in XYZM space)
+CREATE OR REPLACE FUNCTION st_centroid_4d(geom geometry)
+RETURNS geometry AS $$
+DECLARE
+    n integer;
+    cx double precision := 0;
+    cy double precision := 0;
+    cz double precision := 0;
+    cm double precision := 0;
+    rec record;
+BEGIN
+    IF ST_GeometryType(geom) = 'ST_Point' THEN
+        RETURN geom;
+    END IF;
+    
+    n := 0;
+    FOR rec IN SELECT (ST_DumpPoints(geom)).geom AS pt LOOP
+        cx := cx + ST_X(rec.pt);
+        cy := cy + ST_Y(rec.pt);
+        cz := cz + COALESCE(ST_Z(rec.pt), 0);
+        cm := cm + COALESCE(ST_M(rec.pt), 0);
+        n := n + 1;
+    END LOOP;
+    
+    IF n = 0 THEN
+        RETURN NULL;
+    END IF;
+    
+    RETURN ST_SetSRID(ST_MakePoint(cx/n, cy/n, cz/n, cm/n), ST_SRID(geom));
+END;
+$$ LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE;
+
+-- Compute composition centroid from its atom children
+CREATE OR REPLACE FUNCTION compute_composition_centroid(comp_id bytea)
+RETURNS geometry AS $$
+    SELECT st_centroid_4d(ST_Collect(a.geom))
+    FROM composition_child cc
+    JOIN atom a ON a.id = cc.child_id
+    WHERE cc.composition_id = comp_id;
+$$ LANGUAGE sql STABLE PARALLEL SAFE;
+
+-- Recompute all composition centroids from their atom children
+CREATE OR REPLACE FUNCTION recompute_composition_centroids(batch_size integer DEFAULT 10000)
+RETURNS integer AS $$
+DECLARE
+    updated integer := 0;
+BEGIN
+    WITH comp_centroids AS (
+        SELECT 
+            cc.composition_id as id,
+            st_centroid_4d(ST_Collect(a.geom)) as new_centroid
+        FROM composition_child cc
+        JOIN atom a ON a.id = cc.child_id
+        GROUP BY cc.composition_id
+    )
+    UPDATE composition c
+    SET centroid = comp_centroids.new_centroid
+    FROM comp_centroids
+    WHERE c.id = comp_centroids.id;
+    
+    GET DIAGNOSTICS updated = ROW_COUNT;
+    RETURN updated;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =============================================================================
+-- K-NN SEMANTIC EDGE GENERATION
+-- =============================================================================
+
+-- Generate k-NN semantic edges from composition centroids
+CREATE OR REPLACE FUNCTION generate_knn_edges(
+    p_k integer DEFAULT 10,
+    p_model_name text DEFAULT 'centroid_knn'
+)
+RETURNS integer AS $$
+DECLARE
+    inserted integer := 0;
+BEGIN
+    INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component)
+    SELECT 
+        'C', c1.id, 'C', neighbor.id, 'S',
+        1.0 / (1.0 + neighbor.dist),
+        p_model_name, -1, 'knn'
+    FROM composition c1
+    CROSS JOIN LATERAL (
+        SELECT c2.id, c1.centroid <-> c2.centroid AS dist
+        FROM composition c2
+        WHERE c2.id != c1.id
+          AND c2.centroid IS NOT NULL
+        ORDER BY c1.centroid <-> c2.centroid
+        LIMIT p_k
+    ) neighbor
+    WHERE c1.centroid IS NOT NULL
+    ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET
+        weight = GREATEST(relation.weight, EXCLUDED.weight),
+        source_count = relation.source_count + 1;
+    
+    GET DIAGNOSTICS inserted = ROW_COUNT;
+    RETURN inserted;
+END;
+$$ LANGUAGE plpgsql;

@@ -114,6 +114,9 @@ if ($modelSnapshot) {
     Write-Host "  Model snapshot not found in test-data" -ForegroundColor Yellow
 }
 
+# Re-set PGPASSWORD in case child scripts cleared it
+$env:PGPASSWORD = $env:HC_DB_PASS
+
 # ============================================================================
 # 3. IMAGES - Binary Ingestion as CPE
 # ============================================================================
