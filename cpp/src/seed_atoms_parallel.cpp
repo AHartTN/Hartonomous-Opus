@@ -52,9 +52,10 @@ struct AtomRecord {
 // Generate atoms for a codepoint range
 void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) {
     out.reserve(end - start);
-    // NO normalization - store raw uint32 values as doubles
+    // COORDINATE CONVENTION: uint32 with CENTER at 2^31 = 2147483648
     // PostGIS GEOMETRY stores float64, which can exactly represent all uint32 values
     // (double has 53-bit mantissa, uint32 is 32-bit)
+    // Store uint32 coordinates DIRECTLY as double - NO reinterpretation as int32
     
     for (uint32_t cp = start; cp < end; ++cp) {
         if (cp >= constants::SURROGATE_START && cp <= constants::SURROGATE_END) {
@@ -69,20 +70,19 @@ void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) 
         rec.codepoint = static_cast<int32_t>(cp);
         rec.category = CoordinateMapper::categorize(cp);
         
-        // Store RAW 32-bit coordinates as signed int (LOSSLESS - same bit pattern as uint32)
-        // This is the authoritative coordinate storage
+        // Store uint32 coordinates as int32 (bit-preserving cast)
+        // This preserves the full 32-bit value - no information loss
         rec.coord_x = static_cast<int32_t>(coords.x);
         rec.coord_y = static_cast<int32_t>(coords.y);
         rec.coord_z = static_cast<int32_t>(coords.z);
         rec.coord_m = static_cast<int32_t>(coords.m);
         
-        // Store as CENTER-ORIGIN signed int32 (interpreted from uint32 bit pattern)
-        // This gives coordinates with 0 at center, ±2^31 at surface
-        // double can exactly represent all int32 values
-        rec.x = static_cast<double>(static_cast<int32_t>(coords.x));
-        rec.y = static_cast<double>(static_cast<int32_t>(coords.y));
-        rec.z = static_cast<double>(static_cast<int32_t>(coords.z));
-        rec.m = static_cast<double>(static_cast<int32_t>(coords.m));
+        // Store as double for PostGIS - DIRECT from uint32, no int32 reinterpretation
+        // This ensures CENTER (2^31) is stored as 2147483648.0, not as negative
+        rec.x = static_cast<double>(coords.x);
+        rec.y = static_cast<double>(coords.y);
+        rec.z = static_cast<double>(coords.z);
+        rec.m = static_cast<double>(coords.m);
         
         rec.hilbert_lo = static_cast<int64_t>(hilbert.lo);
         rec.hilbert_hi = static_cast<int64_t>(hilbert.hi);

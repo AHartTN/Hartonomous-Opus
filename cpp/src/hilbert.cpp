@@ -93,9 +93,11 @@ void HilbertCurve::axes_to_transpose(uint32_t* x, uint32_t n, uint32_t bits) noe
 }
 
 HilbertIndex HilbertCurve::coords_to_index(const Point4D& point) noexcept {
-    // Coordinates are center-origin (int32 stored as uint32 bit pattern)
-    // Hilbert needs corner-origin (0 to 2^32-1)
-    // XOR with 0x80000000 converts: signed 0 → unsigned 2^31 (center of space)
+    // COORDINATE CONVENTION: uint32 with CENTER at 2^31 = 0x80000000
+    // Hilbert curve works on corner-origin coordinates [0, 2^32-1]
+    // XOR with 0x80000000 maps our CENTER to Hilbert corner 0
+    // This means compositions near origin (abstract/complex) cluster at Hilbert index 0
+    // and atoms on sphere surface cluster at higher Hilbert indices
     constexpr uint32_t CENTER_TO_CORNER = 0x80000000U;
     uint32_t X[4] = {
         point.x ^ CENTER_TO_CORNER,
@@ -149,7 +151,8 @@ Point4D HilbertCurve::index_to_coords(const HilbertIndex& index) noexcept {
     // Transform back to Cartesian (corner-origin)
     transpose_to_axes(X, 4, 32);
 
-    // Convert back to center-origin
+    // Convert back from Hilbert corner-origin to our CENTER-origin coords
+    // XOR with 0x80000000 maps Hilbert 0 back to our CENTER (0x80000000)
     constexpr uint32_t CORNER_TO_CENTER = 0x80000000U;
     return Point4D(
         X[0] ^ CORNER_TO_CENTER,
@@ -157,6 +160,33 @@ Point4D HilbertCurve::index_to_coords(const HilbertIndex& index) noexcept {
         X[2] ^ CORNER_TO_CENTER,
         X[3] ^ CORNER_TO_CENTER
     );
+}
+
+Point4D HilbertCurve::index_to_raw_coords(const HilbertIndex& index) noexcept {
+    // De-interleave 128-bit index into 4 transposed coordinates
+    uint32_t X[4] = {0, 0, 0, 0};
+    
+    for (uint32_t bit = 0; bit < 32; ++bit) {
+        uint32_t in_pos = bit * 4;
+        uint64_t nibble;
+        
+        if (in_pos < 64) {
+            nibble = (index.lo >> in_pos) & 0xF;
+        } else {
+            nibble = (index.hi >> (in_pos - 64)) & 0xF;
+        }
+        
+        X[0] |= ((nibble >> 0) & 1) << bit;
+        X[1] |= ((nibble >> 1) & 1) << bit;
+        X[2] |= ((nibble >> 2) & 1) << bit;
+        X[3] |= ((nibble >> 3) & 1) << bit;
+    }
+    
+    // Transform back to Cartesian (corner-origin)
+    // NO CENTER adjustment - returns raw corner-origin coordinates
+    transpose_to_axes(X, 4, 32);
+
+    return Point4D(X[0], X[1], X[2], X[3]);
 }
 
 HilbertIndex HilbertCurve::distance(const HilbertIndex& a, const HilbertIndex& b) noexcept {

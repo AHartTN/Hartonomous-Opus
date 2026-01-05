@@ -14,23 +14,7 @@
 -- 4D SIMILARITY OPERATIONS
 -- =============================================================================
 -- Centroids are POINTZM geometry: X, Y, Z, M = 4D coordinates
-
--- Euclidean distance between two 4D points
-CREATE OR REPLACE FUNCTION centroid_distance(p_a GEOMETRY, p_b GEOMETRY)
-RETURNS DOUBLE PRECISION AS $$
-    SELECT sqrt(
-        power(ST_X(p_a) - ST_X(p_b), 2) +
-        power(ST_Y(p_a) - ST_Y(p_b), 2) +
-        power(ST_Z(p_a) - ST_Z(p_b), 2) +
-        power(ST_M(p_a) - ST_M(p_b), 2)
-    )
-$$ LANGUAGE SQL IMMUTABLE PARALLEL SAFE;
-
--- Convert distance to similarity (inverse, normalized)
-CREATE OR REPLACE FUNCTION centroid_similarity(p_a GEOMETRY, p_b GEOMETRY)
-RETURNS DOUBLE PRECISION AS $$
-    SELECT 1.0 / (1.0 + centroid_distance(p_a, p_b))
-$$ LANGUAGE SQL IMMUTABLE PARALLEL SAFE;
+-- NOTE: centroid_distance() and centroid_similarity() are defined in 002_core_functions.sql
 
 -- Hilbert distance (for locality-sensitive pre-filtering)
 CREATE OR REPLACE FUNCTION hilbert_distance(

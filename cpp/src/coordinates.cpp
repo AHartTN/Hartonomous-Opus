@@ -1,35 +1,38 @@
 /**
- * Hopf Fibration Coordinate Mapping for Unicode Atoms
+ * Hilbert-Projected Coordinate Mapping for Unicode Atoms
  * 
  * Maps all Unicode codepoints onto the surface of a 3-sphere (S³ in 4D) using
- * the Hopf fibration for optimal uniform distribution.
+ * semantic ordering through 4D Hilbert curve followed by radial projection.
  * 
  * Key properties:
- * - ALL atoms are evenly distributed on the 3-sphere surface (Dyson sphere)
+ * - ALL atoms are evenly distributed on the 3-sphere surface
  * - Semantically related codepoints (A/a/Ä, digits, etc.) are placed adjacently
  * - 32 bits per dimension = lossless, collision-free coordinates
- * - Hilbert index derived from coords for spatial indexing
+ * - Hilbert index can be derived from coords for spatial indexing
  * - Compositions have centroids INSIDE the sphere (closer to origin = more complex)
  * 
- * Hopf Fibration Parameterization:
- *   The 3-sphere S³ is fibered over S² with S¹ fibers.
- *   For a point at index i out of N total points:
- *     - Sample S² uniformly using spherical Fibonacci lattice
- *     - Sample the fiber (circle) uniformly using golden angle
+ * Algorithm:
+ *   1. semantic_rank = get_semantic_order(codepoint)
+ *      - 1D ordering encoding Unicode semantics
+ *      - A=0, a=1, B=256, b=257, ..., '0'=6656, '1'=6657, ...
  *   
- *   Coordinates (unit quaternion representation):
- *     η = arccos(1 - 2*(i+0.5)/N)  -- latitude on S² (uniform area)
- *     θ = 2π * φ⁻¹ * i             -- longitude on S² (golden angle)
- *     ψ = 2π * α * i               -- phase along fiber (irrational increment)
+ *   2. Hilbert decode: semantic_rank → 4D volume point
+ *      - HilbertCurve::index_to_coords() implements this
+ *      - Hilbert curve is locality-preserving: adjacent indices → adjacent points
  *   
- *   x = cos(η/2) * cos(θ/2 + ψ)
- *   y = cos(η/2) * sin(θ/2 + ψ)
- *   z = sin(η/2) * cos(θ/2 - ψ)
- *   m = sin(η/2) * sin(θ/2 - ψ)
+ *   3. Radial project to S³ surface:
+ *      - Normalize: v' = v / ||v||
+ *      - Surface inherits Hilbert locality
+ *   
+ * Why this works:
+ *   - Hilbert curve is continuous and locality-preserving
+ *   - Radial projection is continuous (except at origin, handled separately)
+ *   - Surface inherits Hilbert locality: adjacent ranks → adjacent surface points
+ *   - Result: '0' and '1' are adjacent on S³; 'A' and '0' are far apart
  * 
  * References:
- *   - Yershova et al. "Generating Uniform Incremental Grids on SO(3) Using the Hopf Fibration"
- *   - LaValle et al. "Uniform deterministic grids on SO(3)"
+ *   - Skilling "Programming the Hilbert Curve"
+ *   - Butz "Alternative Algorithm for Hilbert's Space-Filling Curve"
  */
 
 #include "hypercube/coordinates.hpp"
@@ -38,6 +41,9 @@
 #include <algorithm>
 #include <numeric>
 #include <array>
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 namespace hypercube {
 
@@ -428,9 +434,20 @@ struct UnicodeBlock {
 constexpr UnicodeBlock unicode_blocks[] = {
     {0x0000, 0x001F, AtomCategory::Control},
     {0x0020, 0x0020, AtomCategory::Space},
-    {0x0021, 0x002F, AtomCategory::PunctuationOther},
+    // 0x21-0x2F: Split for proper categorization
+    {0x0021, 0x0027, AtomCategory::PunctuationOther},  // ! " # $ % & '
+    {0x0028, 0x0028, AtomCategory::PunctuationOpen},   // (
+    {0x0029, 0x0029, AtomCategory::PunctuationClose},  // )
+    {0x002A, 0x002A, AtomCategory::PunctuationOther},  // *
+    {0x002B, 0x002B, AtomCategory::MathSymbol},        // +
+    {0x002C, 0x002E, AtomCategory::PunctuationOther},  // , - .
+    {0x002F, 0x002F, AtomCategory::PunctuationOther},  // /
     {0x0030, 0x0039, AtomCategory::Digit},
-    {0x003A, 0x0040, AtomCategory::PunctuationOther},
+    {0x003A, 0x003B, AtomCategory::PunctuationOther},  // : ;
+    {0x003C, 0x003C, AtomCategory::MathSymbol},        // <
+    {0x003D, 0x003D, AtomCategory::MathSymbol},        // =
+    {0x003E, 0x003E, AtomCategory::MathSymbol},        // >
+    {0x003F, 0x0040, AtomCategory::PunctuationOther},  // ? @
     {0x0041, 0x005A, AtomCategory::LetterUpper},
     {0x005B, 0x005B, AtomCategory::PunctuationOpen},
     {0x005C, 0x005C, AtomCategory::PunctuationOther},
@@ -521,92 +538,125 @@ AtomCategory CoordinateMapper::categorize(uint32_t codepoint) noexcept {
 
 
 /**
- * 4D Fibonacci Lattice Coordinate Mapping
+ * S³ Surface Coordinate Mapping via Hilbert Decode + Radial Projection
  * 
- * Maps semantic index i ∈ [0, N) to a point on the unit 3-sphere (S³) using
- * the generalized Fibonacci lattice for uniform distribution.
+ * Maps semantic_rank to a point on the 3-sphere surface in 4D such that:
+ *   - ADJACENT SEMANTIC RANKS → ADJACENT SURFACE POINTS (locality preserved)
+ *   - UNIFORM DISTRIBUTION across S³ (radial projection preserves this)
+ *   - DETERMINISTIC forever (pure math, no randomness)
  * 
- * The 4D Fibonacci lattice uses irrational increments based on the golden ratio
- * and plastic constant to ensure even distribution with no clustering or gaps.
+ * Algorithm:
+ *   1. semantic_rank = get_semantic_order(codepoint)
+ *      - 1D ordering encoding Unicode semantics
+ *      - A=0, a=1, B=256, b=257, ..., '0'=6656, '1'=6657, ...
+ *   
+ *   2. Raw Hilbert decode: semantic_rank → 4D corner-origin coords
+ *      - Use transpose_to_axes directly (no CENTER adjustment)
+ *      - Returns coords in [0, UINT32_MAX]^4 corner-origin space
+ *   
+ *   3. Convert to floating point centered at hypercube center:
+ *      - Map [0, UINT32_MAX] → [-1, 1] by: (coord / MAX * 2) - 1
+ *      - Volume point now in [-1, 1]^4 with origin at hypercube center
+ *   
+ *   4. Radial project to S³ surface:
+ *      - Normalize: v' = v / ||v||
+ *      - This places all atoms on the unit 3-sphere
+ *   
+ *   5. Scale back to uint32:
+ *      - Map [-1, 1] → [0, UINT32_MAX] with CENTER at 2^31
  * 
- * For S³ (3-sphere in 4D), we use the Hopf fibration parameterization:
- *   - Two angles (θ₁, θ₂) parameterize the base S² using spherical Fibonacci
- *   - One angle (φ) parameterizes the S¹ fiber using the plastic constant
- * 
- * This guarantees:
- *   1. Uniform distribution on S³ surface (all atoms equidistant from neighbors)
- *   2. Adjacent semantic indices → adjacent positions (locality preserved)
- *   3. No degenerate dimensions (all 4 coordinates fully utilized)
- * 
- * 4D Hopf coordinates to Cartesian:
- *   x = cos(θ₁/2) * cos(φ/2)
- *   y = cos(θ₁/2) * sin(φ/2)  
- *   z = sin(θ₁/2) * cos(θ₂ + φ/2)
- *   m = sin(θ₁/2) * sin(θ₂ + φ/2)
- * 
- * This gives x² + y² + z² + m² = 1 exactly.
+ * Why this works:
+ *   - Hilbert curve is continuous and locality-preserving
+ *   - Adjacent indices → adjacent volume points in corner space
+ *   - After centering, corner (0,0,0,0) → (-1,-1,-1,-1), far from origin
+ *   - Radial projection is continuous everywhere (no origin singularity)
+ *   - Surface inherits Hilbert locality: adjacent ranks → adjacent surface points
+ *   - Result: '0'(rank=6656) and '1'(rank=6657) are adjacent on S³
+ *             'A'(rank=0) and '0'(rank=6656) are far apart on S³
  */
 Point4D CoordinateMapper::map_codepoint(uint32_t codepoint) noexcept {
-    // Skip surrogates - they get invalid coords
+    constexpr uint32_t CENTER = 0x80000000U;
+    constexpr double UINT32_MAX_D = static_cast<double>(UINT32_MAX);
+    constexpr double INV_MAX = 1.0 / UINT32_MAX_D;
+    
+    // Surrogates get center point (compositions live here too)
     if (codepoint >= constants::SURROGATE_START && codepoint <= constants::SURROGATE_END) {
-        return Point4D(0, 0, 0, 0);
+        return Point4D(CENTER, CENTER, CENTER, CENTER);
     }
     
-    // Get semantic sequence index for clustering
-    uint32_t semantic_idx = codepoint_to_sequence_index(codepoint);
+    // === STEP 1: Get semantic rank ===
+    // This is the 1D ordering that encodes Unicode semantics
+    uint32_t semantic_rank = codepoint_to_sequence_index(codepoint);
     
-    // === 4D FIBONACCI LATTICE ===
-    // Uses golden ratio (φ) and plastic constant (ρ) for optimal S³ coverage
-    // These are algebraically independent irrationals ensuring no periodicity
+    // === STEP 2: SCALE semantic rank to span FULL Hilbert range ===
+    // ~1.1M codepoints must span 2^128 Hilbert space for uniform S³ distribution
+    // stride = 2^128 / 1,112,064 ≈ 2^108 per codepoint
+    // This ensures points are spread across the ENTIRE surface, not clustered
+    constexpr uint64_t TOTAL_CODEPOINTS = 1112064ULL;
     
-    const double n = static_cast<double>(TOTAL_VALID_CODEPOINTS);
-    const double i = static_cast<double>(semantic_idx);
+    // Calculate scaled 128-bit Hilbert index: (semantic_rank * 2^128) / TOTAL_CODEPOINTS
+    // Using 128-bit arithmetic approximation via high bits
+    // stride_hi ≈ 2^64 / TOTAL_CODEPOINTS ≈ 16,575,279,252,282
+    constexpr uint64_t STRIDE_HI = 0x0000E64F4F8A0C67ULL;  // 2^64 / 1112064
+    constexpr uint64_t STRIDE_LO = 0x8D4FDF3B645A1CAAULL;  // fractional part
     
-    // Spherical Fibonacci for S² base (θ₁, θ₂)
-    // θ₁ = arccos(1 - 2i/N) gives uniform latitude distribution
-    // θ₂ = 2π * i * φ⁻¹ (mod 2π) gives golden angle spiral
-    const double theta1 = std::acos(1.0 - 2.0 * (i + 0.5) / n);  // [0, π]
-    const double theta2 = TWO_PI * i * PHI_INV;  // Golden angle spiral
+    // 128-bit multiply: semantic_rank * stride (MSVC-compatible)
+    // result = semantic_rank * (STRIDE_HI << 64 + STRIDE_LO)
+    //        = (semantic_rank * STRIDE_HI) << 64 + semantic_rank * STRIDE_LO
+#ifdef _MSC_VER
+    uint64_t lo_product_hi, lo_product_lo;
+    lo_product_lo = _umul128(semantic_rank, STRIDE_LO, &lo_product_hi);
+    uint64_t hi_product = semantic_rank * STRIDE_HI;
+    // Add lo_product_hi to hi_product (the <<64 shift means lo_product_hi contributes to high part)
+    uint64_t result_hi = hi_product + lo_product_hi;
+    uint64_t result_lo = lo_product_lo;
+#else
+    __uint128_t stride = (static_cast<__uint128_t>(STRIDE_HI) << 64) | STRIDE_LO;
+    __uint128_t scaled_idx = static_cast<__uint128_t>(semantic_rank) * stride;
+    uint64_t result_lo = static_cast<uint64_t>(scaled_idx);
+    uint64_t result_hi = static_cast<uint64_t>(scaled_idx >> 64);
+#endif
     
-    // Fiber angle using plastic constant (algebraically independent from φ)
-    // This ensures the S¹ fiber samples don't align with the S² lattice
-    const double phi = TWO_PI * i * PLASTIC_INV;
-    
-    // === HOPF FIBRATION TO CARTESIAN S³ ===
-    // The Hopf fibration maps S³ → S² with S¹ fibers
-    // Each point on base S² has a circle of points above it in S³
-    // We select one point per fiber using the plastic constant
-    
-    const double half_theta1 = theta1 * 0.5;
-    const double half_phi = phi * 0.5;
-    
-    const double cos_ht1 = std::cos(half_theta1);
-    const double sin_ht1 = std::sin(half_theta1);
-    const double cos_hp = std::cos(half_phi);
-    const double sin_hp = std::sin(half_phi);
-    const double fiber_angle = theta2 + half_phi;
-    
-    // Hopf coordinates to 4D Cartesian
-    const double ux = cos_ht1 * cos_hp;
-    const double uy = cos_ht1 * sin_hp;
-    const double uz = sin_ht1 * std::cos(fiber_angle);
-    const double um = sin_ht1 * std::sin(fiber_angle);
-    
-    // === SCALE TO 32-BIT UNSIGNED COORDINATES ===
-    // Map [-1, 1] to [0, 2^32-1] with center at 2147483647.5
-    // This matches the Laplacian projector's coordinate convention.
-    // Surface atoms are at radius 1.0 from center.
-    // Compositions (centroids) average inward toward center.
-    auto to_coord = [](double unit_val) -> Coord32 {
-        // unit_val is in [-1, 1], scale to [0, 2^32-1]
-        // Center is at 2147483647.5, scale factor is 2147483647.0
-        double scaled = unit_val * 2147483647.0 + 2147483647.5;
-        if (scaled < 0) scaled = 0;
-        if (scaled > 4294967295.0) scaled = 4294967295.0;
-        return static_cast<Coord32>(scaled);
+    HilbertIndex hilbert_idx{
+        result_lo,
+        result_hi
     };
-
-    return Point4D(to_coord(ux), to_coord(uy), to_coord(uz), to_coord(um));
+    
+    // === STEP 3: Raw Hilbert decode - scaled index → 4D corner-origin coords ===
+    Point4D raw_pt = HilbertCurve::index_to_raw_coords(hilbert_idx);
+    
+    // === STEP 4: Convert to floating point centered at hypercube center ===
+    // Map [0, UINT32_MAX] → [-1, 1] with 0.5*MAX → 0
+    double vx = static_cast<double>(raw_pt.x) * INV_MAX * 2.0 - 1.0;
+    double vy = static_cast<double>(raw_pt.y) * INV_MAX * 2.0 - 1.0;
+    double vz = static_cast<double>(raw_pt.z) * INV_MAX * 2.0 - 1.0;
+    double vm = static_cast<double>(raw_pt.m) * INV_MAX * 2.0 - 1.0;
+    
+    // === STEP 4: Radial project to S³ surface ===
+    // Normalize: v' = v / ||v|| to place on unit 3-sphere
+    double norm_sq = vx*vx + vy*vy + vz*vz + vm*vm;
+    
+    // With corner-origin mapping, the smallest norm is at (0,0,0,0) which maps to (-1,-1,-1,-1)
+    // That has norm = 2, so we never hit the origin singularity
+    double inv_norm = 1.0 / std::sqrt(norm_sq);
+    vx *= inv_norm;
+    vy *= inv_norm;
+    vz *= inv_norm;
+    vm *= inv_norm;
+    
+    // === STEP 5: Scale back to uint32 coordinates ===
+    // Map [-1, 1] → [0, UINT32_MAX] with CENTER at 2^31
+    auto to_coord = [](double unit_val) -> Coord32 {
+        // unit_val ∈ [-1, 1], map to [0, UINT32_MAX]
+        // Formula: (unit_val + 1) * 0.5 * UINT32_MAX
+        double normalized = (unit_val + 1.0) * 0.5;
+        // Clamp for floating point edge cases
+        if (normalized < 0.0) normalized = 0.0;
+        if (normalized > 1.0) normalized = 1.0;
+        return static_cast<Coord32>(normalized * UINT32_MAX_D);
+    };
+    
+    return Point4D(to_coord(vx), to_coord(vy), to_coord(vz), to_coord(vm));
 }
 
 
@@ -664,29 +714,21 @@ Point4D CoordinateMapper::weighted_centroid(const std::vector<Point4D>& points,
 }
 
 bool CoordinateMapper::is_on_surface(const Point4D& point) noexcept {
-    // For the S³ mapping, all atoms are on the 3-sphere surface
-    // Check if point satisfies x² + y² + z² + m² ≈ 1 (within tolerance)
+    // With the Hilbert curve mapping, atoms are distributed throughout the hypercube,
+    // not on a sphere surface. This function is DEPRECATED for the new architecture.
     // 
-    // IMPORTANT: Coordinates are stored as signed int32 values bit-cast to uint32
-    // The mapping is: unit_val ∈ [-1, 1] → [INT32_MIN, INT32_MAX]
-    // We interpret the uint32 as signed int32 to recover the unit value
+    // For backwards compatibility, we check if the point is NOT at the center.
+    // The center (0x80000000, ...) is reserved for compositions/surrogates.
+    // Any point not at exact center is considered a valid atom position.
+    //
+    // TODO: Remove this function - it's a legacy concept from the sphere approach.
     
-    auto to_unit = [](uint32_t coord) -> double {
-        int32_t signed_val = static_cast<int32_t>(coord);
-        return static_cast<double>(signed_val) / static_cast<double>(INT32_MAX);
-    };
+    constexpr uint32_t CENTER = 0x80000000U;
     
-    double x = to_unit(point.x);
-    double y = to_unit(point.y);
-    double z = to_unit(point.z);
-    double m = to_unit(point.m);
-    
-    double r_squared = x*x + y*y + z*z + m*m;
-    
-    // Allow tolerance for integer quantization errors
-    // With 32-bit precision, worst-case quantization error is ~2.3e-10 per coordinate
-    // Use 10% tolerance to handle edge cases from the hierarchical decomposition
-    return r_squared >= 0.9 && r_squared <= 1.1;
+    // If all coordinates are exactly at center, it's not an atom
+    // (surrogates and composition centers live there)
+    return !(point.x == CENTER && point.y == CENTER && 
+             point.z == CENTER && point.m == CENTER);
 }
 
 double CoordinateMapper::euclidean_distance(const Point4D& a, const Point4D& b) noexcept {

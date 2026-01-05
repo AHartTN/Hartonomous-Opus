@@ -122,7 +122,8 @@ public:
                      const std::vector<double>& b,
                      std::vector<double>& x,
                      double tol = 1e-12,
-                     int maxiter = 200);
+                     int maxiter = 200,
+                     bool verbose = false);
 };
 
 /**

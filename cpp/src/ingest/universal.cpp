@@ -207,31 +207,54 @@ std::pair<CompositionRecord, bool> UniversalIngester::Impl::create_composition(
     }
     uint32_t depth = max_child_depth + 1;
     
-    // Compute centroid as average of children
-    uint64_t sum_x = 0, sum_y = 0, sum_z = 0, sum_m = 0;
+    // Compute centroid as average of children, then scale toward CENTER by depth
+    // CENTER = 2^31 = 2147483648 (origin of hypercube coordinate space)
+    // Atoms are on 3-sphere SURFACE; compositions move INWARD as depth increases
+    constexpr double CENTER = 2147483648.0;
+    
+    double sum_x = 0.0, sum_y = 0.0, sum_z = 0.0, sum_m = 0.0;
     for (const auto& child : children) {
-        sum_x += static_cast<uint64_t>(int32_to_uint32(child.x));
-        sum_y += static_cast<uint64_t>(int32_to_uint32(child.y));
-        sum_z += static_cast<uint64_t>(int32_to_uint32(child.z));
-        sum_m += static_cast<uint64_t>(int32_to_uint32(child.m));
+        // Children store coords as int32 (bit-cast from uint32)
+        // Convert back to uint32 for proper centroid calculation
+        sum_x += static_cast<double>(static_cast<uint32_t>(child.x));
+        sum_y += static_cast<double>(static_cast<uint32_t>(child.y));
+        sum_z += static_cast<double>(static_cast<uint32_t>(child.z));
+        sum_m += static_cast<double>(static_cast<uint32_t>(child.m));
     }
     
     size_t n = children.size();
-    uint32_t avg_x = static_cast<uint32_t>(sum_x / n);
-    uint32_t avg_y = static_cast<uint32_t>(sum_y / n);
-    uint32_t avg_z = static_cast<uint32_t>(sum_z / n);
-    uint32_t avg_m = static_cast<uint32_t>(sum_m / n);
+    double avg_x = sum_x / static_cast<double>(n);
+    double avg_y = sum_y / static_cast<double>(n);
+    double avg_z = sum_z / static_cast<double>(n);
+    double avg_m = sum_m / static_cast<double>(n);
+    
+    // Scale toward CENTER based on depth
+    // Scale factor = 1 / (depth + 2), so depth 1 → 0.33, depth 2 → 0.25, etc.
+    double scale = 1.0 / static_cast<double>(depth + 2);
+    double factor = 1.0 - scale;
+    
+    auto scale_coord = [CENTER, factor](double avg) -> uint32_t {
+        double result = CENTER + (avg - CENTER) * factor;
+        if (result < 0.0) result = 0.0;
+        if (result > 4294967295.0) result = 4294967295.0;
+        return static_cast<uint32_t>(std::round(result));
+    };
+    
+    uint32_t cx = scale_coord(avg_x);
+    uint32_t cy = scale_coord(avg_y);
+    uint32_t cz = scale_coord(avg_z);
+    uint32_t cm = scale_coord(avg_m);
     
     // Hilbert index from centroid
-    Point4D coords(avg_x, avg_y, avg_z, avg_m);
+    Point4D coords(cx, cy, cz, cm);
     HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
     
     CompositionRecord rec;
     rec.hash = hash;
-    rec.coord_x = uint32_to_int32(avg_x);
-    rec.coord_y = uint32_to_int32(avg_y);
-    rec.coord_z = uint32_to_int32(avg_z);
-    rec.coord_m = uint32_to_int32(avg_m);
+    rec.coord_x = static_cast<int32_t>(cx);
+    rec.coord_y = static_cast<int32_t>(cy);
+    rec.coord_z = static_cast<int32_t>(cz);
+    rec.coord_m = static_cast<int32_t>(cm);
     rec.hilbert_lo = static_cast<int64_t>(hilbert.lo);
     rec.hilbert_hi = static_cast<int64_t>(hilbert.hi);
     rec.depth = depth;

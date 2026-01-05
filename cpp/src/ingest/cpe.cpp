@@ -179,37 +179,48 @@ std::pair<CompositionRecord, bool> create_composition(
     }
     
     // Compute centroid as average of all child centroids, scaled inward by depth
-    // Atoms are on the 3-sphere surface; compositions move inward toward center
-    // This creates a layered structure where deeper compositions are more central
-    uint64_t sum_x = 0, sum_y = 0, sum_z = 0, sum_m = 0;
+    // Atoms are on the 3-sphere surface; compositions move inward toward CENTER
+    // CENTER = 2^31 = 2147483648 (origin of hypercube coordinate space)
+    // This creates a layered structure where deeper compositions are closer to origin
+    constexpr double CENTER = 2147483648.0;  // 2^31 - canonical center
+    
+    double sum_x = 0.0, sum_y = 0.0, sum_z = 0.0, sum_m = 0.0;
     for (const auto& child : children) {
-        sum_x += static_cast<uint64_t>(int32_to_uint32(child.x));
-        sum_y += static_cast<uint64_t>(int32_to_uint32(child.y));
-        sum_z += static_cast<uint64_t>(int32_to_uint32(child.z));
-        sum_m += static_cast<uint64_t>(int32_to_uint32(child.m));
+        // Children store coords as int32 (reinterpreted from uint32)
+        // Convert back to uint32 for proper centroid calculation
+        sum_x += static_cast<double>(static_cast<uint32_t>(child.x));
+        sum_y += static_cast<double>(static_cast<uint32_t>(child.y));
+        sum_z += static_cast<double>(static_cast<uint32_t>(child.z));
+        sum_m += static_cast<double>(static_cast<uint32_t>(child.m));
     }
 
     size_t n = children.size();
-    uint64_t avg_x = sum_x / n;
-    uint64_t avg_y = sum_y / n;
-    uint64_t avg_z = sum_z / n;
-    uint64_t avg_m = sum_m / n;
+    double avg_x = sum_x / static_cast<double>(n);
+    double avg_y = sum_y / static_cast<double>(n);
+    double avg_z = sum_z / static_cast<double>(n);
+    double avg_m = sum_m / static_cast<double>(n);
 
-    // Scale toward center based on depth
-    // Center of 32-bit coordinate space is 2^31 = 2147483648
+    // Scale toward CENTER based on depth
     // Scale factor = 1 / (depth + 2), so depth 1 → 0.33, depth 2 → 0.25, etc.
-    // This moves centroids inward while preserving relative positions
-    constexpr uint64_t center = 2147483648ULL;
+    // This moves centroids inward while preserving relative angular positions
     uint32_t depth = max_child_depth + 1;
     double scale = 1.0 / static_cast<double>(depth + 2);
 
-    // Interpolate: result = center + (avg - center) * (1 - scale)
-    // This scales the deviation from center
+    // Interpolate: result = CENTER + (avg - CENTER) * (1 - scale)
+    // As depth increases, centroids move closer to CENTER (origin)
     double factor = 1.0 - scale;
-    uint32_t cx = static_cast<uint32_t>(center + static_cast<int64_t>((static_cast<int64_t>(avg_x) - static_cast<int64_t>(center)) * factor));
-    uint32_t cy = static_cast<uint32_t>(center + static_cast<int64_t>((static_cast<int64_t>(avg_y) - static_cast<int64_t>(center)) * factor));
-    uint32_t cz = static_cast<uint32_t>(center + static_cast<int64_t>((static_cast<int64_t>(avg_z) - static_cast<int64_t>(center)) * factor));
-    uint32_t cm = static_cast<uint32_t>(center + static_cast<int64_t>((static_cast<int64_t>(avg_m) - static_cast<int64_t>(center)) * factor));
+    
+    auto scale_coord = [CENTER, factor](double avg) -> uint32_t {
+        double result = CENTER + (avg - CENTER) * factor;
+        if (result < 0.0) result = 0.0;
+        if (result > 4294967295.0) result = 4294967295.0;
+        return static_cast<uint32_t>(std::round(result));
+    };
+    
+    uint32_t cx = scale_coord(avg_x);
+    uint32_t cy = scale_coord(avg_y);
+    uint32_t cz = scale_coord(avg_z);
+    uint32_t cm = scale_coord(avg_m);
     
     // Hilbert index from centroid
     Point4D coords(cx, cy, cz, cm);

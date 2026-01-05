@@ -34,13 +34,31 @@ namespace hypercube::ingest {
 // ============================================================================
 // 4D Vector operations for hypersphere geometry
 // ============================================================================
+// COORDINATE CONVENTION:
+//   uint32 coords: [1, 2^32-1] with CENTER at 2^31 = 2147483648
+//   unit sphere:   [-1, +1] with center at origin
+//   Vec4D operates in UNIT SPHERE space for geometric operations
+// ============================================================================
+
+// Constants for coordinate conversion
+static constexpr double CENTER = 2147483648.0;  // 2^31
+static constexpr double SCALE = 2147483647.0;   // 2^31 - 1
 
 struct Vec4D {
-    double x, y, z, m;
+    double x, y, z, m;  // Unit sphere space: [-1, +1] centered at origin
     
     Vec4D() : x(0), y(0), z(0), m(0) {}
     Vec4D(double x_, double y_, double z_, double m_) : x(x_), y(y_), z(z_), m(m_) {}
-    Vec4D(const Point4D& p) : x(p.x), y(p.y), z(p.z), m(p.m) {}
+    
+    // Convert FROM uint32 coords TO unit sphere
+    // uint32 coords are in [1, 2^32-1] with CENTER at 2^31
+    // Unit sphere is [-1, +1] centered at origin
+    explicit Vec4D(const Point4D& p) {
+        x = (static_cast<double>(p.x) - CENTER) / SCALE;
+        y = (static_cast<double>(p.y) - CENTER) / SCALE;
+        z = (static_cast<double>(p.z) - CENTER) / SCALE;
+        m = (static_cast<double>(p.m) - CENTER) / SCALE;
+    }
     
     Vec4D operator+(const Vec4D& o) const { return {x+o.x, y+o.y, z+o.z, m+o.m}; }
     Vec4D operator-(const Vec4D& o) const { return {x-o.x, y-o.y, z-o.z, m-o.m}; }
@@ -55,41 +73,45 @@ struct Vec4D {
         return *this * (1.0 / n);
     }
     
+    // Convert FROM unit sphere BACK TO uint32 coords
+    // Scales [-1, +1] back to [1, 2^32-1] with CENTER at 2^31
     Point4D to_point() const {
         Point4D p;
-        p.x = static_cast<Coord32>(std::round(x));
-        p.y = static_cast<Coord32>(std::round(y));
-        p.z = static_cast<Coord32>(std::round(z));
-        p.m = static_cast<Coord32>(std::round(m));
+        p.x = static_cast<Coord32>(std::round(CENTER + x * SCALE));
+        p.y = static_cast<Coord32>(std::round(CENTER + y * SCALE));
+        p.z = static_cast<Coord32>(std::round(CENTER + z * SCALE));
+        p.m = static_cast<Coord32>(std::round(CENTER + m * SCALE));
         return p;
     }
 };
 
 // Geodesic midpoint on 4D hypersphere (SLERP with t=0.5)
+// Returns the midpoint direction on the unit sphere (normalized)
+// Caller must apply depth-based scaling for composite positioning
 Vec4D geodesic_midpoint(const Vec4D& a, const Vec4D& b) {
     Vec4D an = a.normalized();
     Vec4D bn = b.normalized();
     
-    double dot = an.dot(bn);
-    dot = std::max(-1.0, std::min(1.0, dot));  // Clamp for numerical stability
+    double dot_val = an.dot(bn);
+    dot_val = std::max(-1.0, std::min(1.0, dot_val));  // Clamp for numerical stability
     
-    double theta = std::acos(dot);
+    double theta = std::acos(dot_val);
     
     if (theta < 1e-6) {
-        // Nearly identical points - just average
-        return (a + b) * 0.5;
+        // Nearly identical points - just return normalized average direction
+        return (a + b).normalized();
     }
     
     double sin_theta = std::sin(theta);
     double t = 0.5;  // Midpoint
     
-    // SLERP formula
+    // SLERP formula - returns unit vector (on surface)
     Vec4D result = an * (std::sin((1-t)*theta) / sin_theta) + 
                    bn * (std::sin(t*theta) / sin_theta);
     
-    // Scale to average magnitude (preserving "importance" weight)
-    double avg_mag = (a.norm() + b.norm()) * 0.5;
-    return result.normalized() * avg_mag;
+    // Return normalized (on unit sphere surface)
+    // Depth-based scaling is applied in create_composite()
+    return result.normalized();
 }
 
 // ============================================================================
@@ -226,6 +248,9 @@ public:
     }
     
     // Create a composite token from two tokens
+    // ARCHITECTURE: Atoms (depth=0) are on 3-sphere SURFACE (magnitude=1)
+    //               Compositions are INSIDE sphere, scaling toward CENTER
+    //               as depth increases: factor = 1 - 1/(depth+2)
     Token create_composite(const Token& a, const Token& b) {
         Token composite;
         
@@ -233,11 +258,21 @@ public:
         std::vector<Blake3Hash> child_hashes = {a.hash, b.hash};
         composite.hash = Blake3Hasher::hash_children(child_hashes);
         
-        // Position: Geodesic midpoint on hypersphere
-        composite.position = geodesic_midpoint(a.position, b.position);
-        
         // Depth: max(child depths) + 1
         composite.depth = std::max(a.depth, b.depth) + 1;
+        
+        // Position: Geodesic midpoint direction, scaled by depth
+        // geodesic_midpoint returns unit vector (on surface)
+        Vec4D direction = geodesic_midpoint(a.position, b.position);
+        
+        // Apply depth-based scaling: compositions move TOWARD CENTER as depth increases
+        // factor = 1 - 1/(depth+2):
+        //   depth=1: factor=0.667 (first composite is 66.7% of radius from center)
+        //   depth=2: factor=0.75
+        //   depth=3: factor=0.8
+        //   depth→∞: factor→1.0 (approaches surface but never reaches)
+        double factor = 1.0 - 1.0 / static_cast<double>(composite.depth + 2);
+        composite.position = direction * factor;
         
         // Atom count: sum
         composite.atom_count = a.atom_count + b.atom_count;

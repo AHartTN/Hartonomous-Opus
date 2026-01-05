@@ -6,9 +6,11 @@ namespace hypercube::db {
 namespace {
     constexpr char hex_chars[] = "0123456789abcdef";
     
-    // Convert signed int32 to unsigned for corner-origin storage
+    // Bit-preserving cast: int32 to uint32
+    // NO OFFSET - the coordinate system has CENTER at 2^31 in uint32 space
+    // Storing int32 as uint32 just reinterprets the bit pattern
     inline uint32_t int32_to_uint32(int32_t v) {
-        return static_cast<uint32_t>(v) + 2147483648U;
+        return static_cast<uint32_t>(v);
     }
 }
 

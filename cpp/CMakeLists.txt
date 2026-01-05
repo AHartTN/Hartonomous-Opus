@@ -562,15 +562,9 @@ if(PostgreSQL_FOUND)
     target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
-    # Manifold projection tool (384D -> 4D) - old JL-based version
-    add_executable(manifold_project src/manifold_project.cpp)
-    target_include_directories(manifold_project PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(manifold_project hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
-    
-    # Manifold projection tool (N-D -> 4D) - Laplacian Eigenmaps + Gram-Schmidt
-    add_executable(manifold_4d src/manifold_4d.cpp)
-    target_include_directories(manifold_4d PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(manifold_4d ${PostgreSQL_LIBRARIES} Threads::Threads)
+    # DEPRECATED: manifold_project (JL random projection) - moved to archive
+    # DEPRECATED: manifold_4d (normalized Laplacian + random power iteration) - moved to archive
+    # USE: ingest_safetensor_4d (Laplacian Eigenmaps + Lanczos + Gram-Schmidt) - CANONICAL
     
     # New unified ingester tool
     add_executable(ingest src/ingest/main.cpp)

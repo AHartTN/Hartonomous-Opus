@@ -46,8 +46,17 @@ public:
     static bool in_range(const HilbertIndex& center, const HilbertIndex& point, 
                          const HilbertIndex& range) noexcept;
 
-private:
-    // Transpose operations for Hilbert curve
+    /**
+     * Convert Hilbert index to raw 4D coordinates (corner-origin, no CENTER adjustment)
+     * @param index 128-bit Hilbert index  
+     * @return 4D point in [0, UINT32_MAX]^4 corner-origin space
+     * 
+     * This is used for semantic coordinate mapping where we need the raw
+     * Hilbert decode without the CENTER-origin transformation.
+     */
+    static Point4D index_to_raw_coords(const HilbertIndex& index) noexcept;
+    
+    // Transpose operations for Hilbert curve (public for specialized use cases)
     static void transpose_to_axes(uint32_t* x, uint32_t n, uint32_t bits) noexcept;
     static void axes_to_transpose(uint32_t* x, uint32_t n, uint32_t bits) noexcept;
 };

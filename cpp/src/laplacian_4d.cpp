@@ -470,12 +470,16 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     
     // Configure Lanczos solver
     lanczos::LanczosConfig lanczos_config;
-    lanczos_config.num_eigenpairs = k;
+    // Request k+1 eigenpairs to skip the null space (constant eigenvector at λ=0)
+    lanczos_config.num_eigenpairs = k + 1;
     lanczos_config.max_iterations = std::min(300, static_cast<int>(L.size()) / 2);
     lanczos_config.convergence_tol = config_.convergence_tol;
     lanczos_config.use_shift_invert = true;  // Crucial for finding smallest eigenvalues
-    lanczos_config.shift_sigma = 1e-6;       // Small shift to avoid singularity at λ=0
-    lanczos_config.cg_max_iterations = 200;
+    // Use POSITIVE shift just above 0: targets eigenvalues near 0
+    // For shift-invert: θ = 1/(λ-σ), largest θ → smallest λ
+    // σ = 1e-4 means we target eigenvalues just above 0 (skipping null space)
+    lanczos_config.shift_sigma = 1e-4;
+    lanczos_config.cg_max_iterations = 500;  // Dense MiniLM manifold needs more iterations
     lanczos_config.cg_tolerance = 1e-12;
     lanczos_config.num_threads = config_.num_threads;
     
@@ -502,25 +506,38 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
         std::cerr << "]\n";
     }
     
-    // Copy eigenvalues
-    for (int i = 0; i < 4 && i < static_cast<int>(result.eigenvalues.size()); ++i) {
-        eigenvalues_out[i] = result.eigenvalues[i];
+    // Log ALL eigenvalues found (for debugging)
+    std::cerr << "[LANCZOS] All eigenvalues (raw): ";
+    for (size_t i = 0; i < result.eigenvalues.size(); ++i) {
+        std::cerr << result.eigenvalues[i] << " ";
+    }
+    std::cerr << "\n";
+    
+    // Copy eigenvalues SKIPPING index 0 (null space)
+    // eigenvalues_out[0..3] = result.eigenvalues[1..4]
+    for (int i = 0; i < 4 && (i + 1) < static_cast<int>(result.eigenvalues.size()); ++i) {
+        eigenvalues_out[i] = result.eigenvalues[i + 1];  // Skip index 0
     }
     
-    std::cerr << "[LANCZOS] Eigenvalues: ";
-    for (int i = 0; i < 4 && i < static_cast<int>(result.eigenvalues.size()); ++i) {
+    std::cerr << "[LANCZOS] Semantic eigenvalues (skipped λ_0): ";
+    for (int i = 0; i < 4; ++i) {
         std::cerr << eigenvalues_out[i] << " ";
     }
     std::cerr << "\n";
     
-    // Return eigenvectors (take at most k)
+    // Return eigenvectors, SKIPPING index 0 (null space constant vector)
+    // The Lanczos solver returns eigenvalues sorted smallest-to-largest
+    // For Laplacian: λ_0 = 0 (constant), λ_1..λ_k are the semantic eigenvectors
     std::vector<std::vector<double>> eigenvectors;
     eigenvectors.reserve(k);
-    for (int i = 0; i < k && i < static_cast<int>(result.eigenvectors.size()); ++i) {
+    
+    // Skip first eigenvector (null space) and take the next k
+    int start_idx = 1;  // Skip index 0
+    for (int i = start_idx; i < start_idx + k && i < static_cast<int>(result.eigenvectors.size()); ++i) {
         eigenvectors.push_back(std::move(result.eigenvectors[i]));
     }
     
-    std::cerr << "[LANCZOS] Returning " << eigenvectors.size() << " eigenvectors\n";
+    std::cerr << "[LANCZOS] Returning " << eigenvectors.size() << " eigenvectors (skipped null space)\n";
     return eigenvectors;
 }
 
@@ -635,9 +652,10 @@ void LaplacianProjector::project_to_sphere(std::vector<std::array<uint32_t, 4>>&
     
     std::cerr << "[SPHERE] Projecting " << n << " points onto hypersphere (parallel)...\n";
     
-    // Convert to signed coordinates, normalize to unit sphere, convert back
-    const double CENTER = 2147483647.5;  // Center of uint32 range
-    const double SCALE = 2147483647.0;   // Radius in uint32 space
+    // COORDINATE CONVENTION: uint32 with CENTER at 2^31 = 2147483648
+    // Unit sphere [-1, 1] maps to [1, 2^32-1] with CENTER at 2^31
+    constexpr double CENTER = 2147483648.0;  // 2^31 - origin of hypercube
+    constexpr double SCALE = 2147483647.0;   // radius to reach [1, 2^32-1]
     const double sphere_radius = config_.sphere_radius;
     
     // Parallelized sphere projection
@@ -649,13 +667,13 @@ void LaplacianProjector::project_to_sphere(std::vector<std::array<uint32_t, 4>>&
     
     auto sphere_worker = [&](int tid) {
         for (size_t i = tid; i < n; i += num_threads) {
-            // Convert to centered coordinates
+            // Convert to centered unit coordinates
             double x = (static_cast<double>(coords[i][0]) - CENTER) / SCALE;
             double y = (static_cast<double>(coords[i][1]) - CENTER) / SCALE;
             double z = (static_cast<double>(coords[i][2]) - CENTER) / SCALE;
             double m = (static_cast<double>(coords[i][3]) - CENTER) / SCALE;
             
-            // Compute radius and normalize
+            // Compute radius and normalize to sphere surface
             double r = std::sqrt(x*x + y*y + z*z + m*m);
             if (r > 1e-12) {
                 double s = sphere_radius / r;
@@ -665,12 +683,12 @@ void LaplacianProjector::project_to_sphere(std::vector<std::array<uint32_t, 4>>&
                 m *= s;
             }
             
-            // Convert back to uint32
-            auto to_uint32 = [](double v) -> uint32_t {
-                double scaled = v * 2147483647.0 + 2147483647.5;
-                if (scaled < 0) scaled = 0;
+            // Convert back to uint32 with CENTER at 2^31
+            auto to_uint32 = [CENTER, SCALE](double v) -> uint32_t {
+                double scaled = CENTER + v * SCALE;
+                if (scaled < 0.0) scaled = 0.0;
                 if (scaled > 4294967295.0) scaled = 4294967295.0;
-                return static_cast<uint32_t>(scaled);
+                return static_cast<uint32_t>(std::round(scaled));
             };
             
             coords[i][0] = to_uint32(x);

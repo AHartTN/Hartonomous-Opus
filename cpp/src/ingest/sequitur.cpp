@@ -266,20 +266,22 @@ public:
         // Compute BLAKE3 hash using Blake3Hasher
         rule->hash = Blake3Hasher::hash_children(child_hashes);
         
-        // Compute centroid (average of child coords)
-        Point4D centroid{0, 0, 0, 0};
+        // Compute centroid (average of child coords) using uint64 to prevent overflow
+        // Each uint32 coord can be up to 4B, and summing many would overflow 32 bits
+        uint64_t sum_x = 0, sum_y = 0, sum_z = 0, sum_m = 0;
         for (const auto& c : child_coords_vec) {
-            centroid.x += c.x;
-            centroid.y += c.y;
-            centroid.z += c.z;
-            centroid.m += c.m;
+            sum_x += c.x;
+            sum_y += c.y;
+            sum_z += c.z;
+            sum_m += c.m;
         }
         size_t n = child_coords_vec.size();
+        Point4D centroid{0, 0, 0, 0};
         if (n > 0) {
-            centroid.x /= static_cast<int32_t>(n);
-            centroid.y /= static_cast<int32_t>(n);
-            centroid.z /= static_cast<int32_t>(n);
-            centroid.m /= static_cast<int32_t>(n);
+            centroid.x = static_cast<Coord32>(sum_x / n);
+            centroid.y = static_cast<Coord32>(sum_y / n);
+            centroid.z = static_cast<Coord32>(sum_z / n);
+            centroid.m = static_cast<Coord32>(sum_m / n);
         }
         rule->centroid = centroid;
         

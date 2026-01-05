@@ -48,21 +48,18 @@ struct Point4D {
     
     // Check if on 3-sphere surface (r² ≈ 1 within quantization tolerance)
     // For atoms, all should be on surface; compositions are interior
-    // NOTE: Coordinates are stored as signed int32 bit-cast to uint32
-    // The values represent [-1, 1] mapped to [INT32_MIN, INT32_MAX]
+    // COORDINATE CONVENTION: uint32 with CENTER at 2^31 = 2147483648
+    // Unit sphere [-1, 1] is mapped to [1, 2^32-1] with CENTER at 2^31
     constexpr bool is_on_surface() const noexcept {
-        // Interpret uint32 bit patterns as signed int32 values
-        auto as_signed = [](uint32_t v) -> double {
-            int32_t signed_val;
-            // Can't use memcpy in constexpr, use bit manipulation
-            signed_val = static_cast<int32_t>(v);
-            return static_cast<double>(signed_val) / static_cast<double>(INT32_MAX);
-        };
+        // Convert uint32 coords to unit sphere centered at 0
+        // CENTER = 2^31 = 2147483648, SCALE = 2^31 - 1 = 2147483647
+        constexpr double CENTER = 2147483648.0;
+        constexpr double SCALE = 2147483647.0;
         
-        double ux = as_signed(x);
-        double uy = as_signed(y);
-        double uz = as_signed(z);
-        double um = as_signed(m);
+        double ux = (static_cast<double>(x) - CENTER) / SCALE;
+        double uy = (static_cast<double>(y) - CENTER) / SCALE;
+        double uz = (static_cast<double>(z) - CENTER) / SCALE;
+        double um = (static_cast<double>(m) - CENTER) / SCALE;
         double r_sq = ux*ux + uy*uy + uz*uz + um*um;
         // Allow tolerance for integer quantization
         return r_sq >= 0.9 && r_sq <= 1.1;
