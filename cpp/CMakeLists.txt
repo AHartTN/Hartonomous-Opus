@@ -558,6 +558,11 @@ if(PostgreSQL_FOUND)
     target_include_directories(ingest_safetensor_4d PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(ingest_safetensor_4d hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
     
+    # UNIVERSAL safetensor ingestion - ingests ALL tensors from ANY model (vision, language, etc)
+    add_executable(ingest_safetensor_universal src/ingest_safetensor_universal.cpp)
+    target_include_directories(ingest_safetensor_universal PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    target_link_libraries(ingest_safetensor_universal hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
     add_executable(extract_embeddings src/extract_embeddings.cpp)
     target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)

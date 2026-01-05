@@ -222,16 +222,9 @@ int ConjugateGradient::solve(
     std::vector<double> Ap(n);
     
     for (int iter = 0; iter < maxiter; ++iter) {
-        // Progress every 20 iterations
-        if (verbose && iter % 20 == 0) {
-            std::cerr << "  CG iter " << iter << "/" << maxiter << " residual=" << std::sqrt(rs_old) / b_norm << "\n";
-            std::cerr.flush();
-        }
-        
         // Check convergence
         double r_norm = std::sqrt(rs_old);
         if (r_norm / b_norm < tol) {
-            if (verbose) std::cerr << "  CG converged at iter " << iter << "\n";
             return iter;
         }
         
@@ -244,15 +237,9 @@ int ConjugateGradient::solve(
         // α = r^T r / p^T Ap
         double pAp = vec::dot(p, Ap);
         if (std::abs(pAp) < 1e-15) {
-            // Breakdown - matrix might be singular or indefinite
-            if (verbose) std::cerr << "  CG breakdown at iter " << iter << " pAp=" << pAp << "\n";
-            return -1;
+            return -1;  // Breakdown
         }
         double alpha = rs_old / pAp;
-        
-        if (verbose && iter < 3) {
-            std::cerr << "  CG iter " << iter << ": rs_old=" << rs_old << " pAp=" << pAp << " alpha=" << alpha << "\n";
-        }
         
         // x = x + α*p
         vec::axpy(alpha, p, x);
@@ -262,10 +249,6 @@ int ConjugateGradient::solve(
         
         // β = r_new^T r_new / r_old^T r_old
         double rs_new = vec::dot(r, r);
-        
-        if (verbose && iter < 3) {
-            std::cerr << "  CG iter " << iter << ": rs_new=" << rs_new << " new_residual=" << std::sqrt(rs_new)/b_norm << "\n";
-        }
         double beta = rs_new / rs_old;
         
         // p = r + β*p
@@ -276,7 +259,6 @@ int ConjugateGradient::solve(
         rs_old = rs_new;
     }
     
-    if (verbose) std::cerr << "  CG did not converge after " << maxiter << " iters\n";
     return maxiter;  // Did not converge
 }
 
@@ -500,6 +482,7 @@ void LanczosSolver::lanczos_iteration(
     
     for (int j = 0; j < m; ++j) {
         report_progress("Lanczos iteration", j + 1, m);
+        std::cerr << "\r  Direct Lanczos " << (j+1) << "/" << m << std::flush;
         
         // w = L * q_j
         L.matvec(Q[j].data(), w.data());
@@ -572,25 +555,20 @@ void LanczosSolver::shift_invert_lanczos(
     double beta_prev = 0.0;
     
     for (int j = 0; j < m; ++j) {
-        report_progress("Shift-invert Lanczos", j + 1, m);
-        std::cerr << "[LANCZOS] Iteration " << (j+1) << "/" << m << " starting CG...\n";
-        std::cerr.flush();
+        report_progress("Lanczos", j + 1, m);
+        std::cerr << "\r  Lanczos " << (j+1) << "/" << m << std::flush;
         
         // w = (L - σI)^{-1} * q_j via CG
         std::fill(cg_x.begin(), cg_x.end(), 0.0);
         int cg_iters = ConjugateGradient::solve(
             L, config_.shift_sigma, Q[j], cg_x,
             config_.cg_tolerance, config_.cg_max_iterations,
-            true  // verbose
+            false  // no verbose
         );
         
-        std::cerr << "[LANCZOS] CG finished with " << cg_iters << " iterations\n";
-        std::cerr.flush();
-        
         if (cg_iters < 0) {
-            // CG failed - fall back to standard Lanczos
-            std::cerr << "Warning: CG failed at iteration " << j 
-                      << ", falling back to direct Lanczos\n";
+            std::cerr << "\n  CG failed at iter " << j << ", using direct Lanczos\n";
+            config_.use_shift_invert = false;  // Disable shift-invert for this solve
             lanczos_iteration(L, Q, T, m);
             return;
         }
@@ -733,6 +711,11 @@ LanczosResult LanczosSolver::solve(const SparseSymmetricMatrix& L) {
         
         if (config_.use_shift_invert) {
             shift_invert_lanczos(L, Q, T, m);
+            // If shift_invert ran lanczos_iteration as fallback, don't retry shift_invert
+            if (Q.empty() || T.alpha.empty()) {
+                config_.use_shift_invert = false;
+                continue;
+            }
         } else {
             lanczos_iteration(L, Q, T, m);
         }

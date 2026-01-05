@@ -1,15 +1,19 @@
 # Hartonomous Hypercube - Test Data Ingestion (Windows)
 # ============================================================================
-# Ingests test content from test-data/ directory.
+# Ingests test content from test-data/ directory AND configured model paths.
 # SAFE: Idempotent - skips already-ingested content.
 #
+# For full model ingestion from D:\Models, use: .\ingest-models.ps1
+#
 # Usage:
-#   .\ingest-testdata.ps1         # Ingest all test data
-#   .\ingest-testdata.ps1 -Quick  # Skip model ingestion (faster)
+#   .\ingest-testdata.ps1             # Ingest text + test models
+#   .\ingest-testdata.ps1 -Quick      # Skip model ingestion (faster)
+#   .\ingest-testdata.ps1 -AllModels  # Ingest ALL models from D:\Models
 # ============================================================================
 
 param(
-    [switch]$Quick   # Skip model ingestion for faster iteration
+    [switch]$Quick,      # Skip model ingestion for faster iteration
+    [switch]$AllModels   # Ingest all models from D:\Models (not just test-data)
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,10 +34,10 @@ Write-Host "  Source: $testDataDir"
 Write-Host ""
 
 # Find ingestion tool
-$ingester = if (Test-Path "$env:HC_BUILD_DIR\Release\ingest.exe") {
-    "$env:HC_BUILD_DIR\Release\ingest.exe"
-} elseif (Test-Path "$env:HC_BUILD_DIR\ingest.exe") {
+$ingester = if (Test-Path "$env:HC_BUILD_DIR\ingest.exe") {
     "$env:HC_BUILD_DIR\ingest.exe"
+} elseif (Test-Path "$env:HC_BUILD_DIR\Release\ingest.exe") {
+    "$env:HC_BUILD_DIR\Release\ingest.exe"
 } else { $null }
 
 $dbArgs = @("-d", $env:HC_DB_NAME, "-U", $env:HC_DB_USER, "-h", $env:HC_DB_HOST, "-p", $env:HC_DB_PORT)
@@ -67,25 +71,39 @@ if ($textFiles.Count -gt 0 -and $ingester) {
 }
 
 # ============================================================================
-# 2. EMBEDDING MODEL - Safetensor Ingestion
+# 2. EMBEDDING MODELS
 # ============================================================================
 Write-Host ""
-Write-Host "[2/3] Embedding Model" -ForegroundColor Yellow
+Write-Host "[2/3] Embedding Models" -ForegroundColor Yellow
 
 if ($Quick) {
     Write-Host "      (skipped with -Quick flag)" -ForegroundColor DarkGray
 } else {
-    $modelSnapshot = Get-ChildItem -Path "$testDataDir\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($modelSnapshot) {
-        Write-Host "      HuggingFace model: $($modelSnapshot.Name)"
-        & "$PSScriptRoot\ingest-safetensor.ps1" $modelSnapshot.FullName -Threshold 0.1
+    # Re-set PGPASSWORD in case child scripts cleared it
+    $env:PGPASSWORD = $env:HC_DB_PASS
+    
+    $ingestModelsScript = "$PSScriptRoot\ingest-models.ps1"
+    if (-not (Test-Path $ingestModelsScript)) {
+        Write-Host "      WARNING: ingest-models.ps1 not found" -ForegroundColor Yellow
+    } else {
+        if ($AllModels) {
+            # Ingest from all configured model paths including D:\Models
+            Write-Host "      Ingesting ALL models (D:\Models + test-data)..." -ForegroundColor Cyan
+            & $ingestModelsScript -Path "D:\Models" -Type "embedding"
+        } else {
+            # Only test-data models for quick testing
+            $testModelDir = "$testDataDir\embedding_models"
+            if (Test-Path $testModelDir) {
+                Write-Host "      Ingesting test models from: $testModelDir"
+                & $ingestModelsScript -Path $testModelDir
+            } else {
+                Write-Host "      (no test models found in test-data)" -ForegroundColor DarkGray
+            }
+        }
+        
         if ($LASTEXITCODE -eq 0) {
             Write-Host "      Model ingestion complete" -ForegroundColor Green
-        } else {
-            Write-Host "      Model ingestion had warnings" -ForegroundColor Yellow
         }
-    } else {
-        Write-Host "      (no model found in test-data)" -ForegroundColor DarkGray
     }
 }
 

@@ -1,12 +1,12 @@
 # Hartonomous Hypercube - Safetensor Model Ingestion (Windows)
 # Ingests HuggingFace model packages using 4D Laplacian Eigenmap projection
 # (vocab, BPE merges, semantic edges, 4D coordinates)
-# Usage: .\scripts\windows\ingest-safetensor.ps1 <model_directory> [-Threshold 0.1] [-Legacy]
+# Usage: .\scripts\windows\ingest-safetensor.ps1 <model_directory> [-Threshold 0.25] [-Legacy]
 
 param(
     [Parameter(Mandatory=$true, Position=0)]
     [string]$ModelDir,
-    [float]$Threshold = 0.1,
+    [float]$Threshold = 0.25,
     [switch]$Legacy  # Use old ingester without 4D projection
 )
 

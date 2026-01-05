@@ -453,17 +453,130 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     int k,
     std::array<double, 4>& eigenvalues_out
 ) {
+    const size_t n = L.size();
+    
     // ==========================================================================
-    // LANCZOS EIGENSOLVER
+    // FOR SMALL MATRICES: Use dense eigendecomposition (much more reliable)
+    // Threshold: 2000 elements means 2000*2000*8 = 32MB dense matrix
     // ==========================================================================
-    // 
-    // This uses the proper Lanczos algorithm with:
-    // - Full reorthogonalization (prevents Lanczos vector drift)
-    // - Shift-invert with Conjugate Gradient (targets smallest eigenvalues)
-    // - Tridiagonal QR eigensolver (Ritz value extraction)
-    //
-    // The OLD code used power iteration which finds LARGEST eigenvalues.
-    // For graph Laplacian we need the SMALLEST non-zero eigenvalues.
+    if (n <= 2000) {
+        std::cerr << "[EIGEN] Using dense eigendecomposition for " << n << " points\n";
+        
+        // Convert sparse Laplacian to dense
+        std::vector<double> L_dense(n * n, 0.0);
+        L.for_each_edge([&](size_t i, size_t j, double w) {
+            L_dense[i * n + j] = w;
+        });
+        // Add diagonals
+        for (size_t i = 0; i < n; ++i) {
+            L_dense[i * n + i] = L.get_diagonal(i);
+        }
+        
+        // Compute eigenvalues/vectors using symmetric tridiagonalization + QR
+        // For simplicity, use power iteration on (max_eigenvalue * I - L) to find smallest
+        // Or better: just use the existing Lanczos but with direct iteration (no shift-invert)
+        
+        // Actually, let's do Jacobi eigenvalue algorithm for small dense symmetric matrices
+        std::vector<double> eigenvalues(n);
+        std::vector<std::vector<double>> eigenvectors(n, std::vector<double>(n, 0.0));
+        
+        // Initialize eigenvectors as identity
+        for (size_t i = 0; i < n; ++i) {
+            eigenvectors[i][i] = 1.0;
+        }
+        
+        // Jacobi iteration
+        const int max_sweeps = 50;
+        const double eps = 1e-10;
+        
+        for (int sweep = 0; sweep < max_sweeps; ++sweep) {
+            double max_off = 0.0;
+            
+            for (size_t p = 0; p < n - 1; ++p) {
+                for (size_t q = p + 1; q < n; ++q) {
+                    double apq = L_dense[p * n + q];
+                    if (std::abs(apq) < eps) continue;
+                    if (std::abs(apq) > max_off) max_off = std::abs(apq);
+                    
+                    double app = L_dense[p * n + p];
+                    double aqq = L_dense[q * n + q];
+                    double theta = 0.5 * (aqq - app) / apq;
+                    
+                    double t = 1.0 / (std::abs(theta) + std::sqrt(theta * theta + 1.0));
+                    if (theta < 0) t = -t;
+                    
+                    double c = 1.0 / std::sqrt(1.0 + t * t);
+                    double s = t * c;
+                    
+                    // Update matrix
+                    L_dense[p * n + p] = app - t * apq;
+                    L_dense[q * n + q] = aqq + t * apq;
+                    L_dense[p * n + q] = 0.0;
+                    L_dense[q * n + p] = 0.0;
+                    
+                    for (size_t r = 0; r < n; ++r) {
+                        if (r != p && r != q) {
+                            double arp = L_dense[r * n + p];
+                            double arq = L_dense[r * n + q];
+                            L_dense[r * n + p] = L_dense[p * n + r] = c * arp - s * arq;
+                            L_dense[r * n + q] = L_dense[q * n + r] = s * arp + c * arq;
+                        }
+                    }
+                    
+                    // Update eigenvectors
+                    for (size_t r = 0; r < n; ++r) {
+                        double vrp = eigenvectors[r][p];
+                        double vrq = eigenvectors[r][q];
+                        eigenvectors[r][p] = c * vrp - s * vrq;
+                        eigenvectors[r][q] = s * vrp + c * vrq;
+                    }
+                }
+            }
+            
+            if (max_off < eps) {
+                std::cerr << "[JACOBI] Converged after " << (sweep + 1) << " sweeps\n";
+                break;
+            }
+        }
+        
+        // Extract eigenvalues (diagonal of L_dense)
+        for (size_t i = 0; i < n; ++i) {
+            eigenvalues[i] = L_dense[i * n + i];
+        }
+        
+        // Sort eigenvalues and eigenvectors (ascending)
+        std::vector<size_t> indices(n);
+        std::iota(indices.begin(), indices.end(), 0);
+        std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+            return eigenvalues[a] < eigenvalues[b];
+        });
+        
+        // Log eigenvalues
+        std::cerr << "[JACOBI] Eigenvalues: ";
+        for (int i = 0; i < std::min(8, (int)n); ++i) {
+            std::cerr << eigenvalues[indices[i]] << " ";
+        }
+        std::cerr << "...\n";
+        
+        // Skip index 0 (null space), take next k eigenvectors
+        std::vector<std::vector<double>> result;
+        for (int i = 1; i <= k && i < static_cast<int>(n); ++i) {
+            size_t idx = indices[i];
+            eigenvalues_out[i - 1] = eigenvalues[idx];
+            
+            // Copy eigenvector (column idx becomes row in result)
+            std::vector<double> ev(n);
+            for (size_t r = 0; r < n; ++r) {
+                ev[r] = eigenvectors[r][idx];
+            }
+            result.push_back(std::move(ev));
+        }
+        
+        return result;
+    }
+    
+    // ==========================================================================
+    // FOR LARGE MATRICES: Use Lanczos
     // ==========================================================================
     
     std::cerr << "[LANCZOS] Finding " << k << " smallest non-zero eigenvectors using Lanczos algorithm\n";
