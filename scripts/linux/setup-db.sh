@@ -1,122 +1,176 @@
 #!/bin/bash
 # Hartonomous Hypercube - Database Setup (Linux)
-# Creates database, applies schema, loads extensions, seeds Unicode atoms
-# Fully idempotent - safe to run multiple times
-# Usage: ./scripts/linux/setup-db.sh [--reset]
+# ============================================================================
+# SAFE BY DEFAULT: Creates database and schema if they don't exist.
+# Does NOT drop, truncate, or modify existing data unless explicitly requested.
+#
+# Usage:
+#   ./setup-db.sh            # Safe: creates if missing, skips if exists
+#   ./setup-db.sh --reset    # DESTRUCTIVE: drops and recreates database
+#   ./setup-db.sh --seed     # Only seed atoms (skip schema)
+#   ./setup-db.sh --force    # Force re-seed atoms even if populated
+# ============================================================================
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env.sh"
 
 RESET=false
-if [ "$1" == "--reset" ]; then
-    RESET=true
-fi
+SEED_ONLY=false
+FORCE=false
 
-echo "=== Hypercube Database Setup ==="
-echo "Database: $HC_DB_NAME @ $HC_DB_HOST:$HC_DB_PORT"
-
-# Test connection
-echo -e "\nTesting connection..."
-if ! hc_psql_admin -c "SELECT 1" &>/dev/null; then
-    echo "Cannot connect to PostgreSQL"
-    echo "Ensure PostgreSQL is running and credentials are correct in scripts/config.env"
-    exit 1
-fi
-echo "Connected"
-
-# Reset if requested
-if [ "$RESET" = true ]; then
-    echo -e "\nDropping existing database..."
-    hc_psql_admin -c "DROP DATABASE IF EXISTS $HC_DB_NAME"
-fi
-
-# Check if database exists
-DB_EXISTS=$(hc_psql_admin -tAc "SELECT 1 FROM pg_database WHERE datname='$HC_DB_NAME'" | tr -d '[:space:]')
-
-if [ "$DB_EXISTS" != "1" ]; then
-    echo -e "\nCreating database $HC_DB_NAME..."
-    hc_psql_admin -c "CREATE DATABASE $HC_DB_NAME"
-fi
-echo "Database exists"
-
-# Load C++ extensions FIRST (some SQL depends on them)
-echo -e "\nLoading C++ extensions..."
-if output=$(hc_psql -c "CREATE EXTENSION IF NOT EXISTS hypercube CASCADE; CREATE EXTENSION IF NOT EXISTS semantic_ops CASCADE; CREATE EXTENSION IF NOT EXISTS hypercube_ops CASCADE;" 2>&1); then
-    echo "C++ extensions loaded"
-else
-    echo "Warning: C++ extensions not available (run build.sh first)"
-    echo "$output" | grep -E "ERROR|FATAL" | head -3
-    echo "  Continuing without extensions - some functions may be slower"
-fi
-
-# Apply ALL SQL schema files in order
-echo -e "\nApplying schema files..."
-for sqlfile in "$HC_PROJECT_ROOT"/sql/*.sql; do
-    [ -f "$sqlfile" ] || continue
-    filename=$(basename "$sqlfile")
-    echo -n "  $filename..."
-    if output=$(hc_psql -f "$sqlfile" 2>&1); then
-        echo " OK"
-    else
-        echo " FAILED"
-        echo "$output" | grep -E "ERROR|FATAL" | head -3
-        exit 1
-    fi
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --reset) RESET=true; shift ;;
+        --seed) SEED_ONLY=true; shift ;;
+        --force) FORCE=true; shift ;;
+        *) shift ;;
+    esac
 done
 
-# Check atom count using canonical function (4-table schema)
-ATOM_COUNT=$(hc_psql -tAc "SELECT atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
-# Fallback if function doesn't exist yet - atom table = leaf atoms in 4-table schema
-if [ -z "$ATOM_COUNT" ]; then
-    ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" | tr -d '[:space:]')
-fi
-echo -e "\nAtom count: $ATOM_COUNT"
+echo ""
+echo "=== Hypercube Database Setup ==="
+echo "  Database: $HC_DB_NAME @ $HC_DB_HOST:$HC_DB_PORT"
+echo "  User: $HC_DB_USER"
+echo ""
 
-if [ "$ATOM_COUNT" -lt 1100000 ]; then
-    echo -e "\nSeeding Unicode atoms (this takes ~30 seconds)..."
+# ============================================================================
+# CONNECTION TEST
+# ============================================================================
+echo -n "[1/5] Testing PostgreSQL connection..."
+if ! hc_psql_admin -c "SELECT 1" &>/dev/null; then
+    echo " FAILED"
+    echo ""
+    echo "Cannot connect to PostgreSQL."
+    echo "Check:"
+    echo "  1. PostgreSQL is running"
+    echo "  2. Credentials in scripts/config.env are correct"
+    echo "  3. User '$HC_DB_USER' exists and has permissions"
+    exit 1
+fi
+echo " OK"
+
+# ============================================================================
+# RESET (DESTRUCTIVE - only if explicitly requested)
+# ============================================================================
+if [ "$RESET" = true ]; then
+    echo ""
+    echo "!!! DESTRUCTIVE OPERATION !!!"
+    echo ""
+    echo "The --reset flag will DROP the database and ALL data!"
+    echo ""
+    
+    # Check for existing data
+    if hc_psql_admin -tAc "SELECT 1 FROM pg_database WHERE datname='$HC_DB_NAME'" 2>/dev/null | grep -q 1; then
+        COMP_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM composition" 2>/dev/null | tr -d '[:space:]' || echo "0")
+        REL_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM relation" 2>/dev/null | tr -d '[:space:]' || echo "0")
+        if [ "$COMP_COUNT" -gt 0 ] || [ "$REL_COUNT" -gt 0 ]; then
+            echo "Current database contains:"
+            echo "  - $COMP_COUNT compositions"
+            echo "  - $REL_COUNT relations"
+            echo ""
+            echo "This data CANNOT be recovered after reset."
+            echo ""
+        fi
+    fi
+    
+    echo "[RESET] Dropping database $HC_DB_NAME..."
+    hc_psql_admin -c "DROP DATABASE IF EXISTS $HC_DB_NAME" 2>/dev/null || true
+    echo "[RESET] Database dropped"
+fi
+
+# ============================================================================
+# DATABASE CREATION (idempotent)
+# ============================================================================
+if [ "$SEED_ONLY" = false ]; then
+    echo -n "[2/5] Checking database..."
+    DB_EXISTS=$(hc_psql_admin -tAc "SELECT 1 FROM pg_database WHERE datname='$HC_DB_NAME'" | tr -d '[:space:]')
+    
+    if [ "$DB_EXISTS" != "1" ]; then
+        echo -n " creating..."
+        hc_psql_admin -c "CREATE DATABASE $HC_DB_NAME" >/dev/null
+        echo " CREATED"
+    else
+        echo " exists"
+    fi
+
+    # ========================================================================
+    # SCHEMA APPLICATION (idempotent - uses CREATE IF NOT EXISTS)
+    # ========================================================================
+    echo "[3/5] Applying schema..."
+    for sqlfile in "$HC_PROJECT_ROOT"/sql/*.sql; do
+        [ -f "$sqlfile" ] || continue
+        [[ "$sqlfile" == *"archive"* ]] && continue
+        filename=$(basename "$sqlfile")
+        echo -n "      $filename..."
+        if hc_psql -v ON_ERROR_STOP=1 -f "$sqlfile" >/dev/null 2>&1; then
+            echo " OK"
+        else
+            echo " FAILED"
+            exit 1
+        fi
+    done
+
+    # ========================================================================
+    # C++ EXTENSIONS (idempotent)
+    # ========================================================================
+    echo "[4/5] Loading extensions..."
+    for ext in hypercube hypercube_ops semantic_ops embedding_ops generative; do
+        echo -n "      $ext..."
+        if hc_psql -c "CREATE EXTENSION IF NOT EXISTS $ext;" >/dev/null 2>&1; then
+            echo " OK"
+        else
+            echo " not available"
+        fi
+    done
+else
+    echo "[2/5] Skipping database check (--seed)" 
+    echo "[3/5] Skipping schema (--seed)"
+    echo "[4/5] Skipping extensions (--seed)"
+fi
+
+# ============================================================================
+# ATOM SEEDING (idempotent - checks count first)
+# ============================================================================
+echo -n "[5/5] Checking atoms..."
+ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null | tr -d '[:space:]' || echo "0")
+
+if [ "$ATOM_COUNT" -ge 1100000 ] && [ "$FORCE" = false ]; then
+    echo " $ATOM_COUNT atoms (already seeded)"
+else
+    if [ "$ATOM_COUNT" -ge 1100000 ] && [ "$FORCE" = true ]; then
+        echo " re-seeding (forced)..."
+    else
+        echo " seeding Unicode atoms..."
+    fi
     
     SEEDER="$HC_BUILD_DIR/seed_atoms_parallel"
     if [ ! -x "$SEEDER" ]; then
-        echo "Seeder not found. Run build.sh first."
+        echo ""
+        echo "ERROR: seed_atoms_parallel not found"
+        echo "Run: ./scripts/linux/build.sh"
         exit 1
     fi
     
+    echo ""
     "$SEEDER" -d "$HC_DB_NAME" -U "$HC_DB_USER" -h "$HC_DB_HOST" -p "$HC_DB_PORT"
-    echo "Atoms seeded"
-else
-    echo "Atoms already seeded"
+    
+    NEW_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" | tr -d '[:space:]')
+    echo "      Seeded $NEW_COUNT atoms"
 fi
 
-# Recompute composition centroids from atom children
-echo -e "\nChecking for centroid recomputation..."
-NEEDS_CENTROID=$(hc_psql -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NULL" | tr -d '[:space:]')
+# ============================================================================
+# SUMMARY
+# ============================================================================
+echo ""
+echo "=== Database Ready ==="
+echo ""
 
-if [ "$NEEDS_CENTROID" -gt 0 ]; then
-    echo "  $NEEDS_CENTROID compositions need centroids..."
-    RESULT=$(hc_psql -tAc "SELECT recompute_composition_centroids(10000)")
-    echo "  Updated $RESULT compositions"
-else
-    echo "  All compositions have centroids"
-fi
+FINAL_ATOMS=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null | tr -d '[:space:]' || echo "0")
+FINAL_COMPS=$(hc_psql -tAc "SELECT COUNT(*) FROM composition" 2>/dev/null | tr -d '[:space:]' || echo "0")
+FINAL_RELS=$(hc_psql -tAc "SELECT COUNT(*) FROM relation" 2>/dev/null | tr -d '[:space:]' || echo "0")
 
-# Generate k-NN edges if none exist
-echo -e "\nChecking for k-NN edge generation..."
-EDGE_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM relation" | tr -d '[:space:]')
-COMP_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL" | tr -d '[:space:]')
-
-if [ "$EDGE_COUNT" -eq 0 ] && [ "$COMP_COUNT" -gt 0 ]; then
-    echo "  Generating k-NN edges for $COMP_COUNT compositions..."
-    RESULT=$(hc_psql -tAc "SELECT generate_knn_edges(10, 'centroid_knn')")
-    echo "  Created $RESULT semantic edges"
-elif [ "$EDGE_COUNT" -gt 0 ]; then
-    echo "  Already have $EDGE_COUNT edges"
-fi
-
-echo -e "\n=== Setup Complete ==="
-
-# Show stats using canonical function
-echo -e "\nDatabase Statistics:"
-hc_psql -c "SELECT * FROM db_stats()" 2>/dev/null || \
-hc_psql -c "SELECT * FROM atom_stats" 2>/dev/null || \
-echo "(stats function not available)"
+echo "  Atoms:        $FINAL_ATOMS"
+echo "  Compositions: $FINAL_COMPS"
+echo "  Relations:    $FINAL_RELS"
+echo ""

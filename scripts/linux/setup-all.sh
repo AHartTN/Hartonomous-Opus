@@ -1,32 +1,43 @@
 #!/bin/bash
 # Hartonomous Hypercube - Full Setup Pipeline (Linux)
 # ============================================================================
-# Runs the complete setup from clean slate to working LLM-like system:
-#   1. Clean build artifacts
+# SAFE BY DEFAULT: Only creates/applies schema if missing. Does NOT destroy data.
+# Use --reset flag ONLY for true greenfield setup.
+#
+# Pipeline:
+#   1. Clean build artifacts (optional)
 #   2. Build/Compile all C/C++
 #   3. Install extensions to PostgreSQL
-#   4. Drop database (greenfield)
-#   5. Create database + schema + extensions
-#   6. Seed Unicode atoms
-#   7. Ingest embedding model (MiniLM)
-#   8. Ingest test content (Moby Dick + images + audio)
-#   9. Run full test suite including AI/ML operations
+#   4. Create database + apply schema (idempotent - safe to re-run)
+#   5. Seed Unicode atoms (if not already seeded)
+#   6. Ingest test content (Moby Dick)
+#   7. Run test suite
 #
-# Usage: ./scripts/linux/setup-all.sh [--skip-clean] [--skip-build] [--skip-tests]
+# Usage:
+#   ./setup-all.sh                 # Safe: preserves existing data
+#   ./setup-all.sh --reset         # DESTRUCTIVE: drops database first
+#   ./setup-all.sh --skip-clean    # Keep build artifacts
+#   ./setup-all.sh --skip-build    # Skip C++ compilation
+#   ./setup-all.sh --skip-ingest   # Skip data ingestion
+#   ./setup-all.sh --skip-tests    # Skip test suite
 # ============================================================================
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env.sh"
 
+RESET=false
 SKIP_CLEAN=false
 SKIP_BUILD=false
+SKIP_INGEST=false
 SKIP_TESTS=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --reset) RESET=true; shift ;;
         --skip-clean) SKIP_CLEAN=true; shift ;;
         --skip-build) SKIP_BUILD=true; shift ;;
+        --skip-ingest) SKIP_INGEST=true; shift ;;
         --skip-tests) SKIP_TESTS=true; shift ;;
         *) shift ;;
     esac
@@ -72,26 +83,39 @@ else
 fi
 
 # ============================================================================
-# STEP 3: DATABASE SETUP (DROP + CREATE + SCHEMA + SEED)
+# STEP 3: DATABASE SETUP (idempotent unless --reset specified)
 # ============================================================================
-echo "┌──────────────────────────────────────────────────────────────────┐"
-echo "│ STEP 3/5: DATABASE SETUP (GREENFIELD)                            │"
-echo "└──────────────────────────────────────────────────────────────────┘"
-
-"$SCRIPT_DIR/setup-db.sh" --reset
+if [ "$RESET" = true ]; then
+    echo "┌──────────────────────────────────────────────────────────────────┐"
+    echo "│ STEP 3/5: DATABASE SETUP (GREENFIELD - DESTRUCTIVE)              │"
+    echo "└──────────────────────────────────────────────────────────────────┘"
+    echo ""
+    echo "!!! --reset flag specified. Database will be dropped and recreated !!!"
+    echo ""
+    "$SCRIPT_DIR/setup-db.sh" --reset
+else
+    echo "┌──────────────────────────────────────────────────────────────────┐"
+    echo "│ STEP 3/5: DATABASE SETUP (SAFE - PRESERVING DATA)                │"
+    echo "└──────────────────────────────────────────────────────────────────┘"
+    "$SCRIPT_DIR/setup-db.sh"
+fi
 echo ""
 
 # ============================================================================
-# STEP 4: INGEST ALL TEST DATA
+# STEP 4: INGEST TEST DATA
 # ============================================================================
-echo "┌──────────────────────────────────────────────────────────────────┐"
-echo "│ STEP 4/5: INGESTING TEST DATA                                    │"
-echo "└──────────────────────────────────────────────────────────────────┘"
-
-"$SCRIPT_DIR/ingest-testdata.sh" || {
-    echo "Warning: Ingestion had issues (continuing anyway)"
-}
-echo ""
+if [ "$SKIP_INGEST" = false ]; then
+    echo "┌──────────────────────────────────────────────────────────────────┐"
+    echo "│ STEP 4/5: INGESTING TEST DATA                                    │"
+    echo "└──────────────────────────────────────────────────────────────────┘"
+    
+    "$SCRIPT_DIR/ingest-testdata.sh" || {
+        echo "Warning: Ingestion had issues (continuing anyway)"
+    }
+    echo ""
+else
+    echo "── Skipping ingest (--skip-ingest) ──"
+fi
 
 # ============================================================================
 # STEP 5: RUN FULL TEST SUITE
@@ -125,15 +149,13 @@ echo ""
 
 # Final stats
 echo "  Final Database State:"
-hc_psql -c "
-SELECT 
-    COUNT(*) FILTER (WHERE depth = 0) as \"Leaf Atoms\",
-    COUNT(*) FILTER (WHERE depth > 0) as \"Compositions\",
-    COUNT(*) FILTER (WHERE depth = 1 AND atom_count = 2) as \"Semantic Edges\",
-    MAX(depth) as \"Max Depth\",
-    pg_size_pretty(pg_total_relation_size('atom')) as \"Total Size\"
-FROM atom;
-"
+FINAL_ATOMS=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null | tr -d '[:space:]' || echo "0")
+FINAL_COMPS=$(hc_psql -tAc "SELECT COUNT(*) FROM composition" 2>/dev/null | tr -d '[:space:]' || echo "0")
+FINAL_RELS=$(hc_psql -tAc "SELECT COUNT(*) FROM relation" 2>/dev/null | tr -d '[:space:]' || echo "0")
+
+echo "    Atoms:        $FINAL_ATOMS"
+echo "    Compositions: $FINAL_COMPS"
+echo "    Relations:    $FINAL_RELS"
 
 echo ""
 if [ $TEST_EXIT -eq 0 ]; then

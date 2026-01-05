@@ -1,22 +1,31 @@
 # Hartonomous Hypercube - Full Setup Pipeline (Windows)
 # ============================================================================
-# Runs the complete setup from clean slate to working LLM-like system:
-#   1. Clean build artifacts
-#   2. Build/Compile all C/C++
-#   3. Install extensions to PostgreSQL
-#   4. Drop database (greenfield)
-#   5. Create database + schema + extensions
-#   6. Seed Unicode atoms
-#   7. Ingest embedding model (MiniLM)
-#   8. Ingest test content (Moby Dick + images + audio)
-#   9. Run full test suite including AI/ML operations
+# SAFE BY DEFAULT: Only creates/applies schema if missing. Does NOT destroy data.
+# Use -Reset flag ONLY for true greenfield setup.
 #
-# Usage: .\scripts\windows\setup-all.ps1 [-SkipClean] [-SkipBuild] [-SkipTests]
+# Pipeline:
+#   1. Clean build artifacts (optional)
+#   2. Build/Compile all C/C++ 
+#   3. Install extensions to PostgreSQL
+#   4. Create database + apply schema (idempotent - safe to re-run)
+#   5. Seed Unicode atoms (if not already seeded)
+#   6. Ingest test content (Moby Dick)
+#   7. Run test suite
+#
+# Usage:
+#   .\setup-all.ps1                     # Safe: preserves existing data
+#   .\setup-all.ps1 -Reset              # DESTRUCTIVE: drops database first
+#   .\setup-all.ps1 -SkipClean          # Keep build artifacts
+#   .\setup-all.ps1 -SkipBuild          # Skip C++ compilation
+#   .\setup-all.ps1 -SkipIngest         # Skip data ingestion
+#   .\setup-all.ps1 -SkipTests          # Skip test suite
 # ============================================================================
 
 param(
+    [switch]$Reset,       # DESTRUCTIVE: Drop and recreate database
     [switch]$SkipClean,
     [switch]$SkipBuild,
+    [switch]$SkipIngest,
     [switch]$SkipTests
 )
 
@@ -79,14 +88,24 @@ if (-not $SkipBuild) {
 }
 
 # ============================================================================
-# STEP 3: DATABASE SETUP (DROP + CREATE + SCHEMA + SEED)
+# STEP 3: DATABASE SETUP (idempotent unless -Reset specified)
 # ============================================================================
 Write-Host "┌──────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
-Write-Host "│ STEP 3/5: DATABASE SETUP (GREENFIELD)                            │" -ForegroundColor Cyan
+if ($Reset) {
+    Write-Host "│ STEP 3/5: DATABASE SETUP (GREENFIELD - DESTRUCTIVE)              │" -ForegroundColor Red
+} else {
+    Write-Host "│ STEP 3/5: DATABASE SETUP (SAFE - PRESERVING DATA)                │" -ForegroundColor Cyan
+}
 Write-Host "└──────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
 
-# Drop and recreate for clean slate
-& "$PSScriptRoot\setup-db.ps1" -Reset
+if ($Reset) {
+    Write-Host ""
+    Write-Host "!!! -Reset flag specified. Database will be dropped and recreated !!!" -ForegroundColor Red
+    Write-Host ""
+    & "$PSScriptRoot\setup-db.ps1" -Reset
+} else {
+    & "$PSScriptRoot\setup-db.ps1"
+}
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Database setup failed!" -ForegroundColor Red
     exit 1
@@ -94,17 +113,21 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ""
 
 # ============================================================================
-# STEP 4: INGEST ALL TEST DATA
+# STEP 4: INGEST TEST DATA
 # ============================================================================
-Write-Host "┌──────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
-Write-Host "│ STEP 4/5: INGESTING TEST DATA                                    │" -ForegroundColor Cyan
-Write-Host "└──────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
-
-& "$PSScriptRoot\ingest-testdata.ps1"
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Warning: Ingestion had issues (continuing anyway)" -ForegroundColor Yellow
+if (-not $SkipIngest) {
+    Write-Host "┌──────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+    Write-Host "│ STEP 4/5: INGESTING TEST DATA                                    │" -ForegroundColor Cyan
+    Write-Host "└──────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+    
+    & "$PSScriptRoot\ingest-testdata.ps1"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Warning: Ingestion had issues (continuing anyway)" -ForegroundColor Yellow
+    }
+    Write-Host ""
+} else {
+    Write-Host "── Skipping ingest (--SkipIngest) ──" -ForegroundColor DarkGray
 }
-Write-Host ""
 
 # ============================================================================
 # STEP 5: RUN FULL TEST SUITE
