@@ -412,7 +412,7 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
         }
     }
     
-    W.finalize();
+    // NOTE: Do NOT finalize here - ensure_connectivity will add more edges first
     std::cerr << "[HNSWLIB] Built k-NN graph with " << total_edges << " edges\n";
     return W;
     
@@ -494,7 +494,7 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
         }
     }
     
-    W.finalize();
+    // NOTE: Do NOT finalize here - ensure_connectivity will add more edges first
     
     std::cerr << "[LAPLACIAN] Built k-NN graph with " << total_edges << " edges\n";
     return W;
@@ -531,7 +531,7 @@ void LaplacianProjector::ensure_connectivity(
         return parent[x];
     };
     
-    auto unite = [&](size_t x, size_t y) {
+    auto unite = [&](size_t x, size_t y) -> bool {
         size_t rx = find(x), ry = find(y);
         if (rx == ry) return false;
         if (rank_uf[rx] < rank_uf[ry]) std::swap(rx, ry);
@@ -546,12 +546,12 @@ void LaplacianProjector::ensure_connectivity(
     });
     
     // Count components
-    std::unordered_map<size_t, std::vector<size_t>> components;
+    std::unordered_set<size_t> roots;
     for (size_t i = 0; i < n; ++i) {
-        components[find(i)].push_back(i);
+        roots.insert(find(i));
     }
     
-    size_t num_components = components.size();
+    size_t num_components = roots.size();
     if (num_components == 1) {
         std::cerr << "[CONNECT] Graph is already connected\n";
         return;
@@ -559,117 +559,74 @@ void LaplacianProjector::ensure_connectivity(
     
     std::cerr << "[CONNECT] Found " << num_components << " disconnected components\n";
     
-    // Get component list for easier iteration
-    std::vector<std::vector<size_t>> comp_list;
-    comp_list.reserve(num_components);
-    for (auto& [root, members] : components) {
-        comp_list.push_back(std::move(members));
-    }
-    
-    // Find closest cross-component pairs using greedy approach
-    // For each pair of components, find the closest pair of nodes
-    size_t edges_added = 0;
     const size_t dim = embeddings[0].size();
+    size_t edges_added = 0;
     
-    for (size_t c1 = 0; c1 + 1 < comp_list.size(); ++c1) {
-        // Find closest node in any other component to connect this component
-        float best_sim = -1.0f;
+    // Simple greedy approach: connect components one at a time until fully connected
+    while (num_components > 1) {
+        // Build component membership map
+        std::unordered_map<size_t, std::vector<size_t>> comp_members;
+        for (size_t i = 0; i < n; ++i) {
+            comp_members[find(i)].push_back(i);
+        }
+        
+        // Get list of component roots
+        std::vector<size_t> comp_roots;
+        for (auto& [root, members] : comp_members) {
+            comp_roots.push_back(root);
+        }
+        
+        // Find best edge to connect any two different components
+        float best_sim = -2.0f;
         size_t best_i = 0, best_j = 0;
         
-        for (size_t i : comp_list[c1]) {
-            const float* emb_i = embeddings[i].data();
+        // For efficiency, only compare a sample from large components
+        const size_t MAX_SAMPLE = 50;
+        
+        for (size_t c1 = 0; c1 < comp_roots.size(); ++c1) {
+            auto& members1 = comp_members[comp_roots[c1]];
+            size_t sample1 = std::min(members1.size(), MAX_SAMPLE);
             
-            for (size_t c2 = c1 + 1; c2 < comp_list.size(); ++c2) {
-                // Only consider if not yet in same component
-                if (find(comp_list[c1][0]) == find(comp_list[c2][0])) continue;
+            for (size_t c2 = c1 + 1; c2 < comp_roots.size(); ++c2) {
+                auto& members2 = comp_members[comp_roots[c2]];
+                size_t sample2 = std::min(members2.size(), MAX_SAMPLE);
                 
-                for (size_t j : comp_list[c2]) {
-                    float sim = embedding::cosine_similarity(emb_i, embeddings[j].data(), dim);
-                    if (sim > best_sim) {
-                        best_sim = sim;
-                        best_i = i;
-                        best_j = j;
+                for (size_t idx1 = 0; idx1 < sample1; ++idx1) {
+                    size_t i = members1[idx1];
+                    for (size_t idx2 = 0; idx2 < sample2; ++idx2) {
+                        size_t j = members2[idx2];
+                        float sim = embedding::cosine_similarity(
+                            embeddings[i].data(), embeddings[j].data(), dim);
+                        if (sim > best_sim) {
+                            best_sim = sim;
+                            best_i = i;
+                            best_j = j;
+                        }
                     }
                 }
             }
         }
         
-        if (best_sim > -0.5f) {  // Accept even negative similarity if needed
-            // Ensure positive weight (shift if necessary)
-            double weight = static_cast<double>(std::max(0.01f, best_sim));
-            W.add_edge(best_i, best_j, weight);
-            unite(best_i, best_j);
-            ++edges_added;
-            
-            if (config_.verbose) {
-                std::cerr << "[CONNECT] Added edge " << best_i << "->" << best_j 
-                          << " (sim=" << best_sim << ")\n";
-            }
+        // Add the best edge found
+        double weight = static_cast<double>(std::max(0.01f, best_sim));
+        W.add_edge(best_i, best_j, weight);
+        unite(best_i, best_j);
+        ++edges_added;
+        
+        if (config_.verbose) {
+            std::cerr << "[CONNECT] Added edge " << best_i << "->" << best_j 
+                      << " (sim=" << best_sim << ")\n";
         }
-    }
-    
-    // May need multiple passes if we have many components
-    // Repeat until fully connected
-    size_t pass = 1;
-    while (true) {
+        
         // Recount components
-        std::fill(parent.begin(), parent.end(), 0);
-        std::iota(parent.begin(), parent.end(), 0);
-        std::fill(rank_uf.begin(), rank_uf.end(), 0);
-        
-        W.for_each_edge([&](size_t i, size_t j, double) {
-            unite(i, j);
-        });
-        
-        std::unordered_set<size_t> roots;
+        roots.clear();
         for (size_t i = 0; i < n; ++i) {
             roots.insert(find(i));
         }
-        
-        if (roots.size() == 1) break;
-        
-        if (++pass > 100) {
-            std::cerr << "[CONNECT] WARNING: Could not fully connect graph after 100 passes\n";
-            break;
-        }
-        
-        // Build new component lists
-        components.clear();
-        for (size_t i = 0; i < n; ++i) {
-            components[find(i)].push_back(i);
-        }
-        comp_list.clear();
-        for (auto& [root, members] : components) {
-            comp_list.push_back(std::move(members));
-        }
-        
-        // Connect first two components
-        if (comp_list.size() >= 2) {
-            float best_sim = -2.0f;
-            size_t best_i = 0, best_j = 0;
-            
-            for (size_t i : comp_list[0]) {
-                for (size_t j : comp_list[1]) {
-                    float sim = embedding::cosine_similarity(
-                        embeddings[i].data(), embeddings[j].data(), dim);
-                    if (sim > best_sim) {
-                        best_sim = sim;
-                        best_i = i;
-                        best_j = j;
-                    }
-                }
-            }
-            
-            double weight = static_cast<double>(std::max(0.01f, best_sim));
-            W.add_edge(best_i, best_j, weight);
-            ++edges_added;
-        }
+        num_components = roots.size();
     }
     
     std::cerr << "[CONNECT] Added " << edges_added << " edges to ensure connectivity\n";
-    
-    // Re-finalize the matrix with new edges
-    W.finalize();
 }
 
 SparseSymmetricMatrix LaplacianProjector::build_laplacian(const SparseSymmetricMatrix& W) {
@@ -1392,6 +1349,9 @@ ProjectionResult LaplacianProjector::project(
     // Step 1.5: Ensure graph connectivity (fix disconnected components)
     std::cerr << "\n[1.5] Ensuring graph connectivity...\n";
     ensure_connectivity(W, embeddings);
+    
+    // Step 1.6: Finalize the similarity graph (convert adj list to CSR)
+    W.finalize();
     
     // Step 2: Build unnormalized Laplacian
     std::cerr << "\n[2] Building unnormalized Laplacian L = D - W...\n";

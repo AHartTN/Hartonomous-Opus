@@ -99,6 +99,9 @@ struct UniversalConfig {
     
     // Embedding-only mode: only process actual embedding tensors (semantic value)
     bool embeddings_only = false;
+    
+    // Dry-run mode: test projection without DB connection
+    bool dry_run = false;
 };
 
 // =============================================================================
@@ -807,12 +810,17 @@ bool ingest_universal(const UniversalConfig& config) {
     
     std::cerr << "Tensors: " << g_tensors.size() << "\n\n";
     
-    // Connect to database
-    PGconn* conn = PQconnectdb(config.conninfo.c_str());
-    if (PQstatus(conn) != CONNECTION_OK) {
-        std::cerr << "DB connection failed: " << PQerrorMessage(conn) << "\n";
-        PQfinish(conn);
-        return false;
+    // Connect to database (skip in dry-run mode)
+    PGconn* conn = nullptr;
+    if (!config.dry_run) {
+        conn = PQconnectdb(config.conninfo.c_str());
+        if (PQstatus(conn) != CONNECTION_OK) {
+            std::cerr << "DB connection failed: " << PQerrorMessage(conn) << "\n";
+            PQfinish(conn);
+            return false;
+        }
+    } else {
+        std::cerr << "[DRY-RUN] Skipping database connection\n";
     }
     
     auto total_start = std::chrono::steady_clock::now();
@@ -882,6 +890,22 @@ bool ingest_universal(const UniversalConfig& config) {
     auto& projections = result.coords;
     
     std::cerr << "  Projected " << projections.size() << " tensors to 4D\n";
+    std::cerr << "  Eigenvalues: [" << result.eigenvalues[0] << ", " << result.eigenvalues[1] 
+              << ", " << result.eigenvalues[2] << ", " << result.eigenvalues[3] << "]\n";
+    std::cerr << "  Edge count: " << result.edge_count << "\n";
+    
+    // Dry-run mode: stop here and report success
+    if (config.dry_run) {
+        std::cerr << "\n[DRY-RUN] Projection complete! Sample coordinates:\n";
+        for (size_t i = 0; i < std::min(size_t(5), projections.size()); ++i) {
+            std::cerr << "  " << labels[i] << ": (" 
+                      << projections[i][0] << ", " << projections[i][1] << ", "
+                      << projections[i][2] << ", " << projections[i][3] << ")\n";
+        }
+        std::cerr << "\n[DRY-RUN] SUCCESS - All " << g_tensors.size() 
+                  << " tensors projected to 4D\n";
+        return true;
+    }
     
     // Step 3: Insert compositions using COPY
     std::cerr << "\n[3] Inserting compositions (COPY bulk mode)...\n";
@@ -1243,22 +1267,33 @@ void print_usage(const char* prog) {
               << "  -k, --neighbors <k>       k-NN neighbors (default: 15)\n"
               << "  -t, --threshold <t>       Similarity threshold (default: 0.3)\n"
               << "  -v, --verbose             Verbose output\n"
+              << "  --dry-run                 Test projection without database\n"
               << "\n"
               << "Example:\n"
-              << "  " << prog << " -d hypercube D:\\Models\\detection_models\\DETR-ResNet-101\n";
+              << "  " << prog << " -d hypercube D:\\Models\\detection_models\\DETR-ResNet-101\n"
+              << "  " << prog << " --dry-run -v D:\\Models\\detection_models\\DETR-ResNet-101\n";
 }
 
 int main(int argc, char* argv[]) {
     UniversalConfig config;
     std::string db_name = "hypercube";
-    std::string db_user = "hypercube";
+    std::string db_user = "hartonomous";
     std::string db_host = "localhost";
     std::string db_port = "5432";
-    std::string db_pass;
+    std::string db_pass = "hartonomous";  // Default password
     
-    // Get password from environment
-    if (const char* p = std::getenv("PGPASSWORD")) {
-        db_pass = p;
+    // Load from HC_* environment variables (matches env.ps1)
+    if (const char* p = std::getenv("HC_DB_NAME")) db_name = p;
+    if (const char* p = std::getenv("HC_DB_USER")) db_user = p;
+    if (const char* p = std::getenv("HC_DB_HOST")) db_host = p;
+    if (const char* p = std::getenv("HC_DB_PORT")) db_port = p;
+    if (const char* p = std::getenv("HC_DB_PASS")) db_pass = p;
+    else if (const char* p = std::getenv("PGPASSWORD")) db_pass = p;
+    
+    // Check if HC_CONNINFO is set (full connection string from env.ps1)
+    std::string conninfo_override;
+    if (const char* p = std::getenv("HC_CONNINFO")) {
+        conninfo_override = p;
     }
     
     std::string model_path;
@@ -1282,6 +1317,8 @@ int main(int argc, char* argv[]) {
             config.similarity_threshold = std::stof(argv[++i]);
         } else if (arg == "-v" || arg == "--verbose") {
             config.verbose = true;
+        } else if (arg == "--dry-run") {
+            config.dry_run = true;
         } else if (arg == "--help") {
             print_usage(argv[0]);
             return 0;
@@ -1303,14 +1340,16 @@ int main(int argc, char* argv[]) {
         config.model_name = p.filename().string();
     }
     
-    // Build connection string
-    std::ostringstream conninfo;
-    conninfo << "host=" << db_host << " port=" << db_port
-             << " dbname=" << db_name << " user=" << db_user;
-    if (!db_pass.empty()) {
-        conninfo << " password=" << db_pass;
+    // Build connection string (use HC_CONNINFO if set, otherwise build from parts)
+    if (!conninfo_override.empty()) {
+        config.conninfo = conninfo_override;
+    } else {
+        std::ostringstream conninfo;
+        conninfo << "host=" << db_host << " port=" << db_port
+                 << " dbname=" << db_name << " user=" << db_user
+                 << " password=" << db_pass;
+        config.conninfo = conninfo.str();
     }
-    config.conninfo = conninfo.str();
     
     return ingest_universal(config) ? 0 : 1;
 }

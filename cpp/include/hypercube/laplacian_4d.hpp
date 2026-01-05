@@ -101,12 +101,22 @@ public:
     const std::vector<double>& values() const { return values_; }
     const std::vector<double>& diagonal() const { return diagonal_; }
     
-    // Iterate over non-zero entries
+    // Iterate over non-zero entries (works before or after finalization)
     template<typename Func>
     void for_each_edge(Func&& func) const {
-        for (size_t i = 0; i < n_; ++i) {
-            for (size_t k = row_ptr_[i]; k < row_ptr_[i + 1]; ++k) {
-                func(i, col_idx_[k], values_[k]);
+        if (finalized_) {
+            // Use CSR structure
+            for (size_t i = 0; i < n_; ++i) {
+                for (size_t k = row_ptr_[i]; k < row_ptr_[i + 1]; ++k) {
+                    func(i, col_idx_[k], values_[k]);
+                }
+            }
+        } else {
+            // Use adjacency list structure
+            for (size_t i = 0; i < n_; ++i) {
+                for (const auto& [j, w] : adj_[i]) {
+                    func(i, j, w);
+                }
             }
         }
     }
