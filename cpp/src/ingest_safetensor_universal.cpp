@@ -115,6 +115,7 @@ struct TensorMeta {
     uint64_t data_offset_start;
     uint64_t data_offset_end;
     int64_t numel;  // Total elements
+    size_t file_index;  // Which shard file this tensor is in
 };
 
 // =============================================================================
@@ -199,8 +200,13 @@ private:
 // Global State
 // =============================================================================
 
-static MappedFile g_mmap;
-static uint64_t g_header_size = 0;
+// Multi-shard support: one MappedFile per shard
+struct ShardInfo {
+    MappedFile mmap;
+    uint64_t header_size;
+    std::string path;
+};
+static std::vector<ShardInfo> g_shards;
 static std::vector<TensorMeta> g_tensors;
 
 // =============================================================================
@@ -443,6 +449,38 @@ std::vector<float> read_tensor_flat(const TensorMeta& meta) {
 // =============================================================================
 // Compute Summary Vector for k-NN
 // =============================================================================
+
+// Check if tensor has meaningful variance (not constant/zero)
+// Returns false for tensors that would add no information to the projection
+bool has_meaningful_variance(const std::vector<float>& data, float min_variance = 1e-10f) {
+    if (data.empty()) return false;
+    
+    // Quick check: if first 100 elements are identical, likely constant
+    size_t check_size = std::min(data.size(), size_t(100));
+    float first = data[0];
+    bool all_same = true;
+    for (size_t i = 1; i < check_size && all_same; ++i) {
+        if (data[i] != first) all_same = false;
+    }
+    if (all_same && data.size() <= 100) return false;
+    
+    // Compute variance using Welford's online algorithm (numerically stable)
+    double mean = 0.0, M2 = 0.0;
+    size_t n = 0;
+    
+    // Sample for large tensors
+    size_t stride = (data.size() > 10000) ? data.size() / 10000 : 1;
+    
+    for (size_t i = 0; i < data.size(); i += stride) {
+        ++n;
+        double delta = data[i] - mean;
+        mean += delta / n;
+        M2 += delta * (data[i] - mean);
+    }
+    
+    double variance = (n > 1) ? M2 / (n - 1) : 0.0;
+    return variance > min_variance;
+}
 
 // For large tensors, compute a fixed-size summary for similarity comparison
 std::vector<float> compute_tensor_summary(const std::vector<float>& data, size_t summary_dim = 256) {
@@ -830,12 +868,14 @@ bool ingest_universal(const UniversalConfig& config) {
     
     std::vector<std::vector<float>> summaries(g_tensors.size());
     std::vector<std::array<uint8_t, 32>> hashes(g_tensors.size());
+    std::vector<bool> valid_tensor(g_tensors.size(), true);  // Track which tensors have variance
     
     unsigned int num_threads = std::thread::hardware_concurrency();
     if (num_threads == 0) num_threads = 4;
     
     std::atomic<size_t> read_idx{0};
     std::atomic<size_t> read_done{0};
+    std::atomic<size_t> skipped_count{0};
     
     auto read_worker = [&]() {
         while (true) {
@@ -844,6 +884,23 @@ bool ingest_universal(const UniversalConfig& config) {
             
             auto& meta = g_tensors[i];
             auto data = read_tensor_flat(meta);
+            
+            // Skip tensors with no meaningful variance (constant values, zeros)
+            if (!has_meaningful_variance(data)) {
+                valid_tensor[i] = false;
+                skipped_count.fetch_add(1);
+                if (config.verbose) {
+                    std::cerr << "  [SKIP] " << meta.name << " (no variance)\n";
+                }
+                // Still compute hash for deduplication
+                std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(data.data()), 
+                                                    data.size() * sizeof(float));
+                Blake3Hash hash = Blake3Hasher::hash(data_bytes);
+                std::copy(hash.bytes.begin(), hash.bytes.end(), hashes[i].begin());
+                read_done.fetch_add(1);
+                continue;
+            }
+            
             summaries[i] = compute_tensor_summary(data);
             
             std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(data.data()), 
@@ -867,26 +924,51 @@ bool ingest_universal(const UniversalConfig& config) {
     }
     
     for (auto& t : workers) t.join();
+    
+    size_t skipped = skipped_count.load();
+    size_t valid_count = g_tensors.size() - skipped;
     std::cerr << "  " << g_tensors.size() << "/" << g_tensors.size() << " tensors          \n";
+    if (skipped > 0) {
+        std::cerr << "  Skipped " << skipped << " constant/zero tensors (no variance)\n";
+    }
+    
+    // Build filtered lists for projection (only valid tensors)
+    std::vector<std::vector<float>> valid_summaries;
+    std::vector<std::string> valid_labels;
+    std::vector<size_t> valid_indices;  // Map back to original indices
+    
+    valid_summaries.reserve(valid_count);
+    valid_labels.reserve(valid_count);
+    valid_indices.reserve(valid_count);
+    
+    for (size_t i = 0; i < g_tensors.size(); ++i) {
+        if (valid_tensor[i]) {
+            valid_summaries.push_back(std::move(summaries[i]));
+            valid_labels.push_back(g_tensors[i].name);
+            valid_indices.push_back(i);
+        }
+    }
+    
+    if (valid_count < 5) {
+        std::cerr << "[ERROR] Only " << valid_count << " valid tensors - need at least 5 for projection\n";
+        if (conn) PQfinish(conn);
+        return false;
+    }
     
     // Step 2: Build k-NN similarity graph and project to 4D
-    std::cerr << "\n[2] Running Laplacian projection on tensor summaries...\n";
+    std::cerr << "\n[2] Running Laplacian projection on " << valid_count << " tensors...\n";
     
     LaplacianConfig lap_config;
-    lap_config.k_neighbors = config.k_neighbors;
+    lap_config.k_neighbors = std::min(config.k_neighbors, static_cast<int>(valid_count) - 1);
     lap_config.similarity_threshold = 0.0f;
     lap_config.power_iterations = config.power_iterations;
     lap_config.project_to_sphere = config.project_to_sphere;
     lap_config.num_threads = static_cast<int>(std::thread::hardware_concurrency());
+    lap_config.verbose = config.verbose;
     
     LaplacianProjector projector(lap_config);
     
-    std::vector<std::string> labels(g_tensors.size());
-    for (size_t i = 0; i < g_tensors.size(); ++i) {
-        labels[i] = g_tensors[i].name;
-    }
-    
-    auto result = projector.project(summaries, labels);
+    auto result = projector.project(valid_summaries, valid_labels);
     auto& projections = result.coords;
     
     std::cerr << "  Projected " << projections.size() << " tensors to 4D\n";
@@ -898,12 +980,12 @@ bool ingest_universal(const UniversalConfig& config) {
     if (config.dry_run) {
         std::cerr << "\n[DRY-RUN] Projection complete! Sample coordinates:\n";
         for (size_t i = 0; i < std::min(size_t(5), projections.size()); ++i) {
-            std::cerr << "  " << labels[i] << ": (" 
+            std::cerr << "  " << valid_labels[i] << ": (" 
                       << projections[i][0] << ", " << projections[i][1] << ", "
                       << projections[i][2] << ", " << projections[i][3] << ")\n";
         }
-        std::cerr << "\n[DRY-RUN] SUCCESS - All " << g_tensors.size() 
-                  << " tensors projected to 4D\n";
+        std::cerr << "\n[DRY-RUN] SUCCESS - " << valid_count << " of " << g_tensors.size() 
+                  << " tensors projected to 4D (" << skipped << " skipped)\n";
         return true;
     }
     
@@ -926,34 +1008,38 @@ bool ingest_universal(const UniversalConfig& config) {
         std::cerr << "Falling back to INSERT mode...\n";
         PQclear(copy_res);
         
-        // Fallback to INSERT
-        for (size_t i = 0; i < g_tensors.size(); ++i) {
-            if (create_composition(conn, g_tensors[i].name, hashes[i].data(),
-                                   projections[i], config.model_name)) {
+        // Fallback to INSERT - only process valid tensors
+        for (size_t pi = 0; pi < valid_indices.size(); ++pi) {
+            size_t orig_idx = valid_indices[pi];
+            if (create_composition(conn, g_tensors[orig_idx].name, hashes[orig_idx].data(),
+                                   projections[pi], config.model_name)) {
                 compositions_inserted++;
             }
             if (compositions_inserted % config.batch_size == 0) {
-                std::cerr << "  " << compositions_inserted << "/" << g_tensors.size() << "\r" << std::flush;
+                std::cerr << "  " << compositions_inserted << "/" << valid_count << "\r" << std::flush;
             }
         }
         std::cerr << "  Inserted " << compositions_inserted << " compositions\n";
     } else {
         PQclear(copy_res);
         
-        for (size_t i = 0; i < g_tensors.size(); ++i) {
+        // COPY mode - only process valid tensors
+        for (size_t pi = 0; pi < valid_indices.size(); ++pi) {
+            size_t orig_idx = valid_indices[pi];
+            
             // Format hash as hex
             char hash_hex[65];
             for (int h = 0; h < 32; ++h) {
-                snprintf(hash_hex + h*2, 3, "%02x", hashes[i][h]);
+                snprintf(hash_hex + h*2, 3, "%02x", hashes[orig_idx][h]);
             }
             
             // Compute Hilbert index
-            Point4D pt = {projections[i][0], projections[i][1], projections[i][2], projections[i][3]};
+            Point4D pt = {projections[pi][0], projections[pi][1], projections[pi][2], projections[pi][3]};
             HilbertIndex hilbert = HilbertCurve::coords_to_index(pt);
             
             // Escape label for COPY
             std::string escaped_label;
-            for (char c : g_tensors[i].name) {
+            for (char c : g_tensors[orig_idx].name) {
                 if (c == '\t') escaped_label += "\\t";
                 else if (c == '\n') escaped_label += "\\n";
                 else if (c == '\\') escaped_label += "\\\\";
@@ -974,7 +1060,7 @@ bool ingest_universal(const UniversalConfig& config) {
             compositions_inserted++;
             
             if (compositions_inserted % 1000 == 0) {
-                std::cerr << "  " << compositions_inserted << "/" << g_tensors.size() << "\r" << std::flush;
+                std::cerr << "  " << compositions_inserted << "/" << valid_count << "\r" << std::flush;
             }
         }
         
@@ -996,8 +1082,8 @@ bool ingest_universal(const UniversalConfig& config) {
     // Step 4: Create k-NN relations (parallel computation, batched insert)
     std::cerr << "\n[4] Creating k-NN relations (parallel)...\n";
     
-    // Pre-compute all neighbors 
-    std::vector<std::vector<std::pair<float, size_t>>> all_neighbors(g_tensors.size());
+    // Pre-compute all neighbors (only for valid tensors)
+    std::vector<std::vector<std::pair<float, size_t>>> all_neighbors(valid_count);
     
 #if defined(HAS_HNSWLIB)
     // =========================================================================
@@ -1005,8 +1091,8 @@ bool ingest_universal(const UniversalConfig& config) {
     // =========================================================================
     std::cerr << "  Using HNSWLIB for fast k-NN (O(n log n))...\n";
     
-    size_t dim = summaries[0].size();
-    size_t max_elements = g_tensors.size();
+    size_t dim = valid_summaries[0].size();
+    size_t max_elements = valid_count;
     size_t M = 16;              // M parameter - number of neighbors to use in graph
     size_t ef_construction = 200;  // ef parameter during construction
     
@@ -1015,14 +1101,14 @@ bool ingest_universal(const UniversalConfig& config) {
     hnswlib::HierarchicalNSW<float> index(&space, max_elements, M, ef_construction);
     
     // Normalize vectors for cosine similarity via inner product
-    std::vector<std::vector<float>> normalized(g_tensors.size());
-    for (size_t i = 0; i < g_tensors.size(); ++i) {
+    std::vector<std::vector<float>> normalized(valid_count);
+    for (size_t i = 0; i < valid_count; ++i) {
         float norm = 0.0f;
-        for (float v : summaries[i]) norm += v * v;
+        for (float v : valid_summaries[i]) norm += v * v;
         norm = std::sqrt(norm);
         normalized[i].resize(dim);
         for (size_t j = 0; j < dim; ++j) {
-            normalized[i][j] = (norm > 0) ? summaries[i][j] / norm : 0.0f;
+            normalized[i][j] = (norm > 0) ? valid_summaries[i][j] / norm : 0.0f;
         }
     }
     
@@ -1033,7 +1119,7 @@ bool ingest_universal(const UniversalConfig& config) {
     auto hnsw_build_worker = [&]() {
         while (true) {
             size_t i = hnsw_idx.fetch_add(1);
-            if (i >= g_tensors.size()) break;
+            if (i >= valid_count) break;
             index.addPoint(normalized[i].data(), i);
             hnsw_done.fetch_add(1);
         }
@@ -1044,13 +1130,13 @@ bool ingest_universal(const UniversalConfig& config) {
         workers.emplace_back(hnsw_build_worker);
     }
     
-    while (hnsw_done.load() < g_tensors.size()) {
-        std::cerr << "  Building HNSW index: " << hnsw_done.load() << "/" << g_tensors.size() << "\r" << std::flush;
+    while (hnsw_done.load() < valid_count) {
+        std::cerr << "  Building HNSW index: " << hnsw_done.load() << "/" << valid_count << "\r" << std::flush;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     
     for (auto& t : workers) t.join();
-    std::cerr << "  Building HNSW index: " << g_tensors.size() << "/" << g_tensors.size() << " done\n";
+    std::cerr << "  Building HNSW index: " << valid_count << "/" << valid_count << " done\n";
     
     // Query k-NN in parallel
     index.setEf(std::max(config.k_neighbors * 2, 100));  // ef at query time
@@ -1061,7 +1147,7 @@ bool ingest_universal(const UniversalConfig& config) {
     auto knn_worker = [&]() {
         while (true) {
             size_t i = knn_idx.fetch_add(1);
-            if (i >= g_tensors.size()) break;
+            if (i >= valid_count) break;
             
             // Query k+1 neighbors (includes self)
             auto result = index.searchKnn(normalized[i].data(), config.k_neighbors + 1);
@@ -1095,13 +1181,13 @@ bool ingest_universal(const UniversalConfig& config) {
         workers.emplace_back(knn_worker);
     }
     
-    while (knn_done.load() < g_tensors.size()) {
-        std::cerr << "  HNSW k-NN query: " << knn_done.load() << "/" << g_tensors.size() << "\r" << std::flush;
+    while (knn_done.load() < valid_count) {
+        std::cerr << "  HNSW k-NN query: " << knn_done.load() << "/" << valid_count << "\r" << std::flush;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     
     for (auto& t : workers) t.join();
-    std::cerr << "  HNSW k-NN query: " << g_tensors.size() << "/" << g_tensors.size() << " done\n";
+    std::cerr << "  HNSW k-NN query: " << valid_count << "/" << valid_count << " done\n";
     
 #else
     // =========================================================================
@@ -1115,14 +1201,14 @@ bool ingest_universal(const UniversalConfig& config) {
     auto knn_worker = [&]() {
         while (true) {
             size_t i = knn_idx.fetch_add(1);
-            if (i >= g_tensors.size()) break;
+            if (i >= valid_count) break;
             
             std::vector<std::pair<float, size_t>> neighbors;
             neighbors.reserve(config.k_neighbors * 2);
             
-            for (size_t j = 0; j < g_tensors.size(); ++j) {
+            for (size_t j = 0; j < valid_count; ++j) {
                 if (i == j) continue;
-                float sim = cosine_similarity(summaries[i], summaries[j]);
+                float sim = cosine_similarity(valid_summaries[i], valid_summaries[j]);
                 if (sim >= config.similarity_threshold) {
                     neighbors.emplace_back(sim, j);
                 }
@@ -1145,13 +1231,13 @@ bool ingest_universal(const UniversalConfig& config) {
         workers.emplace_back(knn_worker);
     }
     
-    while (knn_done.load() < g_tensors.size()) {
-        std::cerr << "  Computing neighbors: " << knn_done.load() << "/" << g_tensors.size() << "\r" << std::flush;
+    while (knn_done.load() < valid_count) {
+        std::cerr << "  Computing neighbors: " << knn_done.load() << "/" << valid_count << "\r" << std::flush;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     
     for (auto& t : workers) t.join();
-    std::cerr << "  Computing neighbors: " << g_tensors.size() << "/" << g_tensors.size() << "          \n";
+    std::cerr << "  Computing neighbors: " << valid_count << "/" << valid_count << "          \n";
 #endif
     
     // Batch insert relations using COPY
@@ -1171,10 +1257,12 @@ bool ingest_universal(const UniversalConfig& config) {
         std::cerr << "Falling back to INSERT mode...\n";
         PQclear(rel_copy_res);
         
-        // Fallback to INSERT
-        for (size_t i = 0; i < g_tensors.size(); ++i) {
+        // Fallback to INSERT - use valid_indices to map back to original tensor indices
+        for (size_t i = 0; i < valid_count; ++i) {
+            size_t orig_i = valid_indices[i];
             for (auto& [sim, j] : all_neighbors[i]) {
-                if (create_relation(conn, hashes[i].data(), hashes[j].data(), sim, config.model_name)) {
+                size_t orig_j = valid_indices[j];
+                if (create_relation(conn, hashes[orig_i].data(), hashes[orig_j].data(), sim, config.model_name)) {
                     relations_created++;
                 }
             }
@@ -1185,16 +1273,18 @@ bool ingest_universal(const UniversalConfig& config) {
     } else {
         PQclear(rel_copy_res);
         
-        for (size_t i = 0; i < g_tensors.size(); ++i) {
+        for (size_t i = 0; i < valid_count; ++i) {
+            size_t orig_i = valid_indices[i];
             char src_hex[65];
             for (int h = 0; h < 32; ++h) {
-                snprintf(src_hex + h*2, 3, "%02x", hashes[i][h]);
+                snprintf(src_hex + h*2, 3, "%02x", hashes[orig_i][h]);
             }
             
             for (auto& [sim, j] : all_neighbors[i]) {
+                size_t orig_j = valid_indices[j];
                 char tgt_hex[65];
                 for (int h = 0; h < 32; ++h) {
-                    snprintf(tgt_hex + h*2, 3, "%02x", hashes[j][h]);
+                    snprintf(tgt_hex + h*2, 3, "%02x", hashes[orig_j][h]);
                 }
                 
                 // Escape model name for COPY
@@ -1243,10 +1333,10 @@ bool ingest_universal(const UniversalConfig& config) {
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(total_end - total_start).count();
     
     std::cerr << "\n=== Ingestion Complete ===\n";
-    std::cerr << "Tensors:    " << g_tensors.size() << "\n";
+    std::cerr << "Tensors:      " << g_tensors.size() << " total, " << valid_count << " with variance\n";
     std::cerr << "Compositions: " << compositions_inserted << "\n";
-    std::cerr << "Relations:  " << relations_created << "\n";
-    std::cerr << "Time:       " << elapsed << "s\n";
+    std::cerr << "Relations:    " << relations_created << "\n";
+    std::cerr << "Time:         " << elapsed << "s\n";
     
     PQfinish(conn);
     return true;
