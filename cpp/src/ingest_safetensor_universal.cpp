@@ -28,6 +28,7 @@
 #include <sstream>
 #include <filesystem>
 #include <vector>
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <cstring>
@@ -333,18 +334,28 @@ inline float f16_to_float(uint16_t f16) {
 }
 
 // =============================================================================
-// Safetensor Parsing
+// Safetensor Parsing (supports multi-shard)
 // =============================================================================
 
-bool parse_safetensor(const fs::path& path) {
-    if (!g_mmap.map(path.string())) {
+bool parse_safetensor(const fs::path& path, size_t file_index) {
+    // Make sure we have enough shard slots
+    if (file_index >= g_shards.size()) {
+        g_shards.resize(file_index + 1);
+    }
+    
+    auto& shard = g_shards[file_index];
+    shard.path = path.string();
+    
+    if (!shard.mmap.map(path.string())) {
         std::cerr << "Cannot mmap: " << path << "\n";
         return false;
     }
     
-    std::memcpy(&g_header_size, g_mmap.data(), 8);
+    std::memcpy(&shard.header_size, shard.mmap.data(), 8);
     
-    std::string json(reinterpret_cast<const char*>(g_mmap.data() + 8), g_header_size);
+    std::string json(reinterpret_cast<const char*>(shard.mmap.data() + 8), shard.header_size);
+    
+    size_t tensors_before = g_tensors.size();
     
     // Parse all tensor entries
     size_t pos = 0;
@@ -367,6 +378,7 @@ bool parse_safetensor(const fs::path& path) {
         
         TensorMeta meta;
         meta.name = name;
+        meta.file_index = file_index;
         
         // Extract dtype
         size_t dtype_pos = json.find(":", pos) + 1;
@@ -405,17 +417,166 @@ bool parse_safetensor(const fs::path& path) {
         pos = off_end;
     }
     
-    std::cerr << "[PARSE] Found " << g_tensors.size() << " tensors\n";
+    std::cerr << "[PARSE] Shard " << file_index << ": " << (g_tensors.size() - tensors_before) << " tensors\n";
     return true;
 }
 
 // =============================================================================
-// Read Flattened Tensor
+// Read Flattened Tensor (multi-shard aware)
 // =============================================================================
 
+// Helper to read a single element from mmap
+inline float read_element(const uint8_t* ptr, const std::string& dtype, int64_t idx) {
+    if (dtype == "F32") {
+        float val;
+        std::memcpy(&val, ptr + idx * 4, 4);
+        return val;
+    } else if (dtype == "BF16") {
+        uint16_t val;
+        std::memcpy(&val, ptr + idx * 2, 2);
+        return bf16_to_float(val);
+    } else if (dtype == "F16") {
+        uint16_t val;
+        std::memcpy(&val, ptr + idx * 2, 2);
+        return f16_to_float(val);
+    } else if (dtype == "I64") {
+        int64_t val;
+        std::memcpy(&val, ptr + idx * 8, 8);
+        return static_cast<float>(val);
+    } else if (dtype == "I32") {
+        int32_t val;
+        std::memcpy(&val, ptr + idx * 4, 4);
+        return static_cast<float>(val);
+    }
+    return 0.0f;
+}
+
+// Streaming summary: samples directly from mmap without loading full tensor
+// Uses ~summary_dim elements of memory regardless of tensor size
+std::vector<float> compute_summary_streaming(const TensorMeta& meta, size_t summary_dim = 256) {
+    const auto& shard = g_shards[meta.file_index];
+    size_t offset = 8 + shard.header_size + meta.data_offset_start;
+    const uint8_t* ptr = shard.mmap.data() + offset;
+    
+    std::vector<float> result(summary_dim, 0.0f);
+    
+    if (meta.numel <= static_cast<int64_t>(summary_dim)) {
+        // Small tensor: read all elements
+        for (int64_t i = 0; i < meta.numel; ++i) {
+            result[i] = read_element(ptr, meta.dtype, i);
+        }
+        return result;
+    }
+    
+    // Large tensor: compute summary by sampling chunks
+    // Each summary element is the mean of a chunk of the tensor
+    int64_t chunk_size = meta.numel / summary_dim;
+    
+    for (size_t i = 0; i < summary_dim; ++i) {
+        int64_t chunk_start = i * chunk_size;
+        int64_t chunk_end = (i == summary_dim - 1) ? meta.numel : (i + 1) * chunk_size;
+        
+        // Sample within chunk (don't read every element for huge chunks)
+        int64_t sample_stride = std::max(int64_t(1), (chunk_end - chunk_start) / 64);
+        double sum = 0.0;
+        int64_t count = 0;
+        
+        for (int64_t j = chunk_start; j < chunk_end; j += sample_stride) {
+            sum += read_element(ptr, meta.dtype, j);
+            ++count;
+        }
+        
+        result[i] = static_cast<float>(sum / count);
+    }
+    
+    return result;
+}
+
+// Check variance using streaming (minimal memory for huge tensors)
+bool has_meaningful_variance_streaming(const TensorMeta& meta, float min_variance = 1e-10f) {
+    const auto& shard = g_shards[meta.file_index];
+    size_t offset = 8 + shard.header_size + meta.data_offset_start;
+    const uint8_t* ptr = shard.mmap.data() + offset;
+    
+    // Sample ~10000 elements with stride
+    size_t num_samples = std::min(meta.numel, int64_t(10000));
+    int64_t stride = meta.numel / num_samples;
+    if (stride < 1) stride = 1;
+    
+    // Welford's online algorithm for variance
+    double mean = 0.0, M2 = 0.0;
+    size_t n = 0;
+    
+    for (int64_t i = 0; i < meta.numel; i += stride) {
+        float val = read_element(ptr, meta.dtype, i);
+        ++n;
+        double delta = val - mean;
+        mean += delta / n;
+        M2 += delta * (val - mean);
+    }
+    
+    double variance = (n > 1) ? M2 / (n - 1) : 0.0;
+    return variance > min_variance;
+}
+
+// Fingerprint hash: O(1) regardless of tensor size
+// Hashes metadata + sampled chunks for content addressing
+// For 2GB tensors, hashing ~64KB of samples is sufficient for uniqueness
+Blake3Hash compute_fingerprint_hash(const TensorMeta& meta) {
+    const auto& shard = g_shards[meta.file_index];
+    size_t data_offset = 8 + shard.header_size + meta.data_offset_start;
+    size_t data_size = meta.data_offset_end - meta.data_offset_start;
+    const uint8_t* ptr = shard.mmap.data() + data_offset;
+    
+    Blake3Hasher::Incremental hasher;
+    
+    // 1. Hash tensor metadata (name, shape, dtype, size)
+    hasher.update(meta.name);
+    hasher.update(meta.dtype);
+    for (auto dim : meta.shape) {
+        uint8_t dim_bytes[8];
+        std::memcpy(dim_bytes, &dim, 8);
+        hasher.update(std::span<const uint8_t>(dim_bytes, 8));
+    }
+    uint8_t size_bytes[8];
+    std::memcpy(size_bytes, &data_size, 8);
+    hasher.update(std::span<const uint8_t>(size_bytes, 8));
+    
+    // 2. For small tensors (<1MB), hash everything
+    constexpr size_t SMALL_THRESHOLD = 1024 * 1024;
+    if (data_size <= SMALL_THRESHOLD) {
+        hasher.update(std::span<const uint8_t>(ptr, data_size));
+        return hasher.finalize();
+    }
+    
+    // 3. For large tensors, sample 64 chunks of 1KB each
+    //    Positions: start, end, and evenly distributed in between
+    constexpr size_t CHUNK_SIZE = 1024;
+    constexpr size_t NUM_CHUNKS = 64;
+    
+    // First chunk (start)
+    hasher.update(std::span<const uint8_t>(ptr, CHUNK_SIZE));
+    
+    // Middle chunks (evenly spaced)
+    size_t stride = (data_size - 2 * CHUNK_SIZE) / (NUM_CHUNKS - 2);
+    for (size_t i = 1; i < NUM_CHUNKS - 1; ++i) {
+        size_t offset = CHUNK_SIZE + i * stride;
+        if (offset + CHUNK_SIZE <= data_size) {
+            hasher.update(std::span<const uint8_t>(ptr + offset, CHUNK_SIZE));
+        }
+    }
+    
+    // Last chunk (end)
+    hasher.update(std::span<const uint8_t>(ptr + data_size - CHUNK_SIZE, CHUNK_SIZE));
+    
+    return hasher.finalize();
+}
+
+// Full tensor read - only use for small tensors or when needed
 std::vector<float> read_tensor_flat(const TensorMeta& meta) {
-    size_t offset = 8 + g_header_size + meta.data_offset_start;
-    const uint8_t* ptr = g_mmap.data() + offset;
+    const auto& shard = g_shards[meta.file_index];
+    size_t offset = 8 + shard.header_size + meta.data_offset_start;
+    const uint8_t* ptr = shard.mmap.data() + offset;
     
     std::vector<float> result(meta.numel);
     
@@ -818,35 +979,88 @@ bool create_relation(PGconn* conn, const uint8_t* source_hash, const uint8_t* ta
 // =============================================================================
 
 bool ingest_universal(const UniversalConfig& config) {
-    // Parse safetensor
-    fs::path model_path(config.model_path);
-    fs::path safetensor_path;
+    // Clear any previous state
+    g_shards.clear();
+    g_tensors.clear();
     
-    // Find safetensor file
+    fs::path model_path(config.model_path);
+    std::vector<fs::path> safetensor_files;
+    
+    // Smart file discovery that handles HuggingFace cache structure
+    // HF cache: models--org--name/snapshots/<hash>/[model.safetensors OR subdirs/]
     if (fs::is_directory(model_path)) {
+        // First, collect direct children
+        std::vector<fs::path> direct_files;
         for (const auto& entry : fs::directory_iterator(model_path)) {
             if (entry.path().extension() == ".safetensors") {
-                safetensor_path = entry.path();
-                break;
+                direct_files.push_back(entry.path());
             }
         }
+        
+        if (!direct_files.empty()) {
+            // Found files at this level - use them
+            safetensor_files = std::move(direct_files);
+        } else {
+            // No direct files - search recursively
+            // BUT: be smart about HuggingFace cache structure
+            // Look for snapshots/<hash>/ pattern and use files from there
+            
+            for (const auto& entry : fs::recursive_directory_iterator(model_path)) {
+                if (entry.path().extension() == ".safetensors") {
+                    safetensor_files.push_back(entry.path());
+                }
+            }
+            
+            // If we found files in multiple directories, prefer the shallowest ones
+            // (e.g., prefer snapshots/abc/model.safetensors over snapshots/abc/transformer/shard-001.safetensors)
+            if (safetensor_files.size() > 1) {
+                // Group by parent directory depth relative to model_path
+                std::map<size_t, std::vector<fs::path>> by_depth;
+                for (const auto& f : safetensor_files) {
+                    fs::path rel = fs::relative(f, model_path);
+                    size_t depth = std::distance(rel.begin(), rel.end());
+                    by_depth[depth].push_back(f);
+                }
+                
+                // Use the shallowest group
+                const auto& shallowest = by_depth.begin()->second;
+                if (shallowest.size() > 0 && shallowest.size() < safetensor_files.size()) {
+                    std::cerr << "[INFO] Multiple safetensor locations found, using shallowest (" 
+                              << shallowest.size() << " files)\n";
+                    safetensor_files.clear();
+                    safetensor_files.insert(safetensor_files.end(), shallowest.begin(), shallowest.end());
+                }
+            }
+        }
+        
+        // Sort for consistent ordering (model-00001, model-00002, etc.)
+        std::sort(safetensor_files.begin(), safetensor_files.end());
     } else if (model_path.extension() == ".safetensors") {
-        safetensor_path = model_path;
+        safetensor_files.push_back(model_path);
     }
     
-    if (safetensor_path.empty() || !fs::exists(safetensor_path)) {
-        std::cerr << "No safetensor file found in: " << model_path << "\n";
+    if (safetensor_files.empty()) {
+        std::cerr << "No safetensor files found in: " << model_path << "\n";
         return false;
     }
     
     std::cerr << "\n=== Universal Safetensor Ingestion ===\n";
-    std::cerr << "File: " << safetensor_path << "\n";
-    
-    if (!parse_safetensor(safetensor_path)) {
-        return false;
+    if (safetensor_files.size() == 1) {
+        std::cerr << "File: " << safetensor_files[0] << "\n";
+    } else {
+        std::cerr << "Sharded model: " << safetensor_files.size() << " files\n";
+        std::cerr << "  First: " << safetensor_files.front().filename() << "\n";
+        std::cerr << "  Last:  " << safetensor_files.back().filename() << "\n";
     }
     
-    std::cerr << "Tensors: " << g_tensors.size() << "\n\n";
+    // Parse all shards
+    for (size_t i = 0; i < safetensor_files.size(); ++i) {
+        if (!parse_safetensor(safetensor_files[i], i)) {
+            return false;
+        }
+    }
+    
+    std::cerr << "Total tensors: " << g_tensors.size() << " across " << g_shards.size() << " shard(s)\n\n";
     
     // Connect to database (skip in dry-run mode)
     PGconn* conn = nullptr;
@@ -883,30 +1097,31 @@ bool ingest_universal(const UniversalConfig& config) {
             if (i >= g_tensors.size()) break;
             
             auto& meta = g_tensors[i];
-            auto data = read_tensor_flat(meta);
             
-            // Skip tensors with no meaningful variance (constant values, zeros)
-            if (!has_meaningful_variance(data)) {
+            try {
+                // Hash the tensor NAME for record ID (not the data!)
+                Blake3Hash hash = Blake3Hasher::hash(meta.name);
+                std::copy(hash.bytes.begin(), hash.bytes.end(), hashes[i].begin());
+                
+                // Use streaming variance check to avoid loading huge tensors
+                if (!has_meaningful_variance_streaming(meta)) {
+                    valid_tensor[i] = false;
+                    skipped_count.fetch_add(1);
+                    if (config.verbose) {
+                        std::cerr << "  [SKIP] " << meta.name << " (no variance)\n";
+                    }
+                    read_done.fetch_add(1);
+                    continue;
+                }
+                
+                // Use streaming summary for memory efficiency
+                summaries[i] = compute_summary_streaming(meta);
+            } catch (const std::exception& e) {
+                std::cerr << "  [ERROR] " << meta.name << " (numel=" << meta.numel 
+                          << ", file=" << meta.file_index << "): " << e.what() << "\n";
                 valid_tensor[i] = false;
                 skipped_count.fetch_add(1);
-                if (config.verbose) {
-                    std::cerr << "  [SKIP] " << meta.name << " (no variance)\n";
-                }
-                // Still compute hash for deduplication
-                std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(data.data()), 
-                                                    data.size() * sizeof(float));
-                Blake3Hash hash = Blake3Hasher::hash(data_bytes);
-                std::copy(hash.bytes.begin(), hash.bytes.end(), hashes[i].begin());
-                read_done.fetch_add(1);
-                continue;
             }
-            
-            summaries[i] = compute_tensor_summary(data);
-            
-            std::span<const uint8_t> data_bytes(reinterpret_cast<const uint8_t*>(data.data()), 
-                                                data.size() * sizeof(float));
-            Blake3Hash hash = Blake3Hasher::hash(data_bytes);
-            std::copy(hash.bytes.begin(), hash.bytes.end(), hashes[i].begin());
             
             read_done.fetch_add(1);
         }
