@@ -326,17 +326,18 @@ Datum semantic_reconstruct(PG_FUNCTION_ARGS)
     if (SPI_connect() != SPI_OK_CONNECT)
         ereport(ERROR, (errmsg("SPI_connect failed")));
     
-    /* Use a CTE with relation table for traversal */
-    char query[1024];
+    /* Use a CTE with composition_child table for traversal */
+    char query[2048];
     snprintf(query, sizeof(query),
         "WITH RECURSIVE tree AS ("
         "  SELECT id, value, 1 as ord, ARRAY[1] as path "
         "  FROM atom WHERE id = '\\x%s' "
         "  UNION ALL "
-        "  SELECT a.id, a.value, r.ordinal, t.path || r.ordinal "
+        "  SELECT COALESCE(a.id, c2.id), COALESCE(a.value, NULL), cc.ordinal, t.path || cc.ordinal "
         "  FROM tree t "
-        "  JOIN relation r ON r.parent_id = t.id AND r.relation_type = 'C' "
-        "  JOIN atom a ON a.id = r.child_id "
+        "  JOIN composition_child cc ON cc.composition_id = t.id "
+        "  LEFT JOIN atom a ON cc.child_type = 'A' AND a.id = cc.child_id "
+        "  LEFT JOIN composition c2 ON cc.child_type = 'C' AND c2.id = cc.child_id "
         "  WHERE t.value IS NULL "
         ") "
         "SELECT convert_from(string_agg(value, ''::bytea ORDER BY path), 'UTF8') "

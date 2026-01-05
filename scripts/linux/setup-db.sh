@@ -88,22 +88,29 @@ else
     echo "Atoms already seeded"
 fi
 
-# Run manifold projection if embeddings exist but centroids are missing
-echo -e "\nChecking for manifold projection..."
-NEEDS_PROJECTION=$(hc_psql -tAc "SELECT COUNT(*) FROM shape s JOIN composition c ON c.id = s.entity_id WHERE c.centroid IS NULL AND s.dim_count = 384" | tr -d '[:space:]')
+# Recompute composition centroids from atom children
+echo -e "\nChecking for centroid recomputation..."
+NEEDS_CENTROID=$(hc_psql -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NULL" | tr -d '[:space:]')
 
-if [ "$NEEDS_PROJECTION" -gt 0 ]; then
-    echo "  $NEEDS_PROJECTION compositions need projection..."
-    
-    PROJECTOR="$HC_BUILD_DIR/manifold_project"
-    if [ -x "$PROJECTOR" ]; then
-        "$PROJECTOR" --batch 5000
-        echo "Manifold projection complete"
-    else
-        echo "  Projector not found, run: SELECT project_all_embeddings() in psql"
-    fi
+if [ "$NEEDS_CENTROID" -gt 0 ]; then
+    echo "  $NEEDS_CENTROID compositions need centroids..."
+    RESULT=$(hc_psql -tAc "SELECT recompute_composition_centroids(10000)")
+    echo "  Updated $RESULT compositions"
 else
-    echo "  All embeddings already projected"
+    echo "  All compositions have centroids"
+fi
+
+# Generate k-NN edges if none exist
+echo -e "\nChecking for k-NN edge generation..."
+EDGE_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM relation" | tr -d '[:space:]')
+COMP_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL" | tr -d '[:space:]')
+
+if [ "$EDGE_COUNT" -eq 0 ] && [ "$COMP_COUNT" -gt 0 ]; then
+    echo "  Generating k-NN edges for $COMP_COUNT compositions..."
+    RESULT=$(hc_psql -tAc "SELECT generate_knn_edges(10, 'centroid_knn')")
+    echo "  Created $RESULT semantic edges"
+elif [ "$EDGE_COUNT" -gt 0 ]; then
+    echo "  Already have $EDGE_COUNT edges"
 fi
 
 echo -e "\n=== Setup Complete ==="

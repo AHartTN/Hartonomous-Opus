@@ -58,14 +58,13 @@ static SemanticEdge *load_all_edges(int *out_count)
 {
     int ret;
     
-    /* Query using relation table to get composition children */
+    /* Query using composition_child table to get bigram children */
     const char *query = 
-        "SELECT r1.child_id as child1, r2.child_id as child2, "
-        "COALESCE(ST_M(ST_StartPoint(a.geom)), 1.0) as weight "
-        "FROM atom a "
-        "JOIN relation r1 ON r1.parent_id = a.id AND r1.relation_type = 'C' AND r1.ordinal = 1 "
-        "JOIN relation r2 ON r2.parent_id = a.id AND r2.relation_type = 'C' AND r2.ordinal = 2 "
-        "WHERE a.depth = 1 AND a.atom_count = 2 "
+        "SELECT cc1.child_id as child1, cc2.child_id as child2, 1.0::float8 as weight "
+        "FROM composition c "
+        "JOIN composition_child cc1 ON cc1.composition_id = c.id AND cc1.ordinal = 1 AND cc1.child_type = 'A' "
+        "JOIN composition_child cc2 ON cc2.composition_id = c.id AND cc2.ordinal = 2 AND cc2.child_type = 'A' "
+        "WHERE c.depth = 1 AND c.atom_count = 2 "
         "LIMIT 50000";
     
     ret = SPI_execute(query, true, 0);
@@ -530,12 +529,12 @@ Datum hypercube_batch_lookup(PG_FUNCTION_ARGS)
             }
         }
         
-        /* Query with relation table for child counts */
+        /* Query with composition_child table for child counts */
         StringInfoData query;
         initStringInfo(&query);
         appendStringInfoString(&query, 
-            "SELECT a.id, a.depth, (a.value IS NOT NULL) as is_leaf, "
-            "(SELECT COUNT(*) FROM relation r WHERE r.parent_id = a.id AND r.relation_type = 'C')::int as child_count, ST_X(a.centroid) "
+            "SELECT a.id, 0 as depth, (a.value IS NOT NULL) as is_leaf, "
+            "(SELECT COUNT(*) FROM composition_child cc WHERE cc.composition_id = a.id)::int as child_count, ST_X(a.geom) "
             "FROM atom a WHERE a.id = ANY(ARRAY[");
         
         for (int i = 0; i < nelems; i++) {
@@ -743,17 +742,21 @@ Datum hypercube_batch_reconstruct(PG_FUNCTION_ARGS)
         appendStringInfo(&query,
             "WITH RECURSIVE roots(id) AS (%s), "
             "tree AS ("
-            "  SELECT a.id, a.value, a.depth "
+            "  SELECT a.id, a.value, 0 as depth, 'A' as node_type "
             "  FROM atom a JOIN roots r ON a.id = r.id "
-            "  UNION "
-            "  SELECT a.id, a.value, a.depth "
-            "  FROM atom a "
-            "  JOIN relation rel ON rel.child_id = a.id AND rel.relation_type = 'C' "
-            "  JOIN tree t ON rel.parent_id = t.id "
-            "  WHERE t.depth > 0"
+            "  UNION ALL "
+            "  SELECT c.id, NULL::bytea, c.depth, 'C' as node_type "
+            "  FROM composition c JOIN roots r ON c.id = r.id "
+            "  UNION ALL "
+            "  SELECT COALESCE(a.id, c.id), COALESCE(a.value, NULL), COALESCE(0, c.depth), cc.child_type "
+            "  FROM tree t "
+            "  JOIN composition_child cc ON cc.composition_id = t.id "
+            "  LEFT JOIN atom a ON cc.child_type = 'A' AND a.id = cc.child_id "
+            "  LEFT JOIN composition c ON cc.child_type = 'C' AND c.id = cc.child_id "
+            "  WHERE t.node_type = 'C'"
             ") "
             "SELECT DISTINCT t.id, t.value, "
-            "  (SELECT array_agg(r.child_id ORDER BY r.ordinal) FROM relation r WHERE r.parent_id = t.id AND r.relation_type = 'C') as children "
+            "  (SELECT array_agg(cc.child_id ORDER BY cc.ordinal) FROM composition_child cc WHERE cc.composition_id = t.id) as children "
             "FROM tree t",
             in_clause.data);
 

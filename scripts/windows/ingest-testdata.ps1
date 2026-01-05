@@ -92,31 +92,24 @@ if ($textFiles.Count -gt 0 -and $semanticIngester) {
 }
 
 # ============================================================================
-# 2. EMBEDDING MODEL - Extract Semantic Edges
+# 2. EMBEDDING MODEL - Full Safetensor Ingestion with 4D Projection
 # ============================================================================
-Write-Host "`n--- 2. Embedding Model (Semantic Edges) ---" -ForegroundColor Yellow
+Write-Host "`n--- 2. Embedding Model (Full Ingestion) ---" -ForegroundColor Yellow
 
 $modelSnapshot = Get-ChildItem -Path "$testDataDir\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($modelSnapshot -and $embeddingExtractor) {
-    $vocabFile = Join-Path $modelSnapshot.FullName "vocab.txt"
-    $safetensorFile = Join-Path $modelSnapshot.FullName "model.safetensors"
-    
-    # Extract embeddings (creates semantic edges between similar tokens)
-    # Tokens become compositions, pairwise similarity becomes edge weight (M coord)
-    if ((Test-Path $safetensorFile) -and (Test-Path $vocabFile)) {
-        Write-Host "  Extracting semantic edges from embeddings..." -NoNewline
-        Write-Host " (threshold 0.25)"
-        & $embeddingExtractor @dbArgs --model $safetensorFile --vocab $vocabFile --threshold 0.25 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Semantic edges created" -ForegroundColor Green
-        } else {
-            Write-Host "  (extraction failed)" -ForegroundColor Yellow
-        }
+if ($modelSnapshot) {
+    # Use ingest-safetensor.ps1 which handles:
+    # - Vocab ingestion with labels
+    # - BPE merge compositions  
+    # - Semantic edges (k-NN from embeddings)
+    # - 4D centroid computation from atom children
+    Write-Host "  Ingesting HuggingFace model: $($modelSnapshot.Name)"
+    & "$PSScriptRoot\ingest-safetensor.ps1" $modelSnapshot.FullName -Threshold 0.1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  Model ingestion complete" -ForegroundColor Green
     } else {
-        Write-Host "  Model files not found" -ForegroundColor Yellow
+        Write-Host "  Model ingestion failed" -ForegroundColor Yellow
     }
-} elseif (-not $embeddingExtractor) {
-    Write-Host "  WARNING: extract_embeddings.exe not found - run build.ps1 first" -ForegroundColor Yellow
 } else {
     Write-Host "  Model snapshot not found in test-data" -ForegroundColor Yellow
 }
@@ -182,14 +175,13 @@ Write-Host "`nDatabase Statistics:"
 SELECT 
     (SELECT COUNT(*) FROM atom) as atoms,
     (SELECT COUNT(*) FROM composition) as compositions,
+    (SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL) as with_centroid,
     (SELECT COUNT(*) FROM relation) as relations,
-    (SELECT COUNT(*) FROM shape) as shapes,
     (SELECT MAX(depth) FROM composition) as max_depth,
     pg_size_pretty(
         pg_total_relation_size('atom') + 
         pg_total_relation_size('composition') +
-        pg_total_relation_size('relation') +
-        pg_total_relation_size('shape')
+        pg_total_relation_size('relation')
     ) as total_size
 "@
 

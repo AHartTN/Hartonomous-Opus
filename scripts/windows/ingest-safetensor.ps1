@@ -69,6 +69,21 @@ if ($exitCode -eq 0) {
     } else {
         Write-Host "  Centroid recomputation warning: $centroidResult" -ForegroundColor Yellow
     }
+    
+    # Generate k-NN semantic edges if none exist
+    Write-Host "`nChecking for k-NN edge generation..."
+    $edgeCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM relation" 2>&1
+    if ([int]$edgeCount -eq 0) {
+        Write-Host "  Generating k-NN semantic edges..."
+        $knnResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT generate_knn_edges(10, 'centroid_knn')" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Created $knnResult semantic edges" -ForegroundColor Green
+        } else {
+            Write-Host "  k-NN generation warning: $knnResult" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  Already have $edgeCount edges" -ForegroundColor Gray
+    }
 } else {
     Write-Host "`nModel ingestion failed" -ForegroundColor Red
     Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue

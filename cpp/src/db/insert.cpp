@@ -225,10 +225,31 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     res = PQexec(conn, "COMMIT");
     PQclear(res);
     
+    // Step 3: Update labels from atom children for compositions without labels
+    // This reconstructs text like "whale" from its character atoms [w,h,a,l,e]
+    res = PQexec(conn, R"(
+        UPDATE composition c
+        SET label = (
+            SELECT string_agg(chr(a.codepoint), '' ORDER BY cc.ordinal)
+            FROM composition_child cc
+            JOIN atom a ON a.id = cc.child_id
+            WHERE cc.composition_id = c.id
+        )
+        WHERE c.label IS NULL
+        AND c.depth = 1
+        AND EXISTS (SELECT 1 FROM composition_child WHERE composition_id = c.id)
+    )");
+    
+    int labels_updated = 0;
+    if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+        labels_updated = atoi(PQcmdTuples(res));
+    }
+    PQclear(res);
+    
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cerr << "[DB] Inserted " << comp_inserted << " compositions with " 
-              << child_count << " children in " << ms << " ms\n";
+              << child_count << " children, " << labels_updated << " labels set (" << ms << " ms)\n";
     
     return true;
 }

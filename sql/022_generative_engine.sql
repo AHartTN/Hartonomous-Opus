@@ -248,8 +248,9 @@ $$ LANGUAGE SQL STABLE;
 -- =============================================================================
 -- GENERATIVE WALK (Main Inference Loop)
 -- =============================================================================
+-- Note: Renamed to generate_sql to avoid conflict with C extension generate()
 
-CREATE OR REPLACE FUNCTION generate(
+CREATE OR REPLACE FUNCTION generate_sql(
     p_prompt TEXT,
     p_max_tokens INTEGER DEFAULT 20,
     p_temperature REAL DEFAULT 0.7,
@@ -312,13 +313,13 @@ $$ LANGUAGE plpgsql STABLE;
 -- =============================================================================
 
 -- Generate text completion as a single string
+-- Uses C extension gen_complete for performance
 CREATE OR REPLACE FUNCTION complete(
     p_prompt TEXT,
     p_max_tokens INTEGER DEFAULT 20
 )
 RETURNS TEXT AS $$
-    SELECT p_prompt || ' ' || string_agg(token, ' ')
-    FROM generate(p_prompt, p_max_tokens);
+    SELECT gen_complete(p_prompt, p_max_tokens);
 $$ LANGUAGE SQL STABLE;
 
 -- Semantic analogy: A is to B as C is to ?

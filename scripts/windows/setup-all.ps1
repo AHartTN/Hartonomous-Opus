@@ -143,14 +143,13 @@ try {
 SELECT 
     (SELECT COUNT(*) FROM atom) as "Atoms",
     (SELECT COUNT(*) FROM composition) as "Compositions",
+    (SELECT COUNT(*) FROM composition WHERE label IS NOT NULL) as "With Labels",
     (SELECT COUNT(*) FROM relation) as "Relations",
-    (SELECT COUNT(*) FROM shape) as "Shapes",
     (SELECT MAX(depth) FROM composition) as "Max Depth",
     pg_size_pretty(
         pg_total_relation_size('atom') + 
         pg_total_relation_size('composition') +
-        pg_total_relation_size('relation') +
-        pg_total_relation_size('shape')
+        pg_total_relation_size('relation')
     ) as "Total Size"
 "@
 } finally {

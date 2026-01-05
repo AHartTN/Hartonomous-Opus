@@ -99,8 +99,6 @@ $$ LANGUAGE sql STABLE;
 CREATE OR REPLACE FUNCTION get_atom(p_id BYTEA)
 RETURNS TABLE (
     id BYTEA,
-    depth INTEGER,
-    atom_count BIGINT,
     codepoint INTEGER,
     x DOUBLE PRECISION,
     y DOUBLE PRECISION,
@@ -111,8 +109,6 @@ RETURNS TABLE (
 ) AS $$
     SELECT 
         a.id,
-        a.depth,
-        a.atom_count,
         a.codepoint,
         ST_X(a.geom),
         ST_Y(a.geom),
@@ -144,7 +140,7 @@ RETURNS TABLE (
         a.hilbert_lo,
         a.hilbert_hi
     FROM atom a
-    WHERE a.depth = 0 AND a.codepoint = p_cp;
+    WHERE a.codepoint = p_cp;
 $$ LANGUAGE sql STABLE;
 
 -- Batch lookup atoms by codepoint array
@@ -165,8 +161,7 @@ RETURNS TABLE (
         ST_Z(a.geom),
         ST_M(a.geom)
     FROM atom a
-    WHERE a.depth = 0 
-      AND a.codepoint = ANY(p_codepoints);
+    WHERE a.codepoint = ANY(p_codepoints);
 $$ LANGUAGE sql STABLE;
 
 -- =============================================================================
@@ -199,14 +194,14 @@ CREATE OR REPLACE FUNCTION hilbert_range(
 )
 RETURNS TABLE (
     id BYTEA,
-    depth INTEGER,
+    codepoint INTEGER,
     hilbert_lo BIGINT,
     hilbert_hi BIGINT,
     hilbert_dist NUMERIC
 ) AS $$
     SELECT 
         a.id, 
-        a.depth, 
+        a.codepoint, 
         a.hilbert_lo, 
         a.hilbert_hi,
         -- Proper 128-bit distance
@@ -226,7 +221,7 @@ $$ LANGUAGE sql STABLE PARALLEL SAFE;
 CREATE OR REPLACE FUNCTION hilbert_nearest(p_id BYTEA, p_limit INTEGER DEFAULT 10)
 RETURNS TABLE (
     id BYTEA,
-    depth INTEGER,
+    codepoint INTEGER,
     distance NUMERIC
 ) AS $$
     WITH target AS (
@@ -234,7 +229,7 @@ RETURNS TABLE (
     )
     SELECT 
         a.id,
-        a.depth,
+        a.codepoint,
         -- Proper 128-bit distance
         ABS(
             (a.hilbert_hi::NUMERIC - t.hilbert_hi::NUMERIC) * 18446744073709551616::NUMERIC +
@@ -254,19 +249,19 @@ $$ LANGUAGE sql STABLE PARALLEL SAFE;
 CREATE OR REPLACE FUNCTION spatial_nearest(p_id BYTEA, p_limit INTEGER DEFAULT 10)
 RETURNS TABLE (
     id BYTEA,
-    depth INTEGER,
+    codepoint INTEGER,
     distance DOUBLE PRECISION
 ) AS $$
     WITH target AS (
-        SELECT centroid FROM atom WHERE id = p_id
+        SELECT geom FROM atom WHERE id = p_id
     )
     SELECT 
         a.id,
-        a.depth,
-        a.centroid <-> t.centroid as distance
+        a.codepoint,
+        ST_3DDistance(a.geom, t.geom) as distance
     FROM atom a, target t
     WHERE a.id != p_id
-    ORDER BY a.centroid <-> t.centroid
+    ORDER BY a.geom <-> t.geom
     LIMIT p_limit;
 $$ LANGUAGE sql STABLE;
 

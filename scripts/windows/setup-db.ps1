@@ -130,6 +130,23 @@ try {
         Write-Host "  No compositions to recompute (run ingest-safetensor.ps1 first)" -ForegroundColor Gray
     }
 
+    # Generate k-NN semantic edges from composition centroids
+    Write-Host "`nChecking for k-NN edge generation..."
+    $edgeCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM relation" 2>&1
+    $compWithCentroid = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL" 2>&1
+    
+    if ([int]$edgeCount -eq 0 -and [int]$compWithCentroid -gt 0) {
+        Write-Host "  Generating k-NN edges for $compWithCentroid compositions..."
+        $result = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT generate_knn_edges(10, 'centroid_knn')" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Created $result semantic edges" -ForegroundColor Green
+        } else {
+            Write-Host "  k-NN edge generation failed" -ForegroundColor Yellow
+        }
+    } elseif ([int]$edgeCount -gt 0) {
+        Write-Host "  Already have $edgeCount edges" -ForegroundColor Gray
+    }
+
     Write-Host "`n=== Setup Complete ===" -ForegroundColor Green
     
     # Show stats

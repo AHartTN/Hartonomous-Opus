@@ -1123,9 +1123,9 @@ int main(int argc, char* argv[]) {
         insert_compositions(conn);
     }
     
-    // Insert embeddings as shapes (external model fingerprints)
-    std::cerr << "\n[5] Inserting shapes (model embeddings)...\n";
-    insert_shapes(conn, config);
+    // Skip shapes - 3-table schema doesn't have shape table
+    // Embeddings are projected to 4D centroids instead
+    std::cerr << "\n[5] Skipping shapes (3-table schema uses 4D centroids)...\n";
     
     // Insert attention weights as sparse relations
     std::cerr << "\n[6] Extracting attention weights as sparse relations...\n";

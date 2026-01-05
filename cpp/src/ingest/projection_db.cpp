@@ -25,7 +25,6 @@ std::string atom_temp_table_sql() {
     return R"(
         CREATE TEMP TABLE tmp_atom_proj (
             id BYTEA PRIMARY KEY,
-            label TEXT,
             geom_ewkb TEXT,
             hilbert_lo BIGINT,
             hilbert_hi BIGINT
@@ -47,10 +46,9 @@ std::string composition_temp_table_sql() {
 
 std::string atom_merge_sql() {
     return R"(
-        INSERT INTO atom (id, label, geom, hilbert_lo, hilbert_hi)
+        INSERT INTO atom (id, geom, hilbert_lo, hilbert_hi)
         SELECT 
             t.id,
-            t.label,
             ST_GeomFromEWKB(decode(t.geom_ewkb, 'hex')),
             t.hilbert_lo,
             t.hilbert_hi
@@ -77,6 +75,7 @@ std::string composition_merge_sql() {
             t.hilbert_hi
         FROM tmp_comp_proj t
         ON CONFLICT (id) DO UPDATE SET
+            label = COALESCE(EXCLUDED.label, composition.label),
             centroid = EXCLUDED.centroid,
             hilbert_lo = EXCLUDED.hilbert_lo,
             hilbert_hi = EXCLUDED.hilbert_hi
@@ -205,11 +204,7 @@ size_t ProjectionPersister::persist_atoms(const std::vector<TokenData>& atoms) {
         batch += token.hash.to_hex();
         batch += "\t";
         
-        // label
-        batch += escape_for_copy(token.label);
-        batch += "\t";
-        
-        // geom_ewkb
+        // geom_ewkb (no label - atoms identified by codepoint, not label)
         batch += build_pointzm_ewkb(token.coords);
         batch += "\t";
         
