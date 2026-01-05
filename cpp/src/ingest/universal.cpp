@@ -31,7 +31,7 @@ struct ChildWithMeta {
     uint32_t depth;
     uint64_t atom_count;
     
-    // Convert to ChildInfo for storage
+    // Convert to ChildInfo for storage with proper is_atom flag
     ChildInfo to_child_info() const {
         ChildInfo ci;
         ci.hash = hash;
@@ -39,6 +39,7 @@ struct ChildWithMeta {
         ci.y = y;
         ci.z = z;
         ci.m = m;
+        ci.is_atom = (depth == 0);  // depth 0 = atom, depth > 0 = composition
         return ci;
     }
 };

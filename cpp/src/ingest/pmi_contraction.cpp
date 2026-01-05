@@ -127,6 +127,7 @@ struct Token {
     // For composites: children info
     std::vector<Blake3Hash> children;
     std::vector<Vec4D> child_positions;
+    std::vector<uint32_t> child_depths;  // 0 = atom, >0 = composition
 };
 
 // ============================================================================
@@ -277,9 +278,10 @@ public:
         // Atom count: sum
         composite.atom_count = a.atom_count + b.atom_count;
         
-        // Children info
+        // Children info - including depths to track atom vs composition children
         composite.children = {a.hash, b.hash};
         composite.child_positions = {a.position, b.position};
+        composite.child_depths = {a.depth, b.depth};  // Track child types: 0=atom, >0=composition
         
         return composite;
     }
@@ -472,6 +474,8 @@ public:
                 ci.y = cp.y;
                 ci.z = cp.z;
                 ci.m = cp.m;
+                // Track if child is atom (depth=0) or composition (depth>0)
+                ci.is_atom = (i < token.child_depths.size()) ? (token.child_depths[i] == 0) : true;
                 rec.children.push_back(ci);
             }
             

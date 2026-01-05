@@ -177,11 +177,12 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     // Send child rows
     size_t child_count = 0;
     for (const auto& c : comps) {
-        // If composition depth == 1, all children are atoms ('A')
-        // If depth > 1, children are compositions ('C')
-        char child_type = (c.depth == 1) ? 'A' : 'C';
-        
         for (size_t i = 0; i < c.children.size(); ++i) {
+            // Use ChildInfo::is_atom to correctly determine child type
+            // This is set during composition creation based on actual child depths
+            // NOT inferred from parent depth (which was the bug!)
+            char child_type = c.children[i].is_atom ? 'A' : 'C';
+            
             std::ostringstream line;
             
             // composition_id

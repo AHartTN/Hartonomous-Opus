@@ -72,6 +72,7 @@ enum class NodeRole : int16_t {
 struct ChildInfo {
     Blake3Hash hash;
     int32_t x, y, z, m;
+    bool is_atom = true;  // true if child is an atom (depth=0), false if composition (depth>0)
 };
 
 // N-ary composition record - NOT limited to binary pairs

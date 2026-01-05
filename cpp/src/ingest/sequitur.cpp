@@ -95,6 +95,7 @@ struct Rule {
     
     std::vector<Blake3Hash> children;       // Ordered child hashes
     std::vector<Point4D> child_coords;      // Child coordinates for geometry
+    std::vector<uint32_t> child_depths;     // Child depths (0=atom, >0=composition) for correct type tracking
 };
 
 // ============================================================================
@@ -253,12 +254,14 @@ public:
     void compute_rule_hash(Rule* rule) {
         std::vector<Blake3Hash> child_hashes;
         std::vector<Point4D> child_coords_vec;
+        std::vector<uint32_t> child_depths_vec;
         uint32_t max_depth = 0;
         uint64_t total_atoms = 0;
         
         for (Symbol* s = rule->first; s; s = s->next) {
             child_hashes.push_back(s->hash);
             child_coords_vec.push_back(s->coords);
+            child_depths_vec.push_back(s->depth);  // Track each child's depth (0=atom, >0=composition)
             max_depth = std::max(max_depth, s->depth);
             total_atoms += s->atom_count;
         }
@@ -292,6 +295,7 @@ public:
         rule->atom_count = total_atoms;
         rule->children = std::move(child_hashes);
         rule->child_coords = std::move(child_coords_vec);
+        rule->child_depths = std::move(child_depths_vec);
     }
     
     // Create a new rule from a digram (copies the symbols)
@@ -478,7 +482,7 @@ public:
             rec.depth = rule->depth;
             rec.atom_count = rule->atom_count;
             
-            // Build children
+            // Build children with correct is_atom flag based on actual child depths
             for (size_t i = 0; i < rule->children.size(); ++i) {
                 ChildInfo ci;
                 ci.hash = rule->children[i];
@@ -486,6 +490,8 @@ public:
                 ci.y = static_cast<int32_t>(rule->child_coords[i].y);
                 ci.z = static_cast<int32_t>(rule->child_coords[i].z);
                 ci.m = static_cast<int32_t>(rule->child_coords[i].m);
+                // Use actual child depth to determine type: depth=0 is atom, depth>0 is composition
+                ci.is_atom = (i < rule->child_depths.size()) ? (rule->child_depths[i] == 0) : true;
                 rec.children.push_back(ci);
             }
             

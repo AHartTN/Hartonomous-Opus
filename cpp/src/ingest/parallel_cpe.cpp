@@ -45,7 +45,7 @@ static CompositionRecord convert_record(const hypercube::CompositionRecord& src)
     dst.depth = src.depth;
     dst.atom_count = src.atom_count;
     
-    // Convert children
+    // Convert children with correct is_atom based on child_depths
     dst.children.reserve(src.children.size());
     for (size_t i = 0; i < src.children.size(); ++i) {
         ChildInfo ci;
@@ -54,6 +54,8 @@ static CompositionRecord convert_record(const hypercube::CompositionRecord& src)
         ci.y = static_cast<int32_t>(src.child_coords[i].y);
         ci.z = static_cast<int32_t>(src.child_coords[i].z);
         ci.m = static_cast<int32_t>(src.child_coords[i].m);
+        // Use child_depths to determine if child is atom (0) or composition (>0)
+        ci.is_atom = (i < src.child_depths.size()) ? (src.child_depths[i] == 0) : true;
         dst.children.push_back(ci);
     }
     

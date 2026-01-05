@@ -61,18 +61,21 @@ CompositionRecord AtomCalculator::compute_composition(
         rec.hilbert = HilbertCurve::coords_to_index(rec.centroid);
         rec.children.push_back(children[0].hash);
         rec.child_coords.push_back(children[0].coords);
+        rec.child_depths.push_back(children[0].depth);  // Track child type
         rec.depth = children[0].depth;
         rec.atom_count = children[0].atom_count;
         return rec;
     }
     
-    // Collect child hashes and coords
+    // Collect child hashes, coords, and depths
     rec.children.reserve(children.size());
     rec.child_coords.reserve(children.size());
+    rec.child_depths.reserve(children.size());
     
     for (const auto& child : children) {
         rec.children.push_back(child.hash);
         rec.child_coords.push_back(child.coords);
+        rec.child_depths.push_back(child.depth);  // Track child type: 0=atom, >0=composition
     }
     
     // Compute composition hash: BLAKE3(ord_0 || hash_0 || ord_1 || hash_1 || ...)
