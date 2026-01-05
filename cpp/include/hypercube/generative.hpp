@@ -276,7 +276,21 @@ public:
     AttentionCache attention;
     GenerationConfig config;
     
-    std::mt19937 rng{std::random_device{}()};
+    // Deterministic RNG - default seed 42 for reproducibility
+    std::mt19937 rng{42};
+    
+    // Set seed for reproducible generation
+    void seed(uint32_t s) { rng.seed(s); }
+    
+    // Derive seed from input text for deterministic but varied results
+    void seed_from_text(const std::string& text) {
+        uint32_t h = 2166136261u;  // FNV-1a seed
+        for (char c : text) {
+            h ^= static_cast<uint8_t>(c);
+            h *= 16777619u;
+        }
+        rng.seed(h);
+    }
     
     // =========================================================================
     // Cache Management

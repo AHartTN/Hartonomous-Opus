@@ -150,6 +150,21 @@ COMMENT ON FUNCTION hypercube_attention IS
 Score = 1/(1+distance) for inverse distance weighting.
 Returns top k by attention score.';
 
+-- =============================================================================
+-- ATOM SEEDING - High-Performance Unicode Atom Generation
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION seed_atoms()
+RETURNS BIGINT
+AS 'hypercube_ops', 'seed_atoms'
+LANGUAGE C VOLATILE STRICT;
+
+COMMENT ON FUNCTION seed_atoms() IS
+'Seed all ~1.1M Unicode codepoint atoms.
+Computes BLAKE3 hash, 4D coordinates, and Hilbert index for each.
+Idempotent: returns existing count if already seeded.
+Usage: SELECT seed_atoms();';
+
 -- Convenience wrappers
 CREATE OR REPLACE FUNCTION fast_knn(p_id BYTEA, p_k INTEGER DEFAULT 10)
 RETURNS TABLE(id BYTEA, dist DOUBLE PRECISION) AS $$
@@ -160,3 +175,4 @@ CREATE OR REPLACE FUNCTION fast_attention(p_id BYTEA, p_k INTEGER DEFAULT 10)
 RETURNS TABLE(id BYTEA, score DOUBLE PRECISION) AS $$
     SELECT composition_id, attention_score FROM hypercube_attention(p_id, p_k);
 $$ LANGUAGE SQL STABLE PARALLEL SAFE;
+

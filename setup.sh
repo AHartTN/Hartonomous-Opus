@@ -502,22 +502,23 @@ cmd_similar() {
     echo "Query composition: $query_id"
     echo ""
 
-    # Find compositions with similar centroids using spatial distance
+    # Find compositions with similar centroids using 4D spatial distance
     psql -c "
     WITH query AS (
-        SELECT ST_Centroid(geom) as centroid
+        -- For atoms, geom is already a 4D point, no centroid needed
+        SELECT geom as centroid
         FROM atom WHERE id = decode('$query_id', 'hex')
     )
     SELECT
         left(encode(a.id, 'hex'), 16) || '...' as id,
         a.depth,
         a.atom_count as atoms,
-        ST_Distance(ST_Centroid(a.geom), q.centroid)::numeric(12,8) as distance,
+        centroid_distance(a.geom, q.centroid)::numeric(12,8) as distance,
         atom_reconstruct_text(a.id) as content
     FROM atom a, query q
     WHERE a.id != decode('$query_id', 'hex')
       AND a.depth > 0
-    ORDER BY ST_Distance(ST_Centroid(a.geom), q.centroid)
+    ORDER BY centroid_distance(a.geom, q.centroid)
     LIMIT 10;
     "
 }

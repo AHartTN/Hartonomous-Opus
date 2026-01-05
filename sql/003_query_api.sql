@@ -120,13 +120,15 @@ RETURNS TABLE(label TEXT, weight REAL) AS $$
 $$ LANGUAGE SQL STABLE;
 
 -- =============================================================================
--- GENERATIVE WALK: Random walk through relation graph
+-- GENERATIVE WALK: Deterministic walk through relation graph
+-- Uses seeded random for reproducibility. Same seed = same walk path.
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION generative_walk(
     p_start_label TEXT,
     p_steps INTEGER DEFAULT 10,
-    p_temperature REAL DEFAULT 1.0
+    p_temperature REAL DEFAULT 1.0,
+    p_seed DOUBLE PRECISION DEFAULT 0.42  -- Seed for deterministic walks
 )
 RETURNS TABLE(
     step INTEGER,
@@ -140,6 +142,9 @@ DECLARE
     v_step INTEGER := 0;
     v_label TEXT;
 BEGIN
+    -- Set seed for reproducible random sequence
+    PERFORM setseed(p_seed);
+    
     -- Find starting composition
     SELECT id, p_start_label INTO v_current_id, v_label
     FROM composition WHERE label = p_start_label LIMIT 1;
@@ -156,7 +161,7 @@ BEGIN
     WHILE v_step < p_steps LOOP
         v_step := v_step + 1;
         
-        -- Pick next based on weighted random from relations
+        -- Pick next based on seeded random weighted selection
         SELECT r.target_id, c.label, r.weight
         INTO v_next_id, v_label, v_weight
         FROM relation r

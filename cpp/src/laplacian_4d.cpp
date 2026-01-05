@@ -10,11 +10,17 @@
  * - Direct integration with safetensor ingestion (no shape table)
  * - Outputs directly to atom/composition tables
  * - Uses LANCZOS algorithm for smallest eigenvalues (not power iteration!)
+ * 
+ * Backend Priority (eigensolvers):
+ * 1. Intel MKL DSYEVR - Fastest on Intel CPUs, AVX-512 optimized
+ * 2. Eigen SelfAdjointEigenSolver - Good performance, portable
+ * 3. Custom Jacobi - Fallback, always available
  */
 
 #include "hypercube/laplacian_4d.hpp"
 #include "hypercube/lanczos.hpp"
 #include "hypercube/hilbert.hpp"
+#include "hypercube/embedding_ops.hpp"  // Centralized SIMD operations
 
 #include <algorithm>
 #include <cmath>
@@ -29,66 +35,43 @@
 #include <limits>
 #include <queue>
 
-// SIMD headers
-#if defined(__AVX512F__)
-#include <immintrin.h>
-#define SIMD_WIDTH 16
-#define SIMD_ENABLED 1
-#elif defined(__AVX2__) || defined(__AVX__)
-#include <immintrin.h>
-#define SIMD_WIDTH 8
-#define SIMD_ENABLED 1
-#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
-#include <intrin.h>
-#define SIMD_WIDTH 8
-#define SIMD_ENABLED 1
+// Intel MKL for optimized eigensolvers (highest priority)
+#if defined(HAS_MKL) && HAS_MKL
+#include <mkl.h>
+#define USE_MKL_SOLVER 1
+#define USE_EIGEN_SOLVER 0
+#elif defined(HAS_EIGEN) && HAS_EIGEN
+#include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
+#define USE_MKL_SOLVER 0
+#define USE_EIGEN_SOLVER 1
 #else
-#define SIMD_WIDTH 1
-#define SIMD_ENABLED 0
+#define USE_MKL_SOLVER 0
+#define USE_EIGEN_SOLVER 0
+#endif
+
+// HNSWLIB for fast k-NN (O(n log n) vs O(n²) brute force)
+#if defined(HAS_HNSWLIB) && HAS_HNSWLIB
+#include <hnswlib/hnswlib.h>
+#define USE_HNSWLIB 1
+#else
+#define USE_HNSWLIB 0
 #endif
 
 namespace hypercube {
 
+// Use centralized SIMD implementations from embedding_ops.hpp
+using embedding::cosine_similarity;
+using embedding::l2_distance;
+
 // =============================================================================
-// SIMD Vector Operations
+// Local SIMD helpers for double-precision (Gram-Schmidt, eigenvector ops)
 // =============================================================================
 
 namespace simd {
 
-float dot_product(const float* a, const float* b, size_t n) {
-#if SIMD_ENABLED && SIMD_WIDTH >= 8
-    __m256 sum_vec = _mm256_setzero_ps();
-    size_t i = 0;
-    
-    for (; i + 8 <= n; i += 8) {
-        __m256 va = _mm256_loadu_ps(a + i);
-        __m256 vb = _mm256_loadu_ps(b + i);
-        sum_vec = _mm256_fmadd_ps(va, vb, sum_vec);
-    }
-    
-    // Horizontal sum
-    __m128 hi = _mm256_extractf128_ps(sum_vec, 1);
-    __m128 lo = _mm256_castps256_ps128(sum_vec);
-    __m128 sum128 = _mm_add_ps(hi, lo);
-    sum128 = _mm_hadd_ps(sum128, sum128);
-    sum128 = _mm_hadd_ps(sum128, sum128);
-    float sum = _mm_cvtss_f32(sum128);
-    
-    for (; i < n; ++i) {
-        sum += a[i] * b[i];
-    }
-    return sum;
-#else
-    float sum = 0.0f;
-    for (size_t i = 0; i < n; ++i) {
-        sum += a[i] * b[i];
-    }
-    return sum;
-#endif
-}
-
 double dot_product_d(const double* a, const double* b, size_t n) {
-#if SIMD_ENABLED && SIMD_WIDTH >= 8
+#if defined(__AVX2__) || defined(__AVX__)
     __m256d sum_vec = _mm256_setzero_pd();
     size_t i = 0;
     
@@ -118,55 +101,8 @@ double dot_product_d(const double* a, const double* b, size_t n) {
 #endif
 }
 
-float cosine_similarity(const float* a, const float* b, size_t n) {
-#if SIMD_ENABLED && SIMD_WIDTH >= 8
-    __m256 dot_vec = _mm256_setzero_ps();
-    __m256 na_vec = _mm256_setzero_ps();
-    __m256 nb_vec = _mm256_setzero_ps();
-    size_t i = 0;
-    
-    for (; i + 8 <= n; i += 8) {
-        __m256 va = _mm256_loadu_ps(a + i);
-        __m256 vb = _mm256_loadu_ps(b + i);
-        dot_vec = _mm256_fmadd_ps(va, vb, dot_vec);
-        na_vec = _mm256_fmadd_ps(va, va, na_vec);
-        nb_vec = _mm256_fmadd_ps(vb, vb, nb_vec);
-    }
-    
-    // Horizontal sums
-    auto hsum = [](__m256 v) {
-        __m128 hi = _mm256_extractf128_ps(v, 1);
-        __m128 lo = _mm256_castps256_ps128(v);
-        __m128 sum = _mm_add_ps(hi, lo);
-        sum = _mm_hadd_ps(sum, sum);
-        sum = _mm_hadd_ps(sum, sum);
-        return _mm_cvtss_f32(sum);
-    };
-    
-    float dot = hsum(dot_vec);
-    float na = hsum(na_vec);
-    float nb = hsum(nb_vec);
-    
-    for (; i < n; ++i) {
-        dot += a[i] * b[i];
-        na += a[i] * a[i];
-        nb += b[i] * b[i];
-    }
-#else
-    float dot = 0.0f, na = 0.0f, nb = 0.0f;
-    for (size_t i = 0; i < n; ++i) {
-        dot += a[i] * b[i];
-        na += a[i] * a[i];
-        nb += b[i] * b[i];
-    }
-#endif
-    
-    float denom = std::sqrt(na) * std::sqrt(nb);
-    return (denom > 1e-10f) ? (dot / denom) : 0.0f;
-}
-
 void scale_inplace(double* v, double s, size_t n) {
-#if SIMD_ENABLED && SIMD_WIDTH >= 8
+#if defined(__AVX2__) || defined(__AVX__)
     __m256d s_vec = _mm256_set1_pd(s);
     size_t i = 0;
     for (; i + 4 <= n; i += 4) {
@@ -181,7 +117,7 @@ void scale_inplace(double* v, double s, size_t n) {
 }
 
 void subtract_scaled(double* a, const double* b, double s, size_t n) {
-#if SIMD_ENABLED && SIMD_WIDTH >= 8
+#if defined(__AVX2__) || defined(__AVX__)
     __m256d s_vec = _mm256_set1_pd(s);
     size_t i = 0;
     for (; i + 4 <= n; i += 4) {
@@ -346,6 +282,129 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
         num_threads = static_cast<int>(std::thread::hardware_concurrency());
         if (num_threads == 0) num_threads = 4;
     }
+
+#if USE_HNSWLIB
+    // =========================================================================
+    // HNSWLIB PATH: O(n log n) approximate k-NN using HNSW index
+    // Much faster than brute-force O(n²) for large datasets
+    // =========================================================================
+    std::cerr << "[HNSWLIB] Building HNSW index for " << n << " points, dim=" << dim << "\n";
+    auto hnsw_start = std::chrono::steady_clock::now();
+    
+    // Use inner product space (for cosine similarity, normalize vectors first)
+    hnswlib::InnerProductSpace space(dim);
+    
+    // HNSW parameters
+    size_t M = 16;         // Max connections per layer (higher = more accurate, slower)
+    size_t ef_construction = 200;  // Construction-time parameter (higher = more accurate)
+    
+    hnswlib::HierarchicalNSW<float> index(&space, n, M, ef_construction);
+    
+    // Normalize embeddings for cosine similarity via inner product
+    std::vector<std::vector<float>> normalized(n);
+    {
+        // Parallel normalization using std::thread
+        std::vector<std::thread> norm_threads;
+        std::atomic<size_t> norm_idx{0};
+        
+        auto normalize_worker = [&]() {
+            while (true) {
+                size_t i = norm_idx.fetch_add(1);
+                if (i >= n) break;
+                
+                normalized[i].resize(dim);
+                float norm_sq = 0.0f;
+                for (size_t d = 0; d < dim; ++d) {
+                    norm_sq += embeddings[i][d] * embeddings[i][d];
+                }
+                float norm = std::sqrt(norm_sq);
+                if (norm > 1e-10f) {
+                    for (size_t d = 0; d < dim; ++d) {
+                        normalized[i][d] = embeddings[i][d] / norm;
+                    }
+                } else {
+                    std::copy(embeddings[i].begin(), embeddings[i].end(), normalized[i].begin());
+                }
+            }
+        };
+        
+        for (int t = 0; t < num_threads; ++t) {
+            norm_threads.emplace_back(normalize_worker);
+        }
+        for (auto& t : norm_threads) t.join();
+    }
+    
+    // Add points to index (must be sequential for HNSWLIB)
+    for (size_t i = 0; i < n; ++i) {
+        index.addPoint(normalized[i].data(), i);
+    }
+    
+    auto build_end = std::chrono::steady_clock::now();
+    auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(build_end - hnsw_start).count();
+    std::cerr << "[HNSWLIB] Index built in " << build_ms << " ms\n";
+    
+    // Query k-NN for each point using std::thread pool
+    index.setEf(std::max(static_cast<size_t>(k * 2), static_cast<size_t>(50)));  // Query-time parameter
+    
+    std::vector<std::vector<std::tuple<size_t, size_t, double>>> thread_edges(num_threads);
+    std::atomic<size_t> progress{0};
+    std::atomic<size_t> query_idx{0};
+    
+    auto query_worker = [&](int tid) {
+        auto& local_edges = thread_edges[tid];
+        
+        while (true) {
+            size_t i = query_idx.fetch_add(1);
+            if (i >= n) break;
+            
+            auto result = index.searchKnn(normalized[i].data(), k + 1);  // +1 to skip self
+            
+            while (!result.empty()) {
+                auto [dist, j] = result.top();
+                result.pop();
+                
+                if (j == i) continue;  // Skip self
+                
+                // Inner product of normalized vectors = cosine similarity
+                float sim = 1.0f - dist;  // Convert distance to similarity
+                
+                if (sim > threshold && i < j) {
+                    local_edges.emplace_back(i, j, static_cast<double>(sim));
+                }
+            }
+            
+            progress.fetch_add(1);
+        }
+    };
+    
+    std::vector<std::thread> query_threads;
+    for (int t = 0; t < num_threads; ++t) {
+        query_threads.emplace_back(query_worker, t);
+    }
+    for (auto& t : query_threads) t.join();
+    
+    auto query_end = std::chrono::steady_clock::now();
+    auto query_ms = std::chrono::duration_cast<std::chrono::milliseconds>(query_end - build_end).count();
+    std::cerr << "[HNSWLIB] k-NN queries completed in " << query_ms << " ms\n";
+    
+    // Merge edges
+    size_t total_edges = 0;
+    for (const auto& te : thread_edges) {
+        for (const auto& [i, j, w] : te) {
+            W.add_edge(i, j, w);
+            ++total_edges;
+        }
+    }
+    
+    W.finalize();
+    std::cerr << "[HNSWLIB] Built k-NN graph with " << total_edges << " edges\n";
+    return W;
+    
+#else
+    // =========================================================================
+    // FALLBACK: Brute-force O(n²) k-NN (for systems without HNSWLIB)
+    // =========================================================================
+    std::cerr << "[BRUTEFORCE] Building k-NN graph for " << n << " points (O(n²))\n";
     
     // Thread-local edge buffers to avoid locking
     std::vector<std::vector<std::tuple<size_t, size_t, double>>> thread_edges(num_threads);
@@ -368,7 +427,7 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
             for (size_t j = 0; j < n; ++j) {
                 if (i == j) continue;
                 
-                float sim = simd::cosine_similarity(emb_i, embeddings[j].data(), dim);
+                float sim = embedding::cosine_similarity(emb_i, embeddings[j].data(), dim);
                 
                 // Only consider positive similarities above threshold
                 if (sim > threshold) {
@@ -423,6 +482,7 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
     
     std::cerr << "[LAPLACIAN] Built k-NN graph with " << total_edges << " edges\n";
     return W;
+#endif  // USE_HNSWLIB
 }
 
 SparseSymmetricMatrix LaplacianProjector::build_laplacian(const SparseSymmetricMatrix& W) {
@@ -472,11 +532,139 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
             L_dense[i * n + i] = L.get_diagonal(i);
         }
         
-        // Compute eigenvalues/vectors using symmetric tridiagonalization + QR
-        // For simplicity, use power iteration on (max_eigenvalue * I - L) to find smallest
-        // Or better: just use the existing Lanczos but with direct iteration (no shift-invert)
+#if USE_MKL_SOLVER
+        // ==================================================================
+        // INTEL MKL PATH: DSYEVR - RRR algorithm for symmetric eigenvalue
+        // Fastest eigensolver available, exploits Intel CPU features
+        // ==================================================================
+        std::cerr << "[MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)\n";
+        auto mkl_start = std::chrono::steady_clock::now();
         
-        // Actually, let's do Jacobi eigenvalue algorithm for small dense symmetric matrices
+        // MKL DSYEVR parameters
+        char jobz = 'V';  // Compute eigenvalues and eigenvectors
+        char range = 'I'; // Index range (smallest k+1 eigenvalues)
+        char uplo = 'U';  // Upper triangle stored
+        MKL_INT mkl_n = static_cast<MKL_INT>(n);
+        MKL_INT lda = mkl_n;
+        double vl = 0.0, vu = 0.0;  // Not used for range='I'
+        MKL_INT il = 1;  // First eigenvalue index (1-based)
+        MKL_INT iu = std::min(static_cast<MKL_INT>(k + 1), mkl_n);  // Last index (+1 to skip null)
+        double abstol = 0.0;  // Use default (safe) tolerance
+        MKL_INT m_found = 0;  // Number of eigenvalues found
+        
+        std::vector<double> eigenvalues(iu);
+        std::vector<double> Z(n * iu);  // Eigenvector matrix
+        MKL_INT ldz = mkl_n;
+        std::vector<MKL_INT> isuppz(2 * iu);
+        
+        MKL_INT info = 0;
+        
+        // Query workspace size
+        MKL_INT lwork = -1, liwork = -1;
+        double work_query;
+        MKL_INT iwork_query;
+        dsyevr(&jobz, &range, &uplo, &mkl_n, L_dense.data(), &lda,
+               &vl, &vu, &il, &iu, &abstol, &m_found,
+               eigenvalues.data(), Z.data(), &ldz, isuppz.data(),
+               &work_query, &lwork, &iwork_query, &liwork, &info);
+        
+        lwork = static_cast<MKL_INT>(work_query);
+        liwork = iwork_query;
+        std::vector<double> work(lwork);
+        std::vector<MKL_INT> iwork(liwork);
+        
+        // Compute eigendecomposition
+        dsyevr(&jobz, &range, &uplo, &mkl_n, L_dense.data(), &lda,
+               &vl, &vu, &il, &iu, &abstol, &m_found,
+               eigenvalues.data(), Z.data(), &ldz, isuppz.data(),
+               work.data(), &lwork, iwork.data(), &liwork, &info);
+        
+        if (info != 0) {
+            std::cerr << "[MKL] ERROR: DSYEVR failed with info=" << info << "\n";
+            return {};
+        }
+        
+        auto mkl_end = std::chrono::steady_clock::now();
+        auto mkl_ms = std::chrono::duration_cast<std::chrono::milliseconds>(mkl_end - mkl_start).count();
+        std::cerr << "[MKL] Eigendecomposition completed in " << mkl_ms << " ms\n";
+        std::cerr << "[MKL] Found " << m_found << " eigenvalues\n";
+        
+        // Log eigenvalues
+        std::cerr << "[MKL] Eigenvalues: ";
+        for (MKL_INT i = 0; i < std::min(m_found, (MKL_INT)8); ++i) {
+            std::cerr << eigenvalues[i] << " ";
+        }
+        std::cerr << "...\n";
+        
+        // Skip index 0 (null space at λ≈0), take next k eigenvectors
+        std::vector<std::vector<double>> result;
+        for (MKL_INT i = 1; i < m_found && static_cast<int>(i) <= k; ++i) {
+            eigenvalues_out[i - 1] = eigenvalues[i];
+            
+            // Copy eigenvector column from Z matrix
+            std::vector<double> ev(n);
+            for (size_t r = 0; r < n; ++r) {
+                ev[r] = Z[r + i * n];  // Column-major storage
+            }
+            result.push_back(std::move(ev));
+        }
+        
+        return result;
+        
+#elif USE_EIGEN_SOLVER
+        // ==================================================================
+        // EIGEN3 OPTIMIZED PATH: SelfAdjointEigenSolver
+        // Uses LAPACK-level optimizations, cache-efficient, vectorized
+        // ==================================================================
+        std::cerr << "[EIGEN] Using Eigen3 SelfAdjointEigenSolver (optimized)\n";
+        auto eigen_start = std::chrono::steady_clock::now();
+        
+        // Map our data to Eigen matrix (no copy)
+        Eigen::Map<Eigen::MatrixXd> L_eigen(L_dense.data(), n, n);
+        
+        // Compute eigenvalues and eigenvectors
+        Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(L_eigen);
+        
+        if (solver.info() != Eigen::Success) {
+            std::cerr << "[EIGEN] ERROR: Eigendecomposition failed!\n";
+            return {};
+        }
+        
+        const auto& eigenvalues = solver.eigenvalues();
+        const auto& eigenvectors = solver.eigenvectors();
+        
+        auto eigen_end = std::chrono::steady_clock::now();
+        auto eigen_ms = std::chrono::duration_cast<std::chrono::milliseconds>(eigen_end - eigen_start).count();
+        std::cerr << "[EIGEN] Eigendecomposition completed in " << eigen_ms << " ms\n";
+        
+        // Eigenvalues are already sorted ascending by Eigen
+        std::cerr << "[EIGEN] Eigenvalues: ";
+        for (int i = 0; i < std::min(8, (int)n); ++i) {
+            std::cerr << eigenvalues(i) << " ";
+        }
+        std::cerr << "...\n";
+        
+        // Skip index 0 (null space at λ≈0), take next k eigenvectors
+        std::vector<std::vector<double>> result;
+        for (int i = 1; i <= k && i < static_cast<int>(n); ++i) {
+            eigenvalues_out[i - 1] = eigenvalues(i);
+            
+            // Copy eigenvector column
+            std::vector<double> ev(n);
+            for (size_t r = 0; r < n; ++r) {
+                ev[r] = eigenvectors(r, i);
+            }
+            result.push_back(std::move(ev));
+        }
+        
+        return result;
+        
+#else
+        // ==================================================================
+        // FALLBACK: Jacobi eigenvalue algorithm for dense symmetric matrices
+        // O(n³) but reliable for small matrices
+        // ==================================================================
+        std::cerr << "[JACOBI] Using fallback Jacobi eigensolver\n";
         std::vector<double> eigenvalues(n);
         std::vector<std::vector<double>> eigenvectors(n, std::vector<double>(n, 0.0));
         
@@ -573,6 +761,7 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
         }
         
         return result;
+#endif  // USE_EIGEN_SOLVER
     }
     
     // ==========================================================================

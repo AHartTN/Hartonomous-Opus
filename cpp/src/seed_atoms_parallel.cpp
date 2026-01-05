@@ -165,9 +165,9 @@ bool copy_partition(const std::string& conninfo, int partition_id,
     }
     PQclear(res);
 
-    // Build batch buffer
+    // Build batch buffer - 8MB for better throughput
     std::string batch;
-    batch.reserve(1 << 20);  // 1MB
+    batch.reserve(8 << 20);  // 8MB
 
     static const char hex_chars[] = "0123456789abcdef";
     char ewkb[75];
@@ -221,8 +221,8 @@ bool copy_partition(const std::string& conninfo, int partition_id,
         batch += num_buf;
         batch += '\n';
 
-        // Send when buffer full
-        if (batch.size() > (1 << 19)) {
+        // Send when buffer full (4MB threshold)
+        if (batch.size() > (4 << 20)) {
             if (PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size())) != 1) {
                 std::cerr << "Partition " << partition_id << " COPY data failed\n";
                 PQputCopyEnd(conn, "error");
@@ -306,7 +306,7 @@ int main(int argc, char* argv[]) {
     auto start_time = std::chrono::high_resolution_clock::now();
     
     // === STEP 1: Generate atoms in parallel ===
-    std::cerr << "[1/5] Generating atoms...\n";
+    std::cerr << "[1/5] Generating atoms (" << NUM_GENERATORS << " threads)...\n";
     std::vector<std::vector<AtomRecord>> thread_results(NUM_GENERATORS);
     std::vector<std::thread> threads;
     
@@ -323,7 +323,7 @@ int main(int argc, char* argv[]) {
     
     for (auto& th : threads) th.join();
     
-    // Merge and partition
+    // Merge results
     std::vector<AtomRecord> all_atoms;
     size_t total = 0;
     for (const auto& v : thread_results) total += v.size();
@@ -333,6 +333,8 @@ int main(int argc, char* argv[]) {
                          std::make_move_iterator(v.begin()),
                          std::make_move_iterator(v.end()));
     }
+    thread_results.clear();
+    thread_results.shrink_to_fit();
     
     auto gen_time = std::chrono::high_resolution_clock::now();
     auto gen_ms = std::chrono::duration_cast<std::chrono::milliseconds>(gen_time - start_time).count();
@@ -351,8 +353,8 @@ int main(int argc, char* argv[]) {
     auto part_ms = std::chrono::duration_cast<std::chrono::milliseconds>(part_time - gen_time).count();
     std::cerr << "      Partitioned in " << part_ms << " ms\n";
     
-    // === STEP 3: Setup database - create staging tables ===
-    std::cerr << "[3/5] Creating staging tables...\n";
+    // === STEP 3: Setup database ===
+    std::cerr << "[3/5] Preparing database...\n";
     PGconn* main_conn = PQconnectdb(conninfo.c_str());
     if (PQstatus(main_conn) != CONNECTION_OK) {
         std::cerr << "Main connection failed: " << PQerrorMessage(main_conn) << std::endl;
@@ -360,19 +362,24 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
+    // Session tuning for bulk load
+    PQexec(main_conn, "SET synchronous_commit = off");
+    PQexec(main_conn, "SET maintenance_work_mem = '2GB'");
+    PQexec(main_conn, "SET work_mem = '256MB'");
+    
     // Drop all indexes for fast bulk insert
     PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_geom");
     PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_hilbert");
     PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_codepoint");
 
-    // Truncate for clean seed
+    // Truncate outside transaction first (for parallel COPY to work)
     PQexec(main_conn, "TRUNCATE atom CASCADE");
     
     auto setup_time = std::chrono::high_resolution_clock::now();
     auto setup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(setup_time - part_time).count();
     std::cerr << "      Setup in " << setup_ms << " ms\n";
     
-    // === STEP 4: Parallel COPY to staging tables ===
+    // === STEP 4: Parallel COPY ===
     std::cerr << "[4/5] Parallel COPY to atom table (" << NUM_PARTITIONS << " connections)...\n";
     
     std::vector<std::future<bool>> futures;
@@ -401,9 +408,12 @@ int main(int argc, char* argv[]) {
     // === STEP 5: Rebuild indexes ===
     std::cerr << "[5/5] Building indexes...\n";
 
-    PQexec(main_conn, "CREATE INDEX idx_atom_codepoint ON atom(codepoint)");
-    PQexec(main_conn, "CREATE INDEX idx_atom_hilbert ON atom(hilbert_hi, hilbert_lo)");
-    PQexec(main_conn, "CREATE INDEX idx_atom_geom ON atom USING GIST(geom)");
+    PQexec(main_conn, "SET maintenance_work_mem = '2GB'");
+    PQexec(main_conn, "SET max_parallel_maintenance_workers = 4");
+    
+    PQexec(main_conn, "CREATE INDEX IF NOT EXISTS idx_atom_codepoint ON atom(codepoint)");
+    PQexec(main_conn, "CREATE INDEX IF NOT EXISTS idx_atom_hilbert ON atom(hilbert_hi, hilbert_lo)");
+    PQexec(main_conn, "CREATE INDEX IF NOT EXISTS idx_atom_geom ON atom USING GIST(geom)");
     PQexec(main_conn, "ANALYZE atom");
     
     auto end_time = std::chrono::high_resolution_clock::now();

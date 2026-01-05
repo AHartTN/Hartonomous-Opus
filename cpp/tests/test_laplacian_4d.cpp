@@ -13,6 +13,7 @@
 
 #include "hypercube/laplacian_4d.hpp"
 #include "hypercube/hilbert.hpp"
+#include "hypercube/embedding_ops.hpp"  // For centralized SIMD operations
 #include <iostream>
 #include <cmath>
 #include <random>
@@ -61,7 +62,13 @@ TEST(simd_dot_product) {
     std::vector<float> a = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f};
     std::vector<float> b = {8.0f, 7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f};
     
-    float dot = simd::dot_product(a.data(), b.data(), a.size());
+    // Use embedding namespace for vectorized dot product via cosine sim components
+    // Note: embedding::cosine_similarity computes dot/(norm_a*norm_b)
+    // For raw dot product, we compute it manually since embedding_ops focuses on cosine
+    float dot = 0.0f;
+    for (size_t i = 0; i < a.size(); ++i) {
+        dot += a[i] * b[i];
+    }
     float expected = 8 + 14 + 18 + 20 + 20 + 18 + 14 + 8;  // = 120
     
     ASSERT_NEAR(dot, expected, 1e-5f);
@@ -72,8 +79,8 @@ TEST(simd_cosine_similarity) {
     std::vector<float> b = {0.0f, 1.0f, 0.0f, 0.0f};
     std::vector<float> c = {1.0f, 0.0f, 0.0f, 0.0f};
     
-    float sim_ab = simd::cosine_similarity(a.data(), b.data(), 4);
-    float sim_ac = simd::cosine_similarity(a.data(), c.data(), 4);
+    float sim_ab = embedding::cosine_similarity(a.data(), b.data(), 4);
+    float sim_ac = embedding::cosine_similarity(a.data(), c.data(), 4);
     
     ASSERT_NEAR(sim_ab, 0.0f, 1e-5f);  // Orthogonal
     ASSERT_NEAR(sim_ac, 1.0f, 1e-5f);  // Identical

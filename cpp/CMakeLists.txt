@@ -7,6 +7,7 @@ project(hypercube VERSION 1.0.0 LANGUAGES CXX C)
 #   2. hypercube_c      - C API bridge (extern "C" wrappers)
 #   3. hypercube        - PostgreSQL extension (pure C, links hypercube_c)
 #   4. semantic_ops     - PostgreSQL extension (pure C, links hypercube_c)
+#   5. hypercube (CLI)  - Unified command-line tool
 #
 # This architecture solves the PostgreSQL header incompatibility with C++20
 # by ensuring that PostgreSQL headers are only included in pure C files.
@@ -34,34 +35,101 @@ endif()
 find_package(Threads REQUIRED)
 
 # ============================================================================
+# Intel MKL for Optimal Performance on Intel CPUs
+# ============================================================================
+# Priority: MKL > Eigen > Custom Jacobi
+set(HAS_MKL OFF)
+find_package(MKL QUIET CONFIG)
+if(MKL_FOUND)
+    message(STATUS "Found Intel MKL: ${MKL_ROOT}")
+    set(HAS_MKL ON)
+else()
+    # Try finding MKL via environment variable
+    if(DEFINED ENV{MKLROOT})
+        set(MKL_ROOT "$ENV{MKLROOT}")
+        find_path(MKL_INCLUDE_DIR mkl.h HINTS "${MKL_ROOT}/include")
+        find_library(MKL_CORE_LIB mkl_core HINTS "${MKL_ROOT}/lib/intel64")
+        if(MKL_INCLUDE_DIR AND MKL_CORE_LIB)
+            message(STATUS "Found Intel MKL (via MKLROOT): ${MKL_ROOT}")
+            set(HAS_MKL ON)
+        endif()
+    endif()
+endif()
+
+if(NOT HAS_MKL)
+    message(STATUS "Intel MKL not found - trying Eigen3")
+endif()
+
+# ============================================================================
+# Eigen3 for Optimized Linear Algebra (eigensolvers, BLAS)
+# ============================================================================
+set(HAS_EIGEN OFF)
+if(NOT HAS_MKL)
+    find_package(Eigen3 QUIET)
+    if(Eigen3_FOUND)
+        message(STATUS "Found Eigen3: ${EIGEN3_INCLUDE_DIR}")
+        set(HAS_EIGEN ON)
+    else()
+        # Try vcpkg path
+        find_path(EIGEN3_INCLUDE_DIR Eigen/Core
+            HINTS
+            "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-windows/include"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-linux/include"
+            "/usr/include/eigen3"
+            "/usr/local/include/eigen3"
+        )
+        if(EIGEN3_INCLUDE_DIR)
+            message(STATUS "Found Eigen3 manually: ${EIGEN3_INCLUDE_DIR}")
+            set(HAS_EIGEN ON)
+        else()
+            message(STATUS "Eigen3 not found - using fallback Jacobi eigensolver")
+        endif()
+    endif()
+else()
+    message(STATUS "Skipping Eigen3 (MKL is preferred)")
+endif()
+
+# ============================================================================
 # Compiler Detection and Flags
 # ============================================================================
 
 if(MSVC)
     message(STATUS "Compiler: MSVC ${CMAKE_CXX_COMPILER_VERSION}")
-    # Enable AVX2 for SIMD optimizations
-    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG /W3 /EHsc /arch:AVX2")
+    # Use AVX2 for broader compatibility (AVX-512 can cause issues on some CPUs)
+    set(AVX_FLAG "/arch:AVX2")
+    message(STATUS "SIMD: AVX2 enabled")
+    # Enable optimizations
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG /W3 /EHsc ${AVX_FLAG} /fp:precise /GL /Oi /Ot")
     set(CMAKE_CXX_FLAGS_DEBUG "/Od /DDEBUG /W3 /Zi /EHsc")
-    set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG /W3 /arch:AVX2")
+    set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG /W3 ${AVX_FLAG} /fp:precise /GL /Oi /Ot")
     set(CMAKE_C_FLAGS_DEBUG "/Od /DDEBUG /W3 /Zi")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
     add_compile_options(/wd4244 /wd4267 /wd4996 /wd4005 /wd4200)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(STATUS "Compiler: Clang ${CMAKE_CXX_COMPILER_VERSION}")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra")
-    set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
-    set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra")
-    set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
-    if(NOT WIN32)
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
-        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address,undefined")
+    # Clang on Windows needs explicit AVX flags
+    if(WIN32)
+        # Use native for best performance on current CPU
+        set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra -march=native -mtune=native -ffast-math")
+        set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
+        set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra -march=native -mtune=native -ffast-math")
+        set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
+        message(STATUS "SIMD: Native architecture (march=native)")
+    else()
+        set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra -march=native")
+        set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra -fsanitize=address,undefined")
+        set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra -march=native")
+        set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
     endif()
     add_compile_options(-Wno-unused-parameter -Wno-sign-compare)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message(STATUS "Compiler: GCC ${CMAKE_CXX_COMPILER_VERSION}")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -Wall -Wextra")
+    # Enable native arch (detects AVX2/AVX-512), fast-math, loop unrolling
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -mtune=native -DNDEBUG -Wall -Wextra -ffast-math -funroll-loops -ftree-vectorize")
     set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra -fsanitize=address,undefined")
-    set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -DNDEBUG -Wall -Wextra")
+    set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -mtune=native -DNDEBUG -Wall -Wextra -ffast-math -funroll-loops -ftree-vectorize")
     set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
+    message(STATUS "SIMD: Native architecture (march=native)")
 else()
     message(WARNING "Unknown compiler: ${CMAKE_CXX_COMPILER_ID}")
 endif()
@@ -106,6 +174,67 @@ add_library(hypercube_core STATIC
 target_include_directories(hypercube_core PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+# Add HNSWLIB for fast approximate nearest neighbors
+set(HNSWLIB_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/hnswlib")
+if(EXISTS "${HNSWLIB_INCLUDE_DIR}/hnswlib/hnswlib.h")
+    message(STATUS "HNSWLIB: Found at ${HNSWLIB_INCLUDE_DIR}")
+    set(HAS_HNSWLIB TRUE)
+else()
+    message(STATUS "HNSWLIB: Not found - using brute-force k-NN")
+    set(HAS_HNSWLIB FALSE)
+endif()
+
+# Add Eigen include directory if available
+if(HAS_EIGEN)
+    target_include_directories(hypercube_core PUBLIC ${EIGEN3_INCLUDE_DIR})
+    target_compile_definitions(hypercube_core PUBLIC HAS_EIGEN=1)
+endif()
+
+# Add HNSWLIB include directory if available
+if(HAS_HNSWLIB)
+    target_include_directories(hypercube_core PUBLIC ${HNSWLIB_INCLUDE_DIR})
+    target_compile_definitions(hypercube_core PUBLIC HAS_HNSWLIB=1)
+endif()
+
+# Link Intel MKL if available
+if(HAS_MKL)
+    # MKL linking on Windows with Clang/LLVM
+    if(WIN32)
+        # Find MKL libraries - use explicit paths since find_library may fail with .lib suffix
+        set(MKL_LIB_DIR "${MKL_ROOT}/lib")
+        
+        set(MKL_INTEL_LP64 "${MKL_LIB_DIR}/mkl_intel_lp64.lib")
+        set(MKL_SEQUENTIAL "${MKL_LIB_DIR}/mkl_sequential.lib")
+        set(MKL_CORE "${MKL_LIB_DIR}/mkl_core.lib")
+        
+        if(EXISTS "${MKL_INTEL_LP64}" AND EXISTS "${MKL_SEQUENTIAL}" AND EXISTS "${MKL_CORE}")
+            message(STATUS "MKL libraries found:")
+            message(STATUS "  mkl_intel_lp64: ${MKL_INTEL_LP64}")
+            message(STATUS "  mkl_sequential: ${MKL_SEQUENTIAL}")
+            message(STATUS "  mkl_core: ${MKL_CORE}")
+            
+            target_include_directories(hypercube_core PUBLIC "${MKL_ROOT}/include")
+            target_link_libraries(hypercube_core
+                PUBLIC "${MKL_INTEL_LP64}" "${MKL_SEQUENTIAL}" "${MKL_CORE}"
+            )
+            target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1)
+        else()
+            message(WARNING "MKL libraries not found at ${MKL_LIB_DIR} - disabling MKL")
+            set(HAS_MKL OFF)
+            target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0)
+        endif()
+    else()
+        # Linux/Mac linking
+        target_include_directories(hypercube_core PUBLIC "${MKL_ROOT}/include")
+        target_link_libraries(hypercube_core
+            PUBLIC mkl_intel_lp64 mkl_sequential mkl_core pthread m dl
+        )
+        target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1)
+    endif()
+else()
+    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0)
+endif()
 
 target_link_libraries(hypercube_core
     PRIVATE Threads::Threads
@@ -257,6 +386,7 @@ if(BUILD_PG_EXTENSION)
     
     # -------------------------------------------------------------------------
     # hypercube_ops PostgreSQL Extension (pure C - optimized batch operations)
+    # Uses hypercube_c for BLAKE3, Hilbert, and coordinate functions
     # -------------------------------------------------------------------------
     
     add_library(hypercube_ops SHARED
@@ -276,6 +406,8 @@ if(BUILD_PG_EXTENSION)
     
     set_target_properties(hypercube_ops PROPERTIES LINKER_LANGUAGE C)
 
+    # Link against hypercube_c for C API functions (seed_atoms needs them)
+    target_link_libraries(hypercube_ops PRIVATE hypercube_c)
     if(WIN32 AND POSTGRES_LIB)
         target_link_libraries(hypercube_ops PRIVATE ${POSTGRES_LIB})
     endif()
@@ -561,6 +693,10 @@ if(PostgreSQL_FOUND)
     # UNIVERSAL safetensor ingestion - ingests ALL tensors from ANY model (vision, language, etc)
     add_executable(ingest_safetensor_universal src/ingest_safetensor_universal.cpp)
     target_include_directories(ingest_safetensor_universal PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    if(HAS_HNSWLIB)
+        target_include_directories(ingest_safetensor_universal PRIVATE ${HNSWLIB_INCLUDE_DIR})
+        target_compile_definitions(ingest_safetensor_universal PRIVATE HAS_HNSWLIB=1)
+    endif()
     target_link_libraries(ingest_safetensor_universal hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
     add_executable(extract_embeddings src/extract_embeddings.cpp)
@@ -574,6 +710,37 @@ if(PostgreSQL_FOUND)
     # New unified ingester tool
     add_executable(ingest src/ingest/main.cpp)
     target_link_libraries(ingest hypercube_ingest hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
+    # ========================================================================
+    # Unified CLI Tool: hypercube_cli
+    # ========================================================================
+    # Single entry point for all operations: ingest, query, test, stats
+    add_executable(hypercube_cli src/cli/main.cpp)
+    target_include_directories(hypercube_cli PRIVATE 
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PostgreSQL_INCLUDE_DIRS}
+    )
+    target_link_libraries(hypercube_cli 
+        hypercube_core 
+        ${PostgreSQL_LIBRARIES} 
+        Threads::Threads
+    )
+    
+    # Add backend detection defines
+    if(HAS_MKL)
+        target_compile_definitions(hypercube_cli PRIVATE HAS_MKL=1)
+    endif()
+    if(HAS_EIGEN)
+        target_compile_definitions(hypercube_cli PRIVATE HAS_EIGEN=1)
+        target_include_directories(hypercube_cli PRIVATE ${EIGEN3_INCLUDE_DIR})
+    endif()
+    if(HAS_HNSWLIB)
+        target_compile_definitions(hypercube_cli PRIVATE HAS_HNSWLIB=1)
+        target_include_directories(hypercube_cli PRIVATE ${HNSWLIB_INCLUDE_DIR})
+    endif()
+    
+    # Set output name to just "hypercube" (conflicts with extension on some systems)
+    set_target_properties(hypercube_cli PROPERTIES OUTPUT_NAME "hc")
     
     # Model discovery tool (scans HC_MODEL_PATHS for HuggingFace models)
     add_executable(model_discovery src/ingest/model_discovery.cpp)
@@ -609,6 +776,79 @@ else()
 endif()
 
 # ============================================================================
+# Google Test Suite
+# ============================================================================
+find_package(GTest QUIET)
+if(GTest_FOUND)
+    message(STATUS "Found Google Test: ${GTEST_INCLUDE_DIRS}")
+    enable_testing()
+    
+    # Core unit tests (no PostgreSQL required)
+    add_executable(hypercube_tests
+        tests/gtest/test_main.cpp
+        tests/gtest/test_blake3.cpp
+        tests/gtest/test_hilbert.cpp
+        tests/gtest/test_coordinates.cpp
+        tests/gtest/test_laplacian.cpp
+        tests/gtest/test_backend.cpp
+    )
+    target_include_directories(hypercube_tests PRIVATE 
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${GTEST_INCLUDE_DIRS}
+    )
+    target_link_libraries(hypercube_tests 
+        hypercube_core 
+        GTest::gtest 
+        GTest::gtest_main
+        Threads::Threads
+    )
+    
+    # Add backend defines
+    if(HAS_MKL)
+        target_compile_definitions(hypercube_tests PRIVATE HAS_MKL=1)
+    endif()
+    if(HAS_EIGEN)
+        target_compile_definitions(hypercube_tests PRIVATE HAS_EIGEN=1)
+        target_include_directories(hypercube_tests PRIVATE ${EIGEN3_INCLUDE_DIR})
+    endif()
+    if(HAS_HNSWLIB)
+        target_compile_definitions(hypercube_tests PRIVATE HAS_HNSWLIB=1)
+        target_include_directories(hypercube_tests PRIVATE ${HNSWLIB_INCLUDE_DIR})
+    endif()
+    
+    add_test(NAME HypercubeTests COMMAND hypercube_tests)
+    
+    # SQL integration tests (requires PostgreSQL)
+    if(PostgreSQL_FOUND)
+        add_executable(hypercube_sql_tests
+            tests/gtest/test_main.cpp
+            tests/gtest/test_sql_schema.cpp
+            tests/gtest/test_sql_functions.cpp
+            tests/gtest/test_sql_query_api.cpp
+        )
+        target_include_directories(hypercube_sql_tests PRIVATE 
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${GTEST_INCLUDE_DIRS}
+            ${PostgreSQL_INCLUDE_DIRS}
+        )
+        target_link_libraries(hypercube_sql_tests 
+            hypercube_core 
+            GTest::gtest 
+            GTest::gtest_main
+            ${PostgreSQL_LIBRARIES}
+            Threads::Threads
+        )
+        add_test(NAME HypercubeSQLTests COMMAND hypercube_sql_tests)
+        set_tests_properties(HypercubeSQLTests PROPERTIES
+            ENVIRONMENT "HC_DB_NAME=hypercube_test;HC_DB_USER=postgres;HC_DB_HOST=localhost;HC_DB_PORT=5432"
+        )
+    endif()
+else()
+    message(STATUS "Google Test not found - skipping test suite")
+    message(STATUS "To enable tests: vcpkg install gtest:x64-windows")
+endif()
+
+# ============================================================================
 # Summary
 # ============================================================================
 
@@ -622,5 +862,22 @@ if(PostgreSQL_FOUND)
     message(STATUS "PostgreSQL tools: ON")
 else()
     message(STATUS "PostgreSQL tools: OFF (libpq not found)")
+endif()
+if(HAS_MKL)
+    message(STATUS "Intel MKL: ON")
+elseif(HAS_EIGEN)
+    message(STATUS "Eigen3: ON")
+else()
+    message(STATUS "Linear algebra: Jacobi (fallback)")
+endif()
+if(HAS_HNSWLIB)
+    message(STATUS "HNSWLIB: ON")
+else()
+    message(STATUS "k-NN: Brute-force")
+endif()
+if(GTest_FOUND)
+    message(STATUS "Tests: ON (Google Test)")
+else()
+    message(STATUS "Tests: OFF")
 endif()
 message(STATUS "")

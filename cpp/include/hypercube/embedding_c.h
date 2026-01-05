@@ -220,6 +220,22 @@ EMBEDDING_C_API size_t embedding_c_cache_analogy(
     EmbeddingSimilarityResult* results
 );
 
+/* ==========================================================================
+ * Backend Information
+ * ========================================================================== */
+
+/**
+ * Get the name of the active SIMD implementation.
+ * @return String like "AVX-512", "AVX2", "SSE4.2", or "Scalar"
+ */
+EMBEDDING_C_API const char* embedding_c_simd_level(void);
+
+/**
+ * Get the SIMD register width in floats.
+ * @return 16 for AVX-512, 8 for AVX2, 4 for SSE, 1 for Scalar
+ */
+EMBEDDING_C_API int embedding_c_simd_width(void);
+
 #ifdef __cplusplus
 }
 #endif

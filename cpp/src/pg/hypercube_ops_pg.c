@@ -149,8 +149,15 @@ static WalkStep *random_walk(const uint8 *seed, int steps,
     uint8 current[HASH_SIZE];
     memcpy(current, seed, HASH_SIZE);
     
-    /* Seed random */
-    srand((unsigned int)time(NULL) ^ (unsigned int)((uintptr_t)seed));
+    /* Deterministic seed derived from input hash for reproducibility */
+    /* XOR all bytes of seed hash to create a 32-bit seed */
+    unsigned int rng_seed = 0;
+    for (int i = 0; i < HASH_SIZE; i++) {
+        rng_seed ^= ((unsigned int)seed[i]) << ((i % 4) * 8);
+    }
+    /* Mix in steps count for variation with same seed */
+    rng_seed ^= (unsigned int)steps * 2654435761u;
+    srand(rng_seed);
     
     for (int step = 0; step <= steps; step++) {
         /* Add current to path */
@@ -984,7 +991,10 @@ Datum hypercube_knn_batch(PG_FUNCTION_ARGS)
             SRF_RETURN_DONE(funcctx);
         }
         
-        int count = (int)SPI_processed;
+        /* SPI_processed is uint64, defensive cap at LIMIT value */
+        uint64_t total_rows = SPI_processed;
+        if (total_rows > 100000) total_rows = 100000;
+        int count = (int)total_rows;
         KNNResult *results = palloc(count * sizeof(KNNResult));
         int result_count = 0;
         
@@ -1116,7 +1126,10 @@ Datum hypercube_attention(PG_FUNCTION_ARGS)
             SRF_RETURN_DONE(funcctx);
         }
         
-        int count = (int)SPI_processed;
+        /* SPI_processed is uint64, defensive cap at LIMIT value */
+        uint64_t total_attn = SPI_processed;
+        if (total_attn > 100000) total_attn = 100000;
+        int count = (int)total_attn;
         KNNResult *results = palloc(count * sizeof(KNNResult));
         int result_count = 0;
         
@@ -1195,4 +1208,147 @@ Datum hypercube_attention(PG_FUNCTION_ARGS)
     }
     
     SRF_RETURN_DONE(funcctx);
+}
+
+/* ============================================================================
+ * SEED ATOMS - High-Performance Unicode Atom Seeding
+ * Generates all ~1.1M Unicode codepoint atoms using batch INSERT
+ * Called as: SELECT seed_atoms();
+ * ============================================================================ */
+
+#include "hypercube_c.h"
+
+/* Helper: encode codepoint as UTF-8 bytes, return length */
+static int encode_utf8(uint32_t cp, uint8_t *out)
+{
+    if (cp < 0x80) {
+        out[0] = (uint8_t)cp;
+        return 1;
+    } else if (cp < 0x800) {
+        out[0] = 0xC0 | (cp >> 6);
+        out[1] = 0x80 | (cp & 0x3F);
+        return 2;
+    } else if (cp < 0x10000) {
+        out[0] = 0xE0 | (cp >> 12);
+        out[1] = 0x80 | ((cp >> 6) & 0x3F);
+        out[2] = 0x80 | (cp & 0x3F);
+        return 3;
+    } else {
+        out[0] = 0xF0 | (cp >> 18);
+        out[1] = 0x80 | ((cp >> 12) & 0x3F);
+        out[2] = 0x80 | ((cp >> 6) & 0x3F);
+        out[3] = 0x80 | (cp & 0x3F);
+        return 4;
+    }
+}
+
+PG_FUNCTION_INFO_V1(seed_atoms);
+Datum seed_atoms(PG_FUNCTION_ARGS)
+{
+    int64 inserted = 0;
+    int ret;
+    StringInfoData buf;
+    bool isnull;
+    
+    if (SPI_connect() != SPI_OK_CONNECT)
+        ereport(ERROR, (errmsg("SPI_connect failed")));
+    
+    /* Check if atoms already exist */
+    ret = SPI_execute("SELECT COUNT(*) FROM atom", true, 0);
+    if (ret == SPI_OK_SELECT && SPI_processed > 0) {
+        int64 existing = DatumGetInt64(SPI_getbinval(
+            SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
+        if (existing > 1000000) {
+            SPI_finish();
+            ereport(NOTICE, (errmsg("atoms already seeded: %lld", (long long)existing)));
+            PG_RETURN_INT64(existing);
+        }
+    }
+    
+    ereport(NOTICE, (errmsg("seeding Unicode atoms...")));
+    
+    /* Truncate for clean start */
+    SPI_execute("TRUNCATE atom CASCADE", false, 0);
+    
+    /* Temporarily disable indexes for fast loading */
+    SPI_execute("DROP INDEX IF EXISTS idx_atom_codepoint", false, 0);
+    SPI_execute("DROP INDEX IF EXISTS idx_atom_hilbert", false, 0);
+    SPI_execute("DROP INDEX IF EXISTS idx_atom_geom", false, 0);
+    
+    initStringInfo(&buf);
+    
+    #define ATOM_BATCH_SIZE 2000
+    int batch_count = 0;
+    
+    for (uint32_t cp = 0; cp <= HC_MAX_CODEPOINT; cp++)
+    {
+        /* Skip surrogates */
+        if (cp >= HC_SURROGATE_START && cp <= HC_SURROGATE_END)
+            continue;
+        
+        /* Compute hash, coordinates, Hilbert index using C API */
+        hc_hash_t hash = hc_blake3_codepoint(cp);
+        hc_point4d_t coords = hc_map_codepoint(cp);
+        hc_hilbert_t hilbert = hc_coords_to_hilbert(coords);
+        
+        /* Encode UTF-8 value */
+        uint8_t utf8[4];
+        int utf8_len = encode_utf8(cp, utf8);
+        
+        /* Start new batch INSERT if needed */
+        if (batch_count == 0) {
+            resetStringInfo(&buf);
+            appendStringInfoString(&buf,
+                "INSERT INTO atom (id, codepoint, value, geom, hilbert_lo, hilbert_hi) VALUES ");
+        } else {
+            appendStringInfoChar(&buf, ',');
+        }
+        
+        /* Build VALUES row: ('\\x...', cp, '\\x...', ST_SetSRID(...), lo, hi) */
+        appendStringInfoString(&buf, "('\\x");
+        for (int i = 0; i < 32; i++)
+            appendStringInfo(&buf, "%02x", hash.bytes[i]);
+        appendStringInfo(&buf, "'::bytea,%u,'\\x", cp);
+        for (int i = 0; i < utf8_len; i++)
+            appendStringInfo(&buf, "%02x", utf8[i]);
+        appendStringInfo(&buf, "'::bytea,ST_SetSRID(ST_MakePoint(%.0f,%.0f,%.0f,%.0f),0),%lld,%lld)",
+            (double)coords.x, (double)coords.y, (double)coords.z, (double)coords.m,
+            (long long)hilbert.lo, (long long)hilbert.hi);
+        
+        batch_count++;
+        inserted++;
+        
+        /* Execute batch */
+        if (batch_count >= ATOM_BATCH_SIZE) {
+            ret = SPI_execute(buf.data, false, 0);
+            if (ret != SPI_OK_INSERT)
+                ereport(WARNING, (errmsg("batch insert failed at cp=%u: %s", cp, SPI_result_code_string(ret))));
+            batch_count = 0;
+            
+            /* Progress every 100k */
+            if (inserted % 100000 == 0)
+                ereport(NOTICE, (errmsg("seeded %lld atoms...", (long long)inserted)));
+        }
+    }
+    
+    /* Final batch */
+    if (batch_count > 0) {
+        ret = SPI_execute(buf.data, false, 0);
+        if (ret != SPI_OK_INSERT)
+            ereport(WARNING, (errmsg("final batch insert failed: %s", SPI_result_code_string(ret))));
+    }
+    
+    pfree(buf.data);
+    
+    /* Rebuild indexes */
+    ereport(NOTICE, (errmsg("rebuilding indexes...")));
+    SPI_execute("CREATE INDEX idx_atom_codepoint ON atom(codepoint)", false, 0);
+    SPI_execute("CREATE INDEX idx_atom_hilbert ON atom(hilbert_hi, hilbert_lo)", false, 0);
+    SPI_execute("CREATE INDEX idx_atom_geom ON atom USING GIST(geom)", false, 0);
+    SPI_execute("ANALYZE atom", false, 0);
+    
+    SPI_finish();
+    
+    ereport(NOTICE, (errmsg("seeded %lld atoms successfully", (long long)inserted)));
+    PG_RETURN_INT64(inserted);
 }

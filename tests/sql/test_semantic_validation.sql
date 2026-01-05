@@ -181,18 +181,18 @@ DECLARE
     intra_digit_dist double precision;
     inter_category_dist double precision;
 BEGIN
-    -- Compute category centroids
-    SELECT ST_Centroid(ST_Collect(coords)) INTO digit_centroid
+    -- Compute category centroids (using st_centroid_4d for proper XYZM handling)
+    SELECT st_centroid_4d(ST_Collect(geom)) INTO digit_centroid
     FROM atom WHERE category = 'digit' AND codepoint BETWEEN 48 AND 57;  -- 0-9
     
-    SELECT ST_Centroid(ST_Collect(coords)) INTO letter_upper_centroid
+    SELECT st_centroid_4d(ST_Collect(geom)) INTO letter_upper_centroid
     FROM atom WHERE category = 'letter_upper' AND codepoint BETWEEN 65 AND 90;  -- A-Z
     
-    SELECT ST_Centroid(ST_Collect(coords)) INTO punctuation_centroid
+    SELECT st_centroid_4d(ST_Collect(geom)) INTO punctuation_centroid
     FROM atom WHERE category = 'punctuation_other';
     
-    -- Distance between category centroids
-    inter_category_dist := ST_3DDistance(digit_centroid, letter_upper_centroid);
+    -- Distance between category centroids (use centroid_distance for 4D)
+    inter_category_dist := centroid_distance(digit_centroid, letter_upper_centroid);
     
     RAISE NOTICE 'Inter-category distance (digits vs uppercase): %', inter_category_dist;
     

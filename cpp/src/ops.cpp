@@ -404,7 +404,18 @@ std::vector<std::pair<Blake3Hash, double>> AtomCache::random_walk(
     std::vector<std::pair<Blake3Hash, double>> path;
     path.reserve(steps + 1);
     
-    thread_local std::mt19937 rng(std::random_device{}());
+    // Deterministic seed derived from input hash for reproducibility
+    // XOR all 8 32-bit chunks of the 32-byte hash, mix with steps
+    uint32_t rng_seed = 0;
+    for (size_t i = 0; i < 32; i += 4) {
+        uint32_t chunk = 0;
+        for (size_t j = 0; j < 4; ++j) {
+            chunk |= static_cast<uint32_t>(seed.bytes[i + j]) << (j * 8);
+        }
+        rng_seed ^= chunk;
+    }
+    rng_seed ^= static_cast<uint32_t>(steps) * 2654435761u;  // golden ratio mixing
+    std::mt19937 rng(rng_seed);
     
     Blake3Hash current = seed;
     std::unordered_set<Blake3Hash, Blake3HashHasher> visited;

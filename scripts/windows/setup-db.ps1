@@ -168,6 +168,7 @@ try {
         & $seeder -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -p $env:HC_DB_PORT
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Atom seeding failed" -ForegroundColor Red
+            Write-Host "Database setup failed!" -ForegroundColor Red
             exit 1
         }
         

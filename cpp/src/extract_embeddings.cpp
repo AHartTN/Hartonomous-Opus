@@ -32,6 +32,7 @@
 
 #include "hypercube/types.hpp"
 #include "hypercube/blake3.hpp"
+#include "hypercube/embedding_ops.hpp"  // Centralized SIMD operations
 
 using namespace hypercube;
 
@@ -179,18 +180,9 @@ std::vector<float> load_embedding_tensor(const std::string& filepath, const Tens
     return data;
 }
 
-// Compute cosine similarity between two vectors
+// Compute cosine similarity using centralized SIMD implementation
 float cosine_similarity(const float* a, const float* b, size_t dim) {
-    float dot = 0.0f, norm_a = 0.0f, norm_b = 0.0f;
-
-    for (size_t i = 0; i < dim; i++) {
-        dot += a[i] * b[i];
-        norm_a += a[i] * a[i];
-        norm_b += b[i] * b[i];
-    }
-
-    if (norm_a < 1e-8f || norm_b < 1e-8f) return 0.0f;
-    return dot / (std::sqrt(norm_a) * std::sqrt(norm_b));
+    return embedding::cosine_similarity(a, b, dim);
 }
 
 // Token cache: vocab index → hash + coordinates

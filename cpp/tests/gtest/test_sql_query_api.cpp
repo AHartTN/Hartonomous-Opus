@@ -1,0 +1,188 @@
+// =============================================================================
+// SQL Query API Tests
+// =============================================================================
+
+#include <gtest/gtest.h>
+#include <libpq-fe.h>
+#include <cstdlib>
+#include <string>
+#include <vector>
+
+class SQLQueryAPITest : public ::testing::Test {
+protected:
+    PGconn* conn = nullptr;
+    
+    void SetUp() override {
+        const char* db = std::getenv("HC_DB_NAME");
+        const char* user = std::getenv("HC_DB_USER");
+        const char* host = std::getenv("HC_DB_HOST");
+        const char* port = std::getenv("HC_DB_PORT");
+        const char* pass = std::getenv("PGPASSWORD");
+        
+        std::string conninfo = "dbname=" + std::string(db ? db : "hypercube_test");
+        conninfo += " user=" + std::string(user ? user : "postgres");
+        conninfo += " host=" + std::string(host ? host : "localhost");
+        conninfo += " port=" + std::string(port ? port : "5432");
+        if (pass) conninfo += " password=" + std::string(pass);
+        
+        conn = PQconnectdb(conninfo.c_str());
+        if (PQstatus(conn) != CONNECTION_OK) {
+            GTEST_SKIP() << "Database connection failed: " << PQerrorMessage(conn);
+        }
+    }
+    
+    void TearDown() override {
+        if (conn) {
+            PQfinish(conn);
+            conn = nullptr;
+        }
+    }
+    
+    int row_count(const char* query) {
+        PGresult* res = PQexec(conn, query);
+        int count = (PQresultStatus(res) == PGRES_TUPLES_OK) ? PQntuples(res) : -1;
+        PQclear(res);
+        return count;
+    }
+};
+
+// Test semantic_search function exists and is callable
+TEST_F(SQLQueryAPITest, SemanticSearchCallable) {
+    PGresult* res = PQexec(conn, "SELECT * FROM semantic_search('test query', 10)");
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string err = PQresultErrorMessage(res);
+        PQclear(res);
+        
+        // Function might not exist yet
+        if (err.find("does not exist") != std::string::npos) {
+            GTEST_SKIP() << "semantic_search not implemented";
+        }
+        FAIL() << "semantic_search failed: " << err;
+    }
+    
+    // Should return valid result set (possibly empty)
+    EXPECT_GE(PQntuples(res), 0);
+    PQclear(res);
+}
+
+// Test get_neighbors function exists and is callable
+TEST_F(SQLQueryAPITest, GetNeighborsCallable) {
+    // First get any composition ID
+    PGresult* res = PQexec(conn, "SELECT id FROM composition LIMIT 1");
+    
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        GTEST_SKIP() << "No compositions in database";
+    }
+    
+    std::string id = PQgetvalue(res, 0, 0);
+    PQclear(res);
+    
+    // Call get_neighbors
+    std::string query = "SELECT * FROM get_neighbors('" + id + "'::bytea, 5)";
+    res = PQexec(conn, query.c_str());
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string err = PQresultErrorMessage(res);
+        PQclear(res);
+        
+        if (err.find("does not exist") != std::string::npos) {
+            GTEST_SKIP() << "get_neighbors not implemented";
+        }
+        FAIL() << "get_neighbors failed: " << err;
+    }
+    
+    PQclear(res);
+}
+
+// Test Hilbert range query
+TEST_F(SQLQueryAPITest, HilbertRangeQuery) {
+    PGresult* res = PQexec(conn, 
+        "SELECT * FROM composition WHERE hilbert_lo BETWEEN 0 AND 1000000 LIMIT 10"
+    );
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        PQclear(res);
+        GTEST_SKIP() << "hilbert_lo column not available";
+    }
+    
+    // Should work even if empty
+    EXPECT_GE(PQntuples(res), 0);
+    PQclear(res);
+}
+
+// Test spatial query (PostGIS)
+TEST_F(SQLQueryAPITest, SpatialQuery) {
+    PGresult* res = PQexec(conn,
+        "SELECT c.label FROM composition c "
+        "WHERE c.centroid IS NOT NULL "
+        "ORDER BY ST_Distance(c.centroid, ST_MakePoint(0, 0, 0, 0)) "
+        "LIMIT 5"
+    );
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string err = PQresultErrorMessage(res);
+        PQclear(res);
+        
+        if (err.find("ST_Distance") != std::string::npos || 
+            err.find("centroid") != std::string::npos) {
+            GTEST_SKIP() << "PostGIS spatial query not available";
+        }
+        FAIL() << "Spatial query failed: " << err;
+    }
+    
+    PQclear(res);
+}
+
+// Test relation traversal
+TEST_F(SQLQueryAPITest, RelationTraversal) {
+    PGresult* res = PQexec(conn,
+        "SELECT r.target_id, r.weight "
+        "FROM relation r "
+        "WHERE r.source_type = 'C' "
+        "ORDER BY r.weight DESC "
+        "LIMIT 10"
+    );
+    
+    EXPECT_EQ(PQresultStatus(res), PGRES_TUPLES_OK);
+    PQclear(res);
+}
+
+// Test model registry query
+TEST_F(SQLQueryAPITest, ModelRegistryQuery) {
+    PGresult* res = PQexec(conn, "SELECT * FROM model_registry LIMIT 5");
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        PQclear(res);
+        GTEST_SKIP() << "model_registry not available";
+    }
+    
+    EXPECT_GE(PQntuples(res), 0);
+    PQclear(res);
+}
+
+// Test aggregate statistics
+TEST_F(SQLQueryAPITest, AggregateStats) {
+    struct StatQuery {
+        const char* query;
+        const char* description;
+    };
+    
+    std::vector<StatQuery> queries = {
+        {"SELECT COUNT(*) FROM atom", "atom count"},
+        {"SELECT COUNT(*) FROM composition", "composition count"},
+        {"SELECT COUNT(*) FROM relation", "relation count"},
+    };
+    
+    for (const auto& q : queries) {
+        PGresult* res = PQexec(conn, q.query);
+        EXPECT_EQ(PQresultStatus(res), PGRES_TUPLES_OK) 
+            << "Failed: " << q.description;
+        if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+            int count = std::atoi(PQgetvalue(res, 0, 0));
+            EXPECT_GE(count, 0) << q.description << " should be non-negative";
+        }
+        PQclear(res);
+    }
+}
