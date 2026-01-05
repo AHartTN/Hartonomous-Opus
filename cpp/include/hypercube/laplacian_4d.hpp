@@ -41,6 +41,7 @@ struct LaplacianConfig {
     int num_threads = 0;                // 0 = auto-detect
     bool project_to_sphere = true;      // Project final coords onto hypersphere
     double sphere_radius = 1.0;         // Radius of target hypersphere (before scaling)
+    bool verbose = false;               // Enable verbose debug output
     
     // Convergence tolerance for eigensolver
     double convergence_tol = 1e-8;
@@ -93,6 +94,12 @@ public:
     
     // Get row degree (sum of off-diagonal weights)
     double get_degree(size_t i) const;
+    
+    // Direct access to CSR structure for MKL/external solvers
+    const std::vector<size_t>& row_ptr() const { return row_ptr_; }
+    const std::vector<size_t>& col_idx() const { return col_idx_; }
+    const std::vector<double>& values() const { return values_; }
+    const std::vector<double>& diagonal() const { return diagonal_; }
     
     // Iterate over non-zero entries
     template<typename Func>
@@ -147,6 +154,12 @@ private:
     
     // Build k-NN similarity graph
     SparseSymmetricMatrix build_similarity_graph(
+        const std::vector<std::vector<float>>& embeddings
+    );
+    
+    // Ensure the similarity graph is connected (add edges if needed)
+    void ensure_connectivity(
+        SparseSymmetricMatrix& W,
         const std::vector<std::vector<float>>& embeddings
     );
     

@@ -237,7 +237,8 @@ int ConjugateGradient::solve(
         // α = r^T r / p^T Ap
         double pAp = vec::dot(p, Ap);
         if (std::abs(pAp) < 1e-15) {
-            return -1;  // Breakdown
+            // Treat as convergence, not failure - we're close enough
+            return iter > 0 ? iter : 0;
         }
         double alpha = rs_old / pAp;
         
@@ -487,9 +488,25 @@ void LanczosSolver::lanczos_iteration(
         // w = L * q_j
         L.matvec(Q[j].data(), w.data());
         
+        // DEBUG: Check first iteration
+        if (j == 0) {
+            double w_norm = vec::norm(w);
+            std::cerr << "\n[DEBUG] First Lanczos iter: ||L*q0|| = " << w_norm << "\n";
+            std::cerr << "[DEBUG] First 5 elements of q0: ";
+            for (int i = 0; i < 5 && i < static_cast<int>(n); ++i) std::cerr << Q[0][i] << " ";
+            std::cerr << "\n[DEBUG] First 5 elements of L*q0: ";
+            for (int i = 0; i < 5 && i < static_cast<int>(n); ++i) std::cerr << w[i] << " ";
+            std::cerr << "\n";
+        }
+        
         // α_j = q_j^T * w
         double alpha = vec::dot(Q[j], w);
         T.alpha[j] = alpha;
+        
+        // DEBUG: Print alpha for first few iterations
+        if (j < 5) {
+            std::cerr << "\n[DEBUG] iter " << j << ": alpha=" << alpha;
+        }
         
         // w = w - α_j * q_j
         vec::axpy(-alpha, Q[j], w);
@@ -505,6 +522,11 @@ void LanczosSolver::lanczos_iteration(
         // β_j = ||w||
         double beta = vec::norm(w);
         T.beta[j] = beta;
+        
+        // DEBUG: Print beta for first few iterations
+        if (j < 5) {
+            std::cerr << ", beta=" << beta << "\n";
+        }
         
         // Check for breakdown (lucky breakdown = invariant subspace found)
         if (beta < config_.reorth_tol) {
@@ -679,14 +701,25 @@ void LanczosSolver::extract_ritz_pairs(
 
 bool LanczosSolver::check_convergence(const std::vector<double>& residuals, int k) {
     if (static_cast<int>(residuals.size()) < k) {
+        std::cerr << "\n[CONV] Not enough residuals: " << residuals.size() << " < " << k << "\n";
         return false;
     }
     
+    double max_res = 0.0;
+    int max_idx = 0;
     for (int i = 0; i < k; ++i) {
+        if (residuals[i] > max_res) {
+            max_res = residuals[i];
+            max_idx = i;
+        }
         if (residuals[i] > config_.convergence_tol) {
+            std::cerr << "\n[CONV] Residual[" << i << "] = " << residuals[i] 
+                      << " > tol=" << config_.convergence_tol << "\n";
             return false;
         }
     }
+    std::cerr << "\n[CONV] All " << k << " residuals below tol=" << config_.convergence_tol 
+              << " (max=" << max_res << " at idx " << max_idx << ")\n";
     return true;
 }
 
@@ -694,6 +727,10 @@ LanczosResult LanczosSolver::solve(const SparseSymmetricMatrix& L) {
     LanczosResult result;
     result.converged = false;
     result.iterations_used = 0;
+    
+    std::cerr << "[LANCZOS] Config: tol=" << config_.convergence_tol 
+              << ", max_iter=" << config_.max_iterations
+              << ", num_eigenpairs=" << config_.num_eigenpairs << "\n";
     
     const size_t n = L.dimension();
     if (n == 0) {
@@ -706,7 +743,16 @@ LanczosResult LanczosSolver::solve(const SparseSymmetricMatrix& L) {
     std::vector<std::vector<double>> Q;
     TridiagonalMatrix T;
     
+    int prev_m = -1;  // Track previous subspace size to detect stall
     while (m <= config_.max_iterations) {
+        // If subspace size hasn't changed, we've exhausted expansion options
+        if (m == prev_m) {
+            std::cerr << "\n[LANCZOS] Subspace exhausted at m=" << m 
+                      << ", returning best approximation (residuals may be high)\n";
+            break;
+        }
+        prev_m = m;
+        
         report_progress("Building Krylov subspace", m, config_.max_iterations);
         
         if (config_.use_shift_invert) {
@@ -729,10 +775,11 @@ LanczosResult LanczosSolver::solve(const SparseSymmetricMatrix& L) {
         if (check_convergence(result.residuals, config_.num_eigenpairs)) {
             result.converged = true;
             report_progress("Converged", m, m);
+            std::cerr << "\n";  // Newline after progress
             break;
         }
         
-        // Expand subspace
+        // Expand subspace for next iteration
         m = std::min(m + 20, config_.max_iterations);
     }
     

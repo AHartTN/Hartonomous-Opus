@@ -34,10 +34,14 @@
 #include <numeric>
 #include <limits>
 #include <queue>
+#include <unordered_map>
+#include <unordered_set>
+#include <functional>
 
 // Intel MKL for optimized eigensolvers (highest priority)
 #if defined(HAS_MKL) && HAS_MKL
 #include <mkl.h>
+#include <mkl_solvers_ee.h>  // FEAST eigensolver for sparse matrices
 #define USE_MKL_SOLVER 1
 #define USE_EIGEN_SOLVER 0
 #elif defined(HAS_EIGEN) && HAS_EIGEN
@@ -223,12 +227,24 @@ void SparseSymmetricMatrix::multiply(const std::vector<double>& x, std::vector<d
 }
 
 void SparseSymmetricMatrix::matvec(const double* x, double* y) const {
-    if (!finalized_) return;
+    if (!finalized_) {
+        std::cerr << "[MATVEC] ERROR: matrix not finalized!\n";
+        return;
+    }
     
-    for (size_t i = 0; i < n_; ++i) {
-        double sum = diagonal_[i] * x[i];
-        for (size_t k = row_ptr_[i]; k < row_ptr_[i + 1]; ++k) {
-            sum += values_[k] * x[col_idx_[k]];
+    // Parallel sparse matrix-vector multiply
+    // Each row is independent, perfect for parallelization
+    const size_t n = n_;
+    const size_t* row_ptr = row_ptr_.data();
+    const size_t* col_idx = col_idx_.data();
+    const double* values = values_.data();
+    const double* diag = diagonal_.data();
+    
+    #pragma omp parallel for schedule(static) if(n > 1000)
+    for (size_t i = 0; i < n; ++i) {
+        double sum = diag[i] * x[i];
+        for (size_t k = row_ptr[i]; k < row_ptr[i + 1]; ++k) {
+            sum += values[k] * x[col_idx[k]];
         }
         y[i] = sum;
     }
@@ -485,28 +501,366 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
 #endif  // USE_HNSWLIB
 }
 
+// =============================================================================
+// Connectivity Enforcement via Union-Find + Cross-Component Edges
+// =============================================================================
+
+/**
+ * Ensures the similarity graph is connected by detecting components and
+ * adding edges between them. Uses Union-Find for O(n α(n)) component detection.
+ * 
+ * For Laplacian Eigenmaps to work, the graph MUST be connected.
+ * A disconnected graph has multiple zero eigenvalues (one per component),
+ * which breaks the "skip first eigenvector" logic.
+ * 
+ * Strategy: Find closest pair between each component pair and add edge.
+ */
+void LaplacianProjector::ensure_connectivity(
+    SparseSymmetricMatrix& W,
+    const std::vector<std::vector<float>>& embeddings
+) {
+    const size_t n = W.size();
+    if (n <= 1) return;
+    
+    // Union-Find with path compression and union by rank
+    std::vector<size_t> parent(n), rank_uf(n, 0);
+    std::iota(parent.begin(), parent.end(), 0);
+    
+    std::function<size_t(size_t)> find = [&](size_t x) -> size_t {
+        if (parent[x] != x) parent[x] = find(parent[x]);
+        return parent[x];
+    };
+    
+    auto unite = [&](size_t x, size_t y) {
+        size_t rx = find(x), ry = find(y);
+        if (rx == ry) return false;
+        if (rank_uf[rx] < rank_uf[ry]) std::swap(rx, ry);
+        parent[ry] = rx;
+        if (rank_uf[rx] == rank_uf[ry]) rank_uf[rx]++;
+        return true;
+    };
+    
+    // Build components from existing edges
+    W.for_each_edge([&](size_t i, size_t j, double) {
+        unite(i, j);
+    });
+    
+    // Count components
+    std::unordered_map<size_t, std::vector<size_t>> components;
+    for (size_t i = 0; i < n; ++i) {
+        components[find(i)].push_back(i);
+    }
+    
+    size_t num_components = components.size();
+    if (num_components == 1) {
+        std::cerr << "[CONNECT] Graph is already connected\n";
+        return;
+    }
+    
+    std::cerr << "[CONNECT] Found " << num_components << " disconnected components\n";
+    
+    // Get component list for easier iteration
+    std::vector<std::vector<size_t>> comp_list;
+    comp_list.reserve(num_components);
+    for (auto& [root, members] : components) {
+        comp_list.push_back(std::move(members));
+    }
+    
+    // Find closest cross-component pairs using greedy approach
+    // For each pair of components, find the closest pair of nodes
+    size_t edges_added = 0;
+    const size_t dim = embeddings[0].size();
+    
+    for (size_t c1 = 0; c1 + 1 < comp_list.size(); ++c1) {
+        // Find closest node in any other component to connect this component
+        float best_sim = -1.0f;
+        size_t best_i = 0, best_j = 0;
+        
+        for (size_t i : comp_list[c1]) {
+            const float* emb_i = embeddings[i].data();
+            
+            for (size_t c2 = c1 + 1; c2 < comp_list.size(); ++c2) {
+                // Only consider if not yet in same component
+                if (find(comp_list[c1][0]) == find(comp_list[c2][0])) continue;
+                
+                for (size_t j : comp_list[c2]) {
+                    float sim = embedding::cosine_similarity(emb_i, embeddings[j].data(), dim);
+                    if (sim > best_sim) {
+                        best_sim = sim;
+                        best_i = i;
+                        best_j = j;
+                    }
+                }
+            }
+        }
+        
+        if (best_sim > -0.5f) {  // Accept even negative similarity if needed
+            // Ensure positive weight (shift if necessary)
+            double weight = static_cast<double>(std::max(0.01f, best_sim));
+            W.add_edge(best_i, best_j, weight);
+            unite(best_i, best_j);
+            ++edges_added;
+            
+            if (config_.verbose) {
+                std::cerr << "[CONNECT] Added edge " << best_i << "->" << best_j 
+                          << " (sim=" << best_sim << ")\n";
+            }
+        }
+    }
+    
+    // May need multiple passes if we have many components
+    // Repeat until fully connected
+    size_t pass = 1;
+    while (true) {
+        // Recount components
+        std::fill(parent.begin(), parent.end(), 0);
+        std::iota(parent.begin(), parent.end(), 0);
+        std::fill(rank_uf.begin(), rank_uf.end(), 0);
+        
+        W.for_each_edge([&](size_t i, size_t j, double) {
+            unite(i, j);
+        });
+        
+        std::unordered_set<size_t> roots;
+        for (size_t i = 0; i < n; ++i) {
+            roots.insert(find(i));
+        }
+        
+        if (roots.size() == 1) break;
+        
+        if (++pass > 100) {
+            std::cerr << "[CONNECT] WARNING: Could not fully connect graph after 100 passes\n";
+            break;
+        }
+        
+        // Build new component lists
+        components.clear();
+        for (size_t i = 0; i < n; ++i) {
+            components[find(i)].push_back(i);
+        }
+        comp_list.clear();
+        for (auto& [root, members] : components) {
+            comp_list.push_back(std::move(members));
+        }
+        
+        // Connect first two components
+        if (comp_list.size() >= 2) {
+            float best_sim = -2.0f;
+            size_t best_i = 0, best_j = 0;
+            
+            for (size_t i : comp_list[0]) {
+                for (size_t j : comp_list[1]) {
+                    float sim = embedding::cosine_similarity(
+                        embeddings[i].data(), embeddings[j].data(), dim);
+                    if (sim > best_sim) {
+                        best_sim = sim;
+                        best_i = i;
+                        best_j = j;
+                    }
+                }
+            }
+            
+            double weight = static_cast<double>(std::max(0.01f, best_sim));
+            W.add_edge(best_i, best_j, weight);
+            ++edges_added;
+        }
+    }
+    
+    std::cerr << "[CONNECT] Added " << edges_added << " edges to ensure connectivity\n";
+    
+    // Re-finalize the matrix with new edges
+    W.finalize();
+}
+
 SparseSymmetricMatrix LaplacianProjector::build_laplacian(const SparseSymmetricMatrix& W) {
     const size_t n = W.size();
     SparseSymmetricMatrix L(n);
     
+    // Set diagonal to degree: D_ii = sum_j W_ij
+    for (size_t i = 0; i < n; ++i) {
+        L.set_diagonal(i, W.get_degree(i));
+    }
+    
     // Copy structure from W but negate values for off-diagonal
+    // L = D - W, so off-diagonal entries are -W_ij
     W.for_each_edge([&](size_t i, size_t j, double w) {
-        if (i < j) {
-            L.add_edge(i, j, -w);  // Off-diagonal: -W_ij
-        }
+        L.add_edge(i, j, -w);
     });
     
     L.finalize();
     
-    // Set diagonal to degree: D_ii = sum_j W_ij
-    for (size_t i = 0; i < n; ++i) {
-        double degree = W.get_degree(i);
-        L.set_diagonal(i, degree);
-    }
+    // Verify Laplacian properties
+    size_t l_nnz = 0;
+    L.for_each_edge([&](size_t, size_t, double) { ++l_nnz; });
+    std::cerr << "[DEBUG] Laplacian stats: size=" << n << ", nnz=" << l_nnz << "\n";
     
-    std::cerr << "[LAPLACIAN] Built unnormalized Laplacian L = D - W\n";
+    // Row sums should be ~0 for proper Laplacian
+    std::vector<double> ones(n, 1.0), Lones(n);
+    L.matvec(ones.data(), Lones.data());
+    double norm_sq = 0.0;
+    for (size_t i = 0; i < n; ++i) norm_sq += Lones[i] * Lones[i];
+    std::cerr << "[DEBUG] ||L*1|| = " << std::sqrt(norm_sq) << " (should be ~0)\n";
+    
     return L;
 }
+
+// =============================================================================
+// MKL FEAST Sparse Eigensolver Implementation
+// =============================================================================
+#if USE_MKL_SOLVER
+
+/**
+ * Use MKL FEAST to find smallest non-zero eigenvalues of sparse symmetric matrix.
+ * 
+ * FEAST is a contour integral-based eigensolver that finds ALL eigenvalues
+ * within a specified interval [emin, emax]. For Laplacian Eigenmaps, we want
+ * eigenvalues just above 0 (skipping the null space at λ=0).
+ */
+static std::vector<std::vector<double>> feast_sparse_eigensolver(
+    SparseSymmetricMatrix& L,
+    int k,
+    std::array<double, 4>& eigenvalues_out,
+    int num_threads
+) {
+    const size_t n = L.size();
+    
+    std::cerr << "[MKL-FEAST] Solving sparse " << n << "x" << n << " Laplacian for " << k << " eigenvectors\n";
+    auto feast_start = std::chrono::steady_clock::now();
+    
+    // =========================================================================
+    // Build CSR format for MKL FEAST (upper triangular only, 1-based indexing)
+    // 
+    // Our SparseSymmetricMatrix stores the FULL symmetric matrix (both triangles)
+    // FEAST with uplo='U' expects only the UPPER triangle including diagonal
+    // =========================================================================
+    
+    const auto& src_row_ptr = L.row_ptr();
+    const auto& src_col_idx = L.col_idx();
+    const auto& src_values = L.values();
+    const auto& src_diag = L.diagonal();
+    
+    // First pass: count upper-triangle entries per row
+    std::vector<MKL_INT> csr_row_ptr(n + 1);
+    csr_row_ptr[0] = 1;  // 1-based
+    
+    size_t total_upper = 0;
+    for (size_t i = 0; i < n; ++i) {
+        size_t row_count = 1;  // Diagonal always present
+        for (size_t k = src_row_ptr[i]; k < src_row_ptr[i + 1]; ++k) {
+            if (src_col_idx[k] > i) {  // Upper triangle only
+                ++row_count;
+            }
+        }
+        total_upper += row_count;
+        csr_row_ptr[i + 1] = static_cast<MKL_INT>(total_upper + 1);  // 1-based
+    }
+    
+    // Second pass: fill values (diagonal first, then upper triangle sorted by column)
+    std::vector<double> csr_values;
+    std::vector<MKL_INT> csr_col_idx;
+    csr_values.reserve(total_upper);
+    csr_col_idx.reserve(total_upper);
+    
+    for (size_t i = 0; i < n; ++i) {
+        // Diagonal first
+        csr_values.push_back(src_diag[i]);
+        csr_col_idx.push_back(static_cast<MKL_INT>(i + 1));  // 1-based
+        
+        // Upper triangle entries (already sorted by column in our CSR)
+        for (size_t k = src_row_ptr[i]; k < src_row_ptr[i + 1]; ++k) {
+            if (src_col_idx[k] > i) {
+                csr_values.push_back(src_values[k]);
+                csr_col_idx.push_back(static_cast<MKL_INT>(src_col_idx[k] + 1));  // 1-based
+            }
+        }
+    }
+    
+    std::cerr << "[MKL-FEAST] CSR upper triangle: " << csr_values.size() << " non-zeros\n";
+    
+    // FEAST parameters
+    MKL_INT fpm[128];
+    feastinit(fpm);
+    
+    fpm[0] = 1;   // Print runtime status
+    fpm[1] = 8;   // Number of contour points (default 8, can increase for accuracy)
+    fpm[2] = 12;  // Stopping convergence criteria (10^-fpm[2])
+    fpm[3] = 20;  // Max number of refinement loops
+    fpm[4] = 0;   // User initial subspace (0 = no)
+    fpm[5] = 0;   // Convergence trace (0 = trace of residual)
+    fpm[63] = num_threads > 0 ? num_threads : 0;  // Number of threads (0 = auto)
+    
+    // Search interval: eigenvalues just above 0
+    // For graph Laplacian: λ_0 = 0 (null space), λ_1 > 0 is first non-trivial
+    // We want λ_1 through λ_k
+    double emin = 1e-6;   // Just above 0 to skip null space
+    double emax = 10.0;   // Upper bound (generous for first few eigenvalues)
+    
+    // Request k eigenpairs (we want the k smallest non-zero)
+    MKL_INT m0 = k + 2;   // Initial guess for number of eigenvalues in [emin, emax]
+    MKL_INT m_found = 0;  // Actual number found
+    
+    std::vector<double> eigenvalues(m0);
+    std::vector<double> eigenvectors(n * m0);  // Column-major storage
+    std::vector<double> residuals(m0);
+    
+    MKL_INT mkl_n = static_cast<MKL_INT>(n);
+    double epsout = 0.0;
+    MKL_INT loop = 0;
+    MKL_INT info = 0;
+    
+    char uplo = 'U';  // Upper triangular stored
+    
+    // Call FEAST sparse symmetric eigensolver
+    dfeast_scsrev(&uplo, &mkl_n, 
+                  csr_values.data(), csr_row_ptr.data(), csr_col_idx.data(),
+                  fpm, &epsout, &loop,
+                  &emin, &emax, &m0,
+                  eigenvalues.data(), eigenvectors.data(),
+                  &m_found, residuals.data(), &info);
+    
+    auto feast_end = std::chrono::steady_clock::now();
+    auto feast_ms = std::chrono::duration_cast<std::chrono::milliseconds>(feast_end - feast_start).count();
+    
+    if (info != 0) {
+        std::cerr << "[MKL-FEAST] Warning: info=" << info << " (check MKL docs)\n";
+        if (info == 2) {
+            std::cerr << "[MKL-FEAST] No eigenvalues in search interval - expanding range\n";
+            // Try wider range
+            emax = 100.0;
+            dfeast_scsrev(&uplo, &mkl_n,
+                          csr_values.data(), csr_row_ptr.data(), csr_col_idx.data(),
+                          fpm, &epsout, &loop,
+                          &emin, &emax, &m0,
+                          eigenvalues.data(), eigenvectors.data(),
+                          &m_found, residuals.data(), &info);
+        }
+    }
+    
+    std::cerr << "[MKL-FEAST] Completed in " << feast_ms << " ms, " << loop << " iterations\n";
+    std::cerr << "[MKL-FEAST] Found " << m_found << " eigenvalues in [" << emin << ", " << emax << "]\n";
+    std::cerr << "[MKL-FEAST] Eigenvalues: ";
+    for (MKL_INT i = 0; i < std::min(m_found, (MKL_INT)8); ++i) {
+        std::cerr << eigenvalues[i] << " ";
+    }
+    std::cerr << "\n";
+    
+    // Extract the k smallest eigenvalues (already sorted by FEAST)
+    std::vector<std::vector<double>> result;
+    for (MKL_INT i = 0; i < std::min(m_found, (MKL_INT)k); ++i) {
+        eigenvalues_out[i] = eigenvalues[i];
+        
+        // Copy eigenvector column from result matrix
+        std::vector<double> ev(n);
+        for (size_t r = 0; r < n; ++r) {
+            ev[r] = eigenvectors[r + i * n];  // Column-major
+        }
+        result.push_back(std::move(ev));
+    }
+    
+    return result;
+}
+
+#endif  // USE_MKL_SOLVER
 
 std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     SparseSymmetricMatrix& L,
@@ -514,6 +868,10 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     std::array<double, 4>& eigenvalues_out
 ) {
     const size_t n = L.size();
+    
+    // FEAST DISABLED: for Laplacians of this size (n≈30k, k=4)
+    // classic sparse Lanczos is faster and simpler.
+    // FEAST is designed for many eigenvalues in an interval, not a few near zero.
     
     // ==========================================================================
     // FOR SMALL MATRICES: Use dense eigendecomposition (much more reliable)
@@ -769,6 +1127,7 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     // ==========================================================================
     
     std::cerr << "[LANCZOS] Finding " << k << " smallest non-zero eigenvectors using Lanczos algorithm\n";
+    std::cerr << "[LANCZOS] config_.convergence_tol = " << config_.convergence_tol << "\n";
     
     // Configure Lanczos solver
     lanczos::LanczosConfig lanczos_config;
@@ -776,13 +1135,10 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     lanczos_config.num_eigenpairs = k + 1;
     lanczos_config.max_iterations = std::min(300, static_cast<int>(L.size()) / 2);
     lanczos_config.convergence_tol = config_.convergence_tol;
-    lanczos_config.use_shift_invert = true;  // Crucial for finding smallest eigenvalues
-    // Use POSITIVE shift just above 0: targets eigenvalues near 0
-    // For shift-invert: θ = 1/(λ-σ), largest θ → smallest λ
-    // σ = 1e-4 means we target eigenvalues just above 0 (skipping null space)
-    lanczos_config.shift_sigma = 1e-4;
-    lanczos_config.cg_max_iterations = 500;  // Dense MiniLM manifold needs more iterations
-    lanczos_config.cg_tolerance = 1e-12;
+    std::cerr << "[LANCZOS] lanczos_config.convergence_tol = " << lanczos_config.convergence_tol << "\n";
+    // For graph Laplacians: direct Lanczos finds smallest eigenvalues naturally
+    // Shift-invert is unstable near λ=0 null space
+    lanczos_config.use_shift_invert = false;
     lanczos_config.num_threads = config_.num_threads;
     
     lanczos::LanczosSolver solver(lanczos_config);
@@ -1033,9 +1389,33 @@ ProjectionResult LaplacianProjector::project(
     W.for_each_edge([&](size_t, size_t, double) { ++result.edge_count; });
     result.edge_count /= 2;  // Each edge counted twice
     
+    // Step 1.5: Ensure graph connectivity (fix disconnected components)
+    std::cerr << "\n[1.5] Ensuring graph connectivity...\n";
+    ensure_connectivity(W, embeddings);
+    
     // Step 2: Build unnormalized Laplacian
     std::cerr << "\n[2] Building unnormalized Laplacian L = D - W...\n";
     auto L = build_laplacian(W);
+    
+    // DEBUG: Check Laplacian stats
+    {
+        double max_diag = 0.0, min_diag = std::numeric_limits<double>::max();
+        double max_offdiag = 0.0, min_offdiag = std::numeric_limits<double>::max();
+        size_t nnz = 0;
+        for (size_t i = 0; i < L.size(); ++i) {
+            double d = L.get_diagonal(i);
+            if (d > max_diag) max_diag = d;
+            if (d < min_diag && d != 0) min_diag = d;
+        }
+        L.for_each_edge([&](size_t, size_t, double v) {
+            ++nnz;
+            if (v < min_offdiag) min_offdiag = v;
+            if (v > max_offdiag) max_offdiag = v;
+        });
+        std::cerr << "[DEBUG] Laplacian stats: size=" << L.size() << ", nnz=" << nnz
+                  << "\n  diagonal range: [" << min_diag << ", " << max_diag << "]"
+                  << "\n  off-diag range: [" << min_offdiag << ", " << max_offdiag << "]\n";
+    }
     
     // Step 3: Find 4 smallest non-zero eigenvectors
     std::cerr << "\n[3] Finding 4 smallest non-zero eigenvectors...\n";

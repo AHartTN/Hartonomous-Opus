@@ -16,7 +16,7 @@ protected:
         const char* user = std::getenv("HC_DB_USER");
         const char* host = std::getenv("HC_DB_HOST");
         const char* port = std::getenv("HC_DB_PORT");
-        const char* pass = std::getenv("PGPASSWORD");
+        const char* pass = std::getenv("HC_DB_PASS");
         
         std::string conninfo = "dbname=" + std::string(db ? db : "hypercube_test");
         conninfo += " user=" + std::string(user ? user : "postgres");
@@ -65,7 +65,7 @@ TEST_F(SQLSchemaTest, CoreTablesExist) {
 
 // Test model registry table
 TEST_F(SQLSchemaTest, ModelRegistryExists) {
-    EXPECT_TRUE(table_exists("model_registry")) << "model_registry table should exist";
+    EXPECT_TRUE(table_exists("model")) << "model table should exist";
 }
 
 // Test bigram stats table
@@ -75,14 +75,14 @@ TEST_F(SQLSchemaTest, BigramStatsExists) {
 
 // Test core functions exist
 TEST_F(SQLSchemaTest, CoreFunctionsExist) {
-    EXPECT_TRUE(function_exists("get_or_create_atom")) << "get_or_create_atom should exist";
-    EXPECT_TRUE(function_exists("create_composition_from_atoms")) << "create_composition_from_atoms should exist";
+    EXPECT_TRUE(function_exists("atom_knn")) << "atom_knn should exist";
+    EXPECT_TRUE(function_exists("atom_reconstruct_text")) << "atom_reconstruct_text should exist";
 }
 
 // Test query API functions exist
 TEST_F(SQLSchemaTest, QueryAPIFunctionsExist) {
-    EXPECT_TRUE(function_exists("semantic_search")) << "semantic_search should exist";
-    EXPECT_TRUE(function_exists("get_neighbors")) << "get_neighbors should exist";
+    EXPECT_TRUE(function_exists("search_text")) << "search_text should exist";
+    EXPECT_TRUE(function_exists("semantic_neighbors")) << "semantic_neighbors should exist";
 }
 
 // Test PostGIS extension

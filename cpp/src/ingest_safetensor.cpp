@@ -53,6 +53,7 @@
 #include "hypercube/blake3.hpp"
 #include "hypercube/hilbert.hpp"
 #include "hypercube/atom_calculator.hpp"
+#include "hypercube/laplacian_4d.hpp"
 
 namespace fs = std::filesystem;
 using namespace hypercube;
@@ -251,9 +252,11 @@ bool parse_model_index(const fs::path& index_path);
 bool parse_tokenizer(const fs::path& tokenizer_path);
 bool parse_vocab(const fs::path& vocab_path);
 std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row);
+std::vector<float> read_tensor_slice(const TensorMeta& meta, size_t slice_idx, size_t row);
 std::string floats_to_linestring_ewkb(const float* data, size_t count);
 bool insert_compositions(PGconn* conn);
 bool insert_shapes(PGconn* conn, const IngestConfig& config);
+bool project_and_update_embeddings(PGconn* conn, const IngestConfig& config);
 bool insert_attention_relations(PGconn* conn, const IngestConfig& config);
 
 // ============================================================================
@@ -508,6 +511,50 @@ std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row) {
     } else if (meta.dtype == "F16") {
         const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
         for (size_t i = 0; i < row_size; ++i) {
+            result[i] = f16_to_float(buf[i]);
+        }
+    }
+    
+    return result;
+}
+
+// Read a row from a 3D tensor: tensor[slice_idx, row, :]
+// For experts.gate_up_proj [128, 5120, 16384]: slice_idx=expert, row=input_dim
+std::vector<float> read_tensor_slice(const TensorMeta& meta, size_t slice_idx, size_t row) {
+    if (meta.shape.size() < 3) return read_tensor_row(meta, row);  // Fallback to 2D
+    
+    const MappedFile* mf = get_mapped_file(meta.shard_file);
+    if (!mf || !mf->data()) return {};
+    
+    uint64_t header_size;
+    std::memcpy(&header_size, mf->data(), 8);
+    
+    size_t dim1 = static_cast<size_t>(meta.shape[1]);  // rows per slice
+    size_t dim2 = static_cast<size_t>(meta.shape[2]);  // cols
+    size_t bytes_per_elem = 4;
+    if (meta.dtype == "BF16" || meta.dtype == "F16") bytes_per_elem = 2;
+    
+    // Offset: skip to slice, then to row within slice
+    size_t slice_size = dim1 * dim2 * bytes_per_elem;
+    size_t row_size_bytes = dim2 * bytes_per_elem;
+    size_t offset = 8 + header_size + meta.data_offset_start + 
+                    slice_idx * slice_size + row * row_size_bytes;
+    
+    if (offset + row_size_bytes > mf->size()) return {};
+    
+    const uint8_t* ptr = mf->data() + offset;
+    std::vector<float> result(dim2);
+    
+    if (meta.dtype == "F32") {
+        std::memcpy(result.data(), ptr, dim2 * 4);
+    } else if (meta.dtype == "BF16") {
+        const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
+        for (size_t i = 0; i < dim2; ++i) {
+            result[i] = bf16_to_float(buf[i]);
+        }
+    } else if (meta.dtype == "F16") {
+        const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
+        for (size_t i = 0; i < dim2; ++i) {
             result[i] = f16_to_float(buf[i]);
         }
     }
@@ -1123,12 +1170,32 @@ int main(int argc, char* argv[]) {
         insert_compositions(conn);
     }
     
-    // Skip shapes - 3-table schema doesn't have shape table
-    // Embeddings are projected to 4D centroids instead
-    std::cerr << "\n[5] Skipping shapes (3-table schema uses 4D centroids)...\n";
+    // Project embeddings to 4D via Laplacian eigenmaps
+    // This gives each token its 4D coordinate in YOUR coordinate system
+    std::cerr << "\n[5] Projecting embeddings to 4D via Laplacian eigenmaps...\n";
+    if (!g_tensors.empty()) {
+        project_and_update_embeddings(conn, config);
+    } else {
+        std::cerr << "[PROJ] No tensors found, skipping projection\n";
+    }
     
-    // Insert attention weights as sparse relations
-    std::cerr << "\n[6] Extracting attention weights as sparse relations...\n";
+    // NOW compute composition centroids FROM ATOMS
+    // Atoms have their 4D coordinates from Laplacian projection
+    // Compositions get centroids = average of their constituent atoms' coordinates
+    std::cerr << "\n[6] Computing composition centroids from atoms...\n";
+    {
+        PGresult* res = PQexec(conn, "SELECT recompute_composition_centroids()");
+        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+            std::cerr << "[CENTROID] Failed: " << PQerrorMessage(conn) << "\n";
+        } else {
+            int updated = atoi(PQgetvalue(res, 0, 0));
+            std::cerr << "[CENTROID] Updated " << updated << " composition centroids from atoms\n";
+        }
+        PQclear(res);
+    }
+    
+    // Extract sparse router relations (MoE models)
+    std::cerr << "\n[7] Extracting router weights as sparse relations...\n";
     insert_attention_relations(conn, config);
     
     PQfinish(conn);
@@ -1389,10 +1456,149 @@ static float cosine_similarity_avx2(const float* a, const float* b, size_t n) {
 
 bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
     // ==========================================================================
-    // EXTRACT EVERYTHING: embeddings, projections, MLP, all learned weights
+    // EXTRACT SPARSE RELATIONS FROM MODEL TENSORS
+    // - Router weights: token -> expert routing (MoE models)
+    // - Token relationships emerge from Laplacian projection, not raw weights
     // ==========================================================================
     
-    // Find embedding tensor for token-to-token similarity
+    size_t total_edges = 0;
+    
+    // -------------------------------------------------------------------------
+    // PART 1: Router weights for MoE models - sparse token-to-expert routing
+    // Only extract router.weight tensors which define which experts handle which tokens
+    // -------------------------------------------------------------------------
+    std::vector<TensorMeta*> router_tensors;
+    for (auto& [name, meta] : g_tensors) {
+        if (name.find("router.weight") != std::string::npos && meta.shape.size() >= 2) {
+            router_tensors.push_back(&meta);
+        }
+    }
+    
+    if (!router_tensors.empty()) {
+        std::cerr << "[ROUTER] Found " << router_tensors.size() << " router tensors\n";
+        
+        for (auto* router : router_tensors) {
+            // router.weight is [num_experts, hidden_dim]
+            // Each row is an expert's routing vector
+            int64_t num_experts = router->shape[0];
+            int64_t hidden_dim = router->shape[1];
+            
+            // Parse layer number from tensor name
+            int layer = -1;
+            size_t layers_pos = router->name.find("layers.");
+            if (layers_pos != std::string::npos) {
+                size_t num_start = layers_pos + 7;
+                size_t num_end = router->name.find(".", num_start);
+                if (num_end != std::string::npos) {
+                    layer = std::stoi(router->name.substr(num_start, num_end - num_start));
+                }
+            }
+            
+            std::cerr << "[ROUTER] " << router->name << " [" << num_experts << " experts x " << hidden_dim << " dims] layer=" << layer << "\n";
+            
+            // For each expert, find which tokens route to it above threshold
+            // This creates expert atoms and token->expert edges
+            PGresult* res = PQexec(conn, "BEGIN");
+            PQclear(res);
+            
+            res = PQexec(conn,
+                "CREATE TEMP TABLE tmp_router ("
+                "  source_type CHAR(1), source_id BYTEA,"
+                "  target_type CHAR(1), target_id BYTEA,"
+                "  weight REAL, layer SMALLINT, component TEXT"
+                ") ON COMMIT DROP");
+            PQclear(res);
+            
+            res = PQexec(conn, "COPY tmp_router FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+            PQclear(res);
+            
+            std::string batch;
+            batch.reserve(1 << 20);
+            size_t router_edges = 0;
+            
+            for (int64_t expert_idx = 0; expert_idx < num_experts; ++expert_idx) {
+                auto expert_row = read_tensor_row(*router, static_cast<size_t>(expert_idx));
+                if (expert_row.empty()) continue;
+                
+                // Create expert atom hash
+                std::string expert_key = config.model_name + ":expert:" + std::to_string(layer) + ":" + std::to_string(expert_idx);
+                auto expert_hash = AtomCalculator::compute_vocab_token(expert_key).hash;
+                
+                // Find significant routing weights
+                for (int64_t d = 0; d < hidden_dim && d < static_cast<int64_t>(g_vocab_tokens.size()); ++d) {
+                    float weight = expert_row[d];
+                    if (std::fabs(weight) >= config.weight_threshold) {
+                        // Create edge from token to expert
+                        const auto& token = g_vocab_tokens[d];
+                        char token_type = (token.comp.children.size() <= 1) ? 'A' : 'C';
+                        
+                        batch += token_type;
+                        batch += "\t\\\\x" + token.comp.hash.to_hex() + "\t";
+                        batch += "E\t\\\\x" + expert_hash.to_hex() + "\t";
+                        batch += std::to_string(weight) + "\t";
+                        batch += std::to_string(layer) + "\trouter\n";
+                        router_edges++;
+                        
+                        if (batch.size() > (1 << 19)) {
+                            PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+                            batch.clear();
+                        }
+                    }
+                }
+            }
+            
+            if (!batch.empty()) PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+            PQputCopyEnd(conn, nullptr);
+            res = PQgetResult(conn);
+            PQclear(res);
+            
+            // Insert
+            res = PQexec(conn,
+                ("INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) "
+                 "SELECT source_type, source_id, target_type, target_id, 'R', weight, '" + config.model_name + "', 1, layer, component FROM tmp_router "
+                 "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
+                 "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
+                 "  source_count = relation.source_count + 1").c_str());
+            PQclear(res);
+            
+            res = PQexec(conn, "COMMIT");
+            PQclear(res);
+            
+            std::cerr << "  -> " << router_edges << " routing edges\n";
+            total_edges += router_edges;
+        }
+    } else {
+        std::cerr << "[ROUTER] No router tensors found (not an MoE model)\n";
+    }
+    
+    // -------------------------------------------------------------------------
+    // PART 2: Q/K/V attention projections - extract token relationships
+    // These show how tokens relate through attention mechanisms
+    // -------------------------------------------------------------------------
+    std::vector<TensorMeta*> attn_tensors;
+    for (auto& [name, meta] : g_tensors) {
+        if ((name.find("q_proj.weight") != std::string::npos ||
+             name.find("k_proj.weight") != std::string::npos ||
+             name.find("v_proj.weight") != std::string::npos) && meta.shape.size() == 2) {
+            attn_tensors.push_back(&meta);
+        }
+    }
+    
+    std::cerr << "[ATTN] Found " << attn_tensors.size() << " attention projection tensors\n";
+    std::cerr << "[ATTN] Note: Q/K/V projections are internal model weights, not token relationships.\n";
+    std::cerr << "[ATTN] Token relationships emerge from YOUR 4D coordinate system via Laplacian projection.\n";
+    std::cerr << "[ATTN] Skipping Q/K/V weight extraction - use Laplacian eigenvectors for semantic structure.\n";
+    
+    std::cerr << "[EXTRACT] Total: " << total_edges << " edges from router tensors\n";
+    return true;
+}
+
+// ============================================================================
+// Project Embeddings to 4D and Update Compositions
+// ============================================================================
+
+bool project_and_update_embeddings(PGconn* conn, const IngestConfig& config) {
+    // Find embedding tensor
     TensorMeta* embed = nullptr;
     for (auto& [name, meta] : g_tensors) {
         if (name.find("embed_tokens") != std::string::npos ||
@@ -1403,300 +1609,170 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
         }
     }
     
-    // Collect ALL weight tensors for extraction
-    std::vector<TensorMeta*> weight_tensors;
-    for (auto& [name, meta] : g_tensors) {
-        if (name.find(".weight") != std::string::npos && meta.shape.size() == 2) {
-            weight_tensors.push_back(&meta);
+    if (!embed) {
+        std::cerr << "[PROJ] No embedding tensor found\n";
+        return true;
+    }
+    
+    if (embed->shape.size() < 2) {
+        std::cerr << "[PROJ] Invalid embedding shape\n";
+        return false;
+    }
+    
+    int64_t vocab_size = std::min(embed->shape[0], static_cast<int64_t>(g_vocab_tokens.size()));
+    int64_t embed_dim = embed->shape[1];
+    
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    if (num_threads == 0) num_threads = 4;
+    
+    std::cerr << "[PROJ] Processing " << vocab_size << " tokens x " << embed_dim << " dims\n";
+    std::cerr << "[PROJ] Tensor: " << embed->name << " in " << embed->shard_file << "\n";
+    
+    auto start = std::chrono::steady_clock::now();
+    
+    // Phase 1: Read all embeddings
+    std::cerr << "[PROJ] Reading embeddings...\n";
+    std::vector<std::vector<float>> embeddings(vocab_size);
+    std::atomic<int64_t> read_idx{0};
+    std::atomic<int64_t> read_completed{0};
+    
+    auto read_worker = [&]() {
+        while (true) {
+            int64_t i = read_idx.fetch_add(1);
+            if (i >= vocab_size) break;
+            embeddings[i] = read_tensor_row(*embed, static_cast<size_t>(i));
+            read_completed.fetch_add(1);
+        }
+    };
+    
+    std::vector<std::thread> read_workers;
+    for (unsigned t = 0; t < num_threads; ++t) {
+        read_workers.emplace_back(read_worker);
+    }
+    for (auto& th : read_workers) th.join();
+    
+    auto read_end = std::chrono::steady_clock::now();
+    auto read_ms = std::chrono::duration_cast<std::chrono::milliseconds>(read_end - start).count();
+    std::cerr << "[PROJ] Read complete in " << read_ms << "ms\n";
+    
+    // Phase 2: Project to 4D
+    std::cerr << "[PROJ] Running Laplacian Eigenmaps + Gram-Schmidt...\n";
+    
+    LaplacianConfig lap_config;
+    lap_config.k_neighbors = 15;
+    lap_config.num_threads = num_threads;
+    lap_config.convergence_tol = 1e-8;
+    
+    LaplacianProjector projector(lap_config);
+    projector.set_progress_callback([](const std::string& stage, size_t current, size_t total) {
+        if (total > 0 && current % (total / 20 + 1) == 0) {
+             std::cerr << "  [LAPLACIAN] " << stage << ": " << (current * 100 / total) << "%\r" << std::flush;
+        }
+    });
+    
+    // Collect labels for debugging/logging if needed
+    std::vector<std::string> labels;
+    labels.reserve(vocab_size);
+    for (int64_t i = 0; i < vocab_size; ++i) {
+        labels.push_back(g_vocab_tokens[i].text);
+    }
+    
+    ProjectionResult result = projector.project(embeddings, labels);
+    std::cerr << "\n[PROJ] Projection complete. Variance explained: " << result.total_variance_explained << "\n";
+    
+    // Phase 3: Update database
+    std::cerr << "[PROJ] Updating compositions in database...\n";
+    
+    PGresult* res = PQexec(conn, "BEGIN");
+    PQclear(res);
+    
+    // Create temp table for updates
+    res = PQexec(conn, 
+        "CREATE TEMP TABLE tmp_proj ("
+        "  id BYTEA,"
+        "  centroid GEOMETRY(POINTZM, 0),"
+        "  hilbert_lo BIGINT,"
+        "  hilbert_hi BIGINT"
+        ") ON COMMIT DROP");
+        
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "[PROJ] Create temp table failed: " << PQerrorMessage(conn) << "\n";
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    PQclear(res);
+    
+    res = PQexec(conn, "COPY tmp_proj FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+    if (PQresultStatus(res) != PGRES_COPY_IN) {
+        std::cerr << "[PROJ] COPY start failed: " << PQerrorMessage(conn) << "\n";
+        return false;
+    }
+    PQclear(res);
+    
+    std::string batch;
+    batch.reserve(1024 * 1024);
+    
+    for (int64_t i = 0; i < vocab_size; ++i) {
+        const auto& coords = result.coords[i];
+        const auto& token = g_vocab_tokens[i];
+        
+        // Skip if no hash (shouldn't happen for valid tokens)
+        if (token.comp.hash.is_zero()) continue;
+        
+        batch += "\\\\x" + token.comp.hash.to_hex() + "\t";
+        
+        // POINTZM(x y z m)
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(6);
+        ss << "POINTZM(";
+        ss << coords[0] << " " << coords[1] << " " << coords[2] << " " << coords[3];
+        ss << ")";
+        
+        batch += ss.str() + "\t";
+        batch += std::to_string(result.hilbert_lo[i]) + "\t";
+        batch += std::to_string(result.hilbert_hi[i]) + "\n";
+        
+        if (batch.size() > (1 << 20)) {
+            PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+            batch.clear();
         }
     }
     
-    std::cerr << "[EXTRACT] Found " << weight_tensors.size() << " weight tensors to process\n";
-    
-    size_t total_edges = 0;
-    
-    // -------------------------------------------------------------------------
-    // PART 1: Token-to-token embedding similarity
-    // -------------------------------------------------------------------------
-    if (embed && embed->shape.size() >= 2 && !g_vocab_tokens.empty()) {
-        int64_t vocab_size = std::min(embed->shape[0], static_cast<int64_t>(g_vocab_tokens.size()));
-        int64_t embed_dim = embed->shape[1];
-        
-        // Determine thread count
-        unsigned int num_threads = std::thread::hardware_concurrency();
-        if (num_threads == 0) num_threads = 4;
-        if (num_threads > 16) num_threads = 16;  // Cap to prevent too much contention
-        
-        std::cerr << "[SIMILARITY] Computing pairwise similarity for " << vocab_size 
-                  << " tokens using " << num_threads << " threads (threshold=" << config.weight_threshold << ")\n";
-        
-        // Load all embeddings in parallel
-        std::cerr << "[SIMILARITY] Loading embeddings...\n";
-        std::vector<std::vector<float>> embeddings(vocab_size);
-        {
-            std::atomic<int64_t> load_idx{0};
-            auto load_worker = [&]() {
-                while (true) {
-                    int64_t i = load_idx.fetch_add(1);
-                    if (i >= vocab_size) break;
-                    embeddings[i] = read_tensor_row(*embed, static_cast<size_t>(i));
-                }
-            };
-            std::vector<std::thread> load_threads;
-            for (unsigned t = 0; t < num_threads; ++t) {
-                load_threads.emplace_back(load_worker);
-            }
-            for (auto& th : load_threads) th.join();
-        }
-        std::cerr << "[SIMILARITY] Embeddings loaded, computing and streaming...\n";
-        
-        // Pre-compute types for each token
-        std::vector<char> token_types(vocab_size);
-        for (int64_t i = 0; i < vocab_size; ++i) {
-            token_types[i] = (g_vocab_tokens[i].comp.children.size() <= 1) ? 'A' : 'C';
-        }
-        
-        // STREAMING APPROACH: Process in batches, stream each batch to DB
-        // This avoids accumulating 100M+ edges in memory
-        const int64_t BATCH_ROWS = 1000;  // Process 1000 rows at a time
-        size_t total_sim_edges = 0;
-        auto start = std::chrono::steady_clock::now();
-        
-        for (int64_t batch_start = 0; batch_start < vocab_size; batch_start += BATCH_ROWS) {
-            int64_t batch_end = std::min(batch_start + BATCH_ROWS, vocab_size);
-            
-            // Compute edges for this batch in parallel
-            struct EdgeRecord {
-                char src_type, tgt_type;
-                Blake3Hash src_hash, tgt_hash;
-                float weight;
-            };
-            std::vector<std::vector<EdgeRecord>> thread_edges(num_threads);
-            for (auto& te : thread_edges) te.reserve(50000);
-            
-            std::atomic<int64_t> row_idx{batch_start};
-            
-            auto batch_worker = [&](unsigned tid) {
-                auto& local_edges = thread_edges[tid];
-                while (true) {
-                    int64_t i = row_idx.fetch_add(1);
-                    if (i >= batch_end) break;
-                    
-                    if (embeddings[i].empty()) continue;
-                    const auto& comp_i = g_vocab_tokens[i].comp;
-                    char type_i = token_types[i];
-                    const float* emb_i = embeddings[i].data();
-                    
-                    // Compare with all j > i (upper triangle only)
-                    for (int64_t j = i + 1; j < vocab_size; ++j) {
-                        if (embeddings[j].empty()) continue;
-                        
-                        float sim = cosine_similarity_avx2(
-                            emb_i, embeddings[j].data(),
-                            static_cast<size_t>(embed_dim)
-                        );
-                        
-                        if (sim >= config.weight_threshold) {
-                            const auto& comp_j = g_vocab_tokens[j].comp;
-                            char type_j = token_types[j];
-                            local_edges.push_back({type_i, type_j, comp_i.hash, comp_j.hash, sim});
-                            local_edges.push_back({type_j, type_i, comp_j.hash, comp_i.hash, sim});
-                        }
-                    }
-                }
-            };
-            
-            std::vector<std::thread> workers;
-            for (unsigned t = 0; t < num_threads; ++t) {
-                workers.emplace_back(batch_worker, t);
-            }
-            for (auto& th : workers) th.join();
-            
-            // Count edges in this batch
-            size_t batch_edges = 0;
-            for (const auto& te : thread_edges) batch_edges += te.size();
-            
-            if (batch_edges == 0) continue;
-            
-            // Stream this batch to DB
-            PGresult* res = PQexec(conn, "BEGIN");
-            PQclear(res);
-            
-            res = PQexec(conn,
-                "CREATE TEMP TABLE tmp_sim ("
-                "  source_type CHAR(1), source_id BYTEA,"
-                "  target_type CHAR(1), target_id BYTEA,"
-                "  weight REAL, layer SMALLINT, component TEXT"
-                ") ON COMMIT DROP");
-            PQclear(res);
-            
-            res = PQexec(conn, "COPY tmp_sim FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-            PQclear(res);
-            
-            std::string batch_str;
-            batch_str.reserve(1 << 20);
-            
-            for (const auto& te : thread_edges) {
-                for (const auto& edge : te) {
-                    batch_str += edge.src_type; 
-                    batch_str += "\t\\\\x"; 
-                    batch_str += edge.src_hash.to_hex();
-                    batch_str += "\t"; 
-                    batch_str += edge.tgt_type; 
-                    batch_str += "\t\\\\x"; 
-                    batch_str += edge.tgt_hash.to_hex();
-                    batch_str += "\t"; 
-                    batch_str += std::to_string(edge.weight);
-                    batch_str += "\t-1\tembed_sim\n";
-                    
-                    if (batch_str.size() > (1 << 20)) {
-                        PQputCopyData(conn, batch_str.c_str(), static_cast<int>(batch_str.size()));
-                        batch_str.clear();
-                    }
-                }
-            }
-            
-            if (!batch_str.empty()) {
-                PQputCopyData(conn, batch_str.c_str(), static_cast<int>(batch_str.size()));
-            }
-            PQputCopyEnd(conn, nullptr);
-            res = PQgetResult(conn);
-            PQclear(res);
-            
-            // Insert from temp to permanent table
-            res = PQexec(conn,
-                ("INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) "
-                 "SELECT source_type, source_id, target_type, target_id, 'S', weight, '" + config.model_name + "', 1, layer, component FROM tmp_sim "
-                 "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
-                 "  weight = GREATEST(relation.weight, EXCLUDED.weight), source_count = relation.source_count + 1").c_str());
-            PQclear(res);
-            
-            res = PQexec(conn, "COMMIT");
-            PQclear(res);
-            
-            total_sim_edges += batch_edges;
-            
-            // Progress update
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
-            double work_done = batch_end * (2.0 * vocab_size - batch_end - 1) / 2;
-            double total_work = vocab_size * (vocab_size - 1.0) / 2;
-            double work_pct = 100.0 * work_done / total_work;
-            std::cerr << "  [SIM] Rows " << batch_end << "/" << vocab_size 
-                      << " (" << std::fixed << std::setprecision(1) << work_pct << "%) "
-                      << total_sim_edges << " edges, " << elapsed << "s\r" << std::flush;
-        }
-        
-        auto end = std::chrono::steady_clock::now();
-        auto total_secs = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
-        std::cerr << "\n[SIMILARITY] Inserted " << total_sim_edges << " edges in " << total_secs << "s\n";
-        total_edges += total_sim_edges;
+    if (!batch.empty()) {
+        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
     }
     
-    // -------------------------------------------------------------------------
-    // PART 2: All weight matrices - Q/K/V projections, MLP, everything
-    // -------------------------------------------------------------------------
-    for (auto* tensor : weight_tensors) {
-        if (tensor->shape.size() < 2) continue;
+    PQputCopyEnd(conn, nullptr);
+    res = PQgetResult(conn);
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "[PROJ] COPY failed: " << PQerrorMessage(conn) << "\n";
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    PQclear(res);
+    
+    // Perform UPDATE
+    std::cerr << "[PROJ] Applying updates...\n";
+    res = PQexec(conn,
+        "UPDATE composition c "
+        "SET centroid = t.centroid, "
+        "    hilbert_lo = t.hilbert_lo, "
+        "    hilbert_hi = t.hilbert_hi "
+        "FROM tmp_proj t "
+        "WHERE c.id = t.id");
         
-        int64_t rows = tensor->shape[0];
-        int64_t cols = tensor->shape[1];
-        
-        // Parse layer number from tensor name (e.g., "layers.12.attention.q_proj.weight")
-        int layer = -1;
-        std::string component = tensor->name;
-        size_t layers_pos = tensor->name.find("layers.");
-        if (layers_pos != std::string::npos) {
-            size_t num_start = layers_pos + 7;
-            size_t num_end = tensor->name.find(".", num_start);
-            if (num_end != std::string::npos) {
-                layer = std::stoi(tensor->name.substr(num_start, num_end - num_start));
-                component = tensor->name.substr(num_end + 1);
-            }
-        }
-        // Remove ".weight" suffix
-        if (component.size() > 7 && component.substr(component.size() - 7) == ".weight") {
-            component = component.substr(0, component.size() - 7);
-        }
-        
-        std::cerr << "[WEIGHTS] " << tensor->name << " [" << rows << "x" << cols << "] layer=" << layer << " comp=" << component << "\n";
-        
-        PGresult* res = PQexec(conn, "BEGIN");
-        PQclear(res);
-        
-        res = PQexec(conn,
-            "CREATE TEMP TABLE tmp_wt ("
-            "  source_type CHAR(1), source_id BYTEA,"
-            "  target_type CHAR(1), target_id BYTEA,"
-            "  weight REAL, layer SMALLINT, component TEXT"
-            ") ON COMMIT DROP");
-        PQclear(res);
-        
-        res = PQexec(conn, "COPY tmp_wt FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        PQclear(res);
-        
-        std::string batch;
-        batch.reserve(1 << 20);
-        size_t tensor_edges = 0;
-        
-        for (int64_t r = 0; r < rows; ++r) {
-            auto row_data = read_tensor_row(*tensor, static_cast<size_t>(r));
-            if (row_data.empty()) continue;
-            
-            // Find max for normalization
-            float max_val = 0.0f;
-            for (float v : row_data) {
-                if (std::fabs(v) > max_val) max_val = std::fabs(v);
-            }
-            if (max_val < 1e-8f) continue;
-            
-            for (int64_t c = 0; c < cols; ++c) {
-                float normalized = row_data[c] / max_val;
-                
-                if (std::fabs(normalized) >= config.weight_threshold) {
-                    // Create dimension-based IDs
-                    std::string from_key = config.model_name + ":" + tensor->name + ":r" + std::to_string(r);
-                    std::string to_key = config.model_name + ":" + tensor->name + ":c" + std::to_string(c);
-                    
-                    auto from_hash = AtomCalculator::compute_vocab_token(from_key).hash;
-                    auto to_hash = AtomCalculator::compute_vocab_token(to_key).hash;
-                    
-                    batch += "C\t\\\\x" + from_hash.to_hex() + "\t";
-                    batch += "C\t\\\\x" + to_hash.to_hex() + "\t";
-                    batch += std::to_string(normalized) + "\t";
-                    batch += (layer >= 0 ? std::to_string(layer) : "-1") + "\t";
-                    batch += component + "\n";
-                    tensor_edges++;
-                    
-                    if (batch.size() > (1 << 19)) {
-                        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-                        batch.clear();
-                    }
-                }
-            }
-        }
-        
-        if (!batch.empty()) PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-        PQputCopyEnd(conn, nullptr);
-        res = PQgetResult(conn);
-        PQclear(res);
-        
-        // Insert
-        res = PQexec(conn,
-            ("INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) "
-             "SELECT source_type, source_id, target_type, target_id, 'W', weight, '" + config.model_name + "', 1, layer, component FROM tmp_wt "
-             "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
-             "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
-             "  source_count = relation.source_count + 1").c_str());
-        PQclear(res);
-        
-        res = PQexec(conn, "COMMIT");
-        PQclear(res);
-        
-        std::cerr << "  -> " << tensor_edges << " edges\n";
-        total_edges += tensor_edges;
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "[PROJ] UPDATE failed: " << PQerrorMessage(conn) << "\n";
+        PQexec(conn, "ROLLBACK");
+        return false;
     }
     
-    std::cerr << "[EXTRACT] Total: " << total_edges << " edges from all tensors\n";
+    int updated = atoi(PQcmdTuples(res));
+    PQclear(res);
+    
+    res = PQexec(conn, "COMMIT");
+    PQclear(res);
+    
+    std::cerr << "[PROJ] Updated " << updated << " compositions with 4D coordinates\n";
     return true;
 }

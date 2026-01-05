@@ -96,6 +96,9 @@ struct UniversalConfig {
     // DB parameters
     int batch_size = 1000;
     bool verbose = false;
+    
+    // Embedding-only mode: only process actual embedding tensors (semantic value)
+    bool embeddings_only = false;
 };
 
 // =============================================================================
@@ -196,6 +199,92 @@ private:
 static MappedFile g_mmap;
 static uint64_t g_header_size = 0;
 static std::vector<TensorMeta> g_tensors;
+
+// =============================================================================
+// Embedding Detection - identifies tensors with actual semantic value
+// =============================================================================
+
+/**
+ * Determines if a tensor name indicates it's an actual embedding (semantic vector).
+ * 
+ * Embeddings that HAVE semantic value:
+ *   - token_embedding, embed_tokens, wte, word_embeddings
+ *   - position_embedding, wpe, pos_embed
+ *   - lm_head, output_embed (prediction space)
+ *   - text_embed, vision_embed, shared_embedding
+ * 
+ * Tensors that DON'T have semantic value (just transformations):
+ *   - attention weights (q_proj, k_proj, v_proj, out_proj)
+ *   - layer norms (layernorm, layer_norm, norm)
+ *   - conv kernels (conv1, conv2, downsample)
+ *   - batch norms (bn, batch_norm)
+ *   - bias terms (unless embedding bias)
+ */
+bool is_embedding_tensor(const std::string& name) {
+    // Lowercase for matching
+    std::string lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    
+    // Positive patterns - these ARE embeddings with semantic meaning
+    static const std::vector<std::string> embedding_patterns = {
+        "embed",           // embed_tokens, embedding, embeddings
+        "wte",             // GPT-style word token embeddings
+        "wpe",             // GPT-style word position embeddings  
+        "word_embed",      // BERT-style
+        "token_embed",     // Generic
+        "position_embed",  // Positional embeddings
+        "pos_embed",       // Vision transformer style
+        "patch_embed",     // ViT patch embeddings
+        "cls_token",       // CLS token embedding
+        "class_embed",     // DETR class embeddings
+        "query_embed",     // DETR query embeddings (decoder queries)
+        "lm_head",         // Language model head (often tied to embeddings)
+        "vocab",           // Vocabulary embeddings
+        "shared",          // Shared embedding layers
+    };
+    
+    // Negative patterns - these are NOT semantic embeddings
+    static const std::vector<std::string> exclusion_patterns = {
+        "layernorm",       // Normalization
+        "layer_norm",
+        "norm",            // Too generic but often normalization
+        "bias",            // Bias terms
+        "_proj",           // Projection weights (q_proj, k_proj, etc)
+        "attn",            // Attention weights
+        "attention",
+        "conv",            // Convolution kernels
+        "downsample",      // Downsampling layers
+        "bn",              // BatchNorm
+        "batch_norm",
+        "gamma",           // LayerNorm/BatchNorm parameters
+        "beta",
+        "running_mean",    // BatchNorm statistics
+        "running_var",
+        "num_batches",
+    };
+    
+    // Check for positive patterns first
+    bool has_embed_pattern = false;
+    for (const auto& pattern : embedding_patterns) {
+        if (lower.find(pattern) != std::string::npos) {
+            has_embed_pattern = true;
+            break;
+        }
+    }
+    
+    if (!has_embed_pattern) {
+        return false;  // No embedding pattern found
+    }
+    
+    // Check for exclusion patterns (embedding in name but not actually an embedding)
+    for (const auto& pattern : exclusion_patterns) {
+        if (lower.find(pattern) != std::string::npos) {
+            return false;  // Matches exclusion pattern
+        }
+    }
+    
+    return true;  // Has embedding pattern, no exclusion pattern
+}
 
 // =============================================================================
 // Type Conversion

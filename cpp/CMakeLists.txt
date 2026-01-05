@@ -840,7 +840,7 @@ if(GTest_FOUND)
         )
         add_test(NAME HypercubeSQLTests COMMAND hypercube_sql_tests)
         set_tests_properties(HypercubeSQLTests PROPERTIES
-            ENVIRONMENT "HC_DB_NAME=hypercube_test;HC_DB_USER=postgres;HC_DB_HOST=localhost;HC_DB_PORT=5432"
+            ENVIRONMENT "HC_DB_NAME=hypercube;HC_DB_USER=hartonomous;HC_DB_PASS=hartonomous;HC_DB_HOST=localhost;HC_DB_PORT=5432"
         )
     endif()
 else()
