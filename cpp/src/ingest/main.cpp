@@ -19,6 +19,7 @@
 #include "hypercube/db/atom_cache.hpp"
 #include "hypercube/db/insert.hpp"
 #include "hypercube/db/connection.hpp"
+#include "hypercube/db/helpers.hpp"
 #include "hypercube/ingest/pmi_contraction.hpp"
 
 #include <iostream>
@@ -162,14 +163,13 @@ int main(int argc, char* argv[]) {
         db::insert_new_compositions(conn.get(), all_comps);
         
         // Stats using SQL function
-        PGresult* res = PQexec(conn.get(), "SELECT * FROM db_stats()");
-        if (PQresultStatus(res) == PGRES_TUPLES_OK && PQntuples(res) > 0) {
-            std::cerr << "\nDatabase: " << PQgetvalue(res, 0, 0) << " atoms, "
-                      << PQgetvalue(res, 0, 1) << " compositions, "
-                      << "depth " << PQgetvalue(res, 0, 2) << ", "
-                      << PQgetvalue(res, 0, 3) << "\n";
+        db::Result res = db::exec(conn.get(), "SELECT * FROM db_stats()");
+        if (res.ok() && res.ntuples() > 0) {
+            std::cerr << "\nDatabase: " << res.str(0, 0) << " atoms, "
+                      << res.str(0, 1) << " compositions, "
+                      << "depth " << res.str(0, 2) << ", "
+                      << res.str(0, 3) << "\n";
         }
-        PQclear(res);
     }
     
     auto end = std::chrono::high_resolution_clock::now();

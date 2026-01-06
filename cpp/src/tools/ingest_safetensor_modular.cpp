@@ -58,6 +58,7 @@
 #include "hypercube/ingest/context.hpp"
 #include "hypercube/ingest/parsing.hpp"
 #include "hypercube/ingest/geometry.hpp"
+#include "hypercube/db/helpers.hpp"
 #include "hypercube/ingest/db_operations.hpp"
 
 #ifdef HAS_HNSWLIB
@@ -197,30 +198,29 @@ int main(int argc, char* argv[]) {
     // Step 4: Insert tensor hierarchy as compositions
     std::cerr << "\n[4] Building tensor name hierarchy...\n";
     if (!ctx.tensors.empty()) {
-        db::insert_tensor_hierarchy(conn, ctx, config);
+        ingest::db::insert_tensor_hierarchy(conn, ctx, config);
     }
     
     // Step 5: Insert vocab token compositions (BPE tokens)
     if (!ctx.vocab_tokens.empty()) {
         std::cerr << "\n[5] Inserting token compositions...\n";
-        db::insert_compositions(conn, ctx);
+        ingest::db::insert_compositions(conn, ctx);
     }
     
     // Step 6: Compute composition centroids FROM CHILDREN
     std::cerr << "\n[6] Computing composition centroids hierarchically...\n";
     {
         // First pass: compositions with atom children
-        PGresult* res = PQexec(conn, "SELECT recompute_composition_centroids()");
-        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-            std::cerr << "[CENTROID] Failed: " << PQerrorMessage(conn) << "\n";
+        hypercube::db::Result res = hypercube::db::exec(conn, "SELECT recompute_composition_centroids()");
+        if (!res.ok()) {
+            std::cerr << "[CENTROID] Failed: " << res.error_message() << "\n";
         } else {
-            int updated = atoi(PQgetvalue(res, 0, 0));
+            int updated = res.integer(0, 0);
             std::cerr << "[CENTROID] Updated " << updated << " composition centroids from atoms\n";
         }
-        PQclear(res);
         
         // Second pass: compositions with composition children (hierarchical)
-        res = PQexec(conn,
+        hypercube::db::Result res2 = hypercube::db::exec(conn,
             "WITH RECURSIVE comp_tree AS ("
             "  SELECT id, centroid, 1 as level FROM composition WHERE centroid IS NOT NULL "
             "  UNION ALL "
@@ -237,11 +237,10 @@ int main(int argc, char* argv[]) {
             "UPDATE composition SET centroid = comp_tree.centroid "
             "FROM comp_tree WHERE composition.id = comp_tree.id");
         
-        int hier_updated = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
-        if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+        int hier_updated = res2.ok() ? hypercube::db::cmd_tuples(res2) : 0;
+        if (res2.ok()) {
             std::cerr << "[CENTROID] Updated " << hier_updated << " hierarchical composition centroids\n";
         }
-        PQclear(res);
     }
     
     // === EXTRACT RELATIONS (MODEL-SPECIFIC EDGES) ===
@@ -249,14 +248,14 @@ int main(int argc, char* argv[]) {
     // Step 7: Extract k-NN similarity edges from model embeddings as RELATIONS
     std::cerr << "\n[7] Extracting embedding k-NN similarity as relations...\n";
     if (!ctx.tensors.empty()) {
-        db::extract_embedding_relations(conn, ctx, config);
+        ingest::db::extract_embedding_relations(conn, ctx, config);
     } else {
         std::cerr << "[EMBED] No tensors found, skipping relation extraction\n";
     }
     
     // Step 8: Extract router/attention relations (MoE models, attention weights)
     std::cerr << "\n[8] Extracting weight-based relations (router, attention, MLP)...\n";
-    db::insert_attention_relations(conn, ctx, config);
+    ingest::db::insert_attention_relations(conn, ctx, config);
     
     PQfinish(conn);
     

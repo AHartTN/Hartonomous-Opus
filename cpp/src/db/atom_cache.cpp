@@ -1,4 +1,5 @@
 #include "hypercube/db/atom_cache.hpp"
+#include "hypercube/db/helpers.hpp"
 #include <iostream>
 #include <chrono>
 #include <string>
@@ -45,17 +46,14 @@ bool load_atoms_for_codepoints(
     }
     
     for (int i = 0; i < rows; ++i) {
-        uint32_t cp = static_cast<uint32_t>(std::stoul(PQgetvalue(res, i, 0)));
+        uint32_t cp = get_uint32(res, i, 0);
         
         AtomInfo info;
-        const char* hex = PQgetvalue(res, i, 1);
-        if (hex[0] == '\\' && hex[1] == 'x') {
-            info.hash = Blake3Hash::from_hex(std::string_view(hex + 2, 64));
-        }
-        info.coord_x = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 2))));
-        info.coord_y = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 3))));
-        info.coord_z = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 4))));
-        info.coord_m = static_cast<int32_t>(static_cast<uint32_t>(std::stod(PQgetvalue(res, i, 5))));
+        info.hash = get_hash_from_hex(res, i, 1);
+        info.coord_x = get_int(res, i, 2);
+        info.coord_y = get_int(res, i, 3);
+        info.coord_z = get_int(res, i, 4);
+        info.coord_m = get_int(res, i, 5);
         
         cache[cp] = info;
     }

@@ -33,6 +33,7 @@
 #include "hypercube/types.hpp"
 #include "hypercube/blake3.hpp"
 #include "hypercube/embedding_ops.hpp"  // Centralized SIMD operations
+#include "hypercube/db/helpers.hpp"     // DB accessor helpers
 
 using namespace hypercube;
 
@@ -208,14 +209,14 @@ bool ensure_vocab_atoms(PGconn* conn, const std::vector<std::string>& vocab) {
             "FROM atom WHERE id = '\\x%s'::bytea",
             hash.to_hex().c_str());
 
-        PGresult* res = PQexec(conn, query);
-        if (PQntuples(res) > 0) {
+        db::Result res = db::exec(conn, query);
+        if (res.has_rows()) {
             TokenAtom atom;
             atom.hash = hash;
-            atom.x = std::stod(PQgetvalue(res, 0, 0));
-            atom.y = std::stod(PQgetvalue(res, 0, 1));
-            atom.z = std::stod(PQgetvalue(res, 0, 2));
-            atom.m = std::stod(PQgetvalue(res, 0, 3));
+            atom.x = res.dbl(0, 0);
+            atom.y = res.dbl(0, 1);
+            atom.z = res.dbl(0, 2);
+            atom.m = res.dbl(0, 3);
             atom.exists = true;
             g_token_cache[i] = atom;
             existing++;
@@ -226,7 +227,6 @@ bool ensure_vocab_atoms(PGconn* conn, const std::vector<std::string>& vocab) {
             atom.exists = false;
             g_token_cache[i] = atom;
         }
-        PQclear(res);
     }
 
     std::cerr << "  " << existing << " tokens already in DB, "
@@ -431,18 +431,17 @@ void compute_sparse_edges(
     std::cerr << "  Insert status: " << (ok ? "SUCCESS" : "FAILED") << "\n";
 
     // Show stats from DB
-    PGresult* res = PQexec(conn,
+    db::Result res = db::exec(conn,
         "SELECT count(*) as total_edges, "
         "       avg(ST_M(ST_PointN(geom, 1)))::numeric(10,4) as avg_weight "
         "FROM atom WHERE depth > 0 AND children IS NOT NULL AND array_length(children, 1) = 2");
-    if (PQntuples(res) > 0 && PQgetvalue(res, 0, 0)[0] != '\0') {
+    if (res.ntuples() > 0 && !res.is_null(0, 0)) {
         std::cerr << "\nDB Statistics:\n";
-        std::cerr << "  Total 2-child compositions (edges): " << PQgetvalue(res, 0, 0) << "\n";
-        if (PQgetvalue(res, 0, 1)[0] != '\0') {
-            std::cerr << "  Average weight (M coord): " << PQgetvalue(res, 0, 1) << "\n";
+        std::cerr << "  Total 2-child compositions (edges): " << res.str(0, 0) << "\n";
+        if (!res.is_null(0, 1)) {
+            std::cerr << "  Average weight (M coord): " << res.str(0, 1) << "\n";
         }
     }
-    PQclear(res);
 }
 
 void print_usage(const char* prog) {
@@ -635,20 +634,19 @@ int main(int argc, char* argv[]) {
     );
 
     // Show final statistics - edges are now relations with weight in M coordinate
-    PGresult* res = PQexec(conn,
+    db::Result res = db::exec(conn,
         "SELECT count(*) as edge_relations, "
         "avg(ST_M(coords))::numeric(10,4) as avg_weight, "
         "min(ST_M(coords))::numeric(10,4) as min_weight, "
         "max(ST_M(coords))::numeric(10,4) as max_weight "
         "FROM relation WHERE child_count = 2 AND ST_M(coords) > 0");
-    if (PQntuples(res) > 0 && PQgetvalue(res, 0, 0)[0] != '\0') {
+    if (res.ntuples() > 0 && !res.is_null(0, 0)) {
         std::cerr << "\nEdge relations in Merkle DAG:\n";
-        std::cerr << "  Total edge relations: " << PQgetvalue(res, 0, 0) << "\n";
-        std::cerr << "  Avg weight (M coord): " << PQgetvalue(res, 0, 1) << "\n";
-        std::cerr << "  Weight range: [" << PQgetvalue(res, 0, 2) << ", "
-                  << PQgetvalue(res, 0, 3) << "]\n";
+        std::cerr << "  Total edge relations: " << res.str(0, 0) << "\n";
+        std::cerr << "  Avg weight (M coord): " << res.str(0, 1) << "\n";
+        std::cerr << "  Weight range: [" << res.str(0, 2) << ", "
+                  << res.str(0, 3) << "]\n";
     }
-    PQclear(res);
 
     std::cerr << "\nEdges stored as relations with Hilbert-indexed centroids.\n";
 

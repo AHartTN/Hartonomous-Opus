@@ -7,6 +7,7 @@
  */
 
 #include "hypercube/ingest/db_operations.hpp"
+#include "hypercube/db/helpers.hpp"
 
 namespace hypercube {
 namespace ingest {
@@ -201,7 +202,7 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
         "  hilbert_lo = COALESCE(EXCLUDED.hilbert_lo, composition.hilbert_lo), "
         "  hilbert_hi = COALESCE(EXCLUDED.hilbert_hi, composition.hilbert_hi)");
     
-    int comp_inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
+    int comp_inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? hypercube::db::cmd_tuples(res) : 0;
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         std::cerr << "[HIER] Insert compositions failed: " << PQerrorMessage(conn) << "\n";
     }
@@ -238,7 +239,7 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
             "SELECT composition_id, ordinal, child_type, child_id FROM tmp_hier_atom_child "
             "ON CONFLICT (composition_id, ordinal) DO NOTHING");
         
-        int atom_edges = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
+        int atom_edges = (PQresultStatus(res) == PGRES_COMMAND_OK) ? hypercube::db::cmd_tuples(res) : 0;
         if (PQresultStatus(res) != PGRES_COMMAND_OK) {
             std::cerr << "[HIER] Insert atom children failed: " << PQerrorMessage(conn) << "\n";
         }
@@ -277,7 +278,7 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
             "FROM tmp_hier_child "
             "ON CONFLICT (composition_id, ordinal) DO NOTHING");
         
-        int edges_inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
+        int edges_inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? hypercube::db::cmd_tuples(res) : 0;
         if (PQresultStatus(res) != PGRES_COMMAND_OK) {
             std::cerr << "[HIER] Insert composition edges failed: " << PQerrorMessage(conn) << "\n";
         }
