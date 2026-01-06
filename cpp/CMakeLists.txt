@@ -161,14 +161,14 @@ endif()
 # ============================================================================
 
 add_library(hypercube_core STATIC
-    src/hilbert.cpp
-    src/coordinates.cpp
-    src/blake3_pg.cpp
-    src/ops.cpp
+    src/core/hilbert.cpp
+    src/core/coordinates.cpp
+    src/core/blake3_pg.cpp
+    src/core/ops.cpp
     src/util/utf8.cpp
-    src/atom_calculator.cpp
-    src/laplacian_4d.cpp
-    src/lanczos.cpp
+    src/core/atom_calculator.cpp
+    src/core/laplacian_4d.cpp
+    src/core/lanczos.cpp
 )
 
 target_include_directories(hypercube_core PUBLIC 
@@ -246,7 +246,7 @@ target_link_libraries(hypercube_core
 # ============================================================================
 
 add_library(hypercube_c SHARED
-    src/hypercube_c.cpp
+    src/bridge/hypercube_c.cpp
 )
 
 target_include_directories(hypercube_c PUBLIC
@@ -423,9 +423,9 @@ if(BUILD_PG_EXTENSION)
     
     # C bridge library for embedding operations (C++ with C API)
     add_library(embedding_c SHARED
-        src/embedding_c.cpp
+        src/bridge/embedding_c.cpp
     )
-    
+
     target_include_directories(embedding_c PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
@@ -481,9 +481,9 @@ if(BUILD_PG_EXTENSION)
     
     # C bridge library for generative engine (C++ with C API)
     add_library(generative_c SHARED
-        src/generative_c.cpp
+        src/bridge/generative_c.cpp
     )
-    
+
     target_include_directories(generative_c PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
@@ -677,21 +677,21 @@ if(PostgreSQL_FOUND)
     # PostgreSQL CLI tools
     # -------------------------------------------------------------------------
     
-    add_executable(seed_atoms_parallel src/seed_atoms_parallel.cpp)
+    add_executable(seed_atoms_parallel src/tools/seed_atoms_parallel.cpp)
     target_include_directories(seed_atoms_parallel PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(seed_atoms_parallel hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
-    add_executable(ingest_safetensor src/ingest_safetensor.cpp)
+    add_executable(ingest_safetensor src/tools/ingest_safetensor.cpp)
     target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(ingest_safetensor hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
     # Safetensor ingestion with 4D Laplacian projection (no shape table)
-    add_executable(ingest_safetensor_4d src/ingest_safetensor_4d.cpp)
+    add_executable(ingest_safetensor_4d src/tools/ingest_safetensor_4d.cpp)
     target_include_directories(ingest_safetensor_4d PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(ingest_safetensor_4d hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
     
     # UNIVERSAL safetensor ingestion - ingests ALL tensors from ANY model (vision, language, etc)
-    add_executable(ingest_safetensor_universal src/ingest_safetensor_universal.cpp)
+    add_executable(ingest_safetensor_universal src/tools/ingest_safetensor_universal.cpp)
     target_include_directories(ingest_safetensor_universal PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     if(HAS_HNSWLIB)
         target_include_directories(ingest_safetensor_universal PRIVATE ${HNSWLIB_INCLUDE_DIR})
@@ -699,7 +699,7 @@ if(PostgreSQL_FOUND)
     endif()
     target_link_libraries(ingest_safetensor_universal hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
-    add_executable(extract_embeddings src/extract_embeddings.cpp)
+    add_executable(extract_embeddings src/tools/extract_embeddings.cpp)
     target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
     
