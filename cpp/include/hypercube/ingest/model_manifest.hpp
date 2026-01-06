@@ -35,37 +35,72 @@ namespace fs = std::filesystem;
 enum class TensorCategory {
     UNKNOWN,
     
-    // Embeddings - get eigenmap/orthonormalized projections
+    // =========================================================================
+    // EMBEDDINGS - semantic manifolds
+    // =========================================================================
     TOKEN_EMBEDDING,      // language_model.model.shared.weight [vocab_size, d_model]
-    POSITION_EMBEDDING,   // embed_positions.weight [max_pos, d_model]
-    PATCH_EMBEDDING,      // vision patch embeddings
+    POSITION_EMBEDDING,   // embed_positions.weight [max_pos, d_model] - 1D positional
+    POSITION_EMBEDDING_2D,// row/column embeddings [grid_size, d_model] - 2D positional
+    PATCH_EMBEDDING,      // vision patch embeddings [num_patches, d_model]
     
-    // Attention - extract Q/K/V projections for relational patterns
+    // =========================================================================
+    // OBJECT DETECTION - DETR/Florence visual "tokens"
+    // =========================================================================
+    OBJECT_QUERY,         // query_position_embeddings [num_queries, d_model] - DETR slots
+    CLASS_HEAD,           // class_labels_classifier [num_classes, d_model]
+    BBOX_HEAD,            // bbox_predictor layers
+    
+    // =========================================================================
+    // ATTENTION - extract Q/K/V projections for relational patterns
+    // =========================================================================
     ATTENTION_QUERY,      // q_proj [d_model, d_model]
     ATTENTION_KEY,        // k_proj [d_model, d_model]
     ATTENTION_VALUE,      // v_proj [d_model, d_model]
     ATTENTION_OUTPUT,     // out_proj [d_model, d_model]
     CROSS_ATTENTION,      // encoder_attn (cross-modal attention)
     
-    // FFN - extract transformation patterns
+    // =========================================================================
+    // VISION TOWER - visual feature extractors
+    // =========================================================================
+    VISION_FEATURE,       // vision_tower blocks, backbone features
+    VISION_PROJECTION,    // image_projection [vision_dim, lang_dim]
+    
+    // =========================================================================
+    // FFN - transformation geometry
+    // =========================================================================
     FFN_UP,               // fc1 [ffn_dim, d_model]
     FFN_DOWN,             // fc2 [d_model, ffn_dim]
     FFN_GATE,             // gate_proj (for gated FFNs)
     
-    // Normalization - layer norms, RMS norms
+    // =========================================================================
+    // MOE - Mixture of Experts control flow (THE ROUTING MACHINE)
+    // =========================================================================
+    MOE_ROUTER,           // router.weight, gate.weight - THE BRAIN of MoE
+    MOE_EXPERT_UP,        // expert.w1/gate_proj/up_proj per expert
+    MOE_EXPERT_DOWN,      // expert.w2/down_proj per expert  
+    MOE_EXPERT_GATE,      // expert.w3/gate_proj (gated experts)
+    MOE_SHARED_EXPERT,    // shared expert (DeepSeek V2/V3)
+    
+    // =========================================================================
+    // NORMALIZATION
+    // =========================================================================
     LAYER_NORM,           // layernorm [d_model]
     RMS_NORM,
     
-    // Convolution - for vision models
+    // =========================================================================
+    // CONVOLUTION - vision backbones
+    // =========================================================================
     CONV_KERNEL,          // depthwise/pointwise convs
     
-    // Projection - modality projections
+    // =========================================================================
+    // PROJECTION HEADS
+    // =========================================================================
     MODALITY_PROJECTION,  // image_projection, text_projection
     LOGIT_HEAD,           // final_logits_bias, lm_head
     
-    // MoE - Mixture of Experts (DeepSeek, Qwen)
-    MOE_GATE,             // router weights
-    MOE_EXPERT,           // individual expert weights
+    // Legacy MoE categories (for backwards compat)
+    MOE_GATE,             // alias for MOE_ROUTER
+    MOE_EXPERT,           // alias for generic expert
     
     // Quantization artifacts
     QUANTIZATION_SCALE,
@@ -74,26 +109,57 @@ enum class TensorCategory {
 
 inline std::string category_to_string(TensorCategory cat) {
     switch (cat) {
+        // Embeddings
         case TensorCategory::TOKEN_EMBEDDING: return "TOKEN_EMBEDDING";
         case TensorCategory::POSITION_EMBEDDING: return "POSITION_EMBEDDING";
+        case TensorCategory::POSITION_EMBEDDING_2D: return "POSITION_EMBEDDING_2D";
         case TensorCategory::PATCH_EMBEDDING: return "PATCH_EMBEDDING";
+        
+        // Object Detection
+        case TensorCategory::OBJECT_QUERY: return "OBJECT_QUERY";
+        case TensorCategory::CLASS_HEAD: return "CLASS_HEAD";
+        case TensorCategory::BBOX_HEAD: return "BBOX_HEAD";
+        
+        // Attention
         case TensorCategory::ATTENTION_QUERY: return "ATTENTION_QUERY";
         case TensorCategory::ATTENTION_KEY: return "ATTENTION_KEY";
         case TensorCategory::ATTENTION_VALUE: return "ATTENTION_VALUE";
         case TensorCategory::ATTENTION_OUTPUT: return "ATTENTION_OUTPUT";
         case TensorCategory::CROSS_ATTENTION: return "CROSS_ATTENTION";
+        
+        // Vision
+        case TensorCategory::VISION_FEATURE: return "VISION_FEATURE";
+        case TensorCategory::VISION_PROJECTION: return "VISION_PROJECTION";
+        
+        // FFN
         case TensorCategory::FFN_UP: return "FFN_UP";
         case TensorCategory::FFN_DOWN: return "FFN_DOWN";
         case TensorCategory::FFN_GATE: return "FFN_GATE";
+        
+        // MoE - The Routing Machine
+        case TensorCategory::MOE_ROUTER: return "MOE_ROUTER";
+        case TensorCategory::MOE_EXPERT_UP: return "MOE_EXPERT_UP";
+        case TensorCategory::MOE_EXPERT_DOWN: return "MOE_EXPERT_DOWN";
+        case TensorCategory::MOE_EXPERT_GATE: return "MOE_EXPERT_GATE";
+        case TensorCategory::MOE_SHARED_EXPERT: return "MOE_SHARED_EXPERT";
+        case TensorCategory::MOE_GATE: return "MOE_GATE";  // legacy
+        case TensorCategory::MOE_EXPERT: return "MOE_EXPERT";  // legacy
+        
+        // Normalization
         case TensorCategory::LAYER_NORM: return "LAYER_NORM";
         case TensorCategory::RMS_NORM: return "RMS_NORM";
+        
+        // Convolution
         case TensorCategory::CONV_KERNEL: return "CONV_KERNEL";
+        
+        // Projections
         case TensorCategory::MODALITY_PROJECTION: return "MODALITY_PROJECTION";
         case TensorCategory::LOGIT_HEAD: return "LOGIT_HEAD";
-        case TensorCategory::MOE_GATE: return "MOE_GATE";
-        case TensorCategory::MOE_EXPERT: return "MOE_EXPERT";
+        
+        // Quantization
         case TensorCategory::QUANTIZATION_SCALE: return "QUANTIZATION_SCALE";
         case TensorCategory::QUANTIZATION_ZERO_POINT: return "QUANTIZATION_ZERO_POINT";
+        
         default: return "UNKNOWN";
     }
 }
@@ -251,7 +317,18 @@ struct ModelManifest {
 };
 
 // =============================================================================
-// Tensor Classification Logic
+// Tensor Classification Logic - Comprehensive Multimodal Support
+// =============================================================================
+// 
+// Supports: DETR, Florence, Grounding-DINO, RT-DETR, DeepSeek, Qwen MoE, Llama-4
+// 
+// Key tensor patterns:
+//   - Object queries: query_position_embeddings, object_queries, decoder.query_embed
+//   - 2D positional: row_embeddings, column_embeddings, image_pos_embed
+//   - MoE routing: router.weight, gate.weight, mlp.gate (THE ROUTING MACHINE)
+//   - MoE experts: experts.*.w1/w2/w3, expert.gate_proj/up_proj/down_proj
+//   - Vision: vision_tower, backbone, patch_embed, image_projection
+//   - Detection: class_labels_classifier, bbox_predictor
 // =============================================================================
 
 inline TensorCategory ModelManifest::classify_tensor(const std::string& name, 
@@ -259,7 +336,9 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
     std::string lower_name = name;
     std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), ::tolower);
     
-    // Quantization artifacts - skip these
+    // =========================================================================
+    // 1. QUANTIZATION ARTIFACTS - skip
+    // =========================================================================
     if (lower_name.find("scale") != std::string::npos && shape.size() == 1) {
         return TensorCategory::QUANTIZATION_SCALE;
     }
@@ -267,41 +346,187 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
         return TensorCategory::QUANTIZATION_ZERO_POINT;
     }
     
-    // Embeddings
+    // =========================================================================
+    // 2. OBJECT DETECTION HEADS (DETR, Florence, RT-DETR)
+    // =========================================================================
+    // Object queries - THE semantic anchors of vision transformers
+    if (lower_name.find("query_position_embed") != std::string::npos ||
+        lower_name.find("object_queries") != std::string::npos ||
+        lower_name.find("decoder.query_embed") != std::string::npos ||
+        (lower_name.find("query") != std::string::npos && 
+         lower_name.find("embed") != std::string::npos &&
+         lower_name.find("attn") == std::string::npos)) {
+        return TensorCategory::OBJECT_QUERY;
+    }
+    
+    // Class prediction head
+    if (lower_name.find("class_labels_classifier") != std::string::npos ||
+        lower_name.find("class_embed") != std::string::npos ||
+        (lower_name.find("class") != std::string::npos && 
+         lower_name.find("weight") != std::string::npos &&
+         shape.size() == 2 && shape[0] < 1000)) {  // num_classes typically < 1000
+        return TensorCategory::CLASS_HEAD;
+    }
+    
+    // Bounding box prediction head
+    if (lower_name.find("bbox_predictor") != std::string::npos ||
+        lower_name.find("bbox_embed") != std::string::npos) {
+        return TensorCategory::BBOX_HEAD;
+    }
+    
+    // =========================================================================
+    // 3. 2D POSITIONAL ENCODINGS (Florence, DETR, vision models)
+    // =========================================================================
+    if (lower_name.find("row_embed") != std::string::npos ||
+        lower_name.find("column_embed") != std::string::npos ||
+        lower_name.find("image_pos_embed") != std::string::npos ||
+        (lower_name.find("pos") != std::string::npos && 
+         lower_name.find("embed") != std::string::npos &&
+         lower_name.find("2d") != std::string::npos)) {
+        return TensorCategory::POSITION_EMBEDDING_2D;
+    }
+    
+    // Visual/temporal positional embeddings
+    if (lower_name.find("visual_temporal_embed") != std::string::npos ||
+        lower_name.find("pos_idx_to_embed") != std::string::npos) {
+        return TensorCategory::POSITION_EMBEDDING_2D;
+    }
+    
+    // =========================================================================
+    // 4. MOE - MIXTURE OF EXPERTS (THE ROUTING MACHINE)
+    // =========================================================================
+    // This is the most important MoE structure - the router/gate
+    // Patterns: router.weight, gate.weight, mlp.gate, moe_gate
+    bool is_moe_context = lower_name.find("expert") != std::string::npos ||
+                          lower_name.find("moe") != std::string::npos;
+    
+    // MoE Router - THE BRAIN (must check before generic FFN)
+    if (is_moe_context && 
+        (lower_name.find("router") != std::string::npos ||
+         (lower_name.find("gate") != std::string::npos && 
+          lower_name.find("proj") == std::string::npos))) {  // gate but not gate_proj
+        return TensorCategory::MOE_ROUTER;
+    }
+    
+    // Also catch standalone router patterns
+    if ((lower_name.find("mlp.gate.weight") != std::string::npos ||
+         lower_name.find("moe.gate.weight") != std::string::npos) &&
+        shape.size() == 2) {
+        return TensorCategory::MOE_ROUTER;
+    }
+    
+    // Shared expert (DeepSeek V2/V3)
+    if (lower_name.find("shared_expert") != std::string::npos ||
+        lower_name.find("shared_experts") != std::string::npos) {
+        if (lower_name.find("up_proj") != std::string::npos ||
+            lower_name.find("gate_proj") != std::string::npos ||
+            lower_name.find("w1") != std::string::npos) {
+            return TensorCategory::MOE_SHARED_EXPERT;
+        }
+        if (lower_name.find("down_proj") != std::string::npos ||
+            lower_name.find("w2") != std::string::npos) {
+            return TensorCategory::MOE_SHARED_EXPERT;
+        }
+        return TensorCategory::MOE_SHARED_EXPERT;
+    }
+    
+    // MoE Expert FFN weights
+    if (is_moe_context) {
+        // Expert up projection (w1, gate_proj, up_proj)
+        if (lower_name.find("up_proj") != std::string::npos ||
+            lower_name.find("gate_proj") != std::string::npos ||
+            lower_name.find(".w1") != std::string::npos ||
+            lower_name.find("_w1") != std::string::npos) {
+            return TensorCategory::MOE_EXPERT_UP;
+        }
+        
+        // Expert down projection (w2, down_proj)
+        if (lower_name.find("down_proj") != std::string::npos ||
+            lower_name.find(".w2") != std::string::npos ||
+            lower_name.find("_w2") != std::string::npos) {
+            return TensorCategory::MOE_EXPERT_DOWN;
+        }
+        
+        // Expert gate (w3 in gated FFNs)
+        if (lower_name.find(".w3") != std::string::npos ||
+            lower_name.find("_w3") != std::string::npos) {
+            return TensorCategory::MOE_EXPERT_GATE;
+        }
+        
+        // Generic expert weight
+        return TensorCategory::MOE_EXPERT;
+    }
+    
+    // =========================================================================
+    // 5. VISION TOWER (Florence, CLIP, multimodal models)
+    // =========================================================================
+    if (lower_name.find("vision_tower") != std::string::npos ||
+        lower_name.find("visual_encoder") != std::string::npos ||
+        lower_name.find("vision_model") != std::string::npos) {
+        return TensorCategory::VISION_FEATURE;
+    }
+    
+    // Vision/image projection (cross-modal alignment)
+    if (lower_name.find("image_projection") != std::string::npos ||
+        lower_name.find("image_proj") != std::string::npos ||
+        lower_name.find("visual_projection") != std::string::npos) {
+        return TensorCategory::VISION_PROJECTION;
+    }
+    
+    // CNN backbone (DETR, Grounding-DINO)
+    if (lower_name.find("backbone") != std::string::npos &&
+        lower_name.find("conv") != std::string::npos) {
+        return TensorCategory::CONV_KERNEL;
+    }
+    
+    // =========================================================================
+    // 6. EMBEDDINGS
+    // =========================================================================
     if (lower_name.find("embed") != std::string::npos) {
+        // 1D positional
         if (lower_name.find("position") != std::string::npos || 
             lower_name.find("pos_embed") != std::string::npos) {
             return TensorCategory::POSITION_EMBEDDING;
         }
+        // Patch embeddings
         if (lower_name.find("patch") != std::string::npos) {
             return TensorCategory::PATCH_EMBEDDING;
         }
+        // Token embeddings
         if (lower_name.find("shared") != std::string::npos || 
             lower_name.find("token") != std::string::npos ||
-            lower_name.find("wte") != std::string::npos) {
+            lower_name.find("wte") != std::string::npos ||
+            lower_name.find("word_embed") != std::string::npos) {
             return TensorCategory::TOKEN_EMBEDDING;
         }
-        // Generic embedding
-        if (shape.size() == 2 && shape[0] > 1000) {  // Likely vocab embedding
+        // Large embedding tables are likely vocab
+        if (shape.size() == 2 && shape[0] > 1000) {
             return TensorCategory::TOKEN_EMBEDDING;
         }
     }
     
-    // Logit head
+    // =========================================================================
+    // 7. LOGIT HEAD
+    // =========================================================================
     if (lower_name.find("lm_head") != std::string::npos ||
         lower_name.find("logits_bias") != std::string::npos ||
         lower_name.find("output_projection") != std::string::npos) {
         return TensorCategory::LOGIT_HEAD;
     }
     
-    // Attention
+    // =========================================================================
+    // 8. ATTENTION
+    // =========================================================================
     if (lower_name.find("attn") != std::string::npos || 
         lower_name.find("attention") != std::string::npos) {
-        if (lower_name.find("encoder_attn") != std::string::npos) {
+        // Cross-attention
+        if (lower_name.find("encoder_attn") != std::string::npos ||
+            lower_name.find("cross_attn") != std::string::npos) {
             return TensorCategory::CROSS_ATTENTION;
         }
+        // QKV projections
         if (lower_name.find("q_proj") != std::string::npos || 
-            lower_name.find("query") != std::string::npos) {
+            (lower_name.find("query") != std::string::npos && lower_name.find("weight") != std::string::npos)) {
             return TensorCategory::ATTENTION_QUERY;
         }
         if (lower_name.find("k_proj") != std::string::npos || 
@@ -316,17 +541,24 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
             lower_name.find("o_proj") != std::string::npos) {
             return TensorCategory::ATTENTION_OUTPUT;
         }
+        // QKV combined
+        if (lower_name.find("qkv") != std::string::npos) {
+            return TensorCategory::ATTENTION_QUERY;  // Will need special handling
+        }
     }
     
-    // FFN
+    // =========================================================================
+    // 9. FFN (non-MoE)
+    // =========================================================================
     if (lower_name.find("fc1") != std::string::npos ||
         lower_name.find("up_proj") != std::string::npos ||
-        lower_name.find("gate_proj") != std::string::npos ||
-        lower_name.find("wi_0") != std::string::npos) {
-        if (lower_name.find("gate") != std::string::npos) {
-            return TensorCategory::FFN_GATE;
-        }
+        lower_name.find("wi_0") != std::string::npos ||
+        lower_name.find("wi_1") != std::string::npos) {
         return TensorCategory::FFN_UP;
+    }
+    if (lower_name.find("gate_proj") != std::string::npos &&
+        lower_name.find("expert") == std::string::npos) {
+        return TensorCategory::FFN_GATE;
     }
     if (lower_name.find("fc2") != std::string::npos ||
         lower_name.find("down_proj") != std::string::npos ||
@@ -334,7 +566,9 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
         return TensorCategory::FFN_DOWN;
     }
     
-    // Normalization
+    // =========================================================================
+    // 10. NORMALIZATION
+    // =========================================================================
     if (lower_name.find("norm") != std::string::npos) {
         if (lower_name.find("rms") != std::string::npos) {
             return TensorCategory::RMS_NORM;
@@ -346,21 +580,16 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
         return TensorCategory::LAYER_NORM;
     }
     
-    // Convolution
+    // =========================================================================
+    // 11. CONVOLUTION
+    // =========================================================================
     if (lower_name.find("conv") != std::string::npos) {
         return TensorCategory::CONV_KERNEL;
     }
     
-    // MoE
-    if (lower_name.find("expert") != std::string::npos) {
-        if (lower_name.find("gate") != std::string::npos || 
-            lower_name.find("router") != std::string::npos) {
-            return TensorCategory::MOE_GATE;
-        }
-        return TensorCategory::MOE_EXPERT;
-    }
-    
-    // Projections
+    // =========================================================================
+    // 12. MODALITY PROJECTIONS
+    // =========================================================================
     if (lower_name.find("proj") != std::string::npos) {
         if (lower_name.find("image") != std::string::npos ||
             lower_name.find("text") != std::string::npos ||
@@ -383,14 +612,44 @@ inline void ModelManifest::categorize_tensor(const std::string& name,
     
     // Determine extraction strategy based on category
     switch (plan.category) {
+        // =====================================================================
+        // EMBEDDINGS - extract semantic manifolds
+        // =====================================================================
         case TensorCategory::TOKEN_EMBEDDING:
         case TensorCategory::POSITION_EMBEDDING:
+        case TensorCategory::POSITION_EMBEDDING_2D:
         case TensorCategory::PATCH_EMBEDDING:
         case TensorCategory::MODALITY_PROJECTION:
+        case TensorCategory::VISION_PROJECTION:
+            plan.extract_embeddings = true;
+            embedding_tensors++;
+            break;
+        
+        // =====================================================================
+        // OBJECT DETECTION - DETR/Florence semantic anchors
+        // =====================================================================
+        case TensorCategory::OBJECT_QUERY:
+            plan.extract_embeddings = true;  // These ARE the visual tokens!
+            embedding_tensors++;
+            break;
+            
+        case TensorCategory::CLASS_HEAD:
+        case TensorCategory::BBOX_HEAD:
+            plan.extract_embeddings = true;  // Class prototypes
+            embedding_tensors++;
+            break;
+        
+        // =====================================================================
+        // VISION FEATURES
+        // =====================================================================
+        case TensorCategory::VISION_FEATURE:
             plan.extract_embeddings = true;
             embedding_tensors++;
             break;
             
+        // =====================================================================
+        // ATTENTION - relational patterns
+        // =====================================================================
         case TensorCategory::ATTENTION_QUERY:
         case TensorCategory::ATTENTION_KEY:
         case TensorCategory::ATTENTION_VALUE:
@@ -399,25 +658,64 @@ inline void ModelManifest::categorize_tensor(const std::string& name,
             plan.extract_attention = true;
             attention_tensors++;
             break;
+        
+        // =====================================================================
+        // MOE - THE ROUTING MACHINE (critical structure!)
+        // =====================================================================
+        case TensorCategory::MOE_ROUTER:
+            plan.extract_embeddings = true;  // Router IS the semantic control
+            plan.extract_attention = true;   // Build router→expert graph
+            embedding_tensors++;
+            break;
             
-        case TensorCategory::FFN_UP:
-        case TensorCategory::FFN_DOWN:
-        case TensorCategory::FFN_GATE:
-            plan.extract_statistics = true;
+        case TensorCategory::MOE_EXPERT_UP:
+        case TensorCategory::MOE_EXPERT_DOWN:
+        case TensorCategory::MOE_EXPERT_GATE:
+        case TensorCategory::MOE_SHARED_EXPERT:
+        case TensorCategory::MOE_EXPERT:
+        case TensorCategory::MOE_GATE:  // legacy
+            plan.extract_embeddings = true;  // Expert geometry
             ffn_tensors++;
             break;
             
+        // =====================================================================
+        // FFN - transformation geometry
+        // =====================================================================
+        case TensorCategory::FFN_UP:
+        case TensorCategory::FFN_DOWN:
+        case TensorCategory::FFN_GATE:
+            plan.extract_statistics = true;  // For now - will enable geometry later
+            ffn_tensors++;
+            break;
+        
+        // =====================================================================
+        // NORMALIZATION
+        // =====================================================================
         case TensorCategory::LAYER_NORM:
         case TensorCategory::RMS_NORM:
             plan.extract_statistics = true;
             norm_tensors++;
             break;
             
+        // =====================================================================
+        // CONVOLUTION
+        // =====================================================================
         case TensorCategory::CONV_KERNEL:
             plan.extract_statistics = true;
             conv_tensors++;
             break;
+        
+        // =====================================================================
+        // LOGIT HEAD
+        // =====================================================================
+        case TensorCategory::LOGIT_HEAD:
+            plan.extract_embeddings = true;  // Important for vocab→class mapping
+            embedding_tensors++;
+            break;
             
+        // =====================================================================
+        // SKIP
+        // =====================================================================
         case TensorCategory::QUANTIZATION_SCALE:
         case TensorCategory::QUANTIZATION_ZERO_POINT:
             plan.skip = true;
@@ -434,6 +732,12 @@ inline void ModelManifest::categorize_tensor(const std::string& name,
     std::smatch match;
     if (std::regex_search(name, match, layer_regex)) {
         plan.layer_idx = std::stoi(match[1].str());
+    }
+    
+    // Extract expert index for MoE
+    std::regex expert_regex(R"(experts?[._](\d+))");
+    if (std::regex_search(name, match, expert_regex)) {
+        plan.head_idx = std::stoi(match[1].str());  // Reuse head_idx for expert_idx
     }
     
     // Extract module path (everything before the final component)

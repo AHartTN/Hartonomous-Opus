@@ -742,11 +742,16 @@ if(PostgreSQL_FOUND)
         src/ingest/embedding_relations.cpp
         src/ingest/attention_relations.cpp
         src/ingest/semantic_extraction.cpp
+        src/ingest/multimodal_extraction.cpp
     )
     target_include_directories(hypercube_ingest PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${PostgreSQL_INCLUDE_DIRS}
     )
+    if(HAS_HNSWLIB)
+        target_include_directories(hypercube_ingest PRIVATE ${HNSWLIB_INCLUDE_DIR})
+        target_compile_definitions(hypercube_ingest PRIVATE HAS_HNSWLIB=1)
+    endif()
     target_link_libraries(hypercube_ingest
         hypercube_core
         ${PostgreSQL_LIBRARIES}

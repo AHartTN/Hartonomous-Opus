@@ -61,6 +61,7 @@
 #include "hypercube/ingest/metadata.hpp"
 #include "hypercube/ingest/metadata_db.hpp"
 #include "hypercube/ingest/model_manifest.hpp"
+#include "hypercube/ingest/multimodal_extraction.hpp"
 #include "hypercube/db/helpers.hpp"
 #include "hypercube/ingest/db_operations.hpp"
 
@@ -309,6 +310,20 @@ int main(int argc, char* argv[]) {
     // Step 8: Extract router/attention relations (MoE models, attention weights)
     std::cerr << "\n[8] Extracting weight-based relations (router, attention, MLP)...\n";
     ingest::db::insert_attention_relations(conn, ctx, config);
+    
+    // Step 9: Extract multimodal structures (object queries, MoE routers, positional, vision)
+    // This extracts semantic structures that make DETR, Florence, MoE models actually work
+    std::cerr << "\n[9] Extracting multimodal semantic structures...\n";
+    if (ctx.manifest.has_value() && !safetensor_files.empty()) {
+        // Load the first safetensor file for extraction
+        ingest::SafetensorFile stfile;
+        if (stfile.open(safetensor_files[0])) {
+            size_t multimodal_relations = ingest::extract_multimodal_structures(
+                conn, ctx, *ctx.manifest, stfile
+            );
+            std::cerr << "[MULTIMODAL] Extracted " << multimodal_relations << " semantic relations\n";
+        }
+    }
     
     PQfinish(conn);
     
