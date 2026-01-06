@@ -1,9 +1,19 @@
 #pragma once
 
 #include "hypercube/types.hpp"
+#include "hypercube/hilbert.hpp"
 #include <vector>
 
 namespace hypercube {
+
+/**
+ * Combined result of codepoint mapping - coords AND hilbert index
+ * Avoids redundant Hilbert encode/decode roundtrip
+ */
+struct CodepointMapping {
+    Point4D coords;
+    HilbertIndex hilbert;
+};
 
 /**
  * 4D Fibonacci Lattice Coordinate Mapper for Unicode Atoms
@@ -27,6 +37,14 @@ public:
      * @return 4D point on 3-sphere surface (32 bits per dimension)
      */
     static Point4D map_codepoint(uint32_t codepoint) noexcept;
+    
+    /**
+     * Map a Unicode codepoint to BOTH coords AND hilbert index
+     * This is the efficient version - computes hilbert once during mapping
+     * @param codepoint Unicode codepoint (0 to 0x10FFFF)
+     * @return Combined coords + hilbert index
+     */
+    static CodepointMapping map_codepoint_full(uint32_t codepoint) noexcept;
     
     /**
      * Determine category of a Unicode codepoint

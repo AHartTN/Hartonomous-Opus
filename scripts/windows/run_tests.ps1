@@ -23,13 +23,18 @@ param(
     [string]$Category = 'all',
     [switch]$Verbose,
     [switch]$FailFast,
-    [switch]$NoBuild,
-    [string]$DbName = 'hypercube',
-    [string]$DbUser = 'hartonomous',
-    [string]$DbPass = 'hartonomous',
-    [string]$DbHost = 'localhost',
-    [int]$DbPort = 5432
+    [switch]$NoBuild
 )
+
+# Load environment for database credentials
+. "$PSScriptRoot\env.ps1"
+
+# Use environment variables (set by env.ps1)
+$DbName = $env:HC_DB_NAME
+$DbUser = $env:HC_DB_USER
+$DbPass = $env:HC_DB_PASS
+$DbHost = $env:HC_DB_HOST
+$DbPort = $env:HC_DB_PORT
 
 $ErrorActionPreference = 'Continue'
 $script:TestResults = @{

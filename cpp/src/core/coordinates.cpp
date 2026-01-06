@@ -574,89 +574,71 @@ AtomCategory CoordinateMapper::categorize(uint32_t codepoint) noexcept {
  *   - Result: '0'(rank=6656) and '1'(rank=6657) are adjacent on S³
  *             'A'(rank=0) and '0'(rank=6656) are far apart on S³
  */
-Point4D CoordinateMapper::map_codepoint(uint32_t codepoint) noexcept {
+CodepointMapping CoordinateMapper::map_codepoint_full(uint32_t codepoint) noexcept {
     constexpr uint32_t CENTER = 0x80000000U;
     constexpr double UINT32_MAX_D = static_cast<double>(UINT32_MAX);
-    constexpr double INV_MAX = 1.0 / UINT32_MAX_D;
     
     // Surrogates get center point (compositions live here too)
     if (codepoint >= constants::SURROGATE_START && codepoint <= constants::SURROGATE_END) {
-        return Point4D(CENTER, CENTER, CENTER, CENTER);
+        return CodepointMapping{Point4D(CENTER, CENTER, CENTER, CENTER), HilbertIndex{0, 0}};
     }
     
     // === STEP 1: Get semantic rank ===
     // This is the 1D ordering that encodes Unicode semantics
     uint32_t semantic_rank = codepoint_to_sequence_index(codepoint);
     
-    // === STEP 2: SCALE semantic rank to span FULL Hilbert range ===
-    // ~1.1M codepoints must span 2^128 Hilbert space for uniform S³ distribution
-    // stride = 2^128 / 1,112,064 ≈ 2^108 per codepoint
-    // This ensures points are spread across the ENTIRE surface, not clustered
-    constexpr uint64_t TOTAL_CODEPOINTS = 1112064ULL;
+    // === STEP 2: 4D Fibonacci lattice via Hopf fibration ===
+    // Map rank directly to S³ surface using quasi-uniform distribution
+    // NO Hilbert decode - Hilbert is DERIVED from coords, not the source!
+    //
+    // Hopf fibration: S³ → S² with S¹ fibers
+    // Two angles for S² base (theta, phi) + one angle for S¹ fiber (psi)
+    // Total: 3 angles → 4D coordinates
     
-    // Calculate scaled 128-bit Hilbert index: (semantic_rank * 2^128) / TOTAL_CODEPOINTS
-    // Using 128-bit arithmetic approximation via high bits
-    // stride_hi ≈ 2^64 / TOTAL_CODEPOINTS ≈ 16,575,279,252,282
-    constexpr uint64_t STRIDE_HI = 0x0000E64F4F8A0C67ULL;  // 2^64 / 1112064
-    constexpr uint64_t STRIDE_LO = 0x8D4FDF3B645A1CAAULL;  // fractional part
+    constexpr uint32_t N = TOTAL_VALID_CODEPOINTS;  // ~1.1M points
+    double i = static_cast<double>(semantic_rank);
+    double n = static_cast<double>(N);
     
-    // 128-bit multiply: semantic_rank * stride (MSVC-compatible)
-    // result = semantic_rank * (STRIDE_HI << 64 + STRIDE_LO)
-    //        = (semantic_rank * STRIDE_HI) << 64 + semantic_rank * STRIDE_LO
-#ifdef _MSC_VER
-    uint64_t lo_product_hi, lo_product_lo;
-    lo_product_lo = _umul128(semantic_rank, STRIDE_LO, &lo_product_hi);
-    uint64_t hi_product = semantic_rank * STRIDE_HI;
-    // Add lo_product_hi to hi_product (the <<64 shift means lo_product_hi contributes to high part)
-    uint64_t result_hi = hi_product + lo_product_hi;
-    uint64_t result_lo = lo_product_lo;
-#else
-    __uint128_t stride = (static_cast<__uint128_t>(STRIDE_HI) << 64) | STRIDE_LO;
-    __uint128_t scaled_idx = static_cast<__uint128_t>(semantic_rank) * stride;
-    uint64_t result_lo = static_cast<uint64_t>(scaled_idx);
-    uint64_t result_hi = static_cast<uint64_t>(scaled_idx >> 64);
-#endif
+    // Fibonacci spiral on S² for base (theta, phi)
+    // Uses golden ratio for optimal spacing
+    double theta = std::acos(1.0 - 2.0 * (i + 0.5) / n);  // [0, π]
+    double phi = TWO_PI * i * PHI_INV;  // Golden angle spiral
     
-    HilbertIndex hilbert_idx{
-        result_lo,
-        result_hi
-    };
+    // Fiber angle using plastic constant (algebraically independent from φ)
+    // This ensures the fiber doesn't align with the base pattern
+    double psi = TWO_PI * i * PLASTIC_INV;
     
-    // === STEP 3: Raw Hilbert decode - scaled index → 4D corner-origin coords ===
-    Point4D raw_pt = HilbertCurve::index_to_raw_coords(hilbert_idx);
+    // Hopf fibration: (theta, phi, psi) → (x, y, z, w) on S³
+    // Using half-angles for the standard Hopf parameterization
+    double half_theta = theta * 0.5;
+    double cos_ht = std::cos(half_theta);
+    double sin_ht = std::sin(half_theta);
     
-    // === STEP 4: Convert to floating point centered at hypercube center ===
-    // Map [0, UINT32_MAX] → [-1, 1] with 0.5*MAX → 0
-    double vx = static_cast<double>(raw_pt.x) * INV_MAX * 2.0 - 1.0;
-    double vy = static_cast<double>(raw_pt.y) * INV_MAX * 2.0 - 1.0;
-    double vz = static_cast<double>(raw_pt.z) * INV_MAX * 2.0 - 1.0;
-    double vm = static_cast<double>(raw_pt.m) * INV_MAX * 2.0 - 1.0;
+    double x = cos_ht * std::cos(phi + psi);
+    double y = cos_ht * std::sin(phi + psi);
+    double z = sin_ht * std::cos(phi - psi);
+    double w = sin_ht * std::sin(phi - psi);
     
-    // === STEP 4: Radial project to S³ surface ===
-    // Normalize: v' = v / ||v|| to place on unit 3-sphere
-    double norm_sq = vx*vx + vy*vy + vz*vz + vm*vm;
-    
-    // With corner-origin mapping, the smallest norm is at (0,0,0,0) which maps to (-1,-1,-1,-1)
-    // That has norm = 2, so we never hit the origin singularity
-    double inv_norm = 1.0 / std::sqrt(norm_sq);
-    vx *= inv_norm;
-    vy *= inv_norm;
-    vz *= inv_norm;
-    vm *= inv_norm;
-    
-    // === STEP 5: Scale back to uint32 coordinates ===
+    // Now (x,y,z,w) is on unit S³. Scale to uint32 coordinates.
     // Map [-1, 1] → [0, UINT32_MAX] with CENTER at 2^31
     auto to_coord = [](double unit_val) -> Coord32 {
-        // unit_val ∈ [-1, 1], map to [0, UINT32_MAX]
-        // Formula: (unit_val + 1) * 0.5 * UINT32_MAX
         double normalized = (unit_val + 1.0) * 0.5;
-        // Clamp for floating point edge cases
         if (normalized < 0.0) normalized = 0.0;
         if (normalized > 1.0) normalized = 1.0;
         return static_cast<Coord32>(normalized * UINT32_MAX_D);
     };
     
-    return Point4D(to_coord(vx), to_coord(vy), to_coord(vz), to_coord(vm));
+    Point4D coords(to_coord(x), to_coord(y), to_coord(z), to_coord(w));
+    
+    // === STEP 3: Compute Hilbert index FROM coordinates ===
+    // This is the correct direction: coords → Hilbert, NOT Hilbert → coords
+    HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
+    
+    return CodepointMapping{coords, hilbert};
+}
+
+Point4D CoordinateMapper::map_codepoint(uint32_t codepoint) noexcept {
+    return map_codepoint_full(codepoint).coords;
 }
 
 

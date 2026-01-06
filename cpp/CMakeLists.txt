@@ -35,6 +35,22 @@ endif()
 find_package(Threads REQUIRED)
 
 # ============================================================================
+# OpenMP - CRITICAL for parallel k-NN and matrix operations
+# ============================================================================
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    message(STATUS "OpenMP: Found (version ${OpenMP_CXX_VERSION})")
+    message(STATUS "  OpenMP C++ flags: ${OpenMP_CXX_FLAGS}")
+    message(STATUS "  OpenMP C++ libraries: ${OpenMP_CXX_LIBRARIES}")
+    set(HAS_OPENMP ON)
+else()
+    message(WARNING "OpenMP: NOT FOUND - parallel operations will be single-threaded!")
+    message(WARNING "  For MSVC: OpenMP should be available with /openmp flag")
+    message(WARNING "  For GCC/Clang: Install libomp-dev or similar")
+    set(HAS_OPENMP OFF)
+endif()
+
+# ============================================================================
 # Intel MKL for Optimal Performance on Intel CPUs
 # ============================================================================
 # Priority: MKL > Eigen > Custom Jacobi
@@ -199,41 +215,98 @@ endif()
 
 # Link Intel MKL if available
 if(HAS_MKL)
-    # MKL linking on Windows with Clang/LLVM
+    # MKL linking on Windows with MSVC or Clang
     if(WIN32)
         # Find MKL libraries - use explicit paths since find_library may fail with .lib suffix
         set(MKL_LIB_DIR "${MKL_ROOT}/lib")
         
         set(MKL_INTEL_LP64 "${MKL_LIB_DIR}/mkl_intel_lp64.lib")
-        set(MKL_SEQUENTIAL "${MKL_LIB_DIR}/mkl_sequential.lib")
         set(MKL_CORE "${MKL_LIB_DIR}/mkl_core.lib")
         
-        if(EXISTS "${MKL_INTEL_LP64}" AND EXISTS "${MKL_SEQUENTIAL}" AND EXISTS "${MKL_CORE}")
+        # Find Intel OpenMP runtime (required for mkl_intel_thread)
+        # The compiler directory is at D:/Intel/oneAPI/compiler/latest/lib
+        # MKL_ROOT is typically D:/Intel/oneAPI/mkl/2025.3, so oneAPI root is 2 levels up
+        get_filename_component(ONEAPI_ROOT "${MKL_ROOT}/../.." ABSOLUTE)
+        
+        # Try "latest" first, then versioned paths
+        set(INTEL_OMP_LIB "${ONEAPI_ROOT}/compiler/latest/lib/libiomp5md.lib")
+        if(NOT EXISTS "${INTEL_OMP_LIB}")
+            # Fallback to specific version pattern
+            file(GLOB INTEL_COMPILER_DIRS "${ONEAPI_ROOT}/compiler/*/lib")
+            foreach(DIR ${INTEL_COMPILER_DIRS})
+                if(EXISTS "${DIR}/libiomp5md.lib")
+                    set(INTEL_OMP_LIB "${DIR}/libiomp5md.lib")
+                    break()
+                endif()
+            endforeach()
+        endif()
+        
+        # Use THREADED MKL if Intel OpenMP is available
+        if(EXISTS "${INTEL_OMP_LIB}")
+            set(MKL_THREADING "${MKL_LIB_DIR}/mkl_intel_thread.lib")
+            set(MKL_THREADING_NAME "mkl_intel_thread (threaded)")
+            set(USE_INTEL_OMP TRUE)
+            message(STATUS "Found Intel OpenMP: ${INTEL_OMP_LIB}")
+        else()
+            # Fallback to sequential (no threading in MKL, but OpenMP works for our code)
+            set(MKL_THREADING "${MKL_LIB_DIR}/mkl_sequential.lib")
+            set(MKL_THREADING_NAME "mkl_sequential (no Intel OpenMP found)")
+            set(USE_INTEL_OMP FALSE)
+            message(STATUS "Intel OpenMP not found at ${ONEAPI_ROOT}/compiler/*/lib - using sequential MKL")
+        endif()
+        
+        if(EXISTS "${MKL_INTEL_LP64}" AND EXISTS "${MKL_THREADING}" AND EXISTS "${MKL_CORE}")
             message(STATUS "MKL libraries found:")
             message(STATUS "  mkl_intel_lp64: ${MKL_INTEL_LP64}")
-            message(STATUS "  mkl_sequential: ${MKL_SEQUENTIAL}")
+            message(STATUS "  threading: ${MKL_THREADING_NAME}")
             message(STATUS "  mkl_core: ${MKL_CORE}")
             
             target_include_directories(hypercube_core PUBLIC "${MKL_ROOT}/include")
             target_link_libraries(hypercube_core
-                PUBLIC "${MKL_INTEL_LP64}" "${MKL_SEQUENTIAL}" "${MKL_CORE}"
+                PUBLIC "${MKL_INTEL_LP64}" "${MKL_THREADING}" "${MKL_CORE}"
             )
             target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1)
+            
+            # Link Intel OpenMP runtime if using threaded MKL
+            # CRITICAL: Must use Intel OpenMP, not MSVC OpenMP, for mkl_intel_thread
+            if(USE_INTEL_OMP)
+                target_link_libraries(hypercube_core PUBLIC "${INTEL_OMP_LIB}")
+                # Use Intel OpenMP experimental mode for MSVC
+                target_compile_options(hypercube_core PUBLIC /openmp:experimental)
+                message(STATUS "Using Intel OpenMP runtime for threading")
+            endif()
         else()
             message(WARNING "MKL libraries not found at ${MKL_LIB_DIR} - disabling MKL")
             set(HAS_MKL OFF)
             target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0)
         endif()
     else()
-        # Linux/Mac linking
+        # Linux/Mac linking - use threaded if OpenMP available
         target_include_directories(hypercube_core PUBLIC "${MKL_ROOT}/include")
-        target_link_libraries(hypercube_core
-            PUBLIC mkl_intel_lp64 mkl_sequential mkl_core pthread m dl
-        )
+        if(HAS_OPENMP)
+            target_link_libraries(hypercube_core
+                PUBLIC mkl_intel_lp64 mkl_intel_thread mkl_core iomp5 pthread m dl
+            )
+        else()
+            target_link_libraries(hypercube_core
+                PUBLIC mkl_intel_lp64 mkl_sequential mkl_core pthread m dl
+            )
+        endif()
         target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1)
     endif()
 else()
     target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0)
+endif()
+
+# Link OpenMP if available (and not using Intel OpenMP already)
+if(HAS_OPENMP AND NOT USE_INTEL_OMP)
+    target_link_libraries(hypercube_core PUBLIC OpenMP::OpenMP_CXX)
+    target_compile_definitions(hypercube_core PUBLIC HAS_OPENMP=1)
+elseif(USE_INTEL_OMP)
+    # Using Intel OpenMP, so we have OpenMP support
+    target_compile_definitions(hypercube_core PUBLIC HAS_OPENMP=1)
+else()
+    target_compile_definitions(hypercube_core PUBLIC HAS_OPENMP=0)
 endif()
 
 target_link_libraries(hypercube_core
@@ -668,6 +741,7 @@ if(PostgreSQL_FOUND)
         src/ingest/tensor_hierarchy.cpp
         src/ingest/embedding_relations.cpp
         src/ingest/attention_relations.cpp
+        src/ingest/semantic_extraction.cpp
     )
     target_include_directories(hypercube_ingest PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include

@@ -134,6 +134,10 @@ int main(int argc, char* argv[]) {
     ingest::ModelManifest manifest = ingest::parse_model_manifest(dir);
     manifest.model_name = config.model_name;  // Override with user-specified name
     manifest.print_summary();
+    
+    // Store manifest in context for config-driven tensor lookup
+    ctx.manifest = manifest;
+    
     std::cerr << "\n";
     
     auto total_start = std::chrono::steady_clock::now();
@@ -215,6 +219,15 @@ int main(int argc, char* argv[]) {
     
     std::cerr << "[INFO] Found " << ctx.tensors.size() << " tensors\n";
     
+    // Categorize tensors in manifest for extraction planning
+    if (ctx.manifest.has_value()) {
+        std::cerr << "[3.1] Categorizing tensors for extraction...\n";
+        for (const auto& [name, meta] : ctx.tensors) {
+            ctx.manifest->categorize_tensor(name, meta.shape, meta.dtype);
+        }
+        std::cerr << "[INFO] Created " << ctx.manifest->extraction_plans.size() << " extraction plans\n";
+    }
+    
     // Connect to database
     PGconn* conn = PQconnectdb(config.conninfo.c_str());
     if (PQstatus(conn) != CONNECTION_OK) {
@@ -282,12 +295,15 @@ int main(int argc, char* argv[]) {
     
     // === EXTRACT RELATIONS (MODEL-SPECIFIC EDGES) ===
     
-    // Step 7: Extract k-NN similarity edges from model embeddings as RELATIONS
-    std::cerr << "\n[7] Extracting embedding k-NN similarity as relations...\n";
+    // Step 7: Extract semantic relations from ALL projection matrices
+    // This processes: embeddings, Q/K/V projections, FFN layers - everything
+    // Each model contributes relations tagged with (source_model, layer, component)
+    // Relations ACCUMULATE across models - the semantic substrate grows
+    std::cerr << "\n[7] Extracting complete semantic relations (all projections)...\n";
     if (!ctx.tensors.empty()) {
-        ingest::db::extract_embedding_relations(conn, ctx, config);
+        ingest::db::extract_all_semantic_relations(conn, ctx, config);
     } else {
-        std::cerr << "[EMBED] No tensors found, skipping relation extraction\n";
+        std::cerr << "[SEMANTIC] No tensors found, skipping extraction\n";
     }
     
     // Step 8: Extract router/attention relations (MoE models, attention weights)

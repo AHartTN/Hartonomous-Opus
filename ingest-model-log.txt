@@ -1,25 +1,24 @@
 === Universal Safetensor Ingester (Modular) ===
-Directory: D:\Models\embedding_models\models--meta-llama--Llama-4-Maverick-17B-128E\snapshots\10751cb97a4d7c90f7ed89196b98eb8220cfa1c2
-Model: meta-llama/Llama-4-Maverick-17B-128E
+Directory: D:\Models\detection_models\Conditional-DETR-R50
+Model: Conditional-DETR-R50
 Threshold: 0.5
 
 [0] Parsing model manifest (config.json, architecture detection)...
-[MANIFEST] Parsed config for 10751cb97a4d7c90f7ed89196b98eb8220cfa1c2 (LLAMA)
-[MANIFEST] Found 35 config atoms
+[MANIFEST] Parsed config for Conditional-DETR-R50 (DETR)
+[MANIFEST] Found 92 config atoms
 
 +--------------------------------------------------------------+
 |              MODEL MANIFEST SUMMARY                          |
 +--------------------------------------------------------------+
-  Model: meta-llama/Llama-4-Maverick-17B-128E
-  Architecture: LLAMA
-  Path: D:\Models\embedding_models\models--meta-llama--Llama-4-Maverick-17B-128E\snapshots\10751cb97a4d7c90f7ed89196b98eb8220cfa1c2
+  Model: Conditional-DETR-R50
+  Architecture: DETR
+  Path: D:\Models\detection_models\Conditional-DETR-R50
 +--------------------------------------------------------------+
   DIMENSIONS:
-    Vocab Size: 202048
-    Model Dim (d_model): 5120
-    Layers: 48
-    Attention Heads: 40
-    FFN Dim: 8192
+    Model Dim (d_model): 256
+    Layers: 6
+    Attention Heads: 8
+    FFN Dim: 2048
 +--------------------------------------------------------------+
   TENSORS BY CATEGORY:
     Embeddings:    0 (eigenmap extraction)
@@ -31,1245 +30,1082 @@ Threshold: 0.5
     TOTAL:         0
 +--------------------------------------------------------------+
   METADATA FOR INGESTION:
-    Config atoms:    35
+    Config atoms:    92
     Tokenizer atoms: 0
     BPE merges:      0 (composition edges)
     Vocab entries:   0
 +--------------------------------------------------------------+
 
 
-[1] Parsing tokenizer: "D:\\Models\\embedding_models\\models--meta-llama--Llama-4-Maverick-17B-128E\\snapshots\\10751cb97a4d7c90f7ed89196b98eb8220cfa1c2\\tokenizer.json"
-[TOKENIZER] Loaded 0 BPE merges, 200000 vocab entries
 
 [2.5] Parsing model metadata (config, tokenizer, special tokens)...
 
-=== Parsing Model Metadata: 10751cb97a4d7c90f7ed89196b98eb8220cfa1c2 ===
-[CONFIG] Parsed 68 config atoms, model_type=llama4, vocab_size=202048
-[TOKENIZER] Loaded 1135 special tokens, 0 BPE merges, 200000 vocab entries
-[METADATA] Total: 68 config atoms, 200000 vocab tokens, 0 merges, 1135 special tokens
-[3] Parsing sharded model index: "D:\\Models\\embedding_models\\models--meta-llama--Llama-4-Maverick-17B-128E\\snapshots\\10751cb97a4d7c90f7ed89196b98eb8220cfa1c2\\model.safetensors.index.json"
-  Parsing shard: model-00006-of-00055.safetensors
-  Parsing shard: model-00055-of-00055.safetensors
-  Parsing shard: model-00029-of-00055.safetensors
-  Parsing shard: model-00014-of-00055.safetensors
-  Parsing shard: model-00050-of-00055.safetensors
-  Parsing shard: model-00003-of-00055.safetensors
-  Parsing shard: model-00051-of-00055.safetensors
-  Parsing shard: model-00002-of-00055.safetensors
-  Parsing shard: model-00052-of-00055.safetensors
-  Parsing shard: model-00001-of-00055.safetensors
-  Parsing shard: model-00013-of-00055.safetensors
-  Parsing shard: model-00012-of-00055.safetensors
-  Parsing shard: model-00018-of-00055.safetensors
-  Parsing shard: model-00025-of-00055.safetensors
-  Parsing shard: model-00016-of-00055.safetensors
-  Parsing shard: model-00028-of-00055.safetensors
-  Parsing shard: model-00015-of-00055.safetensors
-  Parsing shard: model-00017-of-00055.safetensors
-  Parsing shard: model-00020-of-00055.safetensors
-  Parsing shard: model-00024-of-00055.safetensors
-  Parsing shard: model-00019-of-00055.safetensors
-  Parsing shard: model-00022-of-00055.safetensors
-  Parsing shard: model-00021-of-00055.safetensors
-  Parsing shard: model-00023-of-00055.safetensors
-  Parsing shard: model-00036-of-00055.safetensors
-  Parsing shard: model-00027-of-00055.safetensors
-  Parsing shard: model-00026-of-00055.safetensors
-  Parsing shard: model-00031-of-00055.safetensors
-  Parsing shard: model-00030-of-00055.safetensors
-  Parsing shard: model-00033-of-00055.safetensors
-  Parsing shard: model-00032-of-00055.safetensors
-  Parsing shard: model-00005-of-00055.safetensors
-  Parsing shard: model-00004-of-00055.safetensors
-  Parsing shard: model-00035-of-00055.safetensors
-  Parsing shard: model-00034-of-00055.safetensors
-  Parsing shard: model-00047-of-00055.safetensors
-  Parsing shard: model-00038-of-00055.safetensors
-  Parsing shard: model-00037-of-00055.safetensors
-  Parsing shard: model-00040-of-00055.safetensors
-  Parsing shard: model-00039-of-00055.safetensors
-  Parsing shard: model-00042-of-00055.safetensors
-  Parsing shard: model-00041-of-00055.safetensors
-  Parsing shard: model-00044-of-00055.safetensors
-  Parsing shard: model-00043-of-00055.safetensors
-  Parsing shard: model-00046-of-00055.safetensors
-  Parsing shard: model-00045-of-00055.safetensors
-  Parsing shard: model-00007-of-00055.safetensors
-  Parsing shard: model-00054-of-00055.safetensors
-  Parsing shard: model-00049-of-00055.safetensors
-  Parsing shard: model-00048-of-00055.safetensors
-  Parsing shard: model-00053-of-00055.safetensors
-  Parsing shard: model-00009-of-00055.safetensors
-  Parsing shard: model-00008-of-00055.safetensors
-  Parsing shard: model-00011-of-00055.safetensors
-  Parsing shard: model-00010-of-00055.safetensors
-[INDEX] Parsed 55 shards, 1061 tensors
-[INFO] Found 1061 tensors
+=== Parsing Model Metadata: Conditional-DETR-R50 ===
+[CONFIG] Parsed 212 config atoms, model_type=conditional_detr, vocab_size=0
+[METADATA] Total: 212 config atoms, 0 vocab tokens, 0 merges, 0 special tokens
+[3] Parsing 1 safetensor files...
+  Parsing: "D:\\Models\\detection_models\\Conditional-DETR-R50\\model.safetensors"
+[INFO] Found 592 tensors
+[3.1] Categorizing tensors for extraction...
+[INFO] Created 592 extraction plans
 
 [3.5] Inserting model metadata as content...
 
-=== Model Metadata Summary: 10751cb97a4d7c90f7ed89196b98eb8220cfa1c2 ===
-[METADATA] Type: llama4
-[METADATA] Config atoms: 68
+=== Inserting Model Metadata: Conditional-DETR-R50 ===
+[METADATA] Type: conditional_detr
+[METADATA] Config atoms: 212
 [METADATA] BPE merges: 0
-[METADATA] Special tokens: 1135
-[METADATA] Vocab tokens: 200000
-[METADATA] Dimensions:
-  - vocab_size: 202048
-  - hidden_dim: 5120
-  - num_layers: 48
-  - num_heads: 40
-  - max_position: 262144
-[METADATA] Special: special = '<|begin_of_text|>' (id=200000)
-[METADATA] Special: special = '<|end_of_text|>' (id=200001)
-[METADATA] Special: special = '<|fim_prefix|>' (id=200002)
-[METADATA] Special: special = '<|fim_middle|>' (id=200003)
-[METADATA] Special: special = '<|fim_suffix|>' (id=200004)
-[METADATA] Special: special = '<|header_start|>' (id=200005)
-[METADATA] Special: special = '<|header_end|>' (id=200006)
-[METADATA] Special: special = '<|eom|>' (id=200007)
-[METADATA] Special: special = '<|eot|>' (id=200008)
-[METADATA] Special: special = '<|step|>' (id=200009)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_0|>' (id=200010)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_1|>' (id=200011)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_2|>' (id=200012)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_3|>' (id=200013)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_4|>' (id=200014)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_5|>' (id=200015)
-[METADATA] Special: special = '<|python_start|>' (id=200016)
-[METADATA] Special: special = '<|python_end|>' (id=200017)
-[METADATA] Special: special = '<|finetune_right_pad|>' (id=200018)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_6|>' (id=200019)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_7|>' (id=200020)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_8|>' (id=200021)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_9|>' (id=200022)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_10|>' (id=200023)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_11|>' (id=200024)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_12|>' (id=200025)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_13|>' (id=200026)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_14|>' (id=200027)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_15|>' (id=200028)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_16|>' (id=200029)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_17|>' (id=200030)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_18|>' (id=200031)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_19|>' (id=200032)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_20|>' (id=200033)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_21|>' (id=200034)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_22|>' (id=200035)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_23|>' (id=200036)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_24|>' (id=200037)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_25|>' (id=200038)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_26|>' (id=200039)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_27|>' (id=200040)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_28|>' (id=200041)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_29|>' (id=200042)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_30|>' (id=200043)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_31|>' (id=200044)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_32|>' (id=200045)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_33|>' (id=200046)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_34|>' (id=200047)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_35|>' (id=200048)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_36|>' (id=200049)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_37|>' (id=200050)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_38|>' (id=200051)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_39|>' (id=200052)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_40|>' (id=200053)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_41|>' (id=200054)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_42|>' (id=200055)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_43|>' (id=200056)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_44|>' (id=200057)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_45|>' (id=200058)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_46|>' (id=200059)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_47|>' (id=200060)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_48|>' (id=200061)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_49|>' (id=200062)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_50|>' (id=200063)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_51|>' (id=200064)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_52|>' (id=200065)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_53|>' (id=200066)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_54|>' (id=200067)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_55|>' (id=200068)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_56|>' (id=200069)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_57|>' (id=200070)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_58|>' (id=200071)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_59|>' (id=200072)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_60|>' (id=200073)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_61|>' (id=200074)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_62|>' (id=200075)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_63|>' (id=200076)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_64|>' (id=200077)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_65|>' (id=200078)
-[METADATA] Special: special = '<|text_post_train_reserved_special_token_66|>' (id=200079)
-[METADATA] Special: special = '<|image_start|>' (id=200080)
-[METADATA] Special: special = '<|image_end|>' (id=200081)
-[METADATA] Special: special = '<|vision_reserved_special_token_0|>' (id=200082)
-[METADATA] Special: special = '<|vision_reserved_special_token_1|>' (id=200083)
-[METADATA] Special: special = '<|tile_x_separator|>' (id=200084)
-[METADATA] Special: special = '<|tile_y_separator|>' (id=200085)
-[METADATA] Special: special = '<|vision_reserved_special_token_2|>' (id=200086)
-[METADATA] Special: special = '<|vision_reserved_special_token_3|>' (id=200087)
-[METADATA] Special: special = '<|vision_reserved_special_token_4|>' (id=200088)
-[METADATA] Special: special = '<|vision_reserved_special_token_5|>' (id=200089)
-[METADATA] Special: special = '<|image|>' (id=200090)
-[METADATA] Special: special = '<|vision_reserved_special_token_6|>' (id=200091)
-[METADATA] Special: special = '<|patch|>' (id=200092)
-[METADATA] Special: special = '<|vision_reserved_special_token_7|>' (id=200093)
-[METADATA] Special: special = '<|vision_reserved_special_token_8|>' (id=200094)
-[METADATA] Special: special = '<|vision_reserved_special_token_9|>' (id=200095)
-[METADATA] Special: special = '<|vision_reserved_special_token_10|>' (id=200096)
-[METADATA] Special: special = '<|vision_reserved_special_token_11|>' (id=200097)
-[METADATA] Special: special = '<|vision_reserved_special_token_12|>' (id=200098)
-[METADATA] Special: special = '<|vision_reserved_special_token_13|>' (id=200099)
-[METADATA] Special: special = '<|vision_reserved_special_token_14|>' (id=200100)
-[METADATA] Special: special = '<|vision_reserved_special_token_15|>' (id=200101)
-[METADATA] Special: special = '<|vision_reserved_special_token_16|>' (id=200102)
-[METADATA] Special: special = '<|vision_reserved_special_token_17|>' (id=200103)
-[METADATA] Special: special = '<|vision_reserved_special_token_18|>' (id=200104)
-[METADATA] Special: special = '<|vision_reserved_special_token_19|>' (id=200105)
-[METADATA] Special: special = '<|vision_reserved_special_token_20|>' (id=200106)
-[METADATA] Special: special = '<|vision_reserved_special_token_21|>' (id=200107)
-[METADATA] Special: special = '<|vision_reserved_special_token_22|>' (id=200108)
-[METADATA] Special: special = '<|vision_reserved_special_token_23|>' (id=200109)
-[METADATA] Special: special = '<|vision_reserved_special_token_24|>' (id=200110)
-[METADATA] Special: special = '<|vision_reserved_special_token_25|>' (id=200111)
-[METADATA] Special: special = '<|vision_reserved_special_token_26|>' (id=200112)
-[METADATA] Special: special = '<|vision_reserved_special_token_27|>' (id=200113)
-[METADATA] Special: special = '<|vision_reserved_special_token_28|>' (id=200114)
-[METADATA] Special: special = '<|vision_reserved_special_token_29|>' (id=200115)
-[METADATA] Special: special = '<|vision_reserved_special_token_30|>' (id=200116)
-[METADATA] Special: special = '<|vision_reserved_special_token_31|>' (id=200117)
-[METADATA] Special: special = '<|vision_reserved_special_token_32|>' (id=200118)
-[METADATA] Special: special = '<|vision_reserved_special_token_33|>' (id=200119)
-[METADATA] Special: special = '<|vision_reserved_special_token_34|>' (id=200120)
-[METADATA] Special: special = '<|vision_reserved_special_token_35|>' (id=200121)
-[METADATA] Special: special = '<|vision_reserved_special_token_36|>' (id=200122)
-[METADATA] Special: special = '<|vision_reserved_special_token_37|>' (id=200123)
-[METADATA] Special: special = '<|vision_reserved_special_token_38|>' (id=200124)
-[METADATA] Special: special = '<|vision_reserved_special_token_39|>' (id=200125)
-[METADATA] Special: special = '<|vision_reserved_special_token_40|>' (id=200126)
-[METADATA] Special: special = '<|vision_reserved_special_token_41|>' (id=200127)
-[METADATA] Special: special = '<|vision_reserved_special_token_42|>' (id=200128)
-[METADATA] Special: special = '<|vision_reserved_special_token_43|>' (id=200129)
-[METADATA] Special: special = '<|vision_reserved_special_token_44|>' (id=200130)
-[METADATA] Special: special = '<|vision_reserved_special_token_45|>' (id=200131)
-[METADATA] Special: special = '<|vision_reserved_special_token_46|>' (id=200132)
-[METADATA] Special: special = '<|vision_reserved_special_token_47|>' (id=200133)
-[METADATA] Special: special = '<|vision_reserved_special_token_48|>' (id=200134)
-[METADATA] Special: special = '<|vision_reserved_special_token_49|>' (id=200135)
-[METADATA] Special: special = '<|vision_reserved_special_token_50|>' (id=200136)
-[METADATA] Special: special = '<|vision_reserved_special_token_51|>' (id=200137)
-[METADATA] Special: special = '<|vision_reserved_special_token_52|>' (id=200138)
-[METADATA] Special: special = '<|vision_reserved_special_token_53|>' (id=200139)
-[METADATA] Special: special = '<|vision_reserved_special_token_54|>' (id=200140)
-[METADATA] Special: special = '<|vision_reserved_special_token_55|>' (id=200141)
-[METADATA] Special: special = '<|vision_reserved_special_token_56|>' (id=200142)
-[METADATA] Special: special = '<|vision_reserved_special_token_57|>' (id=200143)
-[METADATA] Special: special = '<|vision_reserved_special_token_58|>' (id=200144)
-[METADATA] Special: special = '<|vision_reserved_special_token_59|>' (id=200145)
-[METADATA] Special: special = '<|vision_reserved_special_token_60|>' (id=200146)
-[METADATA] Special: special = '<|vision_reserved_special_token_61|>' (id=200147)
-[METADATA] Special: special = '<|vision_reserved_special_token_62|>' (id=200148)
-[METADATA] Special: special = '<|vision_reserved_special_token_63|>' (id=200149)
-[METADATA] Special: special = '<|vision_reserved_special_token_64|>' (id=200150)
-[METADATA] Special: special = '<|vision_reserved_special_token_65|>' (id=200151)
-[METADATA] Special: special = '<|vision_reserved_special_token_66|>' (id=200152)
-[METADATA] Special: special = '<|vision_reserved_special_token_67|>' (id=200153)
-[METADATA] Special: special = '<|vision_reserved_special_token_68|>' (id=200154)
-[METADATA] Special: special = '<|vision_reserved_special_token_69|>' (id=200155)
-[METADATA] Special: special = '<|vision_reserved_special_token_70|>' (id=200156)
-[METADATA] Special: special = '<|vision_reserved_special_token_71|>' (id=200157)
-[METADATA] Special: special = '<|vision_reserved_special_token_72|>' (id=200158)
-[METADATA] Special: special = '<|vision_reserved_special_token_73|>' (id=200159)
-[METADATA] Special: special = '<|vision_reserved_special_token_74|>' (id=200160)
-[METADATA] Special: special = '<|vision_reserved_special_token_75|>' (id=200161)
-[METADATA] Special: special = '<|vision_reserved_special_token_76|>' (id=200162)
-[METADATA] Special: special = '<|vision_reserved_special_token_77|>' (id=200163)
-[METADATA] Special: special = '<|vision_reserved_special_token_78|>' (id=200164)
-[METADATA] Special: special = '<|vision_reserved_special_token_79|>' (id=200165)
-[METADATA] Special: special = '<|vision_reserved_special_token_80|>' (id=200166)
-[METADATA] Special: special = '<|vision_reserved_special_token_81|>' (id=200167)
-[METADATA] Special: special = '<|vision_reserved_special_token_82|>' (id=200168)
-[METADATA] Special: special = '<|vision_reserved_special_token_83|>' (id=200169)
-[METADATA] Special: special = '<|vision_reserved_special_token_84|>' (id=200170)
-[METADATA] Special: special = '<|vision_reserved_special_token_85|>' (id=200171)
-[METADATA] Special: special = '<|vision_reserved_special_token_86|>' (id=200172)
-[METADATA] Special: special = '<|vision_reserved_special_token_87|>' (id=200173)
-[METADATA] Special: special = '<|vision_reserved_special_token_88|>' (id=200174)
-[METADATA] Special: special = '<|vision_reserved_special_token_89|>' (id=200175)
-[METADATA] Special: special = '<|vision_reserved_special_token_90|>' (id=200176)
-[METADATA] Special: special = '<|vision_reserved_special_token_91|>' (id=200177)
-[METADATA] Special: special = '<|vision_reserved_special_token_92|>' (id=200178)
-[METADATA] Special: special = '<|vision_reserved_special_token_93|>' (id=200179)
-[METADATA] Special: special = '<|vision_reserved_special_token_94|>' (id=200180)
-[METADATA] Special: special = '<|vision_reserved_special_token_95|>' (id=200181)
-[METADATA] Special: special = '<|vision_reserved_special_token_96|>' (id=200182)
-[METADATA] Special: special = '<|vision_reserved_special_token_97|>' (id=200183)
-[METADATA] Special: special = '<|vision_reserved_special_token_98|>' (id=200184)
-[METADATA] Special: special = '<|vision_reserved_special_token_99|>' (id=200185)
-[METADATA] Special: special = '<|vision_reserved_special_token_100|>' (id=200186)
-[METADATA] Special: special = '<|vision_reserved_special_token_101|>' (id=200187)
-[METADATA] Special: special = '<|vision_reserved_special_token_102|>' (id=200188)
-[METADATA] Special: special = '<|vision_reserved_special_token_103|>' (id=200189)
-[METADATA] Special: special = '<|vision_reserved_special_token_104|>' (id=200190)
-[METADATA] Special: special = '<|vision_reserved_special_token_105|>' (id=200191)
-[METADATA] Special: special = '<|vision_reserved_special_token_106|>' (id=200192)
-[METADATA] Special: special = '<|vision_reserved_special_token_107|>' (id=200193)
-[METADATA] Special: special = '<|vision_reserved_special_token_108|>' (id=200194)
-[METADATA] Special: special = '<|vision_reserved_special_token_109|>' (id=200195)
-[METADATA] Special: special = '<|vision_reserved_special_token_110|>' (id=200196)
-[METADATA] Special: special = '<|vision_reserved_special_token_111|>' (id=200197)
-[METADATA] Special: special = '<|vision_reserved_special_token_112|>' (id=200198)
-[METADATA] Special: special = '<|vision_reserved_special_token_113|>' (id=200199)
-[METADATA] Special: special = '<|vision_reserved_special_token_114|>' (id=200200)
-[METADATA] Special: special = '<|vision_reserved_special_token_115|>' (id=200201)
-[METADATA] Special: special = '<|vision_reserved_special_token_116|>' (id=200202)
-[METADATA] Special: special = '<|vision_reserved_special_token_117|>' (id=200203)
-[METADATA] Special: special = '<|vision_reserved_special_token_118|>' (id=200204)
-[METADATA] Special: special = '<|vision_reserved_special_token_119|>' (id=200205)
-[METADATA] Special: special = '<|vision_reserved_special_token_120|>' (id=200206)
-[METADATA] Special: special = '<|vision_reserved_special_token_121|>' (id=200207)
-[METADATA] Special: special = '<|vision_reserved_special_token_122|>' (id=200208)
-[METADATA] Special: special = '<|vision_reserved_special_token_123|>' (id=200209)
-[METADATA] Special: special = '<|vision_reserved_special_token_124|>' (id=200210)
-[METADATA] Special: special = '<|vision_reserved_special_token_125|>' (id=200211)
-[METADATA] Special: special = '<|vision_reserved_special_token_126|>' (id=200212)
-[METADATA] Special: special = '<|vision_reserved_special_token_127|>' (id=200213)
-[METADATA] Special: special = '<|vision_reserved_special_token_128|>' (id=200214)
-[METADATA] Special: special = '<|vision_reserved_special_token_129|>' (id=200215)
-[METADATA] Special: special = '<|vision_reserved_special_token_130|>' (id=200216)
-[METADATA] Special: special = '<|vision_reserved_special_token_131|>' (id=200217)
-[METADATA] Special: special = '<|vision_reserved_special_token_132|>' (id=200218)
-[METADATA] Special: special = '<|vision_reserved_special_token_133|>' (id=200219)
-[METADATA] Special: special = '<|vision_reserved_special_token_134|>' (id=200220)
-[METADATA] Special: special = '<|vision_reserved_special_token_135|>' (id=200221)
-[METADATA] Special: special = '<|vision_reserved_special_token_136|>' (id=200222)
-[METADATA] Special: special = '<|vision_reserved_special_token_137|>' (id=200223)
-[METADATA] Special: special = '<|vision_reserved_special_token_138|>' (id=200224)
-[METADATA] Special: special = '<|vision_reserved_special_token_139|>' (id=200225)
-[METADATA] Special: special = '<|vision_reserved_special_token_140|>' (id=200226)
-[METADATA] Special: special = '<|vision_reserved_special_token_141|>' (id=200227)
-[METADATA] Special: special = '<|vision_reserved_special_token_142|>' (id=200228)
-[METADATA] Special: special = '<|vision_reserved_special_token_143|>' (id=200229)
-[METADATA] Special: special = '<|vision_reserved_special_token_144|>' (id=200230)
-[METADATA] Special: special = '<|vision_reserved_special_token_145|>' (id=200231)
-[METADATA] Special: special = '<|vision_reserved_special_token_146|>' (id=200232)
-[METADATA] Special: special = '<|vision_reserved_special_token_147|>' (id=200233)
-[METADATA] Special: special = '<|vision_reserved_special_token_148|>' (id=200234)
-[METADATA] Special: special = '<|vision_reserved_special_token_149|>' (id=200235)
-[METADATA] Special: special = '<|vision_reserved_special_token_150|>' (id=200236)
-[METADATA] Special: special = '<|vision_reserved_special_token_151|>' (id=200237)
-[METADATA] Special: special = '<|vision_reserved_special_token_152|>' (id=200238)
-[METADATA] Special: special = '<|vision_reserved_special_token_153|>' (id=200239)
-[METADATA] Special: special = '<|vision_reserved_special_token_154|>' (id=200240)
-[METADATA] Special: special = '<|vision_reserved_special_token_155|>' (id=200241)
-[METADATA] Special: special = '<|vision_reserved_special_token_156|>' (id=200242)
-[METADATA] Special: special = '<|vision_reserved_special_token_157|>' (id=200243)
-[METADATA] Special: special = '<|vision_reserved_special_token_158|>' (id=200244)
-[METADATA] Special: special = '<|vision_reserved_special_token_159|>' (id=200245)
-[METADATA] Special: special = '<|vision_reserved_special_token_160|>' (id=200246)
-[METADATA] Special: special = '<|vision_reserved_special_token_161|>' (id=200247)
-[METADATA] Special: special = '<|vision_reserved_special_token_162|>' (id=200248)
-[METADATA] Special: special = '<|vision_reserved_special_token_163|>' (id=200249)
-[METADATA] Special: special = '<|vision_reserved_special_token_164|>' (id=200250)
-[METADATA] Special: special = '<|vision_reserved_special_token_165|>' (id=200251)
-[METADATA] Special: special = '<|vision_reserved_special_token_166|>' (id=200252)
-[METADATA] Special: special = '<|vision_reserved_special_token_167|>' (id=200253)
-[METADATA] Special: special = '<|vision_reserved_special_token_168|>' (id=200254)
-[METADATA] Special: special = '<|vision_reserved_special_token_169|>' (id=200255)
-[METADATA] Special: special = '<|vision_reserved_special_token_170|>' (id=200256)
-[METADATA] Special: special = '<|vision_reserved_special_token_171|>' (id=200257)
-[METADATA] Special: special = '<|vision_reserved_special_token_172|>' (id=200258)
-[METADATA] Special: special = '<|vision_reserved_special_token_173|>' (id=200259)
-[METADATA] Special: special = '<|vision_reserved_special_token_174|>' (id=200260)
-[METADATA] Special: special = '<|vision_reserved_special_token_175|>' (id=200261)
-[METADATA] Special: special = '<|vision_reserved_special_token_176|>' (id=200262)
-[METADATA] Special: special = '<|vision_reserved_special_token_177|>' (id=200263)
-[METADATA] Special: special = '<|vision_reserved_special_token_178|>' (id=200264)
-[METADATA] Special: special = '<|vision_reserved_special_token_179|>' (id=200265)
-[METADATA] Special: special = '<|vision_reserved_special_token_180|>' (id=200266)
-[METADATA] Special: special = '<|vision_reserved_special_token_181|>' (id=200267)
-[METADATA] Special: special = '<|vision_reserved_special_token_182|>' (id=200268)
-[METADATA] Special: special = '<|vision_reserved_special_token_183|>' (id=200269)
-[METADATA] Special: special = '<|vision_reserved_special_token_184|>' (id=200270)
-[METADATA] Special: special = '<|vision_reserved_special_token_185|>' (id=200271)
-[METADATA] Special: special = '<|vision_reserved_special_token_186|>' (id=200272)
-[METADATA] Special: special = '<|vision_reserved_special_token_187|>' (id=200273)
-[METADATA] Special: special = '<|vision_reserved_special_token_188|>' (id=200274)
-[METADATA] Special: special = '<|vision_reserved_special_token_189|>' (id=200275)
-[METADATA] Special: special = '<|vision_reserved_special_token_190|>' (id=200276)
-[METADATA] Special: special = '<|vision_reserved_special_token_191|>' (id=200277)
-[METADATA] Special: special = '<|vision_reserved_special_token_192|>' (id=200278)
-[METADATA] Special: special = '<|vision_reserved_special_token_193|>' (id=200279)
-[METADATA] Special: special = '<|vision_reserved_special_token_194|>' (id=200280)
-[METADATA] Special: special = '<|vision_reserved_special_token_195|>' (id=200281)
-[METADATA] Special: special = '<|vision_reserved_special_token_196|>' (id=200282)
-[METADATA] Special: special = '<|vision_reserved_special_token_197|>' (id=200283)
-[METADATA] Special: special = '<|vision_reserved_special_token_198|>' (id=200284)
-[METADATA] Special: special = '<|vision_reserved_special_token_199|>' (id=200285)
-[METADATA] Special: special = '<|vision_reserved_special_token_200|>' (id=200286)
-[METADATA] Special: special = '<|vision_reserved_special_token_201|>' (id=200287)
-[METADATA] Special: special = '<|vision_reserved_special_token_202|>' (id=200288)
-[METADATA] Special: special = '<|vision_reserved_special_token_203|>' (id=200289)
-[METADATA] Special: special = '<|vision_reserved_special_token_204|>' (id=200290)
-[METADATA] Special: special = '<|vision_reserved_special_token_205|>' (id=200291)
-[METADATA] Special: special = '<|vision_reserved_special_token_206|>' (id=200292)
-[METADATA] Special: special = '<|vision_reserved_special_token_207|>' (id=200293)
-[METADATA] Special: special = '<|vision_reserved_special_token_208|>' (id=200294)
-[METADATA] Special: special = '<|vision_reserved_special_token_209|>' (id=200295)
-[METADATA] Special: special = '<|vision_reserved_special_token_210|>' (id=200296)
-[METADATA] Special: special = '<|vision_reserved_special_token_211|>' (id=200297)
-[METADATA] Special: special = '<|vision_reserved_special_token_212|>' (id=200298)
-[METADATA] Special: special = '<|vision_reserved_special_token_213|>' (id=200299)
-[METADATA] Special: special = '<|vision_reserved_special_token_214|>' (id=200300)
-[METADATA] Special: special = '<|vision_reserved_special_token_215|>' (id=200301)
-[METADATA] Special: special = '<|vision_reserved_special_token_216|>' (id=200302)
-[METADATA] Special: special = '<|vision_reserved_special_token_217|>' (id=200303)
-[METADATA] Special: special = '<|vision_reserved_special_token_218|>' (id=200304)
-[METADATA] Special: special = '<|vision_reserved_special_token_219|>' (id=200305)
-[METADATA] Special: special = '<|vision_reserved_special_token_220|>' (id=200306)
-[METADATA] Special: special = '<|vision_reserved_special_token_221|>' (id=200307)
-[METADATA] Special: special = '<|vision_reserved_special_token_222|>' (id=200308)
-[METADATA] Special: special = '<|vision_reserved_special_token_223|>' (id=200309)
-[METADATA] Special: special = '<|vision_reserved_special_token_224|>' (id=200310)
-[METADATA] Special: special = '<|vision_reserved_special_token_225|>' (id=200311)
-[METADATA] Special: special = '<|vision_reserved_special_token_226|>' (id=200312)
-[METADATA] Special: special = '<|vision_reserved_special_token_227|>' (id=200313)
-[METADATA] Special: special = '<|vision_reserved_special_token_228|>' (id=200314)
-[METADATA] Special: special = '<|vision_reserved_special_token_229|>' (id=200315)
-[METADATA] Special: special = '<|vision_reserved_special_token_230|>' (id=200316)
-[METADATA] Special: special = '<|vision_reserved_special_token_231|>' (id=200317)
-[METADATA] Special: special = '<|vision_reserved_special_token_232|>' (id=200318)
-[METADATA] Special: special = '<|vision_reserved_special_token_233|>' (id=200319)
-[METADATA] Special: special = '<|vision_reserved_special_token_234|>' (id=200320)
-[METADATA] Special: special = '<|vision_reserved_special_token_235|>' (id=200321)
-[METADATA] Special: special = '<|vision_reserved_special_token_236|>' (id=200322)
-[METADATA] Special: special = '<|vision_reserved_special_token_237|>' (id=200323)
-[METADATA] Special: special = '<|vision_reserved_special_token_238|>' (id=200324)
-[METADATA] Special: special = '<|vision_reserved_special_token_239|>' (id=200325)
-[METADATA] Special: special = '<|vision_reserved_special_token_240|>' (id=200326)
-[METADATA] Special: special = '<|vision_reserved_special_token_241|>' (id=200327)
-[METADATA] Special: special = '<|vision_reserved_special_token_242|>' (id=200328)
-[METADATA] Special: special = '<|vision_reserved_special_token_243|>' (id=200329)
-[METADATA] Special: special = '<|vision_reserved_special_token_244|>' (id=200330)
-[METADATA] Special: special = '<|vision_reserved_special_token_245|>' (id=200331)
-[METADATA] Special: special = '<|vision_reserved_special_token_246|>' (id=200332)
-[METADATA] Special: special = '<|vision_reserved_special_token_247|>' (id=200333)
-[METADATA] Special: special = '<|vision_reserved_special_token_248|>' (id=200334)
-[METADATA] Special: special = '<|vision_reserved_special_token_249|>' (id=200335)
-[METADATA] Special: special = '<|vision_reserved_special_token_250|>' (id=200336)
-[METADATA] Special: special = '<|vision_reserved_special_token_251|>' (id=200337)
-[METADATA] Special: special = '<|vision_reserved_special_token_252|>' (id=200338)
-[METADATA] Special: special = '<|vision_reserved_special_token_253|>' (id=200339)
-[METADATA] Special: special = '<|vision_reserved_special_token_254|>' (id=200340)
-[METADATA] Special: special = '<|vision_reserved_special_token_255|>' (id=200341)
-[METADATA] Special: special = '<|vision_reserved_special_token_256|>' (id=200342)
-[METADATA] Special: special = '<|vision_reserved_special_token_257|>' (id=200343)
-[METADATA] Special: special = '<|vision_reserved_special_token_258|>' (id=200344)
-[METADATA] Special: special = '<|vision_reserved_special_token_259|>' (id=200345)
-[METADATA] Special: special = '<|vision_reserved_special_token_260|>' (id=200346)
-[METADATA] Special: special = '<|vision_reserved_special_token_261|>' (id=200347)
-[METADATA] Special: special = '<|vision_reserved_special_token_262|>' (id=200348)
-[METADATA] Special: special = '<|vision_reserved_special_token_263|>' (id=200349)
-[METADATA] Special: special = '<|vision_reserved_special_token_264|>' (id=200350)
-[METADATA] Special: special = '<|vision_reserved_special_token_265|>' (id=200351)
-[METADATA] Special: special = '<|vision_reserved_special_token_266|>' (id=200352)
-[METADATA] Special: special = '<|vision_reserved_special_token_267|>' (id=200353)
-[METADATA] Special: special = '<|vision_reserved_special_token_268|>' (id=200354)
-[METADATA] Special: special = '<|vision_reserved_special_token_269|>' (id=200355)
-[METADATA] Special: special = '<|vision_reserved_special_token_270|>' (id=200356)
-[METADATA] Special: special = '<|vision_reserved_special_token_271|>' (id=200357)
-[METADATA] Special: special = '<|vision_reserved_special_token_272|>' (id=200358)
-[METADATA] Special: special = '<|vision_reserved_special_token_273|>' (id=200359)
-[METADATA] Special: special = '<|vision_reserved_special_token_274|>' (id=200360)
-[METADATA] Special: special = '<|vision_reserved_special_token_275|>' (id=200361)
-[METADATA] Special: special = '<|vision_reserved_special_token_276|>' (id=200362)
-[METADATA] Special: special = '<|vision_reserved_special_token_277|>' (id=200363)
-[METADATA] Special: special = '<|vision_reserved_special_token_278|>' (id=200364)
-[METADATA] Special: special = '<|vision_reserved_special_token_279|>' (id=200365)
-[METADATA] Special: special = '<|vision_reserved_special_token_280|>' (id=200366)
-[METADATA] Special: special = '<|vision_reserved_special_token_281|>' (id=200367)
-[METADATA] Special: special = '<|vision_reserved_special_token_282|>' (id=200368)
-[METADATA] Special: special = '<|vision_reserved_special_token_283|>' (id=200369)
-[METADATA] Special: special = '<|vision_reserved_special_token_284|>' (id=200370)
-[METADATA] Special: special = '<|vision_reserved_special_token_285|>' (id=200371)
-[METADATA] Special: special = '<|vision_reserved_special_token_286|>' (id=200372)
-[METADATA] Special: special = '<|vision_reserved_special_token_287|>' (id=200373)
-[METADATA] Special: special = '<|vision_reserved_special_token_288|>' (id=200374)
-[METADATA] Special: special = '<|vision_reserved_special_token_289|>' (id=200375)
-[METADATA] Special: special = '<|vision_reserved_special_token_290|>' (id=200376)
-[METADATA] Special: special = '<|vision_reserved_special_token_291|>' (id=200377)
-[METADATA] Special: special = '<|vision_reserved_special_token_292|>' (id=200378)
-[METADATA] Special: special = '<|vision_reserved_special_token_293|>' (id=200379)
-[METADATA] Special: special = '<|vision_reserved_special_token_294|>' (id=200380)
-[METADATA] Special: special = '<|vision_reserved_special_token_295|>' (id=200381)
-[METADATA] Special: special = '<|vision_reserved_special_token_296|>' (id=200382)
-[METADATA] Special: special = '<|vision_reserved_special_token_297|>' (id=200383)
-[METADATA] Special: special = '<|vision_reserved_special_token_298|>' (id=200384)
-[METADATA] Special: special = '<|vision_reserved_special_token_299|>' (id=200385)
-[METADATA] Special: special = '<|vision_reserved_special_token_300|>' (id=200386)
-[METADATA] Special: special = '<|vision_reserved_special_token_301|>' (id=200387)
-[METADATA] Special: special = '<|vision_reserved_special_token_302|>' (id=200388)
-[METADATA] Special: special = '<|vision_reserved_special_token_303|>' (id=200389)
-[METADATA] Special: special = '<|vision_reserved_special_token_304|>' (id=200390)
-[METADATA] Special: special = '<|vision_reserved_special_token_305|>' (id=200391)
-[METADATA] Special: special = '<|vision_reserved_special_token_306|>' (id=200392)
-[METADATA] Special: special = '<|vision_reserved_special_token_307|>' (id=200393)
-[METADATA] Special: special = '<|vision_reserved_special_token_308|>' (id=200394)
-[METADATA] Special: special = '<|vision_reserved_special_token_309|>' (id=200395)
-[METADATA] Special: special = '<|vision_reserved_special_token_310|>' (id=200396)
-[METADATA] Special: special = '<|vision_reserved_special_token_311|>' (id=200397)
-[METADATA] Special: special = '<|vision_reserved_special_token_312|>' (id=200398)
-[METADATA] Special: special = '<|vision_reserved_special_token_313|>' (id=200399)
-[METADATA] Special: special = '<|vision_reserved_special_token_314|>' (id=200400)
-[METADATA] Special: special = '<|vision_reserved_special_token_315|>' (id=200401)
-[METADATA] Special: special = '<|vision_reserved_special_token_316|>' (id=200402)
-[METADATA] Special: special = '<|vision_reserved_special_token_317|>' (id=200403)
-[METADATA] Special: special = '<|vision_reserved_special_token_318|>' (id=200404)
-[METADATA] Special: special = '<|vision_reserved_special_token_319|>' (id=200405)
-[METADATA] Special: special = '<|vision_reserved_special_token_320|>' (id=200406)
-[METADATA] Special: special = '<|vision_reserved_special_token_321|>' (id=200407)
-[METADATA] Special: special = '<|vision_reserved_special_token_322|>' (id=200408)
-[METADATA] Special: special = '<|vision_reserved_special_token_323|>' (id=200409)
-[METADATA] Special: special = '<|vision_reserved_special_token_324|>' (id=200410)
-[METADATA] Special: special = '<|vision_reserved_special_token_325|>' (id=200411)
-[METADATA] Special: special = '<|vision_reserved_special_token_326|>' (id=200412)
-[METADATA] Special: special = '<|vision_reserved_special_token_327|>' (id=200413)
-[METADATA] Special: special = '<|vision_reserved_special_token_328|>' (id=200414)
-[METADATA] Special: special = '<|vision_reserved_special_token_329|>' (id=200415)
-[METADATA] Special: special = '<|vision_reserved_special_token_330|>' (id=200416)
-[METADATA] Special: special = '<|vision_reserved_special_token_331|>' (id=200417)
-[METADATA] Special: special = '<|vision_reserved_special_token_332|>' (id=200418)
-[METADATA] Special: special = '<|vision_reserved_special_token_333|>' (id=200419)
-[METADATA] Special: special = '<|vision_reserved_special_token_334|>' (id=200420)
-[METADATA] Special: special = '<|vision_reserved_special_token_335|>' (id=200421)
-[METADATA] Special: special = '<|vision_reserved_special_token_336|>' (id=200422)
-[METADATA] Special: special = '<|vision_reserved_special_token_337|>' (id=200423)
-[METADATA] Special: special = '<|vision_reserved_special_token_338|>' (id=200424)
-[METADATA] Special: special = '<|vision_reserved_special_token_339|>' (id=200425)
-[METADATA] Special: special = '<|vision_reserved_special_token_340|>' (id=200426)
-[METADATA] Special: special = '<|vision_reserved_special_token_341|>' (id=200427)
-[METADATA] Special: special = '<|vision_reserved_special_token_342|>' (id=200428)
-[METADATA] Special: special = '<|vision_reserved_special_token_343|>' (id=200429)
-[METADATA] Special: special = '<|vision_reserved_special_token_344|>' (id=200430)
-[METADATA] Special: special = '<|vision_reserved_special_token_345|>' (id=200431)
-[METADATA] Special: special = '<|vision_reserved_special_token_346|>' (id=200432)
-[METADATA] Special: special = '<|vision_reserved_special_token_347|>' (id=200433)
-[METADATA] Special: special = '<|vision_reserved_special_token_348|>' (id=200434)
-[METADATA] Special: special = '<|vision_reserved_special_token_349|>' (id=200435)
-[METADATA] Special: special = '<|vision_reserved_special_token_350|>' (id=200436)
-[METADATA] Special: special = '<|vision_reserved_special_token_351|>' (id=200437)
-[METADATA] Special: special = '<|vision_reserved_special_token_352|>' (id=200438)
-[METADATA] Special: special = '<|vision_reserved_special_token_353|>' (id=200439)
-[METADATA] Special: special = '<|vision_reserved_special_token_354|>' (id=200440)
-[METADATA] Special: special = '<|vision_reserved_special_token_355|>' (id=200441)
-[METADATA] Special: special = '<|vision_reserved_special_token_356|>' (id=200442)
-[METADATA] Special: special = '<|vision_reserved_special_token_357|>' (id=200443)
-[METADATA] Special: special = '<|vision_reserved_special_token_358|>' (id=200444)
-[METADATA] Special: special = '<|vision_reserved_special_token_359|>' (id=200445)
-[METADATA] Special: special = '<|vision_reserved_special_token_360|>' (id=200446)
-[METADATA] Special: special = '<|vision_reserved_special_token_361|>' (id=200447)
-[METADATA] Special: special = '<|vision_reserved_special_token_362|>' (id=200448)
-[METADATA] Special: special = '<|vision_reserved_special_token_363|>' (id=200449)
-[METADATA] Special: special = '<|vision_reserved_special_token_364|>' (id=200450)
-[METADATA] Special: special = '<|vision_reserved_special_token_365|>' (id=200451)
-[METADATA] Special: special = '<|vision_reserved_special_token_366|>' (id=200452)
-[METADATA] Special: special = '<|vision_reserved_special_token_367|>' (id=200453)
-[METADATA] Special: special = '<|vision_reserved_special_token_368|>' (id=200454)
-[METADATA] Special: special = '<|vision_reserved_special_token_369|>' (id=200455)
-[METADATA] Special: special = '<|vision_reserved_special_token_370|>' (id=200456)
-[METADATA] Special: special = '<|vision_reserved_special_token_371|>' (id=200457)
-[METADATA] Special: special = '<|vision_reserved_special_token_372|>' (id=200458)
-[METADATA] Special: special = '<|vision_reserved_special_token_373|>' (id=200459)
-[METADATA] Special: special = '<|vision_reserved_special_token_374|>' (id=200460)
-[METADATA] Special: special = '<|vision_reserved_special_token_375|>' (id=200461)
-[METADATA] Special: special = '<|vision_reserved_special_token_376|>' (id=200462)
-[METADATA] Special: special = '<|vision_reserved_special_token_377|>' (id=200463)
-[METADATA] Special: special = '<|vision_reserved_special_token_378|>' (id=200464)
-[METADATA] Special: special = '<|vision_reserved_special_token_379|>' (id=200465)
-[METADATA] Special: special = '<|vision_reserved_special_token_380|>' (id=200466)
-[METADATA] Special: special = '<|vision_reserved_special_token_381|>' (id=200467)
-[METADATA] Special: special = '<|vision_reserved_special_token_382|>' (id=200468)
-[METADATA] Special: special = '<|vision_reserved_special_token_383|>' (id=200469)
-[METADATA] Special: special = '<|vision_reserved_special_token_384|>' (id=200470)
-[METADATA] Special: special = '<|vision_reserved_special_token_385|>' (id=200471)
-[METADATA] Special: special = '<|vision_reserved_special_token_386|>' (id=200472)
-[METADATA] Special: special = '<|vision_reserved_special_token_387|>' (id=200473)
-[METADATA] Special: special = '<|vision_reserved_special_token_388|>' (id=200474)
-[METADATA] Special: special = '<|vision_reserved_special_token_389|>' (id=200475)
-[METADATA] Special: special = '<|vision_reserved_special_token_390|>' (id=200476)
-[METADATA] Special: special = '<|vision_reserved_special_token_391|>' (id=200477)
-[METADATA] Special: special = '<|vision_reserved_special_token_392|>' (id=200478)
-[METADATA] Special: special = '<|vision_reserved_special_token_393|>' (id=200479)
-[METADATA] Special: special = '<|vision_reserved_special_token_394|>' (id=200480)
-[METADATA] Special: special = '<|vision_reserved_special_token_395|>' (id=200481)
-[METADATA] Special: special = '<|vision_reserved_special_token_396|>' (id=200482)
-[METADATA] Special: special = '<|vision_reserved_special_token_397|>' (id=200483)
-[METADATA] Special: special = '<|vision_reserved_special_token_398|>' (id=200484)
-[METADATA] Special: special = '<|vision_reserved_special_token_399|>' (id=200485)
-[METADATA] Special: special = '<|vision_reserved_special_token_400|>' (id=200486)
-[METADATA] Special: special = '<|vision_reserved_special_token_401|>' (id=200487)
-[METADATA] Special: special = '<|vision_reserved_special_token_402|>' (id=200488)
-[METADATA] Special: special = '<|vision_reserved_special_token_403|>' (id=200489)
-[METADATA] Special: special = '<|vision_reserved_special_token_404|>' (id=200490)
-[METADATA] Special: special = '<|vision_reserved_special_token_405|>' (id=200491)
-[METADATA] Special: special = '<|vision_reserved_special_token_406|>' (id=200492)
-[METADATA] Special: special = '<|vision_reserved_special_token_407|>' (id=200493)
-[METADATA] Special: special = '<|vision_reserved_special_token_408|>' (id=200494)
-[METADATA] Special: special = '<|vision_reserved_special_token_409|>' (id=200495)
-[METADATA] Special: special = '<|vision_reserved_special_token_410|>' (id=200496)
-[METADATA] Special: special = '<|vision_reserved_special_token_411|>' (id=200497)
-[METADATA] Special: special = '<|vision_reserved_special_token_412|>' (id=200498)
-[METADATA] Special: special = '<|vision_reserved_special_token_413|>' (id=200499)
-[METADATA] Special: special = '<|vision_reserved_special_token_414|>' (id=200500)
-[METADATA] Special: special = '<|vision_reserved_special_token_415|>' (id=200501)
-[METADATA] Special: special = '<|vision_reserved_special_token_416|>' (id=200502)
-[METADATA] Special: special = '<|vision_reserved_special_token_417|>' (id=200503)
-[METADATA] Special: special = '<|vision_reserved_special_token_418|>' (id=200504)
-[METADATA] Special: special = '<|vision_reserved_special_token_419|>' (id=200505)
-[METADATA] Special: special = '<|vision_reserved_special_token_420|>' (id=200506)
-[METADATA] Special: special = '<|vision_reserved_special_token_421|>' (id=200507)
-[METADATA] Special: special = '<|vision_reserved_special_token_422|>' (id=200508)
-[METADATA] Special: special = '<|vision_reserved_special_token_423|>' (id=200509)
-[METADATA] Special: special = '<|vision_reserved_special_token_424|>' (id=200510)
-[METADATA] Special: special = '<|vision_reserved_special_token_425|>' (id=200511)
-[METADATA] Special: special = '<|vision_reserved_special_token_426|>' (id=200512)
-[METADATA] Special: special = '<|vision_reserved_special_token_427|>' (id=200513)
-[METADATA] Special: special = '<|vision_reserved_special_token_428|>' (id=200514)
-[METADATA] Special: special = '<|vision_reserved_special_token_429|>' (id=200515)
-[METADATA] Special: special = '<|vision_reserved_special_token_430|>' (id=200516)
-[METADATA] Special: special = '<|vision_reserved_special_token_431|>' (id=200517)
-[METADATA] Special: special = '<|vision_reserved_special_token_432|>' (id=200518)
-[METADATA] Special: special = '<|vision_reserved_special_token_433|>' (id=200519)
-[METADATA] Special: special = '<|vision_reserved_special_token_434|>' (id=200520)
-[METADATA] Special: special = '<|vision_reserved_special_token_435|>' (id=200521)
-[METADATA] Special: special = '<|vision_reserved_special_token_436|>' (id=200522)
-[METADATA] Special: special = '<|vision_reserved_special_token_437|>' (id=200523)
-[METADATA] Special: special = '<|vision_reserved_special_token_438|>' (id=200524)
-[METADATA] Special: special = '<|vision_reserved_special_token_439|>' (id=200525)
-[METADATA] Special: special = '<|vision_reserved_special_token_440|>' (id=200526)
-[METADATA] Special: special = '<|vision_reserved_special_token_441|>' (id=200527)
-[METADATA] Special: special = '<|vision_reserved_special_token_442|>' (id=200528)
-[METADATA] Special: special = '<|vision_reserved_special_token_443|>' (id=200529)
-[METADATA] Special: special = '<|vision_reserved_special_token_444|>' (id=200530)
-[METADATA] Special: special = '<|vision_reserved_special_token_445|>' (id=200531)
-[METADATA] Special: special = '<|vision_reserved_special_token_446|>' (id=200532)
-[METADATA] Special: special = '<|vision_reserved_special_token_447|>' (id=200533)
-[METADATA] Special: special = '<|vision_reserved_special_token_448|>' (id=200534)
-[METADATA] Special: special = '<|vision_reserved_special_token_449|>' (id=200535)
-[METADATA] Special: special = '<|vision_reserved_special_token_450|>' (id=200536)
-[METADATA] Special: special = '<|vision_reserved_special_token_451|>' (id=200537)
-[METADATA] Special: special = '<|vision_reserved_special_token_452|>' (id=200538)
-[METADATA] Special: special = '<|vision_reserved_special_token_453|>' (id=200539)
-[METADATA] Special: special = '<|vision_reserved_special_token_454|>' (id=200540)
-[METADATA] Special: special = '<|vision_reserved_special_token_455|>' (id=200541)
-[METADATA] Special: special = '<|vision_reserved_special_token_456|>' (id=200542)
-[METADATA] Special: special = '<|vision_reserved_special_token_457|>' (id=200543)
-[METADATA] Special: special = '<|vision_reserved_special_token_458|>' (id=200544)
-[METADATA] Special: special = '<|vision_reserved_special_token_459|>' (id=200545)
-[METADATA] Special: special = '<|vision_reserved_special_token_460|>' (id=200546)
-[METADATA] Special: special = '<|vision_reserved_special_token_461|>' (id=200547)
-[METADATA] Special: special = '<|vision_reserved_special_token_462|>' (id=200548)
-[METADATA] Special: special = '<|vision_reserved_special_token_463|>' (id=200549)
-[METADATA] Special: special = '<|vision_reserved_special_token_464|>' (id=200550)
-[METADATA] Special: special = '<|vision_reserved_special_token_465|>' (id=200551)
-[METADATA] Special: special = '<|vision_reserved_special_token_466|>' (id=200552)
-[METADATA] Special: special = '<|vision_reserved_special_token_467|>' (id=200553)
-[METADATA] Special: special = '<|vision_reserved_special_token_468|>' (id=200554)
-[METADATA] Special: special = '<|vision_reserved_special_token_469|>' (id=200555)
-[METADATA] Special: special = '<|vision_reserved_special_token_470|>' (id=200556)
-[METADATA] Special: special = '<|vision_reserved_special_token_471|>' (id=200557)
-[METADATA] Special: special = '<|vision_reserved_special_token_472|>' (id=200558)
-[METADATA] Special: special = '<|vision_reserved_special_token_473|>' (id=200559)
-[METADATA] Special: special = '<|vision_reserved_special_token_474|>' (id=200560)
-[METADATA] Special: special = '<|vision_reserved_special_token_475|>' (id=200561)
-[METADATA] Special: special = '<|vision_reserved_special_token_476|>' (id=200562)
-[METADATA] Special: special = '<|vision_reserved_special_token_477|>' (id=200563)
-[METADATA] Special: special = '<|vision_reserved_special_token_478|>' (id=200564)
-[METADATA] Special: special = '<|vision_reserved_special_token_479|>' (id=200565)
-[METADATA] Special: special = '<|vision_reserved_special_token_480|>' (id=200566)
-[METADATA] Special: special = '<|vision_reserved_special_token_481|>' (id=200567)
-[METADATA] Special: special = '<|vision_reserved_special_token_482|>' (id=200568)
-[METADATA] Special: special = '<|vision_reserved_special_token_483|>' (id=200569)
-[METADATA] Special: special = '<|vision_reserved_special_token_484|>' (id=200570)
-[METADATA] Special: special = '<|vision_reserved_special_token_485|>' (id=200571)
-[METADATA] Special: special = '<|vision_reserved_special_token_486|>' (id=200572)
-[METADATA] Special: special = '<|vision_reserved_special_token_487|>' (id=200573)
-[METADATA] Special: special = '<|vision_reserved_special_token_488|>' (id=200574)
-[METADATA] Special: special = '<|vision_reserved_special_token_489|>' (id=200575)
-[METADATA] Special: special = '<|vision_reserved_special_token_490|>' (id=200576)
-[METADATA] Special: special = '<|vision_reserved_special_token_491|>' (id=200577)
-[METADATA] Special: special = '<|vision_reserved_special_token_492|>' (id=200578)
-[METADATA] Special: special = '<|vision_reserved_special_token_493|>' (id=200579)
-[METADATA] Special: special = '<|vision_reserved_special_token_494|>' (id=200580)
-[METADATA] Special: special = '<|vision_reserved_special_token_495|>' (id=200581)
-[METADATA] Special: special = '<|vision_reserved_special_token_496|>' (id=200582)
-[METADATA] Special: special = '<|vision_reserved_special_token_497|>' (id=200583)
-[METADATA] Special: special = '<|vision_reserved_special_token_498|>' (id=200584)
-[METADATA] Special: special = '<|vision_reserved_special_token_499|>' (id=200585)
-[METADATA] Special: special = '<|vision_reserved_special_token_500|>' (id=200586)
-[METADATA] Special: special = '<|vision_reserved_special_token_501|>' (id=200587)
-[METADATA] Special: special = '<|vision_reserved_special_token_502|>' (id=200588)
-[METADATA] Special: special = '<|vision_reserved_special_token_503|>' (id=200589)
-[METADATA] Special: special = '<|vision_reserved_special_token_504|>' (id=200590)
-[METADATA] Special: special = '<|vision_reserved_special_token_505|>' (id=200591)
-[METADATA] Special: special = '<|vision_reserved_special_token_506|>' (id=200592)
-[METADATA] Special: special = '<|vision_reserved_special_token_507|>' (id=200593)
-[METADATA] Special: special = '<|vision_reserved_special_token_508|>' (id=200594)
-[METADATA] Special: special = '<|vision_reserved_special_token_509|>' (id=200595)
-[METADATA] Special: special = '<|vision_reserved_special_token_510|>' (id=200596)
-[METADATA] Special: special = '<|vision_reserved_special_token_511|>' (id=200597)
-[METADATA] Special: special = '<|vision_reserved_special_token_512|>' (id=200598)
-[METADATA] Special: special = '<|vision_reserved_special_token_513|>' (id=200599)
-[METADATA] Special: special = '<|vision_reserved_special_token_514|>' (id=200600)
-[METADATA] Special: special = '<|vision_reserved_special_token_515|>' (id=200601)
-[METADATA] Special: special = '<|vision_reserved_special_token_516|>' (id=200602)
-[METADATA] Special: special = '<|vision_reserved_special_token_517|>' (id=200603)
-[METADATA] Special: special = '<|vision_reserved_special_token_518|>' (id=200604)
-[METADATA] Special: special = '<|vision_reserved_special_token_519|>' (id=200605)
-[METADATA] Special: special = '<|vision_reserved_special_token_520|>' (id=200606)
-[METADATA] Special: special = '<|vision_reserved_special_token_521|>' (id=200607)
-[METADATA] Special: special = '<|vision_reserved_special_token_522|>' (id=200608)
-[METADATA] Special: special = '<|vision_reserved_special_token_523|>' (id=200609)
-[METADATA] Special: special = '<|vision_reserved_special_token_524|>' (id=200610)
-[METADATA] Special: special = '<|vision_reserved_special_token_525|>' (id=200611)
-[METADATA] Special: special = '<|vision_reserved_special_token_526|>' (id=200612)
-[METADATA] Special: special = '<|vision_reserved_special_token_527|>' (id=200613)
-[METADATA] Special: special = '<|vision_reserved_special_token_528|>' (id=200614)
-[METADATA] Special: special = '<|vision_reserved_special_token_529|>' (id=200615)
-[METADATA] Special: special = '<|vision_reserved_special_token_530|>' (id=200616)
-[METADATA] Special: special = '<|vision_reserved_special_token_531|>' (id=200617)
-[METADATA] Special: special = '<|vision_reserved_special_token_532|>' (id=200618)
-[METADATA] Special: special = '<|vision_reserved_special_token_533|>' (id=200619)
-[METADATA] Special: special = '<|vision_reserved_special_token_534|>' (id=200620)
-[METADATA] Special: special = '<|vision_reserved_special_token_535|>' (id=200621)
-[METADATA] Special: special = '<|vision_reserved_special_token_536|>' (id=200622)
-[METADATA] Special: special = '<|vision_reserved_special_token_537|>' (id=200623)
-[METADATA] Special: special = '<|vision_reserved_special_token_538|>' (id=200624)
-[METADATA] Special: special = '<|vision_reserved_special_token_539|>' (id=200625)
-[METADATA] Special: special = '<|vision_reserved_special_token_540|>' (id=200626)
-[METADATA] Special: special = '<|vision_reserved_special_token_541|>' (id=200627)
-[METADATA] Special: special = '<|vision_reserved_special_token_542|>' (id=200628)
-[METADATA] Special: special = '<|vision_reserved_special_token_543|>' (id=200629)
-[METADATA] Special: special = '<|vision_reserved_special_token_544|>' (id=200630)
-[METADATA] Special: special = '<|vision_reserved_special_token_545|>' (id=200631)
-[METADATA] Special: special = '<|vision_reserved_special_token_546|>' (id=200632)
-[METADATA] Special: special = '<|vision_reserved_special_token_547|>' (id=200633)
-[METADATA] Special: special = '<|vision_reserved_special_token_548|>' (id=200634)
-[METADATA] Special: special = '<|vision_reserved_special_token_549|>' (id=200635)
-[METADATA] Special: special = '<|vision_reserved_special_token_550|>' (id=200636)
-[METADATA] Special: special = '<|vision_reserved_special_token_551|>' (id=200637)
-[METADATA] Special: special = '<|vision_reserved_special_token_552|>' (id=200638)
-[METADATA] Special: special = '<|vision_reserved_special_token_553|>' (id=200639)
-[METADATA] Special: special = '<|vision_reserved_special_token_554|>' (id=200640)
-[METADATA] Special: special = '<|vision_reserved_special_token_555|>' (id=200641)
-[METADATA] Special: special = '<|vision_reserved_special_token_556|>' (id=200642)
-[METADATA] Special: special = '<|vision_reserved_special_token_557|>' (id=200643)
-[METADATA] Special: special = '<|vision_reserved_special_token_558|>' (id=200644)
-[METADATA] Special: special = '<|vision_reserved_special_token_559|>' (id=200645)
-[METADATA] Special: special = '<|vision_reserved_special_token_560|>' (id=200646)
-[METADATA] Special: special = '<|vision_reserved_special_token_561|>' (id=200647)
-[METADATA] Special: special = '<|vision_reserved_special_token_562|>' (id=200648)
-[METADATA] Special: special = '<|vision_reserved_special_token_563|>' (id=200649)
-[METADATA] Special: special = '<|vision_reserved_special_token_564|>' (id=200650)
-[METADATA] Special: special = '<|vision_reserved_special_token_565|>' (id=200651)
-[METADATA] Special: special = '<|vision_reserved_special_token_566|>' (id=200652)
-[METADATA] Special: special = '<|vision_reserved_special_token_567|>' (id=200653)
-[METADATA] Special: special = '<|vision_reserved_special_token_568|>' (id=200654)
-[METADATA] Special: special = '<|vision_reserved_special_token_569|>' (id=200655)
-[METADATA] Special: special = '<|vision_reserved_special_token_570|>' (id=200656)
-[METADATA] Special: special = '<|vision_reserved_special_token_571|>' (id=200657)
-[METADATA] Special: special = '<|vision_reserved_special_token_572|>' (id=200658)
-[METADATA] Special: special = '<|vision_reserved_special_token_573|>' (id=200659)
-[METADATA] Special: special = '<|vision_reserved_special_token_574|>' (id=200660)
-[METADATA] Special: special = '<|vision_reserved_special_token_575|>' (id=200661)
-[METADATA] Special: special = '<|vision_reserved_special_token_576|>' (id=200662)
-[METADATA] Special: special = '<|vision_reserved_special_token_577|>' (id=200663)
-[METADATA] Special: special = '<|vision_reserved_special_token_578|>' (id=200664)
-[METADATA] Special: special = '<|vision_reserved_special_token_579|>' (id=200665)
-[METADATA] Special: special = '<|vision_reserved_special_token_580|>' (id=200666)
-[METADATA] Special: special = '<|vision_reserved_special_token_581|>' (id=200667)
-[METADATA] Special: special = '<|vision_reserved_special_token_582|>' (id=200668)
-[METADATA] Special: special = '<|vision_reserved_special_token_583|>' (id=200669)
-[METADATA] Special: special = '<|vision_reserved_special_token_584|>' (id=200670)
-[METADATA] Special: special = '<|vision_reserved_special_token_585|>' (id=200671)
-[METADATA] Special: special = '<|vision_reserved_special_token_586|>' (id=200672)
-[METADATA] Special: special = '<|vision_reserved_special_token_587|>' (id=200673)
-[METADATA] Special: special = '<|vision_reserved_special_token_588|>' (id=200674)
-[METADATA] Special: special = '<|vision_reserved_special_token_589|>' (id=200675)
-[METADATA] Special: special = '<|vision_reserved_special_token_590|>' (id=200676)
-[METADATA] Special: special = '<|vision_reserved_special_token_591|>' (id=200677)
-[METADATA] Special: special = '<|vision_reserved_special_token_592|>' (id=200678)
-[METADATA] Special: special = '<|vision_reserved_special_token_593|>' (id=200679)
-[METADATA] Special: special = '<|vision_reserved_special_token_594|>' (id=200680)
-[METADATA] Special: special = '<|vision_reserved_special_token_595|>' (id=200681)
-[METADATA] Special: special = '<|vision_reserved_special_token_596|>' (id=200682)
-[METADATA] Special: special = '<|vision_reserved_special_token_597|>' (id=200683)
-[METADATA] Special: special = '<|vision_reserved_special_token_598|>' (id=200684)
-[METADATA] Special: special = '<|vision_reserved_special_token_599|>' (id=200685)
-[METADATA] Special: special = '<|vision_reserved_special_token_600|>' (id=200686)
-[METADATA] Special: special = '<|vision_reserved_special_token_601|>' (id=200687)
-[METADATA] Special: special = '<|vision_reserved_special_token_602|>' (id=200688)
-[METADATA] Special: special = '<|vision_reserved_special_token_603|>' (id=200689)
-[METADATA] Special: special = '<|vision_reserved_special_token_604|>' (id=200690)
-[METADATA] Special: special = '<|vision_reserved_special_token_605|>' (id=200691)
-[METADATA] Special: special = '<|vision_reserved_special_token_606|>' (id=200692)
-[METADATA] Special: special = '<|vision_reserved_special_token_607|>' (id=200693)
-[METADATA] Special: special = '<|vision_reserved_special_token_608|>' (id=200694)
-[METADATA] Special: special = '<|vision_reserved_special_token_609|>' (id=200695)
-[METADATA] Special: special = '<|vision_reserved_special_token_610|>' (id=200696)
-[METADATA] Special: special = '<|vision_reserved_special_token_611|>' (id=200697)
-[METADATA] Special: special = '<|vision_reserved_special_token_612|>' (id=200698)
-[METADATA] Special: special = '<|vision_reserved_special_token_613|>' (id=200699)
-[METADATA] Special: special = '<|vision_reserved_special_token_614|>' (id=200700)
-[METADATA] Special: special = '<|vision_reserved_special_token_615|>' (id=200701)
-[METADATA] Special: special = '<|vision_reserved_special_token_616|>' (id=200702)
-[METADATA] Special: special = '<|vision_reserved_special_token_617|>' (id=200703)
-[METADATA] Special: special = '<|vision_reserved_special_token_618|>' (id=200704)
-[METADATA] Special: special = '<|vision_reserved_special_token_619|>' (id=200705)
-[METADATA] Special: special = '<|vision_reserved_special_token_620|>' (id=200706)
-[METADATA] Special: special = '<|vision_reserved_special_token_621|>' (id=200707)
-[METADATA] Special: special = '<|vision_reserved_special_token_622|>' (id=200708)
-[METADATA] Special: special = '<|vision_reserved_special_token_623|>' (id=200709)
-[METADATA] Special: special = '<|vision_reserved_special_token_624|>' (id=200710)
-[METADATA] Special: special = '<|vision_reserved_special_token_625|>' (id=200711)
-[METADATA] Special: special = '<|vision_reserved_special_token_626|>' (id=200712)
-[METADATA] Special: special = '<|vision_reserved_special_token_627|>' (id=200713)
-[METADATA] Special: special = '<|vision_reserved_special_token_628|>' (id=200714)
-[METADATA] Special: special = '<|vision_reserved_special_token_629|>' (id=200715)
-[METADATA] Special: special = '<|vision_reserved_special_token_630|>' (id=200716)
-[METADATA] Special: special = '<|vision_reserved_special_token_631|>' (id=200717)
-[METADATA] Special: special = '<|vision_reserved_special_token_632|>' (id=200718)
-[METADATA] Special: special = '<|vision_reserved_special_token_633|>' (id=200719)
-[METADATA] Special: special = '<|vision_reserved_special_token_634|>' (id=200720)
-[METADATA] Special: special = '<|vision_reserved_special_token_635|>' (id=200721)
-[METADATA] Special: special = '<|vision_reserved_special_token_636|>' (id=200722)
-[METADATA] Special: special = '<|vision_reserved_special_token_637|>' (id=200723)
-[METADATA] Special: special = '<|vision_reserved_special_token_638|>' (id=200724)
-[METADATA] Special: special = '<|vision_reserved_special_token_639|>' (id=200725)
-[METADATA] Special: special = '<|vision_reserved_special_token_640|>' (id=200726)
-[METADATA] Special: special = '<|vision_reserved_special_token_641|>' (id=200727)
-[METADATA] Special: special = '<|vision_reserved_special_token_642|>' (id=200728)
-[METADATA] Special: special = '<|vision_reserved_special_token_643|>' (id=200729)
-[METADATA] Special: special = '<|vision_reserved_special_token_644|>' (id=200730)
-[METADATA] Special: special = '<|vision_reserved_special_token_645|>' (id=200731)
-[METADATA] Special: special = '<|vision_reserved_special_token_646|>' (id=200732)
-[METADATA] Special: special = '<|vision_reserved_special_token_647|>' (id=200733)
-[METADATA] Special: special = '<|vision_reserved_special_token_648|>' (id=200734)
-[METADATA] Special: special = '<|vision_reserved_special_token_649|>' (id=200735)
-[METADATA] Special: special = '<|vision_reserved_special_token_650|>' (id=200736)
-[METADATA] Special: special = '<|vision_reserved_special_token_651|>' (id=200737)
-[METADATA] Special: special = '<|vision_reserved_special_token_652|>' (id=200738)
-[METADATA] Special: special = '<|vision_reserved_special_token_653|>' (id=200739)
-[METADATA] Special: special = '<|vision_reserved_special_token_654|>' (id=200740)
-[METADATA] Special: special = '<|vision_reserved_special_token_655|>' (id=200741)
-[METADATA] Special: special = '<|vision_reserved_special_token_656|>' (id=200742)
-[METADATA] Special: special = '<|vision_reserved_special_token_657|>' (id=200743)
-[METADATA] Special: special = '<|vision_reserved_special_token_658|>' (id=200744)
-[METADATA] Special: special = '<|vision_reserved_special_token_659|>' (id=200745)
-[METADATA] Special: special = '<|vision_reserved_special_token_660|>' (id=200746)
-[METADATA] Special: special = '<|vision_reserved_special_token_661|>' (id=200747)
-[METADATA] Special: special = '<|vision_reserved_special_token_662|>' (id=200748)
-[METADATA] Special: special = '<|vision_reserved_special_token_663|>' (id=200749)
-[METADATA] Special: special = '<|vision_reserved_special_token_664|>' (id=200750)
-[METADATA] Special: special = '<|vision_reserved_special_token_665|>' (id=200751)
-[METADATA] Special: special = '<|vision_reserved_special_token_666|>' (id=200752)
-[METADATA] Special: special = '<|vision_reserved_special_token_667|>' (id=200753)
-[METADATA] Special: special = '<|vision_reserved_special_token_668|>' (id=200754)
-[METADATA] Special: special = '<|vision_reserved_special_token_669|>' (id=200755)
-[METADATA] Special: special = '<|vision_reserved_special_token_670|>' (id=200756)
-[METADATA] Special: special = '<|vision_reserved_special_token_671|>' (id=200757)
-[METADATA] Special: special = '<|vision_reserved_special_token_672|>' (id=200758)
-[METADATA] Special: special = '<|vision_reserved_special_token_673|>' (id=200759)
-[METADATA] Special: special = '<|vision_reserved_special_token_674|>' (id=200760)
-[METADATA] Special: special = '<|vision_reserved_special_token_675|>' (id=200761)
-[METADATA] Special: special = '<|vision_reserved_special_token_676|>' (id=200762)
-[METADATA] Special: special = '<|vision_reserved_special_token_677|>' (id=200763)
-[METADATA] Special: special = '<|vision_reserved_special_token_678|>' (id=200764)
-[METADATA] Special: special = '<|vision_reserved_special_token_679|>' (id=200765)
-[METADATA] Special: special = '<|vision_reserved_special_token_680|>' (id=200766)
-[METADATA] Special: special = '<|vision_reserved_special_token_681|>' (id=200767)
-[METADATA] Special: special = '<|vision_reserved_special_token_682|>' (id=200768)
-[METADATA] Special: special = '<|vision_reserved_special_token_683|>' (id=200769)
-[METADATA] Special: special = '<|vision_reserved_special_token_684|>' (id=200770)
-[METADATA] Special: special = '<|vision_reserved_special_token_685|>' (id=200771)
-[METADATA] Special: special = '<|vision_reserved_special_token_686|>' (id=200772)
-[METADATA] Special: special = '<|vision_reserved_special_token_687|>' (id=200773)
-[METADATA] Special: special = '<|vision_reserved_special_token_688|>' (id=200774)
-[METADATA] Special: special = '<|vision_reserved_special_token_689|>' (id=200775)
-[METADATA] Special: special = '<|vision_reserved_special_token_690|>' (id=200776)
-[METADATA] Special: special = '<|vision_reserved_special_token_691|>' (id=200777)
-[METADATA] Special: special = '<|vision_reserved_special_token_692|>' (id=200778)
-[METADATA] Special: special = '<|vision_reserved_special_token_693|>' (id=200779)
-[METADATA] Special: special = '<|vision_reserved_special_token_694|>' (id=200780)
-[METADATA] Special: special = '<|vision_reserved_special_token_695|>' (id=200781)
-[METADATA] Special: special = '<|vision_reserved_special_token_696|>' (id=200782)
-[METADATA] Special: special = '<|vision_reserved_special_token_697|>' (id=200783)
-[METADATA] Special: special = '<|vision_reserved_special_token_698|>' (id=200784)
-[METADATA] Special: special = '<|vision_reserved_special_token_699|>' (id=200785)
-[METADATA] Special: special = '<|vision_reserved_special_token_700|>' (id=200786)
-[METADATA] Special: special = '<|vision_reserved_special_token_701|>' (id=200787)
-[METADATA] Special: special = '<|vision_reserved_special_token_702|>' (id=200788)
-[METADATA] Special: special = '<|vision_reserved_special_token_703|>' (id=200789)
-[METADATA] Special: special = '<|vision_reserved_special_token_704|>' (id=200790)
-[METADATA] Special: special = '<|vision_reserved_special_token_705|>' (id=200791)
-[METADATA] Special: special = '<|vision_reserved_special_token_706|>' (id=200792)
-[METADATA] Special: special = '<|vision_reserved_special_token_707|>' (id=200793)
-[METADATA] Special: special = '<|vision_reserved_special_token_708|>' (id=200794)
-[METADATA] Special: special = '<|vision_reserved_special_token_709|>' (id=200795)
-[METADATA] Special: special = '<|vision_reserved_special_token_710|>' (id=200796)
-[METADATA] Special: special = '<|vision_reserved_special_token_711|>' (id=200797)
-[METADATA] Special: special = '<|vision_reserved_special_token_712|>' (id=200798)
-[METADATA] Special: special = '<|vision_reserved_special_token_713|>' (id=200799)
-[METADATA] Special: special = '<|vision_reserved_special_token_714|>' (id=200800)
-[METADATA] Special: special = '<|vision_reserved_special_token_715|>' (id=200801)
-[METADATA] Special: special = '<|vision_reserved_special_token_716|>' (id=200802)
-[METADATA] Special: special = '<|vision_reserved_special_token_717|>' (id=200803)
-[METADATA] Special: special = '<|vision_reserved_special_token_718|>' (id=200804)
-[METADATA] Special: special = '<|vision_reserved_special_token_719|>' (id=200805)
-[METADATA] Special: special = '<|vision_reserved_special_token_720|>' (id=200806)
-[METADATA] Special: special = '<|vision_reserved_special_token_721|>' (id=200807)
-[METADATA] Special: special = '<|vision_reserved_special_token_722|>' (id=200808)
-[METADATA] Special: special = '<|vision_reserved_special_token_723|>' (id=200809)
-[METADATA] Special: special = '<|vision_reserved_special_token_724|>' (id=200810)
-[METADATA] Special: special = '<|vision_reserved_special_token_725|>' (id=200811)
-[METADATA] Special: special = '<|vision_reserved_special_token_726|>' (id=200812)
-[METADATA] Special: special = '<|vision_reserved_special_token_727|>' (id=200813)
-[METADATA] Special: special = '<|vision_reserved_special_token_728|>' (id=200814)
-[METADATA] Special: special = '<|vision_reserved_special_token_729|>' (id=200815)
-[METADATA] Special: special = '<|vision_reserved_special_token_730|>' (id=200816)
-[METADATA] Special: special = '<|vision_reserved_special_token_731|>' (id=200817)
-[METADATA] Special: special = '<|vision_reserved_special_token_732|>' (id=200818)
-[METADATA] Special: special = '<|vision_reserved_special_token_733|>' (id=200819)
-[METADATA] Special: special = '<|vision_reserved_special_token_734|>' (id=200820)
-[METADATA] Special: special = '<|vision_reserved_special_token_735|>' (id=200821)
-[METADATA] Special: special = '<|vision_reserved_special_token_736|>' (id=200822)
-[METADATA] Special: special = '<|vision_reserved_special_token_737|>' (id=200823)
-[METADATA] Special: special = '<|vision_reserved_special_token_738|>' (id=200824)
-[METADATA] Special: special = '<|vision_reserved_special_token_739|>' (id=200825)
-[METADATA] Special: special = '<|vision_reserved_special_token_740|>' (id=200826)
-[METADATA] Special: special = '<|vision_reserved_special_token_741|>' (id=200827)
-[METADATA] Special: special = '<|vision_reserved_special_token_742|>' (id=200828)
-[METADATA] Special: special = '<|vision_reserved_special_token_743|>' (id=200829)
-[METADATA] Special: special = '<|vision_reserved_special_token_744|>' (id=200830)
-[METADATA] Special: special = '<|vision_reserved_special_token_745|>' (id=200831)
-[METADATA] Special: special = '<|vision_reserved_special_token_746|>' (id=200832)
-[METADATA] Special: special = '<|vision_reserved_special_token_747|>' (id=200833)
-[METADATA] Special: special = '<|vision_reserved_special_token_748|>' (id=200834)
-[METADATA] Special: special = '<|vision_reserved_special_token_749|>' (id=200835)
-[METADATA] Special: special = '<|vision_reserved_special_token_750|>' (id=200836)
-[METADATA] Special: special = '<|vision_reserved_special_token_751|>' (id=200837)
-[METADATA] Special: special = '<|vision_reserved_special_token_752|>' (id=200838)
-[METADATA] Special: special = '<|vision_reserved_special_token_753|>' (id=200839)
-[METADATA] Special: special = '<|vision_reserved_special_token_754|>' (id=200840)
-[METADATA] Special: special = '<|vision_reserved_special_token_755|>' (id=200841)
-[METADATA] Special: special = '<|vision_reserved_special_token_756|>' (id=200842)
-[METADATA] Special: special = '<|vision_reserved_special_token_757|>' (id=200843)
-[METADATA] Special: special = '<|vision_reserved_special_token_758|>' (id=200844)
-[METADATA] Special: special = '<|vision_reserved_special_token_759|>' (id=200845)
-[METADATA] Special: special = '<|vision_reserved_special_token_760|>' (id=200846)
-[METADATA] Special: special = '<|vision_reserved_special_token_761|>' (id=200847)
-[METADATA] Special: special = '<|vision_reserved_special_token_762|>' (id=200848)
-[METADATA] Special: special = '<|vision_reserved_special_token_763|>' (id=200849)
-[METADATA] Special: special = '<|vision_reserved_special_token_764|>' (id=200850)
-[METADATA] Special: special = '<|vision_reserved_special_token_765|>' (id=200851)
-[METADATA] Special: special = '<|vision_reserved_special_token_766|>' (id=200852)
-[METADATA] Special: special = '<|vision_reserved_special_token_767|>' (id=200853)
-[METADATA] Special: special = '<|vision_reserved_special_token_768|>' (id=200854)
-[METADATA] Special: special = '<|vision_reserved_special_token_769|>' (id=200855)
-[METADATA] Special: special = '<|vision_reserved_special_token_770|>' (id=200856)
-[METADATA] Special: special = '<|vision_reserved_special_token_771|>' (id=200857)
-[METADATA] Special: special = '<|vision_reserved_special_token_772|>' (id=200858)
-[METADATA] Special: special = '<|vision_reserved_special_token_773|>' (id=200859)
-[METADATA] Special: special = '<|vision_reserved_special_token_774|>' (id=200860)
-[METADATA] Special: special = '<|vision_reserved_special_token_775|>' (id=200861)
-[METADATA] Special: special = '<|vision_reserved_special_token_776|>' (id=200862)
-[METADATA] Special: special = '<|vision_reserved_special_token_777|>' (id=200863)
-[METADATA] Special: special = '<|vision_reserved_special_token_778|>' (id=200864)
-[METADATA] Special: special = '<|vision_reserved_special_token_779|>' (id=200865)
-[METADATA] Special: special = '<|vision_reserved_special_token_780|>' (id=200866)
-[METADATA] Special: special = '<|vision_reserved_special_token_781|>' (id=200867)
-[METADATA] Special: special = '<|vision_reserved_special_token_782|>' (id=200868)
-[METADATA] Special: special = '<|vision_reserved_special_token_783|>' (id=200869)
-[METADATA] Special: special = '<|vision_reserved_special_token_784|>' (id=200870)
-[METADATA] Special: special = '<|vision_reserved_special_token_785|>' (id=200871)
-[METADATA] Special: special = '<|vision_reserved_special_token_786|>' (id=200872)
-[METADATA] Special: special = '<|vision_reserved_special_token_787|>' (id=200873)
-[METADATA] Special: special = '<|vision_reserved_special_token_788|>' (id=200874)
-[METADATA] Special: special = '<|vision_reserved_special_token_789|>' (id=200875)
-[METADATA] Special: special = '<|vision_reserved_special_token_790|>' (id=200876)
-[METADATA] Special: special = '<|vision_reserved_special_token_791|>' (id=200877)
-[METADATA] Special: special = '<|vision_reserved_special_token_792|>' (id=200878)
-[METADATA] Special: special = '<|vision_reserved_special_token_793|>' (id=200879)
-[METADATA] Special: special = '<|vision_reserved_special_token_794|>' (id=200880)
-[METADATA] Special: special = '<|vision_reserved_special_token_795|>' (id=200881)
-[METADATA] Special: special = '<|vision_reserved_special_token_796|>' (id=200882)
-[METADATA] Special: special = '<|vision_reserved_special_token_797|>' (id=200883)
-[METADATA] Special: special = '<|vision_reserved_special_token_798|>' (id=200884)
-[METADATA] Special: special = '<|vision_reserved_special_token_799|>' (id=200885)
-[METADATA] Special: special = '<|vision_reserved_special_token_800|>' (id=200886)
-[METADATA] Special: special = '<|vision_reserved_special_token_801|>' (id=200887)
-[METADATA] Special: special = '<|vision_reserved_special_token_802|>' (id=200888)
-[METADATA] Special: special = '<|vision_reserved_special_token_803|>' (id=200889)
-[METADATA] Special: special = '<|vision_reserved_special_token_804|>' (id=200890)
-[METADATA] Special: special = '<|vision_reserved_special_token_805|>' (id=200891)
-[METADATA] Special: special = '<|vision_reserved_special_token_806|>' (id=200892)
-[METADATA] Special: special = '<|vision_reserved_special_token_807|>' (id=200893)
-[METADATA] Special: special = '<|vision_reserved_special_token_808|>' (id=200894)
-[METADATA] Special: special = '<|vision_reserved_special_token_809|>' (id=200895)
-[METADATA] Special: special = '<|vision_reserved_special_token_810|>' (id=200896)
-[METADATA] Special: special = '<|vision_reserved_special_token_811|>' (id=200897)
-[METADATA] Special: special = '<|vision_reserved_special_token_812|>' (id=200898)
-[METADATA] Special: special = '<|vision_reserved_special_token_813|>' (id=200899)
-[METADATA] Special: special = '<|vision_reserved_special_token_814|>' (id=200900)
-[METADATA] Special: special = '<|vision_reserved_special_token_815|>' (id=200901)
-[METADATA] Special: special = '<|vision_reserved_special_token_816|>' (id=200902)
-[METADATA] Special: special = '<|vision_reserved_special_token_817|>' (id=200903)
-[METADATA] Special: special = '<|vision_reserved_special_token_818|>' (id=200904)
-[METADATA] Special: special = '<|vision_reserved_special_token_819|>' (id=200905)
-[METADATA] Special: special = '<|vision_reserved_special_token_820|>' (id=200906)
-[METADATA] Special: special = '<|vision_reserved_special_token_821|>' (id=200907)
-[METADATA] Special: special = '<|vision_reserved_special_token_822|>' (id=200908)
-[METADATA] Special: special = '<|vision_reserved_special_token_823|>' (id=200909)
-[METADATA] Special: special = '<|vision_reserved_special_token_824|>' (id=200910)
-[METADATA] Special: special = '<|vision_reserved_special_token_825|>' (id=200911)
-[METADATA] Special: special = '<|vision_reserved_special_token_826|>' (id=200912)
-[METADATA] Special: special = '<|vision_reserved_special_token_827|>' (id=200913)
-[METADATA] Special: special = '<|vision_reserved_special_token_828|>' (id=200914)
-[METADATA] Special: special = '<|vision_reserved_special_token_829|>' (id=200915)
-[METADATA] Special: special = '<|vision_reserved_special_token_830|>' (id=200916)
-[METADATA] Special: special = '<|vision_reserved_special_token_831|>' (id=200917)
-[METADATA] Special: special = '<|vision_reserved_special_token_832|>' (id=200918)
-[METADATA] Special: special = '<|vision_reserved_special_token_833|>' (id=200919)
-[METADATA] Special: special = '<|vision_reserved_special_token_834|>' (id=200920)
-[METADATA] Special: special = '<|vision_reserved_special_token_835|>' (id=200921)
-[METADATA] Special: special = '<|vision_reserved_special_token_836|>' (id=200922)
-[METADATA] Special: special = '<|vision_reserved_special_token_837|>' (id=200923)
-[METADATA] Special: special = '<|vision_reserved_special_token_838|>' (id=200924)
-[METADATA] Special: special = '<|vision_reserved_special_token_839|>' (id=200925)
-[METADATA] Special: special = '<|vision_reserved_special_token_840|>' (id=200926)
-[METADATA] Special: special = '<|vision_reserved_special_token_841|>' (id=200927)
-[METADATA] Special: special = '<|vision_reserved_special_token_842|>' (id=200928)
-[METADATA] Special: special = '<|vision_reserved_special_token_843|>' (id=200929)
-[METADATA] Special: special = '<|vision_reserved_special_token_844|>' (id=200930)
-[METADATA] Special: special = '<|vision_reserved_special_token_845|>' (id=200931)
-[METADATA] Special: special = '<|vision_reserved_special_token_846|>' (id=200932)
-[METADATA] Special: special = '<|vision_reserved_special_token_847|>' (id=200933)
-[METADATA] Special: special = '<|vision_reserved_special_token_848|>' (id=200934)
-[METADATA] Special: special = '<|vision_reserved_special_token_849|>' (id=200935)
-[METADATA] Special: special = '<|vision_reserved_special_token_850|>' (id=200936)
-[METADATA] Special: special = '<|vision_reserved_special_token_851|>' (id=200937)
-[METADATA] Special: special = '<|vision_reserved_special_token_852|>' (id=200938)
-[METADATA] Special: special = '<|vision_reserved_special_token_853|>' (id=200939)
-[METADATA] Special: special = '<|vision_reserved_special_token_854|>' (id=200940)
-[METADATA] Special: special = '<|vision_reserved_special_token_855|>' (id=200941)
-[METADATA] Special: special = '<|vision_reserved_special_token_856|>' (id=200942)
-[METADATA] Special: special = '<|vision_reserved_special_token_857|>' (id=200943)
-[METADATA] Special: special = '<|vision_reserved_special_token_858|>' (id=200944)
-[METADATA] Special: special = '<|vision_reserved_special_token_859|>' (id=200945)
-[METADATA] Special: special = '<|vision_reserved_special_token_860|>' (id=200946)
-[METADATA] Special: special = '<|vision_reserved_special_token_861|>' (id=200947)
-[METADATA] Special: special = '<|vision_reserved_special_token_862|>' (id=200948)
-[METADATA] Special: special = '<|vision_reserved_special_token_863|>' (id=200949)
-[METADATA] Special: special = '<|vision_reserved_special_token_864|>' (id=200950)
-[METADATA] Special: special = '<|vision_reserved_special_token_865|>' (id=200951)
-[METADATA] Special: special = '<|vision_reserved_special_token_866|>' (id=200952)
-[METADATA] Special: special = '<|vision_reserved_special_token_867|>' (id=200953)
-[METADATA] Special: special = '<|vision_reserved_special_token_868|>' (id=200954)
-[METADATA] Special: special = '<|vision_reserved_special_token_869|>' (id=200955)
-[METADATA] Special: special = '<|vision_reserved_special_token_870|>' (id=200956)
-[METADATA] Special: special = '<|vision_reserved_special_token_871|>' (id=200957)
-[METADATA] Special: special = '<|vision_reserved_special_token_872|>' (id=200958)
-[METADATA] Special: special = '<|vision_reserved_special_token_873|>' (id=200959)
-[METADATA] Special: special = '<|vision_reserved_special_token_874|>' (id=200960)
-[METADATA] Special: special = '<|vision_reserved_special_token_875|>' (id=200961)
-[METADATA] Special: special = '<|vision_reserved_special_token_876|>' (id=200962)
-[METADATA] Special: special = '<|vision_reserved_special_token_877|>' (id=200963)
-[METADATA] Special: special = '<|vision_reserved_special_token_878|>' (id=200964)
-[METADATA] Special: special = '<|vision_reserved_special_token_879|>' (id=200965)
-[METADATA] Special: special = '<|vision_reserved_special_token_880|>' (id=200966)
-[METADATA] Special: special = '<|vision_reserved_special_token_881|>' (id=200967)
-[METADATA] Special: special = '<|vision_reserved_special_token_882|>' (id=200968)
-[METADATA] Special: special = '<|vision_reserved_special_token_883|>' (id=200969)
-[METADATA] Special: special = '<|vision_reserved_special_token_884|>' (id=200970)
-[METADATA] Special: special = '<|vision_reserved_special_token_885|>' (id=200971)
-[METADATA] Special: special = '<|vision_reserved_special_token_886|>' (id=200972)
-[METADATA] Special: special = '<|vision_reserved_special_token_887|>' (id=200973)
-[METADATA] Special: special = '<|vision_reserved_special_token_888|>' (id=200974)
-[METADATA] Special: special = '<|vision_reserved_special_token_889|>' (id=200975)
-[METADATA] Special: special = '<|vision_reserved_special_token_890|>' (id=200976)
-[METADATA] Special: special = '<|vision_reserved_special_token_891|>' (id=200977)
-[METADATA] Special: special = '<|vision_reserved_special_token_892|>' (id=200978)
-[METADATA] Special: special = '<|vision_reserved_special_token_893|>' (id=200979)
-[METADATA] Special: special = '<|vision_reserved_special_token_894|>' (id=200980)
-[METADATA] Special: special = '<|vision_reserved_special_token_895|>' (id=200981)
-[METADATA] Special: special = '<|vision_reserved_special_token_896|>' (id=200982)
-[METADATA] Special: special = '<|vision_reserved_special_token_897|>' (id=200983)
-[METADATA] Special: special = '<|vision_reserved_special_token_898|>' (id=200984)
-[METADATA] Special: special = '<|vision_reserved_special_token_899|>' (id=200985)
-[METADATA] Special: special = '<|vision_reserved_special_token_900|>' (id=200986)
-[METADATA] Special: special = '<|vision_reserved_special_token_901|>' (id=200987)
-[METADATA] Special: special = '<|vision_reserved_special_token_902|>' (id=200988)
-[METADATA] Special: special = '<|vision_reserved_special_token_903|>' (id=200989)
-[METADATA] Special: special = '<|vision_reserved_special_token_904|>' (id=200990)
-[METADATA] Special: special = '<|vision_reserved_special_token_905|>' (id=200991)
-[METADATA] Special: special = '<|vision_reserved_special_token_906|>' (id=200992)
-[METADATA] Special: special = '<|vision_reserved_special_token_907|>' (id=200993)
-[METADATA] Special: special = '<|vision_reserved_special_token_908|>' (id=200994)
-[METADATA] Special: special = '<|vision_reserved_special_token_909|>' (id=200995)
-[METADATA] Special: special = '<|vision_reserved_special_token_910|>' (id=200996)
-[METADATA] Special: special = '<|vision_reserved_special_token_911|>' (id=200997)
-[METADATA] Special: special = '<|vision_reserved_special_token_912|>' (id=200998)
-[METADATA] Special: special = '<|vision_reserved_special_token_913|>' (id=200999)
-[METADATA] Special: special = '<|vision_reserved_special_token_914|>' (id=201000)
-[METADATA] Special: special = '<|vision_reserved_special_token_915|>' (id=201001)
-[METADATA] Special: special = '<|vision_reserved_special_token_916|>' (id=201002)
-[METADATA] Special: special = '<|vision_reserved_special_token_917|>' (id=201003)
-[METADATA] Special: special = '<|vision_reserved_special_token_918|>' (id=201004)
-[METADATA] Special: special = '<|vision_reserved_special_token_919|>' (id=201005)
-[METADATA] Special: special = '<|vision_reserved_special_token_920|>' (id=201006)
-[METADATA] Special: special = '<|vision_reserved_special_token_921|>' (id=201007)
-[METADATA] Special: special = '<|vision_reserved_special_token_922|>' (id=201008)
-[METADATA] Special: special = '<|vision_reserved_special_token_923|>' (id=201009)
-[METADATA] Special: special = '<|vision_reserved_special_token_924|>' (id=201010)
-[METADATA] Special: special = '<|vision_reserved_special_token_925|>' (id=201011)
-[METADATA] Special: special = '<|vision_reserved_special_token_926|>' (id=201012)
-[METADATA] Special: special = '<|vision_reserved_special_token_927|>' (id=201013)
-[METADATA] Special: special = '<|vision_reserved_special_token_928|>' (id=201014)
-[METADATA] Special: special = '<|vision_reserved_special_token_929|>' (id=201015)
-[METADATA] Special: special = '<|vision_reserved_special_token_930|>' (id=201016)
-[METADATA] Special: special = '<|vision_reserved_special_token_931|>' (id=201017)
-[METADATA] Special: special = '<|vision_reserved_special_token_932|>' (id=201018)
-[METADATA] Special: special = '<|vision_reserved_special_token_933|>' (id=201019)
-[METADATA] Special: special = '<|vision_reserved_special_token_934|>' (id=201020)
-[METADATA] Special: special = '<|vision_reserved_special_token_935|>' (id=201021)
-[METADATA] Special: special = '<|vision_reserved_special_token_936|>' (id=201022)
-[METADATA] Special: special = '<|vision_reserved_special_token_937|>' (id=201023)
-[METADATA] Special: special = '<|vision_reserved_special_token_938|>' (id=201024)
-[METADATA] Special: special = '<|vision_reserved_special_token_939|>' (id=201025)
-[METADATA] Special: special = '<|vision_reserved_special_token_940|>' (id=201026)
-[METADATA] Special: special = '<|vision_reserved_special_token_941|>' (id=201027)
-[METADATA] Special: special = '<|vision_reserved_special_token_942|>' (id=201028)
-[METADATA] Special: special = '<|vision_reserved_special_token_943|>' (id=201029)
-[METADATA] Special: special = '<|vision_reserved_special_token_944|>' (id=201030)
-[METADATA] Special: special = '<|vision_reserved_special_token_945|>' (id=201031)
-[METADATA] Special: special = '<|vision_reserved_special_token_946|>' (id=201032)
-[METADATA] Special: special = '<|vision_reserved_special_token_947|>' (id=201033)
-[METADATA] Special: special = '<|vision_reserved_special_token_948|>' (id=201034)
-[METADATA] Special: special = '<|vision_reserved_special_token_949|>' (id=201035)
-[METADATA] Special: special = '<|vision_reserved_special_token_950|>' (id=201036)
-[METADATA] Special: special = '<|vision_reserved_special_token_951|>' (id=201037)
-[METADATA] Special: special = '<|vision_reserved_special_token_952|>' (id=201038)
-[METADATA] Special: special = '<|vision_reserved_special_token_953|>' (id=201039)
-[METADATA] Special: special = '<|vision_reserved_special_token_954|>' (id=201040)
-[METADATA] Special: special = '<|vision_reserved_special_token_955|>' (id=201041)
-[METADATA] Special: special = '<|vision_reserved_special_token_956|>' (id=201042)
-[METADATA] Special: special = '<|vision_reserved_special_token_957|>' (id=201043)
-[METADATA] Special: special = '<|vision_reserved_special_token_958|>' (id=201044)
-[METADATA] Special: special = '<|vision_reserved_special_token_959|>' (id=201045)
-[METADATA] Special: special = '<|vision_reserved_special_token_960|>' (id=201046)
-[METADATA] Special: special = '<|vision_reserved_special_token_961|>' (id=201047)
-[METADATA] Special: special = '<|vision_reserved_special_token_962|>' (id=201048)
-[METADATA] Special: special = '<|vision_reserved_special_token_963|>' (id=201049)
-[METADATA] Special: special = '<|vision_reserved_special_token_964|>' (id=201050)
-[METADATA] Special: special = '<|vision_reserved_special_token_965|>' (id=201051)
-[METADATA] Special: special = '<|vision_reserved_special_token_966|>' (id=201052)
-[METADATA] Special: special = '<|vision_reserved_special_token_967|>' (id=201053)
-[METADATA] Special: special = '<|vision_reserved_special_token_968|>' (id=201054)
-[METADATA] Special: special = '<|vision_reserved_special_token_969|>' (id=201055)
-[METADATA] Special: special = '<|vision_reserved_special_token_970|>' (id=201056)
-[METADATA] Special: special = '<|vision_reserved_special_token_971|>' (id=201057)
-[METADATA] Special: special = '<|vision_reserved_special_token_972|>' (id=201058)
-[METADATA] Special: special = '<|vision_reserved_special_token_973|>' (id=201059)
-[METADATA] Special: special = '<|vision_reserved_special_token_974|>' (id=201060)
-[METADATA] Special: special = '<|vision_reserved_special_token_975|>' (id=201061)
-[METADATA] Special: special = '<|vision_reserved_special_token_976|>' (id=201062)
-[METADATA] Special: special = '<|vision_reserved_special_token_977|>' (id=201063)
-[METADATA] Special: special = '<|vision_reserved_special_token_978|>' (id=201064)
-[METADATA] Special: special = '<|vision_reserved_special_token_979|>' (id=201065)
-[METADATA] Special: special = '<|vision_reserved_special_token_980|>' (id=201066)
-[METADATA] Special: special = '<|vision_reserved_special_token_981|>' (id=201067)
-[METADATA] Special: special = '<|vision_reserved_special_token_982|>' (id=201068)
-[METADATA] Special: special = '<|vision_reserved_special_token_983|>' (id=201069)
-[METADATA] Special: special = '<|vision_reserved_special_token_984|>' (id=201070)
-[METADATA] Special: special = '<|vision_reserved_special_token_985|>' (id=201071)
-[METADATA] Special: special = '<|vision_reserved_special_token_986|>' (id=201072)
-[METADATA] Special: special = '<|vision_reserved_special_token_987|>' (id=201073)
-[METADATA] Special: special = '<|vision_reserved_special_token_988|>' (id=201074)
-[METADATA] Special: special = '<|vision_reserved_special_token_989|>' (id=201075)
-[METADATA] Special: special = '<|vision_reserved_special_token_990|>' (id=201076)
-[METADATA] Special: special = '<|vision_reserved_special_token_991|>' (id=201077)
-[METADATA] Special: special = '<|vision_reserved_special_token_992|>' (id=201078)
-[METADATA] Special: special = '<|vision_reserved_special_token_993|>' (id=201079)
-[METADATA] Special: special = '<|vision_reserved_special_token_994|>' (id=201080)
-[METADATA] Special: special = '<|vision_reserved_special_token_995|>' (id=201081)
-[METADATA] Special: special = '<|vision_reserved_special_token_996|>' (id=201082)
-[METADATA] Special: special = '<|vision_reserved_special_token_997|>' (id=201083)
-[METADATA] Special: special = '<|vision_reserved_special_token_998|>' (id=201084)
-[METADATA] Special: special = '<|vision_reserved_special_token_999|>' (id=201085)
-[METADATA] Special: special = '<|vision_reserved_special_token_1000|>' (id=201086)
-[METADATA] Special: special = '<|vision_reserved_special_token_1001|>' (id=201087)
-[METADATA] Special: special = '<|vision_reserved_special_token_1002|>' (id=201088)
-[METADATA] Special: special = '<|vision_reserved_special_token_1003|>' (id=201089)
-[METADATA] Special: special = '<|vision_reserved_special_token_1004|>' (id=201090)
-[METADATA] Special: special = '<|vision_reserved_special_token_1005|>' (id=201091)
-[METADATA] Special: special = '<|vision_reserved_special_token_1006|>' (id=201092)
-[METADATA] Special: special = '<|vision_reserved_special_token_1007|>' (id=201093)
-[METADATA] Special: special = '<|vision_reserved_special_token_1008|>' (id=201094)
-[METADATA] Special: special = '<|vision_reserved_special_token_1009|>' (id=201095)
-[METADATA] Special: special = '<|vision_reserved_special_token_1010|>' (id=201096)
-[METADATA] Special: special = '<|vision_reserved_special_token_1011|>' (id=201097)
-[METADATA] Special: special = '<|vision_reserved_special_token_1012|>' (id=201098)
-[METADATA] Special: special = '<|vision_reserved_special_token_1013|>' (id=201099)
-[METADATA] Special: special = '<|vision_reserved_special_token_1014|>' (id=201100)
-[METADATA] Special: special = '<|vision_reserved_special_token_1015|>' (id=201101)
-[METADATA] Special: special = '<|vision_reserved_special_token_1016|>' (id=201102)
-[METADATA] Special: special = '<|vision_reserved_special_token_1017|>' (id=201103)
-[METADATA] Special: special = '<|vision_reserved_special_token_1018|>' (id=201104)
-[METADATA] Special: special = '<|vision_reserved_special_token_1019|>' (id=201105)
-[METADATA] Special: special = '<|vision_reserved_special_token_1020|>' (id=201106)
-[METADATA] Special: special = '<|vision_reserved_special_token_1021|>' (id=201107)
-[METADATA] Special: special = '<|vision_reserved_special_token_1022|>' (id=201108)
-[METADATA] Special: special = '<|vision_reserved_special_token_1023|>' (id=201109)
-[METADATA] Special: special = '<|vision_reserved_special_token_1024|>' (id=201110)
-[METADATA] Special: special = '<|vision_reserved_special_token_1025|>' (id=201111)
-[METADATA] Special: special = '<|vision_reserved_special_token_1026|>' (id=201112)
-[METADATA] Special: special = '<|vision_reserved_special_token_1027|>' (id=201113)
-[METADATA] Special: special = '<|vision_reserved_special_token_1028|>' (id=201114)
-[METADATA] Special: special = '<|vision_reserved_special_token_1029|>' (id=201115)
-[METADATA] Special: special = '<|vision_reserved_special_token_1030|>' (id=201116)
-[METADATA] Special: special = '<|vision_reserved_special_token_1031|>' (id=201117)
-[METADATA] Special: special = '<|vision_reserved_special_token_1032|>' (id=201118)
-[METADATA] Special: special = '<|vision_reserved_special_token_1033|>' (id=201119)
-[METADATA] Special: special = '<|vision_reserved_special_token_1034|>' (id=201120)
-[METADATA] Special: special = '<|vision_reserved_special_token_1035|>' (id=201121)
-[METADATA] Special: special = '<|vision_reserved_special_token_1036|>' (id=201122)
-[METADATA] Special: special = '<|vision_reserved_special_token_1037|>' (id=201123)
-[METADATA] Special: special = '<|vision_reserved_special_token_1038|>' (id=201124)
-[METADATA] Special: special = '<|vision_reserved_special_token_1039|>' (id=201125)
-[METADATA] Special: special = '<|vision_reserved_special_token_1040|>' (id=201126)
-[METADATA] Special: special = '<|vision_reserved_special_token_1041|>' (id=201127)
-[METADATA] Special: special = '<|vision_reserved_special_token_1042|>' (id=201128)
-[METADATA] Special: special = '<|vision_reserved_special_token_1043|>' (id=201129)
-[METADATA] Special: special = '<|vision_reserved_special_token_1044|>' (id=201130)
-[METADATA] Special: special = '<|vision_reserved_special_token_1045|>' (id=201131)
-[METADATA] Special: special = '<|vision_reserved_special_token_1046|>' (id=201132)
-[METADATA] Special: special = '<|vision_reserved_special_token_1047|>' (id=201133)
-[METADATA] Special: special = '<|finetune_right_pad_id|>' (id=201134)
-[METADATA] (Stub: DB insertion not yet implemented)
+[METADATA] Special tokens: 0
+[METADATA] Vocab tokens: 0
+[METADATA] Loading 55 atoms (max codepoint: 125 / 0x7d)...
+[CACHE] Loaded 55 atoms for 55 unique codepoints in 8 ms
+[METADATA] Loaded 55 atoms
+[CONFIG-AST] Built 424 nodes, 385 relations
+[METADATA] Total: 231 compositions, 385 relations
+[STREAM] Buffers: comp=38KB, child=200KB, rel=69KB
+NOTICE:  table "tmp_meta_comp" does not exist, skipping
+NOTICE:  table "tmp_meta_child" does not exist, skipping
+NOTICE:  table "tmp_meta_rel" does not exist, skipping
+[STREAM] Merging into main tables...
+[STREAM] Inserted: 231 compositions, 1468 children, 385 relations
 
 [4] Building tensor name hierarchy...
-[HIER] Building tensor hierarchy from 1061 tensors
-[HIER] Found 2102 unique hierarchy nodes
-[HIER] Built 2102 compositions with atom children
-[HIER] Built 2099 composition->composition edges
-[HIER] Inserted/updated 2102 hierarchy compositions
-[HIER] Inserted 0 atom children
-[HIER] Inserted 0 composition->composition edges
+[HIER] Building tensor hierarchy from 592 tensors
+[HIER] Found 928 unique hierarchy nodes
+[HIER] Built 928 compositions with atom children
+[HIER] Built 925 composition->composition edges
+NOTICE:  table "tmp_hier_comp" does not exist, skipping
+[HIER] Inserted/updated 928 hierarchy compositions
+NOTICE:  table "tmp_hier_atom_child" does not exist, skipping
+[HIER] Inserted 41824 atom children
+NOTICE:  table "tmp_hier_child" does not exist, skipping
+[HIER] Inserted 925 composition->composition edges
 
 [6] Computing composition centroids hierarchically...
-[CENTROID] Updated 38172 composition centroids from atoms
+[CENTROID] Updated 1159 composition centroids from atoms
 
-[7] Extracting embedding k-NN similarity as relations...
-[EMBED] Found 2 embedding tensor(s)
-[EMBED] Processing language_model.model.embed_tokens.weight [token, thresh=0.45]: 202048 x 5120 dims
-[EMBED] Read embeddings in 1082ms
+[7] Extracting complete semantic relations (all projections)...
+============================================================
+[SEMANTIC] PARALLEL EXTRACTION starting
+[SEMANTIC] Hardware threads: 32
+[SEMANTIC] OpenMP threads: 32
+[SEMANTIC] MKL threads: 32 (dynamic=0)
+[SEMANTIC] HNSWLIB: available
+============================================================
+[SEMANTIC] Using config-driven tensor lookup (architecture: DETR)
+[SEMANTIC] WARNING: Manifest lookup failed, falling back to tensor scan
+[SEMANTIC] No embedding tensor found
+
+[8] Extracting weight-based relations (router, attention, MLP)...
+[SEMANTIC] No vocabulary tokens loaded, skipping semantic extraction
+
+=== Complete ===
+Total time: 0 seconds
+Tensors: 592
+BPE merges: 0
+Vocab: 0 tokens
+=== Universal Safetensor Ingester (Modular) ===
+Directory: D:\Models\detection_models\DETR-ResNet-101
+Model: DETR-ResNet-101
+Threshold: 0.5
+
+[0] Parsing model manifest (config.json, architecture detection)...
+[MANIFEST] Parsed config for DETR-ResNet-101 (DETR)
+[MANIFEST] Found 92 config atoms
+
++--------------------------------------------------------------+
+|              MODEL MANIFEST SUMMARY                          |
++--------------------------------------------------------------+
+  Model: DETR-ResNet-101
+  Architecture: DETR
+  Path: D:\Models\detection_models\DETR-ResNet-101
++--------------------------------------------------------------+
+  DIMENSIONS:
+    Model Dim (d_model): 256
+    Layers: 6
+    Attention Heads: 8
+    FFN Dim: 2048
++--------------------------------------------------------------+
+  TENSORS BY CATEGORY:
+    Embeddings:    0 (eigenmap extraction)
+    Attention:     0 (relation extraction)
+    FFN:           0 (stats only)
+    Normalization: 0 (stats only)
+    Convolution:   0 (stats only)
+    Other:         0
+    TOTAL:         0
++--------------------------------------------------------------+
+  METADATA FOR INGESTION:
+    Config atoms:    92
+    Tokenizer atoms: 0
+    BPE merges:      0 (composition edges)
+    Vocab entries:   0
++--------------------------------------------------------------+
+
+
+
+[2.5] Parsing model metadata (config, tokenizer, special tokens)...
+
+=== Parsing Model Metadata: DETR-ResNet-101 ===
+[CONFIG] Parsed 211 config atoms, model_type=detr, vocab_size=0
+[METADATA] Total: 211 config atoms, 0 vocab tokens, 0 merges, 0 special tokens
+[3] Parsing 1 safetensor files...
+  Parsing: "D:\\Models\\detection_models\\DETR-ResNet-101\\model.safetensors"
+[INFO] Found 789 tensors
+[3.1] Categorizing tensors for extraction...
+[INFO] Created 789 extraction plans
+
+[3.5] Inserting model metadata as content...
+
+=== Inserting Model Metadata: DETR-ResNet-101 ===
+[METADATA] Type: detr
+[METADATA] Config atoms: 211
+[METADATA] BPE merges: 0
+[METADATA] Special tokens: 0
+[METADATA] Vocab tokens: 0
+[METADATA] Loading 51 atoms (max codepoint: 125 / 0x7d)...
+[CACHE] Loaded 51 atoms for 51 unique codepoints in 7 ms
+[METADATA] Loaded 51 atoms
+[CONFIG-AST] Built 422 nodes, 384 relations
+[METADATA] Total: 228 compositions, 384 relations
+[STREAM] Buffers: comp=37KB, child=193KB, rel=67KB
+[STREAM] Merging into main tables...
+[STREAM] Inserted: 228 compositions, 115 children, 384 relations
+
+[4] Building tensor name hierarchy...
+[HIER] Building tensor hierarchy from 789 tensors
+[HIER] Found 1211 unique hierarchy nodes
+[HIER] Built 1211 compositions with atom children
+[HIER] Built 1208 composition->composition edges
+[HIER] Inserted/updated 1211 hierarchy compositions
+[HIER] Inserted 24676 atom children
+[HIER] Inserted 482 composition->composition edges
+
+[6] Computing composition centroids hierarchically...
+[CENTROID] Updated 1649 composition centroids from atoms
+
+[7] Extracting complete semantic relations (all projections)...
+============================================================
+[SEMANTIC] PARALLEL EXTRACTION starting
+[SEMANTIC] Hardware threads: 32
+[SEMANTIC] OpenMP threads: 32
+[SEMANTIC] MKL threads: 32 (dynamic=0)
+[SEMANTIC] HNSWLIB: available
+============================================================
+[SEMANTIC] Using config-driven tensor lookup (architecture: DETR)
+[SEMANTIC] WARNING: Manifest lookup failed, falling back to tensor scan
+[SEMANTIC] No embedding tensor found
+
+[8] Extracting weight-based relations (router, attention, MLP)...
+[SEMANTIC] No vocabulary tokens loaded, skipping semantic extraction
+
+=== Complete ===
+Total time: 0 seconds
+Tensors: 789
+BPE merges: 0
+Vocab: 0 tokens
+=== Universal Safetensor Ingester (Modular) ===
+Directory: D:\Models\detection_models\Florence-2-base
+Model: Florence-2-base
+Threshold: 0.5
+
+[0] Parsing model manifest (config.json, architecture detection)...
+[MANIFEST] Parsed config for Florence-2-base (FLORENCE)
+[MANIFEST] Found 33 config atoms
+
++--------------------------------------------------------------+
+|              MODEL MANIFEST SUMMARY                          |
++--------------------------------------------------------------+
+  Model: Florence-2-base
+  Architecture: FLORENCE
+  Path: D:\Models\detection_models\Florence-2-base
++--------------------------------------------------------------+
+  DIMENSIONS:
+    Vocab Size: 51289
+    Model Dim (d_model): 768
+    Layers: 6
+    Attention Heads: 12
+    FFN Dim: 3072
++--------------------------------------------------------------+
+  TENSORS BY CATEGORY:
+    Embeddings:    0 (eigenmap extraction)
+    Attention:     0 (relation extraction)
+    FFN:           0 (stats only)
+    Normalization: 0 (stats only)
+    Convolution:   0 (stats only)
+    Other:         0
+    TOTAL:         0
++--------------------------------------------------------------+
+  METADATA FOR INGESTION:
+    Config atoms:    33
+    Tokenizer atoms: 0
+    BPE merges:      0 (composition edges)
+    Vocab entries:   0
++--------------------------------------------------------------+
+
+
+[1] Parsing tokenizer: "D:\\Models\\detection_models\\Florence-2-base\\tokenizer.json"
+[TOKENIZER] Loaded 50000 BPE merges, 50265 vocab entries
+
+[2.5] Parsing model metadata (config, tokenizer, special tokens)...
+
+=== Parsing Model Metadata: Florence-2-base ===
+[CONFIG] Parsed 110 config atoms, model_type=florence2, vocab_size=51289
+[TOKENIZER] Loaded 5 special tokens, 50000 BPE merges, 50265 vocab entries
+[METADATA] Total: 110 config atoms, 50265 vocab tokens, 50000 merges, 5 special tokens
+[VOCAB] Transferred 50265 token compositions to context
+[3] Parsing 1 safetensor files...
+  Parsing: "D:\\Models\\detection_models\\Florence-2-base\\model.safetensors"
+[INFO] Found 666 tensors
+[3.1] Categorizing tensors for extraction...
+[INFO] Created 666 extraction plans
+
+[3.5] Inserting model metadata as content...
+
+=== Inserting Model Metadata: Florence-2-base ===
+[METADATA] Type: florence2
+[METADATA] Config atoms: 110
+[METADATA] BPE merges: 50000
+[METADATA] Special tokens: 5
+[METADATA] Vocab tokens: 50265
+[METADATA] Loading 258 atoms (max codepoint: 323 / 0x143)...
+[CACHE] Loaded 258 atoms for 258 unique codepoints in 8 ms
+[METADATA] Loaded 258 atoms
+[CONFIG-AST] Built 220 nodes, 246 relations
+[BPE-TREE] Built 50265 token compositions
+[BPE-TREE] Built 100000 merge relations
+[SPECIAL] Built 5 special token nodes
+[METADATA] Total: 50360 compositions, 100251 relations
+[STREAM] Buffers: comp=8424KB, child=44071KB, rel=17231KB
+[STREAM] Merging into main tables...
+[STREAM] Inserted: 50360 compositions, 321589 children, 99953 relations
+
+[4] Building tensor name hierarchy...
+[HIER] Building tensor hierarchy from 666 tensors
+[HIER] Found 1301 unique hierarchy nodes
+[HIER] Built 1301 compositions with atom children
+[HIER] Built 1295 composition->composition edges
+[HIER] Inserted/updated 1301 hierarchy compositions
+[HIER] Inserted 68209 atom children
+[HIER] Inserted 1295 composition->composition edges
+
+[5] Inserting token compositions...
+[COMP] Inserting 50265 token compositions...
+[COMP] 50009 multi-char compositions to insert
+[COMP] Building batch strings with 16 threads...
+  [BUILD] 50265/50265 tokens (99338/s)
+
+[COMP] Built 31425KB compositions + 43846KB children in 506ms
+[COMP] Streaming to database...
+[COMP] Creating temp tables...
+NOTICE:  table "tmp_comp" does not exist, skipping
+NOTICE:  table "tmp_comp_child" does not exist, skipping
+[COMP] Copying compositions to temp table...
+  [COPY] Batch 1/16 (2873KB)
+  [COPY] Batch 2/16 (2470KB)
+  [COPY] Batch 3/16 (2844KB)
+  [COPY] Batch 4/16 (2668KB)
+  [COPY] Batch 5/16 (298KB)
+  [COPY] Batch 6/16 (1602KB)
+  [COPY] Batch 7/16 (398KB)
+  [COPY] Batch 8/16 (3880KB)
+  [COPY] Batch 9/16 (2911KB)
+  [COPY] Batch 10/16 (3795KB)
+  [COPY] Batch 11/16 (3006KB)
+  [COPY] Batch 12/16 (1106KB)
+  [COPY] Batch 13/16 (854KB)
+  [COPY] Batch 14/16 (1165KB)
+  [COPY] Batch 15/16 (1145KB)
+  [COPY] Batch 16/16 (404KB)
+
+[COMP] Copying composition children to temp table...
+  [COPY] Batch 1/16 (4003KB)
+  [COPY] Batch 2/16 (3457KB)
+  [COPY] Batch 3/16 (3980KB)
+  [COPY] Batch 4/16 (3717KB)
+  [COPY] Batch 5/16 (414KB)
+  [COPY] Batch 6/16 (2228KB)
+  [COPY] Batch 7/16 (547KB)
+  [COPY] Batch 8/16 (5400KB)
+  [COPY] Batch 9/16 (4061KB)
+  [COPY] Batch 10/16 (5291KB)
+  [COPY] Batch 11/16 (4219KB)
+  [COPY] Batch 12/16 (1538KB)
+  [COPY] Batch 13/16 (1194KB)
+  [COPY] Batch 14/16 (1637KB)
+  [COPY] Batch 15/16 (1597KB)
+  [COPY] Batch 16/16 (557KB)
+
+[COMP] Inserting into composition table...
+[COMP] Inserted 50008 compositions
+[COMP] Inserting into composition_child table...
+[COMP] Inserted 320631 children
+[COMP] Inserted 50008 compositions, 320631 children in 4027ms
+
+[6] Computing composition centroids hierarchically...
+[CENTROID] Updated 103165 composition centroids from atoms
+
+[7] Extracting complete semantic relations (all projections)...
+============================================================
+[SEMANTIC] PARALLEL EXTRACTION starting
+[SEMANTIC] Hardware threads: 32
+[SEMANTIC] OpenMP threads: 32
+[SEMANTIC] MKL threads: 32 (dynamic=0)
+[SEMANTIC] HNSWLIB: available
+============================================================
+[SEMANTIC] Using config-driven tensor lookup (architecture: FLORENCE)
+[SEMANTIC] WARNING: Manifest lookup failed, falling back to tensor scan
+[SEMANTIC] Found embedding by dimension match: language_model.model.shared.weight [51289 x 768]
+[SEMANTIC] Loading 50265 x 768 embeddings...
+[SEMANTIC] Loaded in 169ms
+[SEMANTIC] Normalizing (parallel)...
+[SEMANTIC] 50265/50265 valid embeddings in 13ms
+[SEMANTIC] 24 projections
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 9646.8 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 7540.9 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 6429.9 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 5618.8 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 5342.3 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 5185.9 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 5051.3 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 4931.1 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 4812.6 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 4810.0 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 4810.5 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 17476 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L0/v: 17476 edges (gemm=66ms, knn=12025ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 14568.1 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 12596.5 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 10847.5 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 9285.9 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 8296.5 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 7378.5 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 6245.7 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 5961.2 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 5740.4 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 5647.8 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 5648.4 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 72268 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L5/q: 72268 edges (gemm=63ms, knn=10098ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 8975.0 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 6574.2 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 5519.0 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 4890.3 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 4560.8 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 4355.3 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 4223.0 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 4108.3 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 4079.5 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 4131.5 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 4131.9 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 8629 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L1/v: 8629 edges (gemm=67ms, knn=14333ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 19787.4 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 16532.9 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 14484.1 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 12636.1 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 10978.6 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 9674.7 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 8762.6 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 8150.8 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 7566.7 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 7129.1 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 7128.8 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 194277 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L0/k: 194277 edges (gemm=72ms, knn=8196ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 12821.4 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 11218.8 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 9874.3 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 8907.4 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 8239.3 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 7808.4 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 7381.9 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 6882.6 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 6430.8 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 6182.0 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 6182.7 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 30162/50265 - 42845.2 queries/sec
+[KNN] Found 130262 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L0/q: 130262 edges (gemm=72ms, knn=9160ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 4692.8 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 3455.5 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 2855.7 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 2434.8 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 2148.4 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 1943.7 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 1717.3 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 1623.3 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 1533.4 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 1480.6 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 1480.7 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 220507 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L0/up: 220507 edges (gemm=568ms, knn=40631ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 19405.4 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 16134.8 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 13498.7 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 11763.6 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 10371.4 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 9406.1 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 8717.0 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 8088.5 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 7501.5 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 7138.2 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 7138.9 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Query: 20108/50265 - 53767.4 queries/sec
+[KNN] Found 213130 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L1/k: 213130 edges (gemm=118ms, knn=7936ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 18546.1 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 14739.0 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 11788.9 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 10357.5 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 9390.9 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 8485.1 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 7913.2 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 7357.4 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 7021.7 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 6842.8 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 6843.4 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 201354 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L2/k: 201354 edges (gemm=64ms, knn=8340ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 14958.3 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 11554.0 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 10595.9 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 9256.0 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 8335.0 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 7632.5 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 7150.8 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 6755.4 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 6437.2 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 6242.7 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 6243.3 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 143674 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L1/q: 143674 edges (gemm=64ms, knn=9034ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 8635.7 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 6732.8 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 4714.8 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 4230.6 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 3675.6 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 3753.5 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 3781.4 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 3776.1 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 3795.1 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 3902.5 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 3902.6 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 8522 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L4/v: 8522 edges (gemm=77ms, knn=14521ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 13922.4 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 11034.0 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 9001.8 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 8222.5 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 7526.2 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 6942.0 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 6565.0 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 6218.4 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 5900.6 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 5704.9 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 5705.4 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 86852 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L4/q: 86852 edges (gemm=59ms, knn=10104ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 4701.6 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 3275.3 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 2559.1 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 2073.0 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 1787.5 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 1592.1 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 1480.8 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 1376.9 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 1289.8 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 1215.0 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 1215.1 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 213542 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L1/up: 213542 edges (gemm=252ms, knn=48538ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 14078.4 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 11867.8 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 9978.8 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 9011.2 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 8346.1 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 7554.1 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 7086.0 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 6726.0 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 6429.9 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 6188.1 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 6188.0 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 131253 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L2/q: 131253 edges (gemm=58ms, knn=9277ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 9088.6 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 7019.6 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 5990.5 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 5644.0 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 5472.6 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 5328.9 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 5157.9 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 5081.9 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 5008.2 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 5005.0 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 5005.0 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 12184 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L2/v: 12184 edges (gemm=56ms, knn=11763ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 4615.2 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 3457.9 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 2600.6 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 2123.1 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 1837.1 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 1675.1 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 1479.4 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 1397.8 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 1328.2 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 1286.2 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 1286.3 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 212392 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L3/up: 212392 edges (gemm=476ms, knn=46181ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 5335.5 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 3559.5 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 2873.1 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 2427.7 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 2156.0 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 1958.7 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 1812.2 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 1686.9 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 1557.3 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 1469.5 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 1469.7 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Query: 30162/50265 - 6903.9 queries/sec
+[KNN] Found 228935 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L2/up: 228935 edges (gemm=313ms, knn=41537ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 19787.4 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 16725.5 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 13744.8 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 12191.6 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 10808.6 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 9423.8 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 8693.4 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 8144.2 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 7653.8 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 7238.9 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 7239.7 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 198642 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L3/k: 198642 edges (gemm=81ms, knn=7991ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 13694.8 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 11853.8 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 10391.5 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 9080.4 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 8018.5 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 7373.1 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 6913.3 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 6506.1 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 6059.5 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 5795.0 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 5794.9 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 111787 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L3/q: 111787 edges (gemm=54ms, knn=9832ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 8650.6 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 6719.3 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 5908.3 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 5291.9 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 5032.0 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 4916.2 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 4831.4 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 4741.5 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 4648.9 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 4673.2 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 4673.6 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 12219 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L3/v: 12219 edges (gemm=132ms, knn=12132ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 17759.7 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 15276.6 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 13077.2 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 11281.7 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 10040.0 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 9045.0 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 8233.6 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 7664.5 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 7176.6 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 6855.8 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 6856.5 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 192163 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L4/k: 192163 edges (gemm=76ms, knn=8499ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 4750.5 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 2522.5 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 2132.4 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 1957.9 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 1805.4 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 1686.8 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 1601.1 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 1544.4 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 1485.5 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 1450.6 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 1450.6 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 5027/50265 - 7699.8 queries/sec
+[KNN] Found 218790 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L4/up: 218790 edges (gemm=365ms, knn=41256ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 8280.1 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 6201.1 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 5170.8 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 4617.4 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 4340.2 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 4189.5 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 4097.1 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 4052.8 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 4025.1 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 4096.8 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 4097.2 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 7061 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L5/v: 7061 edges (gemm=55ms, knn=14328ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 21570.8 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 19556.4 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 16828.1 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 14505.1 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 12717.6 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 11496.8 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 10539.8 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 9401.0 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 8064.5 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 7690.9 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 7691.7 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Query: 30162/50265 - 44292.2 queries/sec
+[KNN] Found 184865 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L5/k: 184865 edges (gemm=55ms, knn=7779ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 5107.7 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 3535.7 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 2847.6 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 2507.7 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 2217.2 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 2008.3 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 1884.6 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 1786.9 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 1704.9 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 1655.3 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 1655.4 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 218994 edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L5/up: 218994 edges (gemm=246ms, knn=37054ms)
+[SEMANTIC] Total: 3239778 sparse relations
+
+[8] Extracting weight-based relations (router, attention, MLP)...
+[SEMANTIC] Using config-driven lookup (arch: FLORENCE)
+[SEMANTIC] WARNING: Manifest lookup failed, falling back to dimension match
+[SEMANTIC] Found embedding by vocab dimension: language_model.model.shared.weight
+
+[SEMANTIC] Extracting tokenΓåötoken similarity from language_model.model.shared.weight
+[SEMANTIC] Vocab: 50265 tokens, Embedding dim: 768
+[SEMANTIC] Using 32 threads
+[SEMANTIC] Loaded 50265 token embeddings in 97ms
+[SEMANTIC] Building HNSW index (50265 vectors)...
+  [BUILD] 5026/50265 (9%)
+  [BUILD] 10052/50265 (19%)
+  [BUILD] 15078/50265 (29%)
+  [BUILD] 20104/50265 (39%)
+  [BUILD] 25130/50265 (49%)
+  [BUILD] 30156/50265 (59%)
+  [BUILD] 35182/50265 (69%)
+  [BUILD] 40208/50265 (79%)
+  [BUILD] 45234/50265 (89%)
+  [BUILD] 50260/50265 (99%)
+[SEMANTIC] Cached index to C:\Users\ahart\AppData\Local\Temp\hypercube_hnsw_cache\4910793366727938211.hnsw
+[SEMANTIC] HNSW index built in 15413ms
+[SEMANTIC] Querying k-NN (PARALLEL, 32 threads)...
+  [QUERY] 5026/50265 (9%)
+  [QUERY] 10052/50265 (19%)
+  [QUERY] 15078/50265 (29%)
+  [QUERY] 20104/50265 (39%)
+  [QUERY] 25130/50265 (49%)
+  [QUERY] 30156/50265 (59%)
+  [QUERY] 35182/50265 (69%)
+  [QUERY] 40208/50265 (79%)
+  [QUERY] 45234/50265 (89%)
+  [QUERY] 50260/50265 (99%)
+[SEMANTIC] k-NN queries completed in 2824ms
+[SEMANTIC] Found 323324 semantic similarity edges
+[SEMANTIC] Inserted 323324 tokenΓåötoken semantic relations
+[SEMANTIC] These relations give tokens MEANING through semantic proximity
+
+=== Complete ===
+Total time: 518 seconds
+Tensors: 666
+BPE merges: 50000
+Vocab: 50265 tokens
+=== Universal Safetensor Ingester (Modular) ===
+Directory: D:\Models\detection_models\Florence-2-large
+Model: Florence-2-large
+Threshold: 0.5
+
+[0] Parsing model manifest (config.json, architecture detection)...
+[MANIFEST] Parsed config for Florence-2-large (FLORENCE)
+[MANIFEST] Found 33 config atoms
+
++--------------------------------------------------------------+
+|              MODEL MANIFEST SUMMARY                          |
++--------------------------------------------------------------+
+  Model: Florence-2-large
+  Architecture: FLORENCE
+  Path: D:\Models\detection_models\Florence-2-large
++--------------------------------------------------------------+
+  DIMENSIONS:
+    Vocab Size: 51289
+    Model Dim (d_model): 1024
+    Layers: 12
+    Attention Heads: 16
+    FFN Dim: 4096
++--------------------------------------------------------------+
+  TENSORS BY CATEGORY:
+    Embeddings:    0 (eigenmap extraction)
+    Attention:     0 (relation extraction)
+    FFN:           0 (stats only)
+    Normalization: 0 (stats only)
+    Convolution:   0 (stats only)
+    Other:         0
+    TOTAL:         0
++--------------------------------------------------------------+
+  METADATA FOR INGESTION:
+    Config atoms:    33
+    Tokenizer atoms: 0
+    BPE merges:      0 (composition edges)
+    Vocab entries:   0
++--------------------------------------------------------------+
+
+
+[1] Parsing tokenizer: "D:\\Models\\detection_models\\Florence-2-large\\tokenizer.json"
+[TOKENIZER] Loaded 50000 BPE merges, 50265 vocab entries
+
+[2.5] Parsing model metadata (config, tokenizer, special tokens)...
+
+=== Parsing Model Metadata: Florence-2-large ===
+[CONFIG] Parsed 110 config atoms, model_type=florence2, vocab_size=51289
+[TOKENIZER] Loaded 5 special tokens, 50000 BPE merges, 50265 vocab entries
+[METADATA] Total: 110 config atoms, 50265 vocab tokens, 50000 merges, 5 special tokens
+[VOCAB] Transferred 50265 token compositions to context
+[3] Parsing 1 safetensor files...
+  Parsing: "D:\\Models\\detection_models\\Florence-2-large\\model.safetensors"
+[INFO] Found 918 tensors
+[3.1] Categorizing tensors for extraction...
+[INFO] Created 918 extraction plans
+
+[3.5] Inserting model metadata as content...
+
+=== Inserting Model Metadata: Florence-2-large ===
+[METADATA] Type: florence2
+[METADATA] Config atoms: 110
+[METADATA] BPE merges: 50000
+[METADATA] Special tokens: 5
+[METADATA] Vocab tokens: 50265
+[METADATA] Loading 258 atoms (max codepoint: 323 / 0x143)...
+[CACHE] Loaded 258 atoms for 258 unique codepoints in 8 ms
+[METADATA] Loaded 258 atoms
+[CONFIG-AST] Built 220 nodes, 246 relations
+[BPE-TREE] Built 50265 token compositions
+[BPE-TREE] Built 100000 merge relations
+[SPECIAL] Built 5 special token nodes
+[METADATA] Total: 50361 compositions, 100251 relations
+[STREAM] Buffers: comp=8424KB, child=44072KB, rel=17329KB
+[STREAM] Merging into main tables...
+[STREAM] Composition insert failed: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+
+
+[4] Building tensor name hierarchy...
+[HIER] Building tensor hierarchy from 918 tensors
+[HIER] Found 1709 unique hierarchy nodes
+[HIER] Built 1709 compositions with atom children
+[HIER] Built 1703 composition->composition edges
+[HIER] Create temp table failed
+
+[5] Inserting token compositions...
+[COMP] Inserting 50265 token compositions...
+[COMP] 50009 multi-char compositions to insert
+[COMP] Building batch strings with 16 threads...
+  [BUILD] 50265/50265 tokens (98947/s)
+
+[COMP] Built 31425KB compositions + 43846KB children in 508ms
+[COMP] Streaming to database...
+[COMP] Creating temp tables...
+[COMP] Create tmp_comp failed
+
+[6] Computing composition centroids hierarchically...
+[CENTROID] Failed: null result
+
+[7] Extracting complete semantic relations (all projections)...
+============================================================
+[SEMANTIC] PARALLEL EXTRACTION starting
+[SEMANTIC] Hardware threads: 32
+[SEMANTIC] OpenMP threads: 32
+[SEMANTIC] MKL threads: 32 (dynamic=0)
+[SEMANTIC] HNSWLIB: available
+============================================================
+[SEMANTIC] Using config-driven tensor lookup (architecture: FLORENCE)
+[SEMANTIC] WARNING: Manifest lookup failed, falling back to tensor scan
+[SEMANTIC] Found embedding by dimension match: language_model.model.shared.weight [51289 x 1024]
+[SEMANTIC] Loading 50265 x 1024 embeddings...
+[SEMANTIC] Loaded in 276ms
+[SEMANTIC] Normalizing (parallel)...
+[SEMANTIC] 50265/50265 valid embeddings in 34ms
+[SEMANTIC] 49 projections
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 7569.3 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 5315.7 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 4117.4 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 3606.7 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 3335.1 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 3051.6 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 2845.7 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 2681.8 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 2567.5 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 2525.9 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 2526.1 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 2101 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L10/q: 2101 edges (gemm=148ms, knn=23713ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 14118.0 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 12903.7 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 11144.1 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 9591.6 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 8737.8 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 7971.5 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 7273.5 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 6692.4 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 6316.7 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 6030.7 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 6031.3 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 164277 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L9/k: 164277 edges (gemm=122ms, knn=10254ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 6990.3 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 4809.6 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 3761.0 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 3182.5 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 2836.7 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 2610.9 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 2313.2 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 2227.3 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 2158.7 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 2159.4 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 2159.6 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 1118 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L11/v: 1118 edges (gemm=118ms, knn=27898ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 7468.1 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 5105.1 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 3784.6 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 3132.9 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 2763.4 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 2561.2 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 2367.6 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 2243.6 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 2158.2 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 2142.6 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 2142.9 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 1193 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L0/v: 1193 edges (gemm=117ms, knn=28352ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 8959.0 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 6778.2 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 5385.0 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 4561.8 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 4011.2 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 3567.9 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 3282.8 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 3097.9 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 2951.8 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 2751.3 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 2751.5 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 3337 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L5/q: 3337 edges (gemm=147ms, knn=22328ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 7768.2 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 5666.3 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 4383.1 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 3642.7 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 3200.1 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 2889.6 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 2511.2 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 2370.6 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 2235.4 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 2193.6 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 2193.8 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 500.0 queries/sec
+[KNN] Found 1443 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L1/v: 1443 edges (gemm=117ms, knn=27277ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 12052.8 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 9656.1 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 8234.8 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 7374.9 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 6423.8 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 5620.9 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 5141.3 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 4765.7 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 4472.4 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 4307.9 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 4307.9 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 5027/50265 - 34675.9 queries/sec
+[KNN] Found 171801 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L0/k: 171801 edges (gemm=524ms, knn=13335ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 5969.1 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 4071.3 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 3225.2 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 2821.2 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 2606.6 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 2300.8 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 2214.5 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 2164.9 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 2122.5 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 2139.1 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 2139.3 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 30162/50265 - 10108.2 queries/sec
+[KNN] Found 1198 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L9/v: 1198 edges (gemm=358ms, knn=27598ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 17822.7 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 14739.0 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 12062.4 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 10378.9 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 9128.2 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 8268.7 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 7659.9 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 7117.7 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 6730.2 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 6416.4 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 6417.1 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 149708 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L10/k: 149708 edges (gemm=154ms, knn=9776ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 6485.2 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 4303.1 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 3475.0 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 2983.7 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 2687.1 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 2438.2 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 2264.4 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 2147.7 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 2073.7 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 2057.8 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 2058.0 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 333.3 queries/sec
+[KNN] Found 1135 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L7/v: 1135 edges (gemm=309ms, knn=29305ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 6710.3 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 4647.2 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 3467.0 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 2828.8 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 2612.0 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 2420.6 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 2297.4 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 2200.6 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 2129.7 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 2113.9 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 2114.1 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 333.3 queries/sec
+[KNN] Found 985 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L10/v: 985 edges (gemm=134ms, knn=28608ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 9412.0 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 7009.8 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 5553.6 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 4721.5 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 4088.8 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 3744.7 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 3513.6 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 3313.7 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 3165.0 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 3098.3 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 3098.4 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 3502 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L0/q: 3502 edges (gemm=149ms, knn=19843ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 12887.2 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 11501.1 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 9842.0 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 8366.2 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 7352.3 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 6632.1 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 6061.7 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 5598.4 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 5301.1 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 5094.8 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 5095.3 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 165309 edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L7/k: 165309 edges (gemm=136ms, knn=11804ms)
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 3804.7 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 2168.2 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 1923.5 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 1711.1 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 1537.8 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 1407.6 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 1303.0 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 1214.9 vecs/sec

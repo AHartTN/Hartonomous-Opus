@@ -687,7 +687,11 @@ private:
  */
 inline bool create_temp_table(PGconn* conn, const std::string& name,
                                const std::string& schema) {
-    std::string sql = "CREATE TEMP TABLE " + name + " (" + schema + ") ON COMMIT DROP";
+    // Use UNLOGGED table instead of TEMP with ON COMMIT DROP
+    // Temp tables with ON COMMIT DROP get dropped before we can INSERT from them
+    std::string sql = "DROP TABLE IF EXISTS " + name + " CASCADE";
+    exec(conn, sql);  // Ignore errors
+    sql = "CREATE UNLOGGED TABLE " + name + " (" + schema + ")";
     Result res = exec(conn, sql);
     return res.ok();
 }

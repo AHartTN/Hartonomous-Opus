@@ -234,14 +234,14 @@ void SparseSymmetricMatrix::matvec(const double* x, double* y) const {
     
     // Parallel sparse matrix-vector multiply
     // Each row is independent, perfect for parallelization
-    const size_t n = n_;
+    const int64_t n = static_cast<int64_t>(n_);
     const size_t* row_ptr = row_ptr_.data();
     const size_t* col_idx = col_idx_.data();
     const double* values = values_.data();
     const double* diag = diagonal_.data();
     
     #pragma omp parallel for schedule(static) if(n > 1000)
-    for (size_t i = 0; i < n; ++i) {
+    for (int64_t i = 0; i < n; ++i) {
         double sum = diag[i] * x[i];
         for (size_t k = row_ptr[i]; k < row_ptr[i + 1]; ++k) {
             sum += values[k] * x[col_idx[k]];

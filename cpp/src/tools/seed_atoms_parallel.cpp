@@ -62,8 +62,9 @@ void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) 
             continue;
         }
         
-        Point4D coords = CoordinateMapper::map_codepoint(cp);
-        HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
+        // Use map_codepoint_full to get coords AND hilbert in one call
+        // This avoids the redundant Hilbert encode that was killing performance
+        CodepointMapping mapping = CoordinateMapper::map_codepoint_full(cp);
         
         AtomRecord rec;
         rec.hash = Blake3Hasher::hash_codepoint(cp);
@@ -72,20 +73,20 @@ void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) 
         
         // Store uint32 coordinates as int32 (bit-preserving cast)
         // This preserves the full 32-bit value - no information loss
-        rec.coord_x = static_cast<int32_t>(coords.x);
-        rec.coord_y = static_cast<int32_t>(coords.y);
-        rec.coord_z = static_cast<int32_t>(coords.z);
-        rec.coord_m = static_cast<int32_t>(coords.m);
+        rec.coord_x = static_cast<int32_t>(mapping.coords.x);
+        rec.coord_y = static_cast<int32_t>(mapping.coords.y);
+        rec.coord_z = static_cast<int32_t>(mapping.coords.z);
+        rec.coord_m = static_cast<int32_t>(mapping.coords.m);
         
         // Store as double for PostGIS - DIRECT from uint32, no int32 reinterpretation
         // This ensures CENTER (2^31) is stored as 2147483648.0, not as negative
-        rec.x = static_cast<double>(coords.x);
-        rec.y = static_cast<double>(coords.y);
-        rec.z = static_cast<double>(coords.z);
-        rec.m = static_cast<double>(coords.m);
+        rec.x = static_cast<double>(mapping.coords.x);
+        rec.y = static_cast<double>(mapping.coords.y);
+        rec.z = static_cast<double>(mapping.coords.z);
+        rec.m = static_cast<double>(mapping.coords.m);
         
-        rec.hilbert_lo = static_cast<int64_t>(hilbert.lo);
-        rec.hilbert_hi = static_cast<int64_t>(hilbert.hi);
+        rec.hilbert_lo = static_cast<int64_t>(mapping.hilbert.lo);
+        rec.hilbert_hi = static_cast<int64_t>(mapping.hilbert.hi);
         
         out.push_back(rec);
     }

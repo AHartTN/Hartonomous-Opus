@@ -143,6 +143,27 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
  */
 std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row_idx);
 
+/**
+ * @brief Extract semantic relations from ALL projection matrices
+ * 
+ * Complete multi-model semantic extraction that processes:
+ *   - Base embeddings → token similarity in embedding space
+ *   - Q projections per layer → query-space similarity
+ *   - K projections per layer → key-space similarity
+ *   - V projections per layer → value-space similarity
+ *   - FFN projections per layer → feed-forward similarity
+ * 
+ * Each model contributes relations tagged with source_model, layer, component.
+ * Relations ACCUMULATE across models - no overwriting.
+ * The semantic substrate emerges from consensus across all model perspectives.
+ * 
+ * @param conn PostgreSQL connection
+ * @param ctx Ingest context containing tensors and vocab_tokens
+ * @param config Ingest configuration (for model name)
+ * @return true on success, false on database error
+ */
+bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
+
 } // namespace db
 } // namespace ingest
 } // namespace hypercube

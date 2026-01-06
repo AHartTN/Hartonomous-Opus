@@ -65,7 +65,8 @@ inline Blake3Hash hash_string(const std::string& s) {
 }
 
 inline Blake3Hash hash_composition(const std::vector<Blake3Hash>& children) {
-    return Blake3Hasher::hash_children(std::span<const Blake3Hash>(children));
+    // MUST use ordered hash for consistency with AtomCalculator::compute_composition
+    return Blake3Hasher::hash_children_ordered(std::span<const Blake3Hash>(children));
 }
 
 // =============================================================================

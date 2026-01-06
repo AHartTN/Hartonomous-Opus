@@ -1,0 +1,39 @@
+#!/bin/bash
+# Hartonomous Hypercube - Content Ingestion (Linux)
+# Usage: ./scripts/linux/ingest.sh <path>
+
+set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <path>"
+    exit 1
+fi
+
+TARGET="$1"
+
+if [ ! -e "$TARGET" ]; then
+    echo "Not found: $TARGET"
+    exit 1
+fi
+
+echo "=== Hypercube Content Ingestion ==="
+echo "Target: $TARGET"
+
+# Use the unified ingest tool
+INGESTER="$HC_BUILD_DIR/ingest"
+if [ ! -x "$INGESTER" ]; then
+    echo "Ingester not found at: $INGESTER"
+    echo "Run build.sh first."
+    exit 1
+fi
+
+# libpq uses PGPASSWORD env var for authentication
+export PGPASSWORD="$HC_DB_PASS"
+
+"$INGESTER" -d "$HC_DB_NAME" -U "$HC_DB_USER" -h "$HC_DB_HOST" -p "$HC_DB_PORT" "$TARGET"
+
+unset PGPASSWORD
+
+echo -e "\nIngestion complete"

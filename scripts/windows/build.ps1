@@ -1,75 +1,176 @@
+# ============================================================================
 # Hartonomous Hypercube - Build C++ Components (Windows)
-# Usage: .\scripts\windows\build.ps1 [-Clean] [-Install]
+# ============================================================================
+# Optimized build with Intel oneAPI (MKL + OpenMP) and MSVC
+#
+# Usage:
+#   .\scripts\windows\build.ps1                 # Standard build
+#   .\scripts\windows\build.ps1 -Clean          # Clean rebuild
+#   .\scripts\windows\build.ps1 -Install        # Install PostgreSQL extensions
+#   .\scripts\windows\build.ps1 -Verbose        # Show detailed output
+# ============================================================================
 
 param(
     [switch]$Clean,
-    [switch]$Install
+    [switch]$Install,
+    [switch]$Verbose
 )
 
+$ErrorActionPreference = "Stop"
+
+# Load environment
 . "$PSScriptRoot\env.ps1"
 
 if ($Clean) {
     & "$PSScriptRoot\clean.ps1"
 }
 
-Write-Host "=== Building Hypercube C++ ===" -ForegroundColor Cyan
-Write-Host "Build type: $env:HC_BUILD_TYPE"
-Write-Host "Parallel jobs: $env:HC_PARALLEL_JOBS"
+Write-Host ""
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host " Hartonomous Hypercube - Build" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Configuration:" -ForegroundColor Yellow
+Write-Host "  Build Type:     $env:HC_BUILD_TYPE"
+Write-Host "  Parallel Jobs:  $env:HC_PARALLEL_JOBS"
+Write-Host "  Project Root:   $env:HC_PROJECT_ROOT"
+Write-Host ""
+
+# ============================================================================
+# CHECK INTEL MKL
+# ============================================================================
+
+$MKLRoot = $null
+$MKLPaths = @(
+    "D:\Intel\oneAPI\mkl\latest",
+    "$env:MKLROOT",
+    "C:\Program Files (x86)\Intel\oneAPI\mkl\latest",
+    "C:\Program Files\Intel\oneAPI\mkl\latest"
+)
+
+foreach ($path in $MKLPaths) {
+    if ($path -and (Test-Path "$path\include\mkl.h")) {
+        $MKLRoot = $path
+        break
+    }
+}
+
+if ($MKLRoot) {
+    Write-Host "Intel MKL:        $MKLRoot" -ForegroundColor Green
+    $env:MKLROOT = $MKLRoot
+} else {
+    Write-Host "Intel MKL:        Not found (using fallback BLAS)" -ForegroundColor Yellow
+}
+
+# ============================================================================
+# CMAKE CONFIGURE
+# ============================================================================
 
 $BuildDir = "$env:HC_PROJECT_ROOT\cpp\build"
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 Push-Location $BuildDir
 
 try {
-    # Configure with CMake
-    Write-Host "`nConfiguring..."
+    Write-Host ""
+    Write-Host "Configuring with CMake..." -ForegroundColor Yellow
     
-    # Build argument list - use Visual Studio generator for proper MSVC compilation
-    # PostgreSQL extensions require MSVC on Windows (Clang in GNU mode doesn't work with PG headers)
-    $cmakeArgs = @("-DCMAKE_BUILD_TYPE=$env:HC_BUILD_TYPE", "..")
+    # Check for Ninja and cl.exe
+    $hasNinja = Get-Command ninja -ErrorAction SilentlyContinue
+    $hasCL = Get-Command cl.exe -ErrorAction SilentlyContinue
     
-    # Prefer Ninja with MSVC toolchain for faster builds
-    if (Get-Command ninja -ErrorAction SilentlyContinue) {
-        # Find cl.exe from VS environment
-        $clPath = (Get-Command cl.exe -ErrorAction SilentlyContinue).Source
-        if ($clPath) {
-            $cmakeArgs = @(
-                "-G", "Ninja",
-                "-DCMAKE_C_COMPILER=cl",
-                "-DCMAKE_CXX_COMPILER=cl"
-            ) + $cmakeArgs
-        } else {
-            # Fallback to Visual Studio generator (slower but reliable)
-            $cmakeArgs = @("-G", "Visual Studio 17 2022", "-A", "x64") + $cmakeArgs
-        }
+    $cmakeArgs = @()
+    
+    if ($hasNinja -and $hasCL) {
+        # Ninja with MSVC (fast)
+        $cmakeArgs = @(
+            "-G", "Ninja",
+            "-DCMAKE_C_COMPILER=cl",
+            "-DCMAKE_CXX_COMPILER=cl",
+            "-DCMAKE_BUILD_TYPE=$env:HC_BUILD_TYPE"
+        )
+    } elseif ($hasCL) {
+        # Visual Studio generator (slower but works)
+        $cmakeArgs = @(
+            "-G", "Visual Studio 17 2022",
+            "-A", "x64",
+            "-DCMAKE_BUILD_TYPE=$env:HC_BUILD_TYPE"
+        )
+    } else {
+        Write-Host "ERROR: MSVC (cl.exe) not found. Run from Developer Command Prompt." -ForegroundColor Red
+        exit 1
+    }
+    
+    $cmakeArgs += ".."
+    
+    if ($Verbose) {
+        Write-Host "  Args: $($cmakeArgs -join ' ')" -ForegroundColor Gray
     }
     
     & cmake @cmakeArgs
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "CMake configuration failed" -ForegroundColor Red
+        Write-Host "CMake configuration failed!" -ForegroundColor Red
         exit 1
     }
-
-    # Build
-    Write-Host "`nBuilding..."
+    
+    # ========================================================================
+    # BUILD
+    # ========================================================================
+    
+    Write-Host ""
+    Write-Host "Building with $env:HC_PARALLEL_JOBS parallel jobs..." -ForegroundColor Yellow
+    
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    
     & cmake --build . --config $env:HC_BUILD_TYPE --parallel $env:HC_PARALLEL_JOBS
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Build failed" -ForegroundColor Red
+        Write-Host "Build failed!" -ForegroundColor Red
         exit 1
     }
-
-    Write-Host "`n=== Build Complete ===" -ForegroundColor Green
     
-    # Show built artifacts
-    Write-Host "`nExecutables:"
-    Get-ChildItem -Filter "*.exe" -Recurse | Where-Object { $_.Directory.Name -notmatch "CMakeFiles" } | Select-Object Name
+    $stopwatch.Stop()
     
-    Write-Host "`nExtensions:"
-    Get-ChildItem -Filter "*.dll" | Where-Object { $_.Name -match "^(hypercube|semantic)" } | Select-Object Name
+    # ========================================================================
+    # RESULTS
+    # ========================================================================
     
-    # Install extensions if requested
+    Write-Host ""
+    Write-Host "============================================================" -ForegroundColor Cyan
+    Write-Host " BUILD COMPLETE" -ForegroundColor Green
+    Write-Host " Time: $($stopwatch.Elapsed.ToString('mm\:ss\.fff'))" -ForegroundColor Cyan
+    Write-Host "============================================================" -ForegroundColor Cyan
+    
+    Write-Host ""
+    Write-Host "Executables:" -ForegroundColor Yellow
+    Get-ChildItem -Filter "*.exe" -Recurse | 
+        Where-Object { $_.Directory.Name -notmatch "CMakeFiles" } |
+        ForEach-Object {
+            $size = [math]::Round($_.Length / 1MB, 2)
+            Write-Host "  $($_.Name) ($size MB)"
+        }
+    
+    Write-Host ""
+    Write-Host "Extensions:" -ForegroundColor Yellow
+    Get-ChildItem -Filter "*.dll" | 
+        Where-Object { $_.Name -match "^(hypercube|semantic|embedding|generative)" } |
+        ForEach-Object { Write-Host "  $($_.Name)" }
+    
+    # Verify OpenMP linkage
+    $dumpbin = Get-Command dumpbin -ErrorAction SilentlyContinue
+    if ($dumpbin -and (Test-Path "ingest_safetensor.exe")) {
+        $deps = & dumpbin /dependents "ingest_safetensor.exe" 2>$null | Select-String -Pattern "vcomp|libiomp|libomp"
+        if ($deps) {
+            Write-Host ""
+            Write-Host "OpenMP Runtime: $($deps.Matches.Value -join ', ')" -ForegroundColor Green
+        }
+    }
+    
+    # ========================================================================
+    # INSTALL EXTENSIONS
+    # ========================================================================
+    
     if ($Install) {
-        Write-Host "`n=== Installing PostgreSQL Extensions ===" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Installing PostgreSQL Extensions..." -ForegroundColor Yellow
         
         $pgConfig = Get-Command pg_config -ErrorAction SilentlyContinue
         if (-not $pgConfig) {
@@ -81,68 +182,34 @@ try {
         $pgShareDir = & pg_config --sharedir
         $pgExtDir = "$pgShareDir\extension"
         
-        Write-Host "Target lib dir: $pgLibDir"
-        Write-Host "Target ext dir: $pgExtDir"
+        Write-Host "  Target: $pgLibDir"
         
-        # Use CMake install target (installs ALL extensions properly)
-        Write-Host "`nRunning CMake install..."
-        & cmake --install . --config $env:HC_BUILD_TYPE
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "CMake install failed, falling back to manual copy..." -ForegroundColor Yellow
-            
-            # Manual fallback - ALL extension DLLs
-            $dllsToCopy = @(
-                "hypercube_c.dll",
-                "hypercube.dll",
-                "hypercube_ops.dll",
-                "semantic_ops.dll",
-                "embedding_c.dll",
-                "embedding_ops.dll",
-                "generative_c.dll",
-                "generative.dll"
-            )
-            
-            Write-Host "`nCopying extension DLLs..."
-            foreach ($dll in $dllsToCopy) {
-                if (Test-Path $dll) {
-                    Copy-Item $dll "$pgLibDir\" -Force
-                    Write-Host "  $dll" -ForegroundColor Green
-                } else {
-                    Write-Host "  $dll (not found, skipping)" -ForegroundColor Yellow
-                }
+        $extensions = @("hypercube", "semantic_ops", "hypercube_ops", "embedding_ops", "generative")
+        foreach ($ext in $extensions) {
+            if (Test-Path "$ext.dll") {
+                Copy-Item "$ext.dll" "$pgLibDir\" -Force
+                Write-Host "  Installed: $ext.dll" -ForegroundColor Green
             }
-            
-            # ALL SQL and control files
-            $sqlFiles = @(
-                @{sql="..\sql\hypercube--1.0.sql"; ctrl="..\hypercube.control"},
-                @{sql="..\sql\hypercube_ops--1.0.sql"; ctrl="..\sql\hypercube_ops.control"},
-                @{sql="..\sql\semantic_ops--1.0.sql"; ctrl="..\sql\semantic_ops.control"},
-                @{sql="..\sql\embedding_ops--1.0.sql"; ctrl="..\sql\embedding_ops.control"},
-                @{sql="..\sql\generative--1.0.sql"; ctrl="..\sql\generative.control"}
-            )
-            
-            Write-Host "`nCopying extension metadata..."
-            foreach ($ext in $sqlFiles) {
-                if (Test-Path $ext.sql) {
-                    Copy-Item $ext.sql "$pgExtDir\" -Force
-                    Write-Host "  $(Split-Path -Leaf $ext.sql)" -ForegroundColor Green
-                }
-                if (Test-Path $ext.ctrl) {
-                    Copy-Item $ext.ctrl "$pgExtDir\" -Force
-                    Write-Host "  $(Split-Path -Leaf $ext.ctrl)" -ForegroundColor Green
-                }
+            if (Test-Path "..\sql\$ext--1.0.sql") {
+                Copy-Item "..\sql\$ext--1.0.sql" "$pgExtDir\" -Force
             }
-        } else {
-            Write-Host "  CMake install completed" -ForegroundColor Green
+            if (Test-Path "..\sql\$ext.control") {
+                Copy-Item "..\sql\$ext.control" "$pgExtDir\" -Force
+            }
         }
         
-        Write-Host "`n=== Extensions Installed ===" -ForegroundColor Green
-        Write-Host "Installed extensions: hypercube, hypercube_ops, semantic_ops, embedding_ops, generative"
-        Write-Host "Run setup-db.ps1 to load into database"
+        # Copy C library
+        if (Test-Path "hypercube_c.dll") {
+            Copy-Item "hypercube_c.dll" "$pgLibDir\" -Force
+            Write-Host "  Installed: hypercube_c.dll" -ForegroundColor Green
+        }
     }
-    
+
 } finally {
     Pop-Location
 }
 
-Write-Host "`nDone" -ForegroundColor Green
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "  .\scripts\windows\setup-db.ps1       # Setup database schema"
+Write-Host "  .\scripts\windows\ingest.ps1 <path>  # Ingest a model"
