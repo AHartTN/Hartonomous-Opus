@@ -50,10 +50,10 @@ bool load_atoms_for_codepoints(
         
         AtomInfo info;
         info.hash = get_hash_from_hex(res, i, 1);
-        info.coord_x = get_int(res, i, 2);
-        info.coord_y = get_int(res, i, 3);
-        info.coord_z = get_int(res, i, 4);
-        info.coord_m = get_int(res, i, 5);
+        info.coord_x = get_int64(res, i, 2);
+        info.coord_y = get_int64(res, i, 3);
+        info.coord_z = get_int64(res, i, 4);
+        info.coord_m = get_int64(res, i, 5);
         
         cache[cp] = info;
     }

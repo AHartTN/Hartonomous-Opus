@@ -165,6 +165,46 @@ inline bool parse_model_index(IngestContext& ctx, const fs::path& index_path) {
 // Parse Tokenizer (BPE Merges + Vocab from tokenizer.json)
 // =============================================================================
 
+// Helper: Find the closing quote of a JSON string, handling escape sequences
+// Returns position of closing quote, or std::string::npos if not found
+inline size_t find_json_string_end(const std::string& str, size_t start) {
+    // start should point to character AFTER opening quote
+    for (size_t i = start; i < str.size(); ++i) {
+        if (str[i] == '\\' && i + 1 < str.size()) {
+            ++i; // Skip the escaped character
+            continue;
+        }
+        if (str[i] == '"') {
+            return i;
+        }
+    }
+    return std::string::npos;
+}
+
+// Helper: Unescape a JSON string (handles \", \\, \n, \t, etc.)
+inline std::string unescape_json_string(const std::string& str) {
+    std::string result;
+    result.reserve(str.size());
+    for (size_t i = 0; i < str.size(); ++i) {
+        if (str[i] == '\\' && i + 1 < str.size()) {
+            char next = str[i + 1];
+            switch (next) {
+                case '"':  result += '"';  break;
+                case '\\': result += '\\'; break;
+                case 'n':  result += '\n'; break;
+                case 't':  result += '\t'; break;
+                case 'r':  result += '\r'; break;
+                case '/':  result += '/';  break;
+                default:   result += next; break; // Pass through unknown escapes
+            }
+            ++i;
+        } else {
+            result += str[i];
+        }
+    }
+    return result;
+}
+
 inline bool parse_tokenizer(IngestContext& ctx, const fs::path& tokenizer_path) {
     std::ifstream file(tokenizer_path);
     if (!file) {
@@ -179,18 +219,33 @@ inline bool parse_tokenizer(IngestContext& ctx, const fs::path& tokenizer_path) 
     size_t pos = content.find("\"merges\"");
     if (pos != std::string::npos) {
         pos = content.find("[", pos);
-        size_t end = content.find("]", pos);
-        if (pos != std::string::npos && end != std::string::npos) {
-            std::string arr = content.substr(pos + 1, end - pos - 1);
+        if (pos != std::string::npos) {
+            // Find matching ] accounting for nested structures
+            size_t end = pos + 1;
+            int depth = 1;
+            bool in_string = false;
+            while (depth > 0 && end < content.size()) {
+                if (content[end] == '\\' && in_string && end + 1 < content.size()) {
+                    end += 2; // Skip escaped char
+                    continue;
+                }
+                if (content[end] == '"') in_string = !in_string;
+                else if (!in_string) {
+                    if (content[end] == '[') depth++;
+                    else if (content[end] == ']') depth--;
+                }
+                end++;
+            }
             
+            std::string arr = content.substr(pos + 1, end - pos - 2);
             size_t i = 0;
             while (i < arr.size()) {
                 size_t q1 = arr.find("\"", i);
                 if (q1 == std::string::npos) break;
-                size_t q2 = arr.find("\"", q1 + 1);
+                size_t q2 = find_json_string_end(arr, q1 + 1);
                 if (q2 == std::string::npos) break;
                 
-                std::string merge = arr.substr(q1 + 1, q2 - q1 - 1);
+                std::string merge = unescape_json_string(arr.substr(q1 + 1, q2 - q1 - 1));
                 size_t sp = merge.find(" ");
                 if (sp != std::string::npos) {
                     ctx.bpe_merges.emplace_back(merge.substr(0, sp), merge.substr(sp + 1));
@@ -200,36 +255,67 @@ inline bool parse_tokenizer(IngestContext& ctx, const fs::path& tokenizer_path) 
         }
     }
     
-    // Parse vocab
+    // Parse vocab - look for "vocab": { ... }
     pos = content.find("\"vocab\"");
     if (pos != std::string::npos) {
         pos = content.find("{", pos);
-        size_t end = pos;
-        int depth = 1;
-        while (depth > 0 && end < content.size()) {
-            end++;
-            if (content[end] == '{') depth++;
-            else if (content[end] == '}') depth--;
-        }
-        
-        std::string vocab_str = content.substr(pos + 1, end - pos - 1);
-        size_t i = 0;
-        while (i < vocab_str.size()) {
-            size_t q1 = vocab_str.find("\"", i);
-            if (q1 == std::string::npos) break;
-            size_t q2 = vocab_str.find("\"", q1 + 1);
-            if (q2 == std::string::npos) break;
+        if (pos != std::string::npos) {
+            size_t end = pos + 1;
+            int depth = 1;
+            bool in_string = false;
+            while (depth > 0 && end < content.size()) {
+                if (content[end] == '\\' && in_string && end + 1 < content.size()) {
+                    end += 2; // Skip escaped char in string
+                    continue;
+                }
+                if (content[end] == '"') in_string = !in_string;
+                else if (!in_string) {
+                    if (content[end] == '{') depth++;
+                    else if (content[end] == '}') depth--;
+                }
+                end++;
+            }
             
-            std::string token = vocab_str.substr(q1 + 1, q2 - q1 - 1);
-            
-            size_t colon = vocab_str.find(":", q2);
-            size_t comma = vocab_str.find(",", colon);
-            if (comma == std::string::npos) comma = vocab_str.size();
-            
-            int idx = std::stoi(vocab_str.substr(colon + 1, comma - colon - 1));
-            ctx.vocab[token] = idx;
-            
-            i = comma + 1;
+            std::string vocab_str = content.substr(pos + 1, end - pos - 2);
+            size_t i = 0;
+            while (i < vocab_str.size()) {
+                // Find opening quote
+                size_t q1 = vocab_str.find("\"", i);
+                if (q1 == std::string::npos) break;
+                
+                // Find closing quote (handling escapes)
+                size_t q2 = find_json_string_end(vocab_str, q1 + 1);
+                if (q2 == std::string::npos) break;
+                
+                std::string token = unescape_json_string(vocab_str.substr(q1 + 1, q2 - q1 - 1));
+                
+                // Find colon after the closing quote
+                size_t colon = vocab_str.find(":", q2);
+                if (colon == std::string::npos) break;
+                
+                // Find comma or end of vocab
+                size_t comma = vocab_str.find(",", colon);
+                if (comma == std::string::npos) comma = vocab_str.size();
+                
+                // Parse the integer index
+                try {
+                    std::string idx_str = vocab_str.substr(colon + 1, comma - colon - 1);
+                    // Trim whitespace
+                    size_t start = idx_str.find_first_not_of(" \t\n\r");
+                    size_t last = idx_str.find_last_not_of(" \t\n\r");
+                    if (start != std::string::npos && last != std::string::npos) {
+                        idx_str = idx_str.substr(start, last - start + 1);
+                    }
+                    int idx = std::stoi(idx_str);
+                    ctx.vocab[token] = idx;
+                } catch (const std::exception& e) {
+                    // Skip malformed entries but continue parsing
+                    std::cerr << "[TOKENIZER] Warning: Failed to parse vocab entry near pos " 
+                              << i << ": " << e.what() << "\n";
+                }
+                
+                i = comma + 1;
+            }
         }
     }
     

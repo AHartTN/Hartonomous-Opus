@@ -1,0 +1,160 @@
+-- The CXX compiler identification is MSVC 19.50.35721.0
+-- The C compiler identification is MSVC 19.50.35721.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: D:/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: D:/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/cl.exe - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - not found
+-- Found Threads: TRUE
+-- Found Intel MKL: D:/Intel/oneAPI/mkl/2025.3
+-- Skipping Eigen3 (MKL is preferred)
+-- Compiler: MSVC 19.50.35721.0
+-- SIMD: AVX2 enabled
+-- PostgreSQL: PostgreSQL 18.1
+-- PostgreSQL server includes: D:/PostgreSQL/18/include/server
+-- PostgreSQL pkglibdir: D:/PostgreSQL/18/lib
+-- HNSWLIB: Found at D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib
+-- MKL libraries found:
+--   mkl_intel_lp64: D:/Intel/oneAPI/mkl/2025.3/lib/mkl_intel_lp64.lib
+--   mkl_sequential: D:/Intel/oneAPI/mkl/2025.3/lib/mkl_sequential.lib
+--   mkl_core: D:/Intel/oneAPI/mkl/2025.3/lib/mkl_core.lib
+-- Found postgres.lib: D:/PostgreSQL/18/lib/postgres.lib
+-- Found PostgreSQL client library: optimized;D:/vcpkg/installed/x64-windows/lib/libpq.lib;debug;D:/vcpkg/installed/x64-windows/debug/lib/libpq.lib
+-- Found Google Test: 
+-- 
+-- === Hypercube Build Configuration ===
+-- Build type: Release
+-- C++ compiler: MSVC 19.50.35721.0
+-- C compiler: MSVC 19.50.35721.0
+-- PostgreSQL extension: ON
+-- PostgreSQL tools: ON
+-- Intel MKL: ON
+-- HNSWLIB: ON
+-- Tests: ON (Google Test)
+-- 
+-- Configuring done (3.6s)
+-- Generating done (0.1s)
+-- Build files have been written to: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+[1/84] Building CXX object CMakeFiles\hypercube_core.dir\src\core\hilbert.cpp.obj
+[2/84] Building CXX object CMakeFiles\hypercube_core.dir\src\core\blake3_pg.cpp.obj
+[3/84] Building CXX object CMakeFiles\hypercube_core.dir\src\core\coordinates.cpp.obj
+[4/84] Building CXX object CMakeFiles\hypercube_core.dir\src\util\utf8.cpp.obj
+[5/84] Building CXX object CMakeFiles\hypercube_core.dir\src\core\atom_calculator.cpp.obj
+[6/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\db\geometry.cpp.obj
+[7/84] Building CXX object CMakeFiles\hypercube_c.dir\src\bridge\hypercube_c.cpp.obj
+[8/84] Building CXX object CMakeFiles\embedding_c.dir\src\bridge\embedding_c.cpp.obj
+[9/84] Building CXX object CMakeFiles\generative_c.dir\src\bridge\generative_c.cpp.obj
+[10/84] Building CXX object CMakeFiles\hypercube_core.dir\src\core\lanczos.cpp.obj
+[11/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\db\atom_cache.cpp.obj
+[12/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\universal.cpp.obj
+[13/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\cpe.cpp.obj
+[14/84] Building CXX object CMakeFiles\hypercube_core.dir\src\core\ops.cpp.obj
+[15/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\db\insert.cpp.obj
+[16/84] Building C object CMakeFiles\hypercube.dir\src\pg\hypercube_pg.c.obj
+[17/84] Building C object CMakeFiles\semantic_ops.dir\src\pg\semantic_ops_pg.c.obj
+[18/84] Building C object CMakeFiles\hypercube_ops.dir\src\pg\hypercube_ops_pg.c.obj
+[19/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\parallel_cpe.cpp.obj
+[20/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\projection_db.cpp.obj
+[21/84] Building C object CMakeFiles\embedding_ops.dir\src\pg\embedding_ops_pg.c.obj
+[22/84] Building CXX object CMakeFiles\hypercube_core.dir\src\core\laplacian_4d.cpp.obj
+[23/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\sequitur.cpp.obj
+[24/84] Building C object CMakeFiles\generative.dir\src\pg\generative_pg.c.obj
+[25/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\pmi_contraction.cpp.obj
+[26/84] Linking CXX static library hypercube_core.lib
+[27/84] Building CXX object CMakeFiles\test_hilbert.dir\tests\test_hilbert.cpp.obj
+[28/84] Building CXX object CMakeFiles\test_coordinates.dir\tests\test_coordinates.cpp.obj
+[29/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\tensor_io.cpp.obj
+[30/84] Building CXX object CMakeFiles\test_blake3.dir\tests\test_blake3.cpp.obj
+[31/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\compositions.cpp.obj
+[32/84] Building CXX object CMakeFiles\test_clustering.dir\tests\test_clustering.cpp.obj
+[33/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\tensor_hierarchy.cpp.obj
+[34/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\attention_relations.cpp.obj
+[35/84] Building CXX object CMakeFiles\test_laplacian_4d.dir\tests\test_laplacian_4d.cpp.obj
+[36/84] Building CXX object CMakeFiles\hypercube_ingest.dir\src\ingest\embedding_relations.cpp.obj
+[37/84] Building CXX object CMakeFiles\test_semantic.dir\tests\test_semantic.cpp.obj
+[38/84] Linking CXX static library hypercube_ingest.lib
+[39/84] Linking CXX shared library hypercube_c.dll
+[40/84] Building CXX object CMakeFiles\hypercube_cli.dir\src\cli\main.cpp.obj
+[41/84] Linking CXX shared library embedding_c.dll
+[42/84] Building CXX object CMakeFiles\seed_atoms_parallel.dir\src\tools\seed_atoms_parallel.cpp.obj
+[43/84] Linking CXX shared library generative_c.dll
+[44/84] Building CXX object CMakeFiles\test_query_api.dir\tests\test_query_api.cpp.obj
+[45/84] Building CXX object CMakeFiles\test_integration.dir\tests\test_integration.cpp.obj
+[46/84] Building CXX object CMakeFiles\ingest.dir\src\ingest\main.cpp.obj
+[47/84] Building CXX object CMakeFiles\extract_embeddings.dir\src\tools\extract_embeddings.cpp.obj
+[48/84] Building CXX object CMakeFiles\vocab_extract.dir\src\ingest\vocab_extract.cpp.obj
+[49/84] Building CXX object CMakeFiles\model_discovery.dir\src\ingest\model_discovery.cpp.obj
+[50/84] Building CXX object CMakeFiles\vocab_ingest.dir\src\ingest\vocab_ingest.cpp.obj
+[51/84] Building CXX object CMakeFiles\hypercube_tests.dir\tests\gtest\test_main.cpp.obj
+[52/84] Building CXX object CMakeFiles\ingest_safetensor.dir\src\tools\ingest_safetensor_modular.cpp.obj
+[53/84] Building CXX object CMakeFiles\hypercube_tests.dir\tests\gtest\test_blake3.cpp.obj
+[54/84] Building CXX object CMakeFiles\hypercube_tests.dir\tests\gtest\test_coordinates.cpp.obj
+[55/84] Building CXX object CMakeFiles\hypercube_tests.dir\tests\gtest\test_hilbert.cpp.obj
+[56/84] Building CXX object CMakeFiles\hypercube_sql_tests.dir\tests\gtest\test_main.cpp.obj
+[57/84] Building CXX object CMakeFiles\hypercube_sql_tests.dir\tests\gtest\test_sql_schema.cpp.obj
+[58/84] Building CXX object CMakeFiles\hypercube_tests.dir\tests\gtest\test_backend.cpp.obj
+[59/84] Building CXX object CMakeFiles\hypercube_tests.dir\tests\gtest\test_laplacian.cpp.obj
+[60/84] Building CXX object CMakeFiles\hypercube_sql_tests.dir\tests\gtest\test_sql_functions.cpp.obj
+[61/84] Building CXX object CMakeFiles\hypercube_sql_tests.dir\tests\gtest\test_sql_query_api.cpp.obj
+[62/84] Linking C shared library hypercube.dll
+[63/84] Linking C shared library semantic_ops.dll
+[64/84] Linking C shared library embedding_ops.dll
+[65/84] Linking C shared library hypercube_ops.dll
+[66/84] Linking C shared library generative.dll
+[67/84] Linking CXX executable test_hilbert.exe
+[68/84] Linking CXX executable test_coordinates.exe
+[69/84] Linking CXX executable test_blake3.exe
+[70/84] Linking CXX executable test_clustering.exe
+[71/84] Linking CXX executable test_semantic.exe
+[72/84] Linking CXX executable hc.exe
+[73/84] Linking CXX executable seed_atoms_parallel.exe
+[74/84] Linking CXX executable vocab_extract.exe
+[75/84] Linking CXX executable extract_embeddings.exe
+[76/84] Linking CXX executable test_integration.exe
+[77/84] Linking CXX executable test_laplacian_4d.exe
+[78/84] Linking CXX executable test_query_api.exe
+[79/84] Linking CXX executable vocab_ingest.exe
+[80/84] Linking CXX executable model_discovery.exe
+[81/84] Linking CXX executable ingest.exe
+[82/84] Linking CXX executable hypercube_sql_tests.exe
+[83/84] Linking CXX executable hypercube_tests.exe
+[84/84] Linking CXX executable ingest_safetensor.exe
+
+Name
+----
+extract_embeddings.exe
+hc.exe
+hypercube_sql_tests.exe
+hypercube_tests.exe
+ingest_safetensor.exe
+ingest.exe
+model_discovery.exe
+seed_atoms_parallel.exe
+test_blake3.exe
+test_clustering.exe
+test_coordinates.exe
+test_hilbert.exe
+test_integration.exe
+test_laplacian_4d.exe
+test_query_api.exe
+test_semantic.exe
+vocab_extract.exe
+vocab_ingest.exe
+CMakeCCompilerId.exe
+CMakeCXXCompilerId.exe
+hypercube_c.dll
+hypercube_ops.dll
+hypercube.dll
+semantic_ops.dll
+

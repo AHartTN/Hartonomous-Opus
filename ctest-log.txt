@@ -24,7 +24,7 @@ test 1
 1:   Arithmetic: PASS
 1: 
 1: All tests passed!
- 1/10 Test  #1: HilbertTest ......................   Passed    0.09 sec
+ 1/10 Test  #1: HilbertTest ......................   Passed    0.14 sec
 test 2
       Start  2: CoordinatesTest
 
@@ -53,7 +53,7 @@ test 2
 2:   Hilbert integration: PASS
 2: 
 2: All tests passed!
- 2/10 Test  #2: CoordinatesTest ..................   Passed    0.07 sec
+ 2/10 Test  #2: CoordinatesTest ..................   Passed    0.17 sec
 test 3
       Start  3: Blake3Test
 
@@ -81,7 +81,7 @@ test 3
 3:   Key derivation: PASS
 3: 
 3: All tests passed!
- 3/10 Test  #3: Blake3Test .......................   Passed    0.07 sec
+ 3/10 Test  #3: Blake3Test .......................   Passed    0.09 sec
 test 4
       Start  4: SemanticTest
 
@@ -217,8 +217,8 @@ test 4
 4: PASSED: BLAKE3 hash is deterministic (same input = same output)
 4: 
 4: === Test: Generation Performance ===
-4:   Generated 1112064 atoms in 732 ms
-4: PASSED: Generation completes in under 2 seconds (732 < 2000)
+4:   Generated 1112064 atoms in 727 ms
+4: PASSED: Generation completes in under 2 seconds (727 < 2000)
 4: 
 4: === Test: Atom Count ===
 4:   Total valid codepoints: 1112064
@@ -227,7 +227,7 @@ test 4
 4: ============================================
 4:   Results: 74 passed, 0 failed
 4: ============================================
- 4/10 Test  #4: SemanticTest .....................   Passed    2.95 sec
+ 4/10 Test  #4: SemanticTest .....................   Passed    2.93 sec
 test 5
       Start  5: ClusteringTest
 
@@ -301,7 +301,7 @@ test 5
 5: ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 5:   Γ£ô All 10 tests passed!
 5: ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
- 5/10 Test  #5: ClusteringTest ...................   Passed    0.07 sec
+ 5/10 Test  #5: ClusteringTest ...................   Passed    0.09 sec
 test 6
       Start  6: Laplacian4DTest
 
@@ -368,7 +368,7 @@ test 6
 6: === Summary ===
 6: Passed: 8
 6: Failed: 0
- 6/10 Test  #6: Laplacian4DTest ..................   Passed    0.13 sec
+ 6/10 Test  #6: Laplacian4DTest ..................   Passed    0.14 sec
 test 7
       Start  7: IntegrationTest
 
@@ -388,9 +388,103 @@ test 7
 7: +--------------------------------------------------------------+
 7: [0m
 7: [2mConnecting to hypercube@localhost...[0m
-7: [31mConnection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+7: [32mConnected!
 7: [0m
- 7/10 Test  #7: IntegrationTest ..................***Failed    0.12 sec
+7: [1m=== SCHEMA VERIFICATION ===[0m
+7: 
+7: [36m> Checking 3-table schema exists[0m
+7: [32m  [OK] atom - Unicode codepoints (leaves)[0m
+7: [32m  [OK] composition - BPE tokens and aggregations[0m
+7: [32m  [OK] composition_child - Ordered child links[0m
+7: [32m  [OK] relation - Semantic edges[0m
+7: 
+7: [1m=== ATOM TABLE - Unicode Leaf Atoms ===[0m
+7: 
+7: [36m> Count all seeded atoms[0m
+7: [2m  SQL: SELECT COUNT(*) FROM atom[0m
+7:   Total atoms: [33m0[0m
+7: [31m  [FAIL] No atoms seeded! Run seed_atoms_parallel[0m
+7: [36m> Verify atom 'A' (U+0041) properties[0m
+7: [2m  SQL: SELECT encode(id, 'hex') FROM atom WHERE codepoint = 65[0m
+7:   BLAKE3 hash: [33m...[0m
+7: [2m  SQL: SELECT ST_X(geom) FROM atom WHERE codepoint = 65[0m
+7: [2m  SQL: SELECT ST_Y(geom) FROM atom WHERE codepoint = 65[0m
+7: [2m  SQL: SELECT ST_Z(geom) FROM atom WHERE codepoint = 65[0m
+7: [2m  SQL: SELECT ST_M(geom) FROM atom WHERE codepoint = 65[0m
+7:   4D coordinates: [33m(-999, -999, -999, -999)[0m
+7: [31m  [FAIL] Invalid geometry[0m
+7: [36m> Verify Hilbert index values[0m
+7: [2m  SQL: SELECT hilbert_lo FROM atom WHERE codepoint = 65[0m
+7:   Hilbert curve: [33mlo=, hi=[0m
+7: [31m  [FAIL] Missing Hilbert index[0m
+7: [36m> Case pair proximity: 'A' vs 'a' should be neighbors[0m
+7: [2m  SQL: SELECT ST_3DDistance((SELECT geom FROM atom WHERE codepoint = 65),(SELECT geom FROM atom WHERE codepoint = 97))[0m
+7:   Distance A<->a: [33m-999[0m
+7: [2m  SQL: WITH ranked AS (  SELECT neighbor_id, ROW_NUMBER() OVER (ORDER BY distance) as rank   FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 100)) SELECT rank FROM ranked WHERE neighbor_id = (SELECT id FROM atom WHERE codepoint = 97)[0m
+7:   Rank of 'a' among A's neighbors: [33m-1[0m
+7: [33m  [SKIP] Case pair not in top 100 - may need projection tuning[0m
+7: 
+7: [1m=== SPATIAL INDEXES ===[0m
+7: 
+7: [36m> GIST index for geometry queries[0m
+7: [2m  SQL: SELECT 1 FROM pg_indexes WHERE indexname = 'idx_atom_geom' AND tablename = 'atom'[0m
+7: [32m  [OK] idx_atom_geom GIST index exists[0m
+7: [36m> Hilbert index for locality queries[0m
+7: [2m  SQL: SELECT 1 FROM pg_indexes WHERE indexname = 'idx_atom_hilbert' AND tablename = 'atom'[0m
+7: [32m  [OK] idx_atom_hilbert exists for fast range scans[0m
+7: 
+7: [1m=== SQL FUNCTIONS ===[0m
+7: 
+7: [36m> atom_is_leaf() - Identify leaf vs composition[0m
+7: [2m  SQL: SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))[0m
+7:   atom_is_leaf('A'): [33mf[0m
+7: [31m  [FAIL] Wrong result[0m
+7: [36m> atom_centroid() - Get geometry for any entity[0m
+7: [2m  SQL: SELECT ST_AsText(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))[0m
+7:   Geometry: [33m...[0m
+7: [31m  [FAIL] Invalid geometry return[0m
+7: [36m> atom_reconstruct_text() - Rebuild text from ID[0m
+7: [2m  SQL: SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 72)) || atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 105))[0m
+7:   Reconstructed 'H' + 'i': [33m''[0m
+7: [31m  [FAIL] Wrong text[0m
+7: [36m> atom_knn() - K-nearest neighbors[0m
+7: [2m  SQL: SELECT COUNT(*) FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 10)[0m
+7:   Neighbors returned: [33m0[0m
+7: [31m  [FAIL] Wrong count[0m
+7: [36m> atom_distance() - Euclidean distance[0m
+7: [2m  SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 66))[0m
+7:   Distance A<->B: [33m-999.000000[0m
+7: [31m  [FAIL] Invalid distance[0m
+7: 
+7: [1m=== SEMANTIC RELATIONS ===[0m
+7: 
+7: [36m> Count edges from embedding model[0m
+7: [2m  SQL: SELECT COUNT(*) FROM relation[0m
+7:   Total edges: [33m0[0m
+7: [33m  [SKIP] No relations - run extract_embeddings first[0m
+7: 
+7: [1m=== COMPOSITIONS (BPE Tokens) ===[0m
+7: 
+7: [2m  SQL: SELECT COUNT(*) FROM composition[0m
+7:   Total compositions: [33m0[0m
+7: [33m  [SKIP] No compositions yet - run ingest_safetensor[0m
+7: 
+7: [1m=== BLAKE3 DETERMINISM ===[0m
+7: 
+7: [36m> Same input produces same hash[0m
+7: [31m  [FAIL] Hash mismatch or empty[0m
+7: [36m> Different inputs produce different hashes[0m
+7: [31m  [FAIL] Hash collision detected![0m
+7: 
+7: [1m================================================================
+7:                          RESULTS
+7: ================================================================
+7: [0m[32m  [OK] Passed:  6[0m
+7: [31m  [X]  Failed:  10[0m
+7: [33m  [-]  Skipped: 3[0m
+7: ================================================================
+7: 
+ 7/10 Test  #7: IntegrationTest ..................***Failed    0.21 sec
 test 8
       Start  8: QueryAPITest
 
@@ -410,9 +504,153 @@ test 8
 8: +--------------------------------------------------------------+
 8: [0m
 8: [2mConnecting to hartonomous@localhost:5432/hypercube...[0m
-8: [31mConnection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+8: [32mConnected!
 8: [0m
- 8/10 Test  #8: QueryAPITest .....................***Failed    0.12 sec
+8: [1m=== 3-TABLE SCHEMA VERIFICATION ===[0m
+8: 
+8: [36m> Checking required tables exist[0m
+8: [32m  [OK] atom table exists[0m
+8: [32m  [OK] composition table exists[0m
+8: [32m  [OK] composition_child table exists[0m
+8: [32m  [OK] relation table exists[0m
+8: 
+8: [1m=== ATOM SEEDING - Unicode Codepoints ===[0m
+8: 
+8: [36m> How many Unicode codepoints are seeded?[0m
+8: [2m  SQL: SELECT COUNT(*) FROM atom[0m
+8:   Total atoms: [33m0[0m
+8: [31m  [FAIL] Only 0 atoms - expected 1,112,064[0m
+8: [36m> Looking up atom for 'A' (codepoint 65)[0m
+8: [2m  SQL: SELECT codepoint, encode(id, 'hex') as blake3_hash, ST_X(geom)::numeric(12,0) as x, ST_Y(geom)::numeric(12,0) as y, ST_Z(geom)::numeric(12,0) as z, ST_M(geom)::numeric(12,0) as m FROM atom WHERE codepoint = 65[0m
+8:   +-----------------+-----------------+-----------------+-----------------+-----------------+-----------------+
+8:   |[1mcodepoint       [0m|[1mblake3_hash     [0m|[1mx               [0m|[1my               [0m|[1mz               [0m|[1mm               [0m|
+8:   +-----------------+-----------------+-----------------+-----------------+-----------------+-----------------+
+8:   +-----------------+-----------------+-----------------+-----------------+-----------------+-----------------+
+8:   Total: 0 rows
+8: [32m  [OK] Atom 'A' found with 4D coordinates[0m
+8: [36m> Sample of printable ASCII characters[0m
+8: [2m  SQL: SELECT chr(codepoint) as char, codepoint, hilbert_lo, hilbert_hi FROM atom WHERE codepoint BETWEEN 65 AND 74 ORDER BY codepoint[0m
+8:   +-----------------+-----------------+-----------------+-----------------+
+8:   |[1mchar            [0m|[1mcodepoint       [0m|[1mhilbert_lo      [0m|[1mhilbert_hi      [0m|
+8:   +-----------------+-----------------+-----------------+-----------------+
+8:   +-----------------+-----------------+-----------------+-----------------+
+8:   Total: 0 rows
+8: 
+8: [1m=== CORE SQL FUNCTIONS ===[0m
+8: 
+8: [36m> atom_is_leaf() - Check if ID is a leaf atom[0m
+8: [2m  SQL: SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))[0m
+8:   atom_is_leaf('A'): [33mf[0m
+8: [31m  [FAIL] Should return true for leaf atom[0m
+8: [36m> atom_centroid() - Get 4D geometry of an atom[0m
+8: [2m  SQL: SELECT ST_X(g)::numeric(12,0) as x, ST_Y(g)::numeric(12,0) as y, ST_Z(g)::numeric(12,0) as z, ST_M(g)::numeric(12,0) as m FROM (SELECT atom_centroid((SELECT id FROM atom WHERE codepoint = 65)) as g) sub[0m
+8:   +-----------------+-----------------+-----------------+-----------------+
+8:   |[1mx               [0m|[1my               [0m|[1mz               [0m|[1mm               [0m|
+8:   +-----------------+-----------------+-----------------+-----------------+
+8:   |                |                |                |                |
+8:   +-----------------+-----------------+-----------------+-----------------+
+8:   Total: 1 rows
+8: [32m  [OK] atom_centroid returns POINTZM geometry[0m
+8: [36m> atom_reconstruct_text() - Reconstruct text from atom ID[0m
+8: [2m  SQL: SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 65))[0m
+8:   Reconstructed: [33m''[0m
+8: [31m  [FAIL] Should reconstruct to 'A'[0m
+8: [36m> atom_distance() - Euclidean distance between atoms[0m
+8: [2m  SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 65))[0m
+8:   Distance A to A: [33m-1.000000[0m
+8: [31m  [FAIL] Self-distance should be 0[0m
+8: [2m  SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 66))[0m
+8:   Distance A to B: [33m-1.000000[0m
+8: [31m  [FAIL] Different atoms should have distance > 0[0m
+8: 
+8: [1m=== K-NEAREST NEIGHBOR QUERIES ===[0m
+8: 
+8: [36m> atom_knn() - Find 10 nearest neighbors to 'A'[0m
+8: [2m  SQL: SELECT chr(a.codepoint) as char, a.codepoint, knn.distance::numeric(20,2) as distance FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 10) knn JOIN atom a ON a.id = knn.neighbor_id WHERE a.codepoint BETWEEN 32 AND 126 ORDER BY knn.distance[0m
+8:   +-----------------+-----------------+-----------------+
+8:   |[1mchar            [0m|[1mcodepoint       [0m|[1mdistance        [0m|
+8:   +-----------------+-----------------+-----------------+
+8:   +-----------------+-----------------+-----------------+
+8:   Total: 0 rows
+8: [32m  [OK] KNN returns nearest printable characters[0m
+8: [36m> Which letters are spatially closest to 'A'?[0m
+8: [2m  SQL: SELECT chr(a.codepoint) as letter, knn.distance::numeric(20,2) as distance FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 100) knn JOIN atom a ON a.id = knn.neighbor_id WHERE a.codepoint BETWEEN 65 AND 90 ORDER BY knn.distance LIMIT 10[0m
+8:   +-----------------+-----------------+
+8:   |[1mletter          [0m|[1mdistance        [0m|
+8:   +-----------------+-----------------+
+8:   +-----------------+-----------------+
+8:   Total: 0 rows
+8: 
+8: [1m=== SEMANTIC RELATIONS ===[0m
+8: 
+8: [36m> How many semantic edges exist?[0m
+8: [2m  SQL: SELECT COUNT(*) FROM relation[0m
+8:   Total edges: [33m0[0m
+8: [33m  [SKIP] No semantic relations yet - run extract_embeddings[0m
+8: 
+8: [1m=== COMPOSITIONS (BPE Tokens) ===[0m
+8: 
+8: [36m> How many compositions exist?[0m
+8: [2m  SQL: SELECT COUNT(*) FROM composition[0m
+8:   Total compositions: [33m0[0m
+8: [33m  [SKIP] No compositions yet - run ingest_safetensor to create BPE tokens[0m
+8: 
+8: [1m=== SYSTEM STATISTICS ===[0m
+8: 
+8: [36m> atom_stats() - Overall system statistics[0m
+8: [2m  SQL: SELECT * FROM atom_stats()[0m
+8:   +-----------------+-----------------+-----------------+-----------------+-----------------+
+8:   |[1matoms           [0m|[1mcompositions    [0m|[1mcompositions_with_centroid[0m|[1mrelations       [0m|[1mmax_depth       [0m|
+8:   +-----------------+-----------------+-----------------+-----------------+-----------------+
+8:   |0               |0               |0               |0               |0               |
+8:   +-----------------+-----------------+-----------------+-----------------+-----------------+
+8:   Total: 1 rows
+8: [36m> Index status[0m
+8: [2m  SQL: SELECT indexname, tablename FROM pg_indexes WHERE schemaname = 'public' AND tablename IN ('atom', 'composition', 'relation')[0m
+8:   +-----------------+-----------------+
+8:   |[1mindexname       [0m|[1mtablename       [0m|
+8:   +-----------------+-----------------+
+8:   |atom_pkey       |atom            |
+8:   |atom_codepoi... |atom            |
+8:   |idx_atom_cod... |atom            |
+8:   |idx_atom_hil... |atom            |
+8:   |idx_atom_geom   |atom            |
+8:   |composition_... |composition     |
+8:   |idx_comp_cen... |composition     |
+8:   |idx_comp_hil... |composition     |
+8:   |idx_comp_label  |composition     |
+8:   |idx_comp_depth  |composition     |
+8:   +-----------------+-----------------+
+8: [2m  ... and 6 more rows[0m
+8:   Total: 16 rows
+8: 
+8: [1m=== EXAMPLE LLM QUERIES ===[0m
+8: 
+8: [36m> Q: What characters are most similar to 'A' in 4D space?[0m
+8: [2m  SQL: SELECT chr(a.codepoint) as character, a.codepoint as unicode, knn.distance::numeric(12,2) as distance FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 20) knn JOIN atom a ON a.id = knn.neighbor_id WHERE a.codepoint BETWEEN 32 AND 126 ORDER BY knn.distance LIMIT 10[0m
+8:   +-----------------+-----------------+-----------------+
+8:   |[1mcharacter       [0m|[1municode         [0m|[1mdistance        [0m|
+8:   +-----------------+-----------------+-----------------+
+8:   +-----------------+-----------------+-----------------+
+8:   Total: 0 rows
+8: [32m  [OK] LLM can find spatially similar characters[0m
+8: [36m> Q: Show the 4D neighborhood of letter 'M' (middle of alphabet)[0m
+8: [2m  SQL: SELECT chr(a.codepoint) as char, ST_X(a.geom)::numeric(12,0) as x, ST_Y(a.geom)::numeric(12,0) as y, ST_Z(a.geom)::numeric(12,0) as z, ST_M(a.geom)::numeric(12,0) as m FROM atom_knn((SELECT id FROM atom WHERE codepoint = 77), 5) knn JOIN atom a ON a.id = knn.neighbor_id[0m
+8:   +-----------------+-----------------+-----------------+-----------------+-----------------+
+8:   |[1mchar            [0m|[1mx               [0m|[1my               [0m|[1mz               [0m|[1mm               [0m|
+8:   +-----------------+-----------------+-----------------+-----------------+-----------------+
+8:   +-----------------+-----------------+-----------------+-----------------+-----------------+
+8:   Total: 0 rows
+8: 
+8: [1m================================================================
+8:                          TEST SUMMARY
+8: ================================================================
+8: [0m[32m  Passed:  8[0m
+8: [31m  Failed:  5[0m
+8: [33m  Skipped: 2[0m
+8: ================================================================
+8: 
+ 8/10 Test  #8: QueryAPITest .....................***Failed    0.16 sec
 test 9
       Start  9: HypercubeTests
 
@@ -524,7 +762,7 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=5)...
 9: [HNSWLIB] Building HNSW index for 30 points, dim=16
-9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] Index built in 1 ms
 9: [HNSWLIB] k-NN queries completed in 0 ms
 9: [HNSWLIB] Built k-NN graph with 75 edges
 9: 
@@ -575,7 +813,7 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=3)...
 9: [HNSWLIB] Building HNSW index for 20 points, dim=16
-9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] Index built in 1 ms
 9: [HNSWLIB] k-NN queries completed in 0 ms
 9: [HNSWLIB] Built k-NN graph with 28 edges
 9: 
@@ -791,9 +1029,9 @@ test 9
 9: [----------] 9 tests from BackendTest (0 ms total)
 9: 
 9: [----------] Global test environment tear-down
-9: [==========] 32 tests from 5 test suites ran. (16 ms total)
+9: [==========] 32 tests from 5 test suites ran. (15 ms total)
 9: [  PASSED  ] 32 tests.
- 9/10 Test  #9: HypercubeTests ...................   Passed    0.14 sec
+ 9/10 Test  #9: HypercubeTests ...................   Passed    0.15 sec
 test 10
       Start 10: HypercubeSQLTests
 
@@ -810,166 +1048,103 @@ test 10
 10: [----------] Global test environment set-up.
 10: [----------] 7 tests from SQLSchemaTest
 10: [ RUN      ] SQLSchemaTest.CoreTablesExist
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLSchemaTest.CoreTablesExist (50 ms)
+10: [       OK ] SQLSchemaTest.CoreTablesExist (49 ms)
 10: [ RUN      ] SQLSchemaTest.ModelRegistryExists
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLSchemaTest.ModelRegistryExists (43 ms)
+10: [       OK ] SQLSchemaTest.ModelRegistryExists (43 ms)
 10: [ RUN      ] SQLSchemaTest.BigramStatsExists
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLSchemaTest.BigramStatsExists (40 ms)
+10: [       OK ] SQLSchemaTest.BigramStatsExists (43 ms)
 10: [ RUN      ] SQLSchemaTest.CoreFunctionsExist
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLSchemaTest.CoreFunctionsExist (40 ms)
+10: [       OK ] SQLSchemaTest.CoreFunctionsExist (41 ms)
 10: [ RUN      ] SQLSchemaTest.QueryAPIFunctionsExist
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLSchemaTest.QueryAPIFunctionsExist (43 ms)
+10: [       OK ] SQLSchemaTest.QueryAPIFunctionsExist (42 ms)
 10: [ RUN      ] SQLSchemaTest.PostGISEnabled
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLSchemaTest.PostGISEnabled (40 ms)
+10: [       OK ] SQLSchemaTest.PostGISEnabled (48 ms)
 10: [ RUN      ] SQLSchemaTest.GeometryColumns
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLSchemaTest.GeometryColumns (41 ms)
-10: [----------] 7 tests from SQLSchemaTest (301 ms total)
+10: [       OK ] SQLSchemaTest.GeometryColumns (45 ms)
+10: [----------] 7 tests from SQLSchemaTest (314 ms total)
 10: 
 10: [----------] 6 tests from SQLFunctionTest
 10: [ RUN      ] SQLFunctionTest.GetOrCreateAtom
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(78): error: Expected equality of these values:
+10:   PQntuples(res)
+10:     Which is: 0
+10:   1
+10: Should find atom for 'A' (codepoint 65)
 10: 
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(86): error: Expected equality of these values:
+10:   is_leaf
+10:     Which is: "f"
+10:   "t"
+10: Unicode atom should be a leaf
 10: 
-10: [  SKIPPED ] SQLFunctionTest.GetOrCreateAtom (42 ms)
+10: [  FAILED  ] SQLFunctionTest.GetOrCreateAtom (43 ms)
 10: [ RUN      ] SQLFunctionTest.CreateCompositionFromAtoms
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(100): Skipped
+10: No compositions in database - run ingestion first
 10: 
-10: 
-10: [  SKIPPED ] SQLFunctionTest.CreateCompositionFromAtoms (43 ms)
+10: [  SKIPPED ] SQLFunctionTest.CreateCompositionFromAtoms (41 ms)
 10: [ RUN      ] SQLFunctionTest.BigramStatsUpdate
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(112): Skipped
+10: Need at least 2 atoms for bigram test
 10: 
-10: 
-10: [  SKIPPED ] SQLFunctionTest.BigramStatsUpdate (43 ms)
+10: [  SKIPPED ] SQLFunctionTest.BigramStatsUpdate (42 ms)
 10: [ RUN      ] SQLFunctionTest.HilbertIndexComputation
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(145): Skipped
+10: Hilbert indices not populated
 10: 
 10: [  SKIPPED ] SQLFunctionTest.HilbertIndexComputation (42 ms)
 10: [ RUN      ] SQLFunctionTest.Blake3HashComputation
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(164): Skipped
+10: Atom not found
 10: 
-10: 
-10: [  SKIPPED ] SQLFunctionTest.Blake3HashComputation (43 ms)
+10: [  SKIPPED ] SQLFunctionTest.Blake3HashComputation (41 ms)
 10: [ RUN      ] SQLFunctionTest.RelationCreation
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLFunctionTest.RelationCreation (44 ms)
-10: [----------] 6 tests from SQLFunctionTest (261 ms total)
+10: [       OK ] SQLFunctionTest.RelationCreation (56 ms)
+10: [----------] 6 tests from SQLFunctionTest (268 ms total)
 10: 
 10: [----------] 7 tests from SQLQueryAPITest
 10: [ RUN      ] SQLQueryAPITest.SemanticSearchCallable
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLQueryAPITest.SemanticSearchCallable (42 ms)
+10: [       OK ] SQLQueryAPITest.SemanticSearchCallable (47 ms)
 10: [ RUN      ] SQLQueryAPITest.GetNeighborsCallable
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(76): Skipped
+10: No atoms in database
 10: 
-10: 
-10: [  SKIPPED ] SQLQueryAPITest.GetNeighborsCallable (46 ms)
+10: [  SKIPPED ] SQLQueryAPITest.GetNeighborsCallable (47 ms)
 10: [ RUN      ] SQLQueryAPITest.HilbertRangeQuery
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLQueryAPITest.HilbertRangeQuery (46 ms)
+10: [       OK ] SQLQueryAPITest.HilbertRangeQuery (48 ms)
 10: [ RUN      ] SQLQueryAPITest.SpatialQuery
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLQueryAPITest.SpatialQuery (41 ms)
+10: [       OK ] SQLQueryAPITest.SpatialQuery (75 ms)
 10: [ RUN      ] SQLQueryAPITest.RelationTraversal
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLQueryAPITest.RelationTraversal (45 ms)
+10: [       OK ] SQLQueryAPITest.RelationTraversal (45 ms)
 10: [ RUN      ] SQLQueryAPITest.ModelRegistryQuery
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLQueryAPITest.ModelRegistryQuery (43 ms)
+10: [       OK ] SQLQueryAPITest.ModelRegistryQuery (48 ms)
 10: [ RUN      ] SQLQueryAPITest.AggregateStats
-10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
-10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
-10: 
-10: 
-10: [  SKIPPED ] SQLQueryAPITest.AggregateStats (41 ms)
-10: [----------] 7 tests from SQLQueryAPITest (308 ms total)
+10: [       OK ] SQLQueryAPITest.AggregateStats (45 ms)
+10: [----------] 7 tests from SQLQueryAPITest (358 ms total)
 10: 
 10: [----------] Global test environment tear-down
-10: [==========] 20 tests from 3 test suites ran. (871 ms total)
-10: [  PASSED  ] 0 tests.
-10: [  SKIPPED ] 20 tests, listed below:
-10: [  SKIPPED ] SQLSchemaTest.CoreTablesExist
-10: [  SKIPPED ] SQLSchemaTest.ModelRegistryExists
-10: [  SKIPPED ] SQLSchemaTest.BigramStatsExists
-10: [  SKIPPED ] SQLSchemaTest.CoreFunctionsExist
-10: [  SKIPPED ] SQLSchemaTest.QueryAPIFunctionsExist
-10: [  SKIPPED ] SQLSchemaTest.PostGISEnabled
-10: [  SKIPPED ] SQLSchemaTest.GeometryColumns
-10: [  SKIPPED ] SQLFunctionTest.GetOrCreateAtom
+10: [==========] 20 tests from 3 test suites ran. (940 ms total)
+10: [  PASSED  ] 14 tests.
+10: [  SKIPPED ] 5 tests, listed below:
 10: [  SKIPPED ] SQLFunctionTest.CreateCompositionFromAtoms
 10: [  SKIPPED ] SQLFunctionTest.BigramStatsUpdate
 10: [  SKIPPED ] SQLFunctionTest.HilbertIndexComputation
 10: [  SKIPPED ] SQLFunctionTest.Blake3HashComputation
-10: [  SKIPPED ] SQLFunctionTest.RelationCreation
-10: [  SKIPPED ] SQLQueryAPITest.SemanticSearchCallable
 10: [  SKIPPED ] SQLQueryAPITest.GetNeighborsCallable
-10: [  SKIPPED ] SQLQueryAPITest.HilbertRangeQuery
-10: [  SKIPPED ] SQLQueryAPITest.SpatialQuery
-10: [  SKIPPED ] SQLQueryAPITest.RelationTraversal
-10: [  SKIPPED ] SQLQueryAPITest.ModelRegistryQuery
-10: [  SKIPPED ] SQLQueryAPITest.AggregateStats
-10/10 Test #10: HypercubeSQLTests ................   Passed    0.96 sec
+10: [  FAILED  ] 1 test, listed below:
+10: [  FAILED  ] SQLFunctionTest.GetOrCreateAtom
+10: 
+10:  1 FAILED TEST
+10/10 Test #10: HypercubeSQLTests ................***Failed    1.04 sec
 
-80% tests passed, 2 tests failed out of 10
+70% tests passed, 3 tests failed out of 10
 
-Total Test time (real) =   4.74 sec
+Total Test time (real) =   5.14 sec
 
 The following tests FAILED:
 	  7 - IntegrationTest (Failed)
 	  8 - QueryAPITest (Failed)
+	 10 - HypercubeSQLTests (Failed)
 Errors while running CTest
 Output from these tests are in: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/Testing/Temporary/LastTest.log
 Use "--rerun-failed --output-on-failure" to re-run the failed cases verbosely.

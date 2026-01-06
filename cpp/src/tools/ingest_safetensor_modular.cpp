@@ -58,6 +58,9 @@
 #include "hypercube/ingest/context.hpp"
 #include "hypercube/ingest/parsing.hpp"
 #include "hypercube/ingest/geometry.hpp"
+#include "hypercube/ingest/metadata.hpp"
+#include "hypercube/ingest/metadata_db.hpp"
+#include "hypercube/ingest/model_manifest.hpp"
 #include "hypercube/db/helpers.hpp"
 #include "hypercube/ingest/db_operations.hpp"
 
@@ -126,6 +129,13 @@ int main(int argc, char* argv[]) {
     std::cerr << "Model: " << config.model_name << "\n";
     std::cerr << "Threshold: " << config.weight_threshold << "\n\n";
     
+    // Parse model manifest for intelligent routing
+    std::cerr << "[0] Parsing model manifest (config.json, architecture detection)...\n";
+    ingest::ModelManifest manifest = ingest::parse_model_manifest(dir);
+    manifest.model_name = config.model_name;  // Override with user-specified name
+    manifest.print_summary();
+    std::cerr << "\n";
+    
     auto total_start = std::chrono::steady_clock::now();
     
     // Find model files
@@ -163,6 +173,11 @@ int main(int argc, char* argv[]) {
         parse_vocab(ctx, vocab_path);
     }
     
+    // === NEW: Parse ALL model metadata (config, tokenizer, vocab as first-class content) ===
+    std::cerr << "\n[2.5] Parsing model metadata (config, tokenizer, special tokens)...\n";
+    metadata::ModelMetadata model_meta;
+    metadata::parse_model_metadata(dir, model_meta);
+    
     // Parse model tensors
     if (!index_path.empty()) {
         std::cerr << "[3] Parsing sharded model index: " << index_path << "\n";
@@ -191,6 +206,13 @@ int main(int argc, char* argv[]) {
         std::cerr << "Connection failed: " << PQerrorMessage(conn) << "\n";
         PQfinish(conn);
         return 1;
+    }
+    
+    // === INSERT MODEL METADATA AS FIRST-CLASS CONTENT ===
+    // All metadata (config, tokenizer, vocab) becomes atoms/compositions/relations
+    std::cerr << "\n[3.5] Inserting model metadata as content...\n";
+    if (!model_meta.model_name.empty()) {
+        metadata::insert_model_metadata(conn, model_meta);
     }
     
     // === BUILD THE COMPOSITION HIERARCHY ===

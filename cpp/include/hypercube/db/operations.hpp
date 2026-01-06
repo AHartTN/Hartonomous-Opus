@@ -724,6 +724,7 @@ inline const char* relation() {
            "relation_type CHAR(1), "
            "weight REAL, "
            "source_model TEXT, "
+           "source_count INTEGER, "
            "layer INTEGER, "
            "component TEXT";
 }

@@ -11,6 +11,7 @@
 #include "hypercube/ingest/db_operations.hpp"
 #include "hypercube/db/operations.hpp"
 #include "hypercube/db/helpers.hpp"
+#include <unordered_set>
 
 namespace hypercube {
 namespace ingest {
@@ -292,9 +293,74 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
             std::string batch;
             batch.reserve(1 << 20);
             
+            // =========================================================
+            // PHASE 1: Create dimension compositions FIRST
+            // Each dimension like "q_proj:0:dim42" must exist as a 
+            // real composition before relations can reference it
+            // =========================================================
+            std::unordered_set<std::string> dim_keys_created;
+            std::string comp_batch;
+            comp_batch.reserve(1 << 18);
+            
             for (const auto& edges : thread_edges) {
                 for (const auto& [i, j, sim] : edges) {
-                    // Create dimension atoms (these represent learned features)
+                    std::string src_key = group.component + ":" + std::to_string(layer) + ":dim" + std::to_string(row_indices[i]);
+                    std::string tgt_key = group.component + ":" + std::to_string(layer) + ":dim" + std::to_string(row_indices[j]);
+                    dim_keys_created.insert(src_key);
+                    dim_keys_created.insert(tgt_key);
+                }
+            }
+            
+            // Create compositions for all referenced dimensions
+            if (!dim_keys_created.empty()) {
+                Result tmp_comp = exec(conn,
+                    "CREATE TEMP TABLE IF NOT EXISTS tmp_dim_comp ("
+                    "  id BYTEA PRIMARY KEY, label TEXT, depth INT, child_count INT, atom_count INT,"
+                    "  centroid GEOMETRY(POINTZM, 0), hilbert_lo BIGINT, hilbert_hi BIGINT"
+                    ") ON COMMIT DROP");
+                
+                CopyStream comp_copy(conn, "COPY tmp_dim_comp FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+                
+                for (const std::string& key : dim_keys_created) {
+                    CompositionRecord comp = AtomCalculator::compute_vocab_token(key);
+                    
+                    comp_batch += "\\\\x";
+                    comp_batch += comp.hash.to_hex();
+                    comp_batch += "\t";
+                    for (char ch : key) {
+                        if (ch == '\t') comp_batch += "\\t";
+                        else if (ch == '\n') comp_batch += "\\n";
+                        else if (ch == '\\') comp_batch += "\\\\";
+                        else comp_batch += ch;
+                    }
+                    comp_batch += "\t1\t";
+                    comp_batch += std::to_string(comp.children.size());
+                    comp_batch += "\t";
+                    comp_batch += std::to_string(comp.atom_count);
+                    comp_batch += "\t";
+                    comp_batch += build_composition_pointzm_ewkb(comp.centroid);
+                    comp_batch += "\t";
+                    comp_batch += std::to_string(static_cast<int64_t>(comp.hilbert.lo));
+                    comp_batch += "\t";
+                    comp_batch += std::to_string(static_cast<int64_t>(comp.hilbert.hi));
+                    comp_batch += "\n";
+                }
+                
+                comp_copy.put(comp_batch);
+                comp_copy.end();
+                
+                // Insert dimension compositions into main table
+                exec(conn,
+                    "INSERT INTO composition (id, label, depth, child_count, atom_count, centroid, hilbert_lo, hilbert_hi) "
+                    "SELECT id, label, depth, child_count, atom_count, centroid, hilbert_lo, hilbert_hi FROM tmp_dim_comp "
+                    "ON CONFLICT (id) DO NOTHING");
+            }
+            
+            // =========================================================
+            // PHASE 2: Now create relations between existing compositions
+            // =========================================================
+            for (const auto& edges : thread_edges) {
+                for (const auto& [i, j, sim] : edges) {
                     std::string src_key = group.component + ":" + std::to_string(layer) + ":dim" + std::to_string(row_indices[i]);
                     std::string tgt_key = group.component + ":" + std::to_string(layer) + ":dim" + std::to_string(row_indices[j]);
                     
