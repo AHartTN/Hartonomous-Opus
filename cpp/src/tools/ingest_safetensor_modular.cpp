@@ -178,6 +178,21 @@ int main(int argc, char* argv[]) {
     metadata::ModelMetadata model_meta;
     metadata::parse_model_metadata(dir, model_meta);
     
+    // Transfer vocab tokens with compositions to ctx for semantic extraction
+    // These are REAL compositions (atom trajectories) that we need for relation building
+    if (!model_meta.vocab_tokens.empty() && ctx.vocab_tokens.empty()) {
+        ctx.vocab_tokens.resize(model_meta.vocab_tokens.size());
+        for (size_t i = 0; i < model_meta.vocab_tokens.size(); ++i) {
+            const auto& vt = model_meta.vocab_tokens[i];
+            ingest::TokenInfo info;
+            info.text = vt.text;
+            info.comp = AtomCalculator::compute_vocab_token(vt.text);
+            ctx.vocab_tokens[i] = std::move(info);
+            ctx.token_to_idx[vt.text] = i;
+        }
+        std::cerr << "[VOCAB] Transferred " << ctx.vocab_tokens.size() << " token compositions to context\n";
+    }
+    
     // Parse model tensors
     if (!index_path.empty()) {
         std::cerr << "[3] Parsing sharded model index: " << index_path << "\n";
