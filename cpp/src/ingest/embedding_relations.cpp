@@ -7,10 +7,14 @@
  */
 
 #include "hypercube/ingest/db_operations.hpp"
+#include "hypercube/db/operations.hpp"
+#include "hypercube/db/helpers.hpp"
 
 namespace hypercube {
 namespace ingest {
 namespace db {
+
+using namespace hypercube::db;
 
 bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
     // Find embedding tensors - support multiple model architectures
@@ -242,29 +246,37 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
     // =========================================================================
     auto insert_start = std::chrono::steady_clock::now();
     
-    PGresult* res = PQexec(conn, "BEGIN");
-    PQclear(res);
+    Transaction tx(conn);
     
-    res = PQexec(conn,
+    Result res = exec(conn,
         "CREATE TEMP TABLE tmp_embed_rel ("
         "  source_type CHAR(1), source_id BYTEA,"
         "  target_type CHAR(1), target_id BYTEA,"
         "  weight REAL, embed_type TEXT"
         ") ON COMMIT DROP");
-    PQclear(res);
     
-    res = PQexec(conn, "COPY tmp_embed_rel FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    PQclear(res);
-    
-    // Stream in chunks to avoid memory issues
-    const size_t chunk_size = 4 << 20;  // 4MB chunks
-    for (size_t offset = 0; offset < global_batch.size(); offset += chunk_size) {
-        size_t len = std::min(chunk_size, global_batch.size() - offset);
-        PQputCopyData(conn, global_batch.data() + offset, static_cast<int>(len));
+    // Stream using CopyStream in chunks
+    {
+        CopyStream copy(conn, "COPY tmp_embed_rel FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        if (!copy.ok()) {
+            std::cerr << "[EMBED] COPY start failed: " << copy.error() << "\n";
+            return false;
+        }
+        
+        const size_t chunk_size = 4 << 20;  // 4MB chunks
+        for (size_t offset = 0; offset < global_batch.size(); offset += chunk_size) {
+            size_t len = std::min(chunk_size, global_batch.size() - offset);
+            if (!copy.put(global_batch.data() + offset, len)) {
+                std::cerr << "[EMBED] COPY failed: " << copy.error() << "\n";
+                return false;
+            }
+        }
+        
+        if (!copy.end()) {
+            std::cerr << "[EMBED] COPY end failed: " << copy.error() << "\n";
+            return false;
+        }
     }
-    PQputCopyEnd(conn, nullptr);
-    res = PQgetResult(conn);
-    PQclear(res);
     
     // Bulk insert with UPSERT
     std::string insert_sql = 
@@ -275,12 +287,10 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
         "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
         "  source_count = relation.source_count + 1";
     
-    res = PQexec(conn, insert_sql.c_str());
-    int inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
-    PQclear(res);
+    res = exec(conn, insert_sql);
+    int inserted = res.ok() ? cmd_tuples(res) : 0;
     
-    res = PQexec(conn, "COMMIT");
-    PQclear(res);
+    tx.commit();
     
     auto insert_end = std::chrono::steady_clock::now();
     auto insert_ms = std::chrono::duration_cast<std::chrono::milliseconds>(insert_end - insert_start).count();

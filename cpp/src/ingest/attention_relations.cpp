@@ -9,10 +9,14 @@
  */
 
 #include "hypercube/ingest/db_operations.hpp"
+#include "hypercube/db/operations.hpp"
+#include "hypercube/db/helpers.hpp"
 
 namespace hypercube {
 namespace ingest {
 namespace db {
+
+using namespace hypercube::db;
 
 bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
     // ==========================================================================
@@ -58,19 +62,16 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
             
             // For each expert, find which tokens route to it above threshold
             // This creates expert atoms and token->expert edges
-            PGresult* res = PQexec(conn, "BEGIN");
-            PQclear(res);
+            Transaction tx(conn);
             
-            res = PQexec(conn,
+            Result res = exec(conn,
                 "CREATE TEMP TABLE tmp_router ("
                 "  source_type CHAR(1), source_id BYTEA,"
                 "  target_type CHAR(1), target_id BYTEA,"
                 "  weight REAL, layer SMALLINT, component TEXT"
                 ") ON COMMIT DROP");
-            PQclear(res);
             
-            res = PQexec(conn, "COPY tmp_router FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-            PQclear(res);
+            CopyStream copy(conn, "COPY tmp_router FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
             
             std::string batch;
             batch.reserve(1 << 20);
@@ -93,24 +94,25 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
                         char token_type = (token.comp.children.size() <= 1) ? 'A' : 'C';
                         
                         batch += token_type;
-                        batch += "\t\\\\x" + token.comp.hash.to_hex() + "\t";
-                        batch += "E\t\\\\x" + expert_hash.to_hex() + "\t";
+                        batch += "\t";
+                        copy_bytea(batch, token.comp.hash);
+                        batch += "\tE\t";
+                        copy_bytea(batch, expert_hash);
+                        batch += "\t";
                         batch += std::to_string(weight) + "\t";
                         batch += std::to_string(layer) + "\trouter\n";
                         router_edges++;
                         
                         if (batch.size() > (1 << 19)) {
-                            PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+                            copy.put(batch);
                             batch.clear();
                         }
                     }
                 }
             }
             
-            if (!batch.empty()) PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-            PQputCopyEnd(conn, nullptr);
-            res = PQgetResult(conn);
-            PQclear(res);
+            if (!batch.empty()) copy.put(batch);
+            copy.end();
             
             // Insert
             std::string insert_sql = 
@@ -119,11 +121,9 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
                 "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
                 "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
                 "  source_count = relation.source_count + 1";
-            res = PQexec(conn, insert_sql.c_str());
-            PQclear(res);
+            exec(conn, insert_sql);
             
-            res = PQexec(conn, "COMMIT");
-            PQclear(res);
+            tx.commit();
             
             std::cerr << "  -> " << router_edges << " routing edges\n";
             total_edges += router_edges;
@@ -278,19 +278,16 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
             // Insert edges as relations
             // These represent "dimension i and dimension j behave similarly in this layer"
             // This helps identify the "beaten path" - frequently co-activated features
-            PGresult* res = PQexec(conn, "BEGIN");
-            PQclear(res);
+            Transaction tx(conn);
             
-            res = PQexec(conn,
+            Result res = exec(conn,
                 "CREATE TEMP TABLE tmp_attn ("
                 "  source_type CHAR(1), source_id BYTEA,"
                 "  target_type CHAR(1), target_id BYTEA,"
                 "  weight REAL, layer SMALLINT, component TEXT"
                 ") ON COMMIT DROP");
-            PQclear(res);
             
-            res = PQexec(conn, "COPY tmp_attn FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-            PQclear(res);
+            CopyStream copy(conn, "COPY tmp_attn FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
             
             std::string batch;
             batch.reserve(1 << 20);
@@ -304,22 +301,23 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
                     auto src_hash = AtomCalculator::compute_vocab_token(src_key).hash;
                     auto tgt_hash = AtomCalculator::compute_vocab_token(tgt_key).hash;
                     
-                    batch += "C\t\\\\x" + src_hash.to_hex() + "\t";
-                    batch += "C\t\\\\x" + tgt_hash.to_hex() + "\t";
+                    batch += "C\t";
+                    copy_bytea(batch, src_hash);
+                    batch += "\tC\t";
+                    copy_bytea(batch, tgt_hash);
+                    batch += "\t";
                     batch += std::to_string(sim) + "\t";
                     batch += std::to_string(layer) + "\t" + group.component + "\n";
                     
                     if (batch.size() > (1 << 19)) {
-                        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+                        copy.put(batch);
                         batch.clear();
                     }
                 }
             }
             
-            if (!batch.empty()) PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-            PQputCopyEnd(conn, nullptr);
-            res = PQgetResult(conn);
-            PQclear(res);
+            if (!batch.empty()) copy.put(batch);
+            copy.end();
             
             // Insert with relation_type='W' for weight similarity
             std::string insert_sql = 
@@ -328,11 +326,9 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
                 "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
                 "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
                 "  source_count = relation.source_count + 1";
-            res = PQexec(conn, insert_sql.c_str());
-            PQclear(res);
+            exec(conn, insert_sql);
             
-            res = PQexec(conn, "COMMIT");
-            PQclear(res);
+            tx.commit();
             
             std::cerr << "    -> " << edge_count << " weight similarity edges\n";
             total_edges += edge_count;
@@ -363,19 +359,16 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
         // This creates token->dimension edges
         std::cerr << "[TOKEN-DIM] Processing " << vocab_size << " tokens x " << embed_dim << " dims\n";
         
-        PGresult* res = PQexec(conn, "BEGIN");
-        PQclear(res);
+        Transaction tx(conn);
         
-        res = PQexec(conn,
+        Result res = exec(conn,
             "CREATE TEMP TABLE tmp_tokdim ("
             "  source_type CHAR(1), source_id BYTEA,"
             "  target_type CHAR(1), target_id BYTEA,"
             "  weight REAL, component TEXT"
             ") ON COMMIT DROP");
-        PQclear(res);
         
-        res = PQexec(conn, "COPY tmp_tokdim FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        PQclear(res);
+        CopyStream copy(conn, "COPY tmp_tokdim FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
         
         std::string batch;
         batch.reserve(1 << 21);
@@ -412,22 +405,23 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
                 auto dim_hash = AtomCalculator::compute_vocab_token(dim_key).hash;
                 
                 batch += token_type;
-                batch += "\t\\\\x" + token.comp.hash.to_hex() + "\t";
-                batch += "C\t\\\\x" + dim_hash.to_hex() + "\t";
+                batch += "\t";
+                copy_bytea(batch, token.comp.hash);
+                batch += "\tC\t";
+                copy_bytea(batch, dim_hash);
+                batch += "\t";
                 batch += std::to_string(val) + "\tembed\n";
                 tokdim_edges++;
                 
                 if (batch.size() > (1 << 20)) {
-                    PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+                    copy.put(batch);
                     batch.clear();
                 }
             }
         }
         
-        if (!batch.empty()) PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-        PQputCopyEnd(conn, nullptr);
-        res = PQgetResult(conn);
-        PQclear(res);
+        if (!batch.empty()) copy.put(batch);
+        copy.end();
         
         // Insert with relation_type='D' for dimension activation
         std::string insert_sql = 
@@ -436,11 +430,9 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
             "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
             "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
             "  source_count = relation.source_count + 1";
-        res = PQexec(conn, insert_sql.c_str());
-        PQclear(res);
+        exec(conn, insert_sql);
         
-        res = PQexec(conn, "COMMIT");
-        PQclear(res);
+        tx.commit();
         
         std::cerr << "[TOKEN-DIM] Created " << tokdim_edges << " token->dimension edges\n";
         total_edges += tokdim_edges;

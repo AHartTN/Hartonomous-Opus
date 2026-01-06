@@ -18,6 +18,8 @@
 #include "hypercube/blake3.hpp"
 #include "hypercube/coordinates.hpp"
 #include "hypercube/hilbert.hpp"
+#include "hypercube/db/operations.hpp"
+#include "hypercube/db/helpers.hpp"
 
 #include <libpq-fe.h>
 #include <iostream>
@@ -28,6 +30,8 @@
 
 namespace hypercube {
 namespace db {
+
+using namespace hypercube::db;
 
 // =============================================================================
 // SQL Templates
@@ -170,21 +174,7 @@ void write_double_hex(std::string& out, double d) {
     }
 }
 
-// Escape text for COPY
-std::string escape_for_copy(const std::string& s) {
-    std::string result;
-    result.reserve(s.size() * 2);
-    for (char c : s) {
-        switch (c) {
-            case '\t': result += "\\t"; break;
-            case '\n': result += "\\n"; break;
-            case '\r': result += "\\r"; break;
-            case '\\': result += "\\\\"; break;
-            default: result += c; break;
-        }
-    }
-    return result;
-}
+// NOTE: escape_for_copy removed - use copy_escape() from db/operations.hpp
 
 } // anonymous namespace
 
@@ -216,60 +206,62 @@ std::string ProjectionPersister::build_pointzm_ewkb(const std::array<uint32_t, 4
 size_t ProjectionPersister::persist_atoms(const std::vector<TokenData>& atoms) {
     if (atoms.empty()) return 0;
     
-    PGresult* res = PQexec(conn_, "BEGIN");
-    PQclear(res);
+    Transaction tx(conn_);
     
     // Create temp table
-    res = PQexec(conn_, sql::atom_temp_table_sql().c_str());
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[DB] Create atom temp table failed: " << PQerrorMessage(conn_) << "\n";
-        PQclear(res);
-        PQexec(conn_, "ROLLBACK");
+    Result res = exec(conn_, sql::atom_temp_table_sql());
+    if (!res.ok()) {
+        std::cerr << "[DB] Create atom temp table failed: " << res.error_message() << "\n";
         return 0;
     }
-    PQclear(res);
     
-    // COPY data to temp table
-    res = PQexec(conn_, "COPY tmp_atom_proj FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "[DB] COPY atom start failed: " << PQerrorMessage(conn_) << "\n";
-        PQclear(res);
-        PQexec(conn_, "ROLLBACK");
-        return 0;
-    }
-    PQclear(res);
-    
-    std::string batch;
-    batch.reserve(1 << 20);
-    
-    for (const auto& token : atoms) {
-        // id (BYTEA as hex)
-        batch += "\\\\x";
-        batch += token.hash.to_hex();
-        batch += "\t";
+    // COPY data to temp table using CopyStream
+    {
+        CopyStream copy(conn_, "COPY tmp_atom_proj FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        if (!copy.ok()) {
+            std::cerr << "[DB] COPY atom start failed: " << copy.error() << "\n";
+            return 0;
+        }
         
-        // geom_ewkb (no label - atoms identified by codepoint, not label)
-        batch += build_pointzm_ewkb(token.coords);
-        batch += "\t";
+        std::string batch;
+        batch.reserve(1 << 20);
         
-        // hilbert_lo, hilbert_hi
-        batch += std::to_string(token.hilbert_lo);
-        batch += "\t";
-        batch += std::to_string(token.hilbert_hi);
-        batch += "\n";
+        for (const auto& token : atoms) {
+            // id (BYTEA as hex)
+            copy_bytea(batch, token.hash);
+            copy_tab(batch);
+            
+            // geom_ewkb (no label - atoms identified by codepoint, not label)
+            batch += build_pointzm_ewkb(token.coords);
+            copy_tab(batch);
+            
+            // hilbert_lo, hilbert_hi
+            batch += std::to_string(token.hilbert_lo);
+            copy_tab(batch);
+            batch += std::to_string(token.hilbert_hi);
+            copy_newline(batch);
+            
+            if (batch.size() > (1 << 20)) {
+                if (!copy.put(batch)) {
+                    std::cerr << "[DB] COPY atom failed: " << copy.error() << "\n";
+                    return 0;
+                }
+                batch.clear();
+            }
+        }
         
-        if (batch.size() > (1 << 20)) {
-            PQputCopyData(conn_, batch.c_str(), static_cast<int>(batch.size()));
-            batch.clear();
+        if (!batch.empty()) {
+            if (!copy.put(batch)) {
+                std::cerr << "[DB] COPY atom failed: " << copy.error() << "\n";
+                return 0;
+            }
+        }
+        
+        if (!copy.end()) {
+            std::cerr << "[DB] COPY atom end failed: " << copy.error() << "\n";
+            return 0;
         }
     }
-    
-    if (!batch.empty()) {
-        PQputCopyData(conn_, batch.c_str(), static_cast<int>(batch.size()));
-    }
-    PQputCopyEnd(conn_, nullptr);
-    res = PQgetResult(conn_);
-    PQclear(res);
     
     // Merge into atom table
     std::string merge_sql = sql::atom_merge_sql();
@@ -279,18 +271,15 @@ size_t ProjectionPersister::persist_atoms(const std::vector<TokenData>& atoms) {
         merge_sql.replace(pos, 2, config_.update_existing ? "true" : "false");
     }
     
-    res = PQexec(conn_, merge_sql.c_str());
+    res = exec(conn_, merge_sql);
     size_t updated = 0;
-    if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-        updated = static_cast<size_t>(atoi(PQcmdTuples(res)));
+    if (res.ok()) {
+        updated = static_cast<size_t>(cmd_tuples(res));
     } else {
-        std::cerr << "[DB] Atom merge failed: " << PQerrorMessage(conn_) << "\n";
+        std::cerr << "[DB] Atom merge failed: " << res.error_message() << "\n";
     }
-    PQclear(res);
     
-    res = PQexec(conn_, "COMMIT");
-    PQclear(res);
-    
+    tx.commit();
     return updated;
 }
 
@@ -386,160 +375,156 @@ size_t ProjectionPersister::persist_compositions(const std::vector<TokenData>& c
     std::cerr << "[DB] Computed " << computed.size() << " composition centroids from atoms\n";
     
     // ==========================================================================
-    // Database persistence
+    // Database persistence with Transaction RAII
     // ==========================================================================
     
-    PGresult* res = PQexec(conn_, "BEGIN");
-    PQclear(res);
+    Transaction tx(conn_);
     
     // Step 1: Create temp table for compositions
-    res = PQexec(conn_, sql::composition_temp_table_sql().c_str());
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[DB] Create comp temp table failed: " << PQerrorMessage(conn_) << "\n";
-        PQclear(res);
-        PQexec(conn_, "ROLLBACK");
+    Result res = exec(conn_, sql::composition_temp_table_sql());
+    if (!res.ok()) {
+        std::cerr << "[DB] Create comp temp table failed: " << res.error_message() << "\n";
         return 0;
     }
-    PQclear(res);
     
     // Step 2: Create temp table for composition_child
-    res = PQexec(conn_, sql::composition_child_temp_table_sql().c_str());
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[DB] Create comp_child temp table failed: " << PQerrorMessage(conn_) << "\n";
-        PQclear(res);
-        PQexec(conn_, "ROLLBACK");
+    res = exec(conn_, sql::composition_child_temp_table_sql());
+    if (!res.ok()) {
+        std::cerr << "[DB] Create comp_child temp table failed: " << res.error_message() << "\n";
         return 0;
     }
-    PQclear(res);
     
-    // Step 3: COPY composition data with pre-computed centroids
-    res = PQexec(conn_, "COPY tmp_comp_proj (id, label, centroid_ewkb, hilbert_lo, hilbert_hi, child_count, atom_count) FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "[DB] COPY comp start failed: " << PQerrorMessage(conn_) << "\n";
-        PQclear(res);
-        PQexec(conn_, "ROLLBACK");
-        return 0;
-    }
-    PQclear(res);
-    
-    std::string batch;
-    batch.reserve(1 << 20);
-    
-    for (const auto& comp : computed) {
-        // id (BYTEA as hex)
-        batch += "\\\\x";
-        batch += comp.hash.to_hex();
-        batch += "\t";
-        
-        // label
-        batch += escape_for_copy(comp.label);
-        batch += "\t";
-        
-        // centroid_ewkb (computed in C++)
-        std::array<uint32_t, 4> coords = {comp.centroid.x, comp.centroid.y, comp.centroid.z, comp.centroid.m};
-        batch += build_pointzm_ewkb(coords);
-        batch += "\t";
-        
-        // hilbert_lo, hilbert_hi (computed in C++)
-        // CAST TO SIGNED INT64 FOR POSTGRESQL (bit-preserving reinterpretation)
-        int64_t h_lo = static_cast<int64_t>(comp.hilbert.lo);
-        int64_t h_hi = static_cast<int64_t>(comp.hilbert.hi);
-        batch += std::to_string(h_lo);
-        batch += "\t";
-        batch += std::to_string(h_hi);
-        batch += "\t";
-        
-        // child_count, atom_count
-        batch += std::to_string(comp.atoms.size());
-        batch += "\t";
-        batch += std::to_string(comp.atoms.size());
-        batch += "\n";
-        
-        if (batch.size() > (1 << 20)) {
-            PQputCopyData(conn_, batch.c_str(), static_cast<int>(batch.size()));
-            batch.clear();
+    // Step 3: COPY composition data with pre-computed centroids using CopyStream
+    {
+        CopyStream copy(conn_, "COPY tmp_comp_proj (id, label, centroid_ewkb, hilbert_lo, hilbert_hi, child_count, atom_count) FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        if (!copy.ok()) {
+            std::cerr << "[DB] COPY comp start failed: " << copy.error() << "\n";
+            return 0;
         }
-    }
-    
-    if (!batch.empty()) {
-        PQputCopyData(conn_, batch.c_str(), static_cast<int>(batch.size()));
-    }
-    PQputCopyEnd(conn_, nullptr);
-    res = PQgetResult(conn_);
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[DB] COPY comp data failed: " << PQerrorMessage(conn_) << "\n";
-        std::cerr << "[DB] Result status: " << PQresStatus(PQresultStatus(res)) << "\n";
-        PQclear(res);
-        PQexec(conn_, "ROLLBACK");
-        return 0;
-    }
-    PQclear(res);
-    
-    std::cerr << "[DB] Copied " << computed.size() << " compositions to temp table\n";
-    
-    // Step 4: COPY composition_child data (using pre-computed atom hashes)
-    res = PQexec(conn_, "COPY tmp_comp_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "[DB] COPY comp_child start failed: " << PQerrorMessage(conn_) << "\n";
-        PQclear(res);
-        PQexec(conn_, "ROLLBACK");
-        return 0;
-    }
-    PQclear(res);
-    
-    batch.clear();
-    size_t child_count = 0;
-    
-    for (const auto& comp : computed) {
-        int ordinal = 0;
-        for (const auto& [atom_hash, codepoint] : comp.atoms) {
-            // composition_id, child_id, child_type, ordinal
-            batch += "\\\\x";
-            batch += comp.hash.to_hex();
-            batch += "\t\\\\x";
-            batch += atom_hash.to_hex();
-            batch += "\tA\t";  // 'A' for Atom
-            batch += std::to_string(ordinal);
-            batch += "\n";
+        
+        std::string batch;
+        batch.reserve(1 << 20);
+        
+        for (const auto& comp : computed) {
+            // id (BYTEA as hex)
+            copy_bytea(batch, comp.hash);
+            copy_tab(batch);
             
-            ++ordinal;
-            ++child_count;
+            // label
+            copy_escape(batch, comp.label);
+            copy_tab(batch);
+            
+            // centroid_ewkb (computed in C++)
+            std::array<uint32_t, 4> coords = {comp.centroid.x, comp.centroid.y, comp.centroid.z, comp.centroid.m};
+            batch += build_pointzm_ewkb(coords);
+            copy_tab(batch);
+            
+            // hilbert_lo, hilbert_hi (computed in C++)
+            // CAST TO SIGNED INT64 FOR POSTGRESQL (bit-preserving reinterpretation)
+            int64_t h_lo = static_cast<int64_t>(comp.hilbert.lo);
+            int64_t h_hi = static_cast<int64_t>(comp.hilbert.hi);
+            batch += std::to_string(h_lo);
+            copy_tab(batch);
+            batch += std::to_string(h_hi);
+            copy_tab(batch);
+            
+            // child_count, atom_count
+            batch += std::to_string(comp.atoms.size());
+            copy_tab(batch);
+            batch += std::to_string(comp.atoms.size());
+            copy_newline(batch);
             
             if (batch.size() > (1 << 20)) {
-                PQputCopyData(conn_, batch.c_str(), static_cast<int>(batch.size()));
+                if (!copy.put(batch)) {
+                    std::cerr << "[DB] COPY comp failed: " << copy.error() << "\n";
+                    return 0;
+                }
                 batch.clear();
             }
         }
+        
+        if (!batch.empty()) {
+            if (!copy.put(batch)) {
+                std::cerr << "[DB] COPY comp failed: " << copy.error() << "\n";
+                return 0;
+            }
+        }
+        
+        if (!copy.end()) {
+            std::cerr << "[DB] COPY comp end failed: " << copy.error() << "\n";
+            return 0;
+        }
     }
     
-    if (!batch.empty()) {
-        PQputCopyData(conn_, batch.c_str(), static_cast<int>(batch.size()));
+    std::cerr << "[DB] Copied " << computed.size() << " compositions to temp table\n";
+    
+    // Step 4: COPY composition_child data (using pre-computed atom hashes) with CopyStream
+    size_t child_count = 0;
+    {
+        CopyStream copy(conn_, "COPY tmp_comp_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        if (!copy.ok()) {
+            std::cerr << "[DB] COPY comp_child start failed: " << copy.error() << "\n";
+            return 0;
+        }
+        
+        std::string batch;
+        batch.reserve(1 << 20);
+        
+        for (const auto& comp : computed) {
+            int ordinal = 0;
+            for (const auto& [atom_hash, codepoint] : comp.atoms) {
+                // composition_id, child_id, child_type, ordinal
+                copy_bytea(batch, comp.hash);
+                copy_tab(batch);
+                copy_bytea(batch, atom_hash);
+                batch += "\tA\t";  // 'A' for Atom
+                batch += std::to_string(ordinal);
+                copy_newline(batch);
+                
+                ++ordinal;
+                ++child_count;
+                
+                if (batch.size() > (1 << 20)) {
+                    if (!copy.put(batch)) {
+                        std::cerr << "[DB] COPY comp_child failed: " << copy.error() << "\n";
+                        return 0;
+                    }
+                    batch.clear();
+                }
+            }
+        }
+        
+        if (!batch.empty()) {
+            if (!copy.put(batch)) {
+                std::cerr << "[DB] COPY comp_child failed: " << copy.error() << "\n";
+                return 0;
+            }
+        }
+        
+        if (!copy.end()) {
+            std::cerr << "[DB] COPY comp_child end failed: " << copy.error() << "\n";
+            return 0;
+        }
     }
-    PQputCopyEnd(conn_, nullptr);
-    res = PQgetResult(conn_);
-    PQclear(res);
     
     std::cerr << "[DB] Created " << child_count << " composition_child entries\n";
     
     // Step 5: Merge compositions into table (with pre-computed centroids)
-    res = PQexec(conn_, sql::composition_merge_sql().c_str());
+    res = exec(conn_, sql::composition_merge_sql());
     size_t updated = 0;
-    if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-        updated = static_cast<size_t>(atoi(PQcmdTuples(res)));
+    if (res.ok()) {
+        updated = static_cast<size_t>(cmd_tuples(res));
     } else {
-        std::cerr << "[DB] Composition merge failed: " << PQerrorMessage(conn_) << "\n";
+        std::cerr << "[DB] Composition merge failed: " << res.error_message() << "\n";
     }
-    PQclear(res);
     
     // Step 6: Merge composition_child entries
-    res = PQexec(conn_, sql::composition_child_merge_sql().c_str());
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[DB] Composition_child merge failed: " << PQerrorMessage(conn_) << "\n";
+    res = exec(conn_, sql::composition_child_merge_sql());
+    if (!res.ok()) {
+        std::cerr << "[DB] Composition_child merge failed: " << res.error_message() << "\n";
     }
-    PQclear(res);
     
-    res = PQexec(conn_, "COMMIT");
-    PQclear(res);
+    tx.commit();
     
     std::cerr << "[DB] Persisted " << updated << " compositions with physical-first centroids\n";
     return updated;
