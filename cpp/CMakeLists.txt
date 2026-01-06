@@ -662,6 +662,12 @@ if(PostgreSQL_FOUND)
         src/ingest/sequitur.cpp
         src/ingest/pmi_contraction.cpp
         src/ingest/projection_db.cpp
+        # Modular DB operations for safetensor ingestion
+        src/ingest/tensor_io.cpp
+        src/ingest/compositions.cpp
+        src/ingest/tensor_hierarchy.cpp
+        src/ingest/embedding_relations.cpp
+        src/ingest/attention_relations.cpp
     )
     target_include_directories(hypercube_ingest PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -683,7 +689,20 @@ if(PostgreSQL_FOUND)
     
     add_executable(ingest_safetensor src/tools/ingest_safetensor.cpp)
     target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(ingest_safetensor hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    if(HAS_HNSWLIB)
+        target_include_directories(ingest_safetensor PRIVATE ${HNSWLIB_INCLUDE_DIR})
+        target_compile_definitions(ingest_safetensor PRIVATE HAS_HNSWLIB=1)
+    endif()
+    target_link_libraries(ingest_safetensor hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
+    
+    # Modular refactored version of ingest_safetensor (cleaner, smaller main)
+    add_executable(ingest_safetensor_modular src/tools/ingest_safetensor_modular.cpp)
+    target_include_directories(ingest_safetensor_modular PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+    if(HAS_HNSWLIB)
+        target_include_directories(ingest_safetensor_modular PRIVATE ${HNSWLIB_INCLUDE_DIR})
+        target_compile_definitions(ingest_safetensor_modular PRIVATE HAS_HNSWLIB=1)
+    endif()
+    target_link_libraries(ingest_safetensor_modular hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
     
     # Safetensor ingestion with 4D Laplacian projection (no shape table)
     add_executable(ingest_safetensor_4d src/tools/ingest_safetensor_4d.cpp)
