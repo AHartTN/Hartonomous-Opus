@@ -4,9 +4,19 @@
 -- ============================================================================
 
 -- =============================================================================
+-- Drop conflicting functions from base SQL files
+-- These are replaced by superior cached/SIMD versions below
+-- =============================================================================
+
+DROP FUNCTION IF EXISTS similar(TEXT, INTEGER) CASCADE;
+DROP FUNCTION IF EXISTS analogy(TEXT, TEXT, TEXT, INTEGER) CASCADE;
+DROP FUNCTION IF EXISTS analogy(BYTEA, BYTEA, BYTEA, INTEGER) CASCADE;
+
+-- =============================================================================
 -- Type for similarity/analogy results
 -- =============================================================================
 
+DROP TYPE IF EXISTS similar_result CASCADE;
 CREATE TYPE similar_result AS (
     label TEXT,
     similarity DOUBLE PRECISION

@@ -79,11 +79,8 @@ RETURNS TABLE(
     LIMIT p_k;
 $$ LANGUAGE SQL STABLE;
 
--- Short alias
-CREATE OR REPLACE FUNCTION similar(p_label TEXT, p_k INTEGER DEFAULT 10)
-RETURNS TABLE(label TEXT, distance DOUBLE PRECISION) AS $$
-    SELECT * FROM similar_by_centroid(p_label, p_k);
-$$ LANGUAGE SQL STABLE;
+-- NOTE: similar(text, int) is provided by embedding_ops extension with SIMD caching
+-- Do not define it here to avoid conflicts
 
 -- =============================================================================
 -- RELATION QUERIES: Navigate the knowledge graph
@@ -146,8 +143,8 @@ BEGIN
     PERFORM setseed(p_seed);
     
     -- Find starting composition
-    SELECT id, p_start_label INTO v_current_id, v_label
-    FROM composition WHERE label = p_start_label LIMIT 1;
+    SELECT comp.id, comp.label INTO v_current_id, v_label
+    FROM composition comp WHERE comp.label = p_start_label LIMIT 1;
     
     IF v_current_id IS NULL THEN
         RAISE NOTICE 'Label not found: %', p_start_label;
@@ -263,57 +260,9 @@ $$ LANGUAGE plpgsql STABLE;
 -- =============================================================================
 -- ANALOGY: Vector arithmetic on 4D centroids
 -- =============================================================================
-
--- Analogy: A is to B as C is to ?
--- Result = centroid(C) + (centroid(B) - centroid(A))
-CREATE OR REPLACE FUNCTION analogy(
-    p_a TEXT,  -- e.g., "king"
-    p_b TEXT,  -- e.g., "man"
-    p_c TEXT,  -- e.g., "queen"
-    p_k INTEGER DEFAULT 5
-)
-RETURNS TABLE(
-    answer TEXT,
-    distance DOUBLE PRECISION
-) AS $$
-DECLARE
-    v_a GEOMETRY;
-    v_b GEOMETRY;
-    v_c GEOMETRY;
-    v_target GEOMETRY;
-BEGIN
-    -- Get centroids
-    SELECT centroid INTO v_a FROM composition WHERE label = p_a AND centroid IS NOT NULL LIMIT 1;
-    SELECT centroid INTO v_b FROM composition WHERE label = p_b AND centroid IS NOT NULL LIMIT 1;
-    SELECT centroid INTO v_c FROM composition WHERE label = p_c AND centroid IS NOT NULL LIMIT 1;
-    
-    IF v_a IS NULL OR v_b IS NULL OR v_c IS NULL THEN
-        RAISE WARNING 'One or more tokens not found with centroid';
-        RETURN;
-    END IF;
-    
-    -- Compute target: C + (B - A)
-    v_target := ST_SetSRID(ST_MakePoint(
-        ST_X(v_c) + (ST_X(v_b) - ST_X(v_a)),
-        ST_Y(v_c) + (ST_Y(v_b) - ST_Y(v_a)),
-        ST_Z(v_c) + (ST_Z(v_b) - ST_Z(v_a)),
-        ST_M(v_c) + (ST_M(v_b) - ST_M(v_a))
-    ), 0);
-    
-    -- Find nearest to target
-    RETURN QUERY
-    SELECT 
-        c.label,
-        centroid_distance(c.centroid, v_target)
-    FROM composition c
-    WHERE c.centroid IS NOT NULL
-      AND c.label IS NOT NULL
-      AND c.label NOT IN (p_a, p_b, p_c)
-      AND c.label NOT LIKE '[%'
-    ORDER BY centroid_distance(c.centroid, v_target) ASC
-    LIMIT p_k;
-END;
-$$ LANGUAGE plpgsql STABLE;
+-- NOTE: analogy(text, text, text, int) is provided by embedding_ops extension
+-- with SIMD-accelerated caching. The extension version returns 'similarity'
+-- column instead of 'distance' for consistency with similar().
 
 -- =============================================================================
 -- DATABASE STATISTICS

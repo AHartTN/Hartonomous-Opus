@@ -2519,3 +2519,835 @@ Threshold: 0.5
   vision_tower.transformer.layers.22.attention.q_proj.weight [1024 x 1024] layer=22
     -> 1763 weight similarity edges
   language_model.model.layers.35.self_attn.q_proj.weight [4096 x 5120] layer=35 (sampling every 2 rows)
+    -> 6722 weight similarity edges
+  vision_tower.transformer.layers.9.attention.q_proj.weight [1024 x 1024] layer=9
+    -> 4490 weight similarity edges
+  language_model.model.layers.10.self_attn.q_proj.weight [4096 x 5120] layer=10 (sampling every 2 rows)
+    -> 4618 weight similarity edges
+  language_model.model.layers.8.self_attn.q_proj.weight [4096 x 5120] layer=8 (sampling every 2 rows)
+    -> 4420 weight similarity edges
+  language_model.model.layers.6.self_attn.q_proj.weight [4096 x 5120] layer=6 (sampling every 2 rows)
+    -> 4350 weight similarity edges
+  language_model.model.layers.4.self_attn.q_proj.weight [4096 x 5120] layer=4 (sampling every 2 rows)
+    -> 4656 weight similarity edges
+  language_model.model.layers.19.self_attn.q_proj.weight [4096 x 5120] layer=19 (sampling every 2 rows)
+    -> 4873 weight similarity edges
+  language_model.model.layers.30.self_attn.q_proj.weight [4096 x 5120] layer=30 (sampling every 2 rows)
+    -> 5267 weight similarity edges
+  language_model.model.layers.13.self_attn.q_proj.weight [4096 x 5120] layer=13 (sampling every 2 rows)
+    -> 4976 weight similarity edges
+  language_model.model.layers.14.self_attn.q_proj.weight [4096 x 5120] layer=14 (sampling every 2 rows)
+    -> 6285 weight similarity edges
+  language_model.model.layers.15.self_attn.q_proj.weight [4096 x 5120] layer=15 (sampling every 2 rows)
+    -> 5196 weight similarity edges
+  language_model.model.layers.23.self_attn.q_proj.weight [4096 x 5120] layer=23 (sampling every 2 rows)
+    -> 4681 weight similarity edges
+  language_model.model.layers.18.self_attn.q_proj.weight [4096 x 5120] layer=18 (sampling every 2 rows)
+    -> 5597 weight similarity edges
+  language_model.model.layers.20.self_attn.q_proj.weight [4096 x 5120] layer=20 (sampling every 2 rows)
+    -> 4684 weight similarity edges
+  language_model.model.layers.24.self_attn.q_proj.weight [4096 x 5120] layer=24 (sampling every 2 rows)
+    -> 3947 weight similarity edges
+  language_model.model.layers.21.self_attn.q_proj.weight [4096 x 5120] layer=21 (sampling every 2 rows)
+    -> 4408 weight similarity edges
+  language_model.model.layers.3.self_attn.q_proj.weight [4096 x 5120] layer=3 (sampling every 2 rows)
+    -> 4782 weight similarity edges
+  language_model.model.layers.36.self_attn.q_proj.weight [4096 x 5120] layer=36 (sampling every 2 rows)
+    -> 5864 weight similarity edges
+  language_model.model.layers.5.self_attn.q_proj.weight [4096 x 5120] layer=5 (sampling every 2 rows)
+    -> 4398 weight similarity edges
+  language_model.model.layers.32.self_attn.q_proj.weight [4096 x 5120] layer=32 (sampling every 2 rows)
+    -> 5138 weight similarity edges
+  language_model.model.layers.33.self_attn.q_proj.weight [4096 x 5120] layer=33 (sampling every 2 rows)
+    -> 4446 weight similarity edges
+  language_model.model.layers.34.self_attn.q_proj.weight [4096 x 5120] layer=34 (sampling every 2 rows)
+    -> 5598 weight similarity edges
+  language_model.model.layers.37.self_attn.q_proj.weight [4096 x 5120] layer=37 (sampling every 2 rows)
+    -> 6575 weight similarity edges
+[ATTN] Processing 64 k_proj tensors
+  vision_tower.transformer.layers.8.attention.k_proj.weight [1024 x 1024] layer=8
+    -> 5028 weight similarity edges
+  language_model.model.layers.25.self_attn.k_proj.weight [1024 x 5120] layer=25
+    -> 1715 weight similarity edges
+  language_model.model.layers.26.self_attn.k_proj.weight [1024 x 5120] layer=26
+    -> 1277 weight similarity edges
+  language_model.model.layers.27.self_attn.k_proj.weight [1024 x 5120] layer=27
+    -> 1330 weight similarity edges
+  language_model.model.layers.22.self_attn.k_proj.weight [1024 x 5120] layer=22
+    -> 1320 weight similarity edges
+  language_model.model.layers.38.self_attn.k_proj.weight [1024 x 5120] layer=38
+    -> 2058 weight similarity edges
+  language_model.model.layers.28.self_attn.k_proj.weight [1024 x 5120] layer=28
+    -> 1932 weight similarity edges
+  vision_tower.transformer.layers.2.attention.k_proj.weight [1024 x 1024] layer=2
+    -> 4986 weight similarity edges
+  vision_tower.transformer.layers.17.attention.k_proj.weight [1024 x 1024] layer=17
+    -> 2074 weight similarity edges
+  language_model.model.layers.39.self_attn.k_proj.weight [1024 x 5120] layer=39
+    -> 2196 weight similarity edges
+  language_model.model.layers.21.self_attn.k_proj.weight [1024 x 5120] layer=21
+    -> 1487 weight similarity edges
+  language_model.model.layers.0.self_attn.k_proj.weight [1024 x 5120] layer=0
+    -> 4983 weight similarity edges
+  vision_tower.transformer.layers.3.attention.k_proj.weight [1024 x 1024] layer=3
+    -> 5147 weight similarity edges
+  language_model.model.layers.1.self_attn.k_proj.weight [1024 x 5120] layer=1
+    -> 4250 weight similarity edges
+  language_model.model.layers.2.self_attn.k_proj.weight [1024 x 5120] layer=2
+    -> 3802 weight similarity edges
+  vision_tower.transformer.layers.0.attention.k_proj.weight [1024 x 1024] layer=0
+    -> 5169 weight similarity edges
+  language_model.model.layers.31.self_attn.k_proj.weight [1024 x 5120] layer=31
+    -> 1472 weight similarity edges
+  language_model.model.layers.10.self_attn.k_proj.weight [1024 x 5120] layer=10
+    -> 1829 weight similarity edges
+  language_model.model.layers.34.self_attn.k_proj.weight [1024 x 5120] layer=34
+    -> 2745 weight similarity edges
+  vision_tower.transformer.layers.1.attention.k_proj.weight [1024 x 1024] layer=1
+    -> 5152 weight similarity edges
+  vision_tower.transformer.layers.15.attention.k_proj.weight [1024 x 1024] layer=15
+    -> 2218 weight similarity edges
+  vision_tower.transformer.layers.10.attention.k_proj.weight [1024 x 1024] layer=10
+    -> 3834 weight similarity edges
+  vision_tower.transformer.layers.11.attention.k_proj.weight [1024 x 1024] layer=11
+    -> 2980 weight similarity edges
+  vision_tower.transformer.layers.12.attention.k_proj.weight [1024 x 1024] layer=12
+    -> 2979 weight similarity edges
+  vision_tower.transformer.layers.13.attention.k_proj.weight [1024 x 1024] layer=13
+    -> 2708 weight similarity edges
+  vision_tower.transformer.layers.14.attention.k_proj.weight [1024 x 1024] layer=14
+    -> 2639 weight similarity edges
+  vision_tower.transformer.layers.4.attention.k_proj.weight [1024 x 1024] layer=4
+    -> 4973 weight similarity edges
+  vision_tower.transformer.layers.22.attention.k_proj.weight [1024 x 1024] layer=22
+    -> 1653 weight similarity edges
+  vision_tower.transformer.layers.21.attention.k_proj.weight [1024 x 1024] layer=21
+    -> 2035 weight similarity edges
+  vision_tower.transformer.layers.7.attention.k_proj.weight [1024 x 1024] layer=7
+    -> 4691 weight similarity edges
+  vision_tower.transformer.layers.16.attention.k_proj.weight [1024 x 1024] layer=16
+    -> 2512 weight similarity edges
+  language_model.model.layers.6.self_attn.k_proj.weight [1024 x 5120] layer=6
+    -> 1789 weight similarity edges
+  vision_tower.transformer.layers.18.attention.k_proj.weight [1024 x 1024] layer=18
+    -> 2054 weight similarity edges
+  vision_tower.transformer.layers.19.attention.k_proj.weight [1024 x 1024] layer=19
+    -> 1910 weight similarity edges
+  language_model.model.layers.4.self_attn.k_proj.weight [1024 x 5120] layer=4
+    -> 1673 weight similarity edges
+  vision_tower.transformer.layers.6.attention.k_proj.weight [1024 x 1024] layer=6
+    -> 5049 weight similarity edges
+  vision_tower.transformer.layers.20.attention.k_proj.weight [1024 x 1024] layer=20
+    -> 1680 weight similarity edges
+  vision_tower.transformer.layers.5.attention.k_proj.weight [1024 x 1024] layer=5
+    -> 5144 weight similarity edges
+  vision_tower.transformer.layers.23.attention.k_proj.weight [1024 x 1024] layer=23
+    -> 2811 weight similarity edges
+  language_model.model.layers.18.self_attn.k_proj.weight [1024 x 5120] layer=18
+    -> 1956 weight similarity edges
+  vision_tower.transformer.layers.9.attention.k_proj.weight [1024 x 1024] layer=9
+    -> 4012 weight similarity edges
+  language_model.model.layers.9.self_attn.k_proj.weight [1024 x 5120] layer=9
+    -> 1589 weight similarity edges
+  language_model.model.layers.11.self_attn.k_proj.weight [1024 x 5120] layer=11
+    -> 1725 weight similarity edges
+  language_model.model.layers.7.self_attn.k_proj.weight [1024 x 5120] layer=7
+    -> 1838 weight similarity edges
+  language_model.model.layers.8.self_attn.k_proj.weight [1024 x 5120] layer=8
+    -> 1439 weight similarity edges
+  language_model.model.layers.12.self_attn.k_proj.weight [1024 x 5120] layer=12
+    -> 1811 weight similarity edges
+  language_model.model.layers.13.self_attn.k_proj.weight [1024 x 5120] layer=13
+    -> 1801 weight similarity edges
+  language_model.model.layers.14.self_attn.k_proj.weight [1024 x 5120] layer=14
+    -> 1922 weight similarity edges
+  language_model.model.layers.15.self_attn.k_proj.weight [1024 x 5120] layer=15
+    -> 1806 weight similarity edges
+  language_model.model.layers.16.self_attn.k_proj.weight [1024 x 5120] layer=16
+    -> 1382 weight similarity edges
+  language_model.model.layers.17.self_attn.k_proj.weight [1024 x 5120] layer=17
+    -> 2028 weight similarity edges
+  language_model.model.layers.19.self_attn.k_proj.weight [1024 x 5120] layer=19
+    -> 1581 weight similarity edges
+  language_model.model.layers.20.self_attn.k_proj.weight [1024 x 5120] layer=20
+    -> 1603 weight similarity edges
+  language_model.model.layers.23.self_attn.k_proj.weight [1024 x 5120] layer=23
+    -> 1718 weight similarity edges
+  language_model.model.layers.24.self_attn.k_proj.weight [1024 x 5120] layer=24
+    -> 1260 weight similarity edges
+  language_model.model.layers.3.self_attn.k_proj.weight [1024 x 5120] layer=3
+    -> 1680 weight similarity edges
+  language_model.model.layers.5.self_attn.k_proj.weight [1024 x 5120] layer=5
+    -> 1460 weight similarity edges
+  language_model.model.layers.36.self_attn.k_proj.weight [1024 x 5120] layer=36
+    -> 1991 weight similarity edges
+  language_model.model.layers.29.self_attn.k_proj.weight [1024 x 5120] layer=29
+    -> 1559 weight similarity edges
+  language_model.model.layers.30.self_attn.k_proj.weight [1024 x 5120] layer=30
+    -> 2842 weight similarity edges
+  language_model.model.layers.32.self_attn.k_proj.weight [1024 x 5120] layer=32
+    -> 2585 weight similarity edges
+  language_model.model.layers.33.self_attn.k_proj.weight [1024 x 5120] layer=33
+    -> 1826 weight similarity edges
+  language_model.model.layers.35.self_attn.k_proj.weight [1024 x 5120] layer=35
+    -> 3301 weight similarity edges
+  language_model.model.layers.37.self_attn.k_proj.weight [1024 x 5120] layer=37
+    -> 2684 weight similarity edges
+[ATTN] Processing 64 v_proj tensors
+  language_model.model.layers.23.self_attn.v_proj.weight [1024 x 5120] layer=23
+    -> 19 weight similarity edges
+  language_model.model.layers.28.self_attn.v_proj.weight [1024 x 5120] layer=28
+    -> 57 weight similarity edges
+  language_model.model.layers.25.self_attn.v_proj.weight [1024 x 5120] layer=25
+    -> 21 weight similarity edges
+  language_model.model.layers.4.self_attn.v_proj.weight [1024 x 5120] layer=4
+    -> 9 weight similarity edges
+  language_model.model.layers.27.self_attn.v_proj.weight [1024 x 5120] layer=27
+    -> 118 weight similarity edges
+  vision_tower.transformer.layers.7.attention.v_proj.weight [1024 x 1024] layer=7
+    -> 3848 weight similarity edges
+  vision_tower.transformer.layers.21.attention.v_proj.weight [1024 x 1024] layer=21
+    -> 1832 weight similarity edges
+  language_model.model.layers.26.self_attn.v_proj.weight [1024 x 5120] layer=26
+    -> 19 weight similarity edges
+  language_model.model.layers.19.self_attn.v_proj.weight [1024 x 5120] layer=19
+    -> 7 weight similarity edges
+  vision_tower.transformer.layers.13.attention.v_proj.weight [1024 x 1024] layer=13
+    -> 638 weight similarity edges
+  vision_tower.transformer.layers.2.attention.v_proj.weight [1024 x 1024] layer=2
+    -> 3540 weight similarity edges
+  language_model.model.layers.38.self_attn.v_proj.weight [1024 x 5120] layer=38
+    -> 93 weight similarity edges
+  language_model.model.layers.24.self_attn.v_proj.weight [1024 x 5120] layer=24
+    -> 9 weight similarity edges
+  language_model.model.layers.39.self_attn.v_proj.weight [1024 x 5120] layer=39
+    -> 748 weight similarity edges
+  language_model.model.layers.0.self_attn.v_proj.weight [1024 x 5120] layer=0
+    -> 551 weight similarity edges
+  vision_tower.transformer.layers.3.attention.v_proj.weight [1024 x 1024] layer=3
+    -> 3736 weight similarity edges
+  language_model.model.layers.1.self_attn.v_proj.weight [1024 x 5120] layer=1
+    -> 38 weight similarity edges
+  language_model.model.layers.2.self_attn.v_proj.weight [1024 x 5120] layer=2
+    -> 29 weight similarity edges
+  language_model.model.layers.10.self_attn.v_proj.weight [1024 x 5120] layer=10
+    -> 9 weight similarity edges
+  vision_tower.transformer.layers.0.attention.v_proj.weight [1024 x 1024] layer=0
+    -> 1263 weight similarity edges
+  vision_tower.transformer.layers.15.attention.v_proj.weight [1024 x 1024] layer=15
+    -> 593 weight similarity edges
+  vision_tower.transformer.layers.4.attention.v_proj.weight [1024 x 1024] layer=4
+    -> 3639 weight similarity edges
+  vision_tower.transformer.layers.22.attention.v_proj.weight [1024 x 1024] layer=22
+    -> 2497 weight similarity edges
+  vision_tower.transformer.layers.1.attention.v_proj.weight [1024 x 1024] layer=1
+    -> 3631 weight similarity edges
+  language_model.model.layers.34.self_attn.v_proj.weight [1024 x 5120] layer=34
+    -> 105 weight similarity edges
+  vision_tower.transformer.layers.10.attention.v_proj.weight [1024 x 1024] layer=10
+    -> 1476 weight similarity edges
+  vision_tower.transformer.layers.11.attention.v_proj.weight [1024 x 1024] layer=11
+    -> 1378 weight similarity edges
+  language_model.model.layers.7.self_attn.v_proj.weight [1024 x 5120] layer=7
+    -> 20 weight similarity edges
+  vision_tower.transformer.layers.12.attention.v_proj.weight [1024 x 1024] layer=12
+    -> 958 weight similarity edges
+  vision_tower.transformer.layers.14.attention.v_proj.weight [1024 x 1024] layer=14
+    -> 637 weight similarity edges
+  language_model.model.layers.6.self_attn.v_proj.weight [1024 x 5120] layer=6
+    -> 15 weight similarity edges
+  vision_tower.transformer.layers.16.attention.v_proj.weight [1024 x 1024] layer=16
+    -> 1034 weight similarity edges
+  vision_tower.transformer.layers.17.attention.v_proj.weight [1024 x 1024] layer=17
+    -> 195 weight similarity edges
+  language_model.model.layers.22.self_attn.v_proj.weight [1024 x 5120] layer=22
+    -> 17 weight similarity edges
+  vision_tower.transformer.layers.18.attention.v_proj.weight [1024 x 1024] layer=18
+    -> 756 weight similarity edges
+  vision_tower.transformer.layers.19.attention.v_proj.weight [1024 x 1024] layer=19
+    -> 869 weight similarity edges
+  vision_tower.transformer.layers.6.attention.v_proj.weight [1024 x 1024] layer=6
+    -> 3908 weight similarity edges
+  vision_tower.transformer.layers.20.attention.v_proj.weight [1024 x 1024] layer=20
+    -> 691 weight similarity edges
+  vision_tower.transformer.layers.5.attention.v_proj.weight [1024 x 1024] layer=5
+    -> 3801 weight similarity edges
+  vision_tower.transformer.layers.23.attention.v_proj.weight [1024 x 1024] layer=23
+    -> 2138 weight similarity edges
+  language_model.model.layers.35.self_attn.v_proj.weight [1024 x 5120] layer=35
+    -> 217 weight similarity edges
+  language_model.model.layers.15.self_attn.v_proj.weight [1024 x 5120] layer=15
+    -> 31 weight similarity edges
+  vision_tower.transformer.layers.8.attention.v_proj.weight [1024 x 1024] layer=8
+    -> 2853 weight similarity edges
+  vision_tower.transformer.layers.9.attention.v_proj.weight [1024 x 1024] layer=9
+    -> 1745 weight similarity edges
+  language_model.model.layers.31.self_attn.v_proj.weight [1024 x 5120] layer=31
+    -> 22 weight similarity edges
+  language_model.model.layers.36.self_attn.v_proj.weight [1024 x 5120] layer=36
+    -> 158 weight similarity edges
+  language_model.model.layers.11.self_attn.v_proj.weight [1024 x 5120] layer=11
+    -> 13 weight similarity edges
+  language_model.model.layers.8.self_attn.v_proj.weight [1024 x 5120] layer=8
+    -> 16 weight similarity edges
+  language_model.model.layers.5.self_attn.v_proj.weight [1024 x 5120] layer=5
+    -> 6 weight similarity edges
+  language_model.model.layers.9.self_attn.v_proj.weight [1024 x 5120] layer=9
+    -> 8 weight similarity edges
+  language_model.model.layers.12.self_attn.v_proj.weight [1024 x 5120] layer=12
+    -> 57 weight similarity edges
+  language_model.model.layers.13.self_attn.v_proj.weight [1024 x 5120] layer=13
+    -> 37 weight similarity edges
+  language_model.model.layers.14.self_attn.v_proj.weight [1024 x 5120] layer=14
+    -> 57 weight similarity edges
+  language_model.model.layers.16.self_attn.v_proj.weight [1024 x 5120] layer=16
+    -> 8 weight similarity edges
+  language_model.model.layers.17.self_attn.v_proj.weight [1024 x 5120] layer=17
+    -> 15 weight similarity edges
+  language_model.model.layers.18.self_attn.v_proj.weight [1024 x 5120] layer=18
+    -> 18 weight similarity edges
+  language_model.model.layers.20.self_attn.v_proj.weight [1024 x 5120] layer=20
+    -> 6 weight similarity edges
+  language_model.model.layers.21.self_attn.v_proj.weight [1024 x 5120] layer=21
+    -> 2 weight similarity edges
+  language_model.model.layers.37.self_attn.v_proj.weight [1024 x 5120] layer=37
+    -> 158 weight similarity edges
+  language_model.model.layers.3.self_attn.v_proj.weight [1024 x 5120] layer=3
+    -> 30 weight similarity edges
+  language_model.model.layers.29.self_attn.v_proj.weight [1024 x 5120] layer=29
+    -> 23 weight similarity edges
+  language_model.model.layers.30.self_attn.v_proj.weight [1024 x 5120] layer=30
+    -> 247 weight similarity edges
+  language_model.model.layers.32.self_attn.v_proj.weight [1024 x 5120] layer=32
+    -> 100 weight similarity edges
+  language_model.model.layers.33.self_attn.v_proj.weight [1024 x 5120] layer=33
+    -> 83 weight similarity edges
+[ATTN] Processing 64 o_proj tensors
+  language_model.model.layers.28.self_attn.o_proj.weight [5120 x 4096] layer=28 (sampling every 2 rows)
+    -> 19 weight similarity edges
+  language_model.model.layers.2.self_attn.o_proj.weight [5120 x 4096] layer=2 (sampling every 2 rows)
+    -> 66 weight similarity edges
+  language_model.model.layers.25.self_attn.o_proj.weight [5120 x 4096] layer=25 (sampling every 2 rows)
+    -> 12 weight similarity edges
+  language_model.model.layers.27.self_attn.o_proj.weight [5120 x 4096] layer=27 (sampling every 2 rows)
+    -> 15 weight similarity edges
+  language_model.model.layers.31.self_attn.o_proj.weight [5120 x 4096] layer=31 (sampling every 2 rows)
+    -> 13 weight similarity edges
+  language_model.model.layers.26.self_attn.o_proj.weight [5120 x 4096] layer=26 (sampling every 2 rows)
+    -> 33 weight similarity edges
+  language_model.model.layers.39.self_attn.o_proj.weight [5120 x 4096] layer=39 (sampling every 2 rows)
+    -> 4301 weight similarity edges
+  vision_tower.transformer.layers.8.attention.o_proj.weight [1024 x 1024] layer=8
+    -> 730 weight similarity edges
+  language_model.model.layers.38.self_attn.o_proj.weight [5120 x 4096] layer=38 (sampling every 2 rows)
+    -> 606 weight similarity edges
+  language_model.model.layers.0.self_attn.o_proj.weight [5120 x 4096] layer=0 (sampling every 2 rows)
+    -> 471 weight similarity edges
+  vision_tower.transformer.layers.7.attention.o_proj.weight [1024 x 1024] layer=7
+    -> 1033 weight similarity edges
+  vision_tower.transformer.layers.21.attention.o_proj.weight [1024 x 1024] layer=21
+    -> 483 weight similarity edges
+  vision_tower.transformer.layers.3.attention.o_proj.weight [1024 x 1024] layer=3
+    -> 3254 weight similarity edges
+  language_model.model.layers.1.self_attn.o_proj.weight [5120 x 4096] layer=1 (sampling every 2 rows)
+    -> 61 weight similarity edges
+  vision_tower.transformer.layers.0.attention.o_proj.weight [1024 x 1024] layer=0
+    -> 317 weight similarity edges
+  vision_tower.transformer.layers.1.attention.o_proj.weight [1024 x 1024] layer=1
+    -> 4794 weight similarity edges
+  vision_tower.transformer.layers.4.attention.o_proj.weight [1024 x 1024] layer=4
+    -> 2506 weight similarity edges
+  vision_tower.transformer.layers.22.attention.o_proj.weight [1024 x 1024] layer=22
+    -> 742 weight similarity edges
+  vision_tower.transformer.layers.10.attention.o_proj.weight [1024 x 1024] layer=10
+    -> 182 weight similarity edges
+  language_model.model.layers.5.self_attn.o_proj.weight [5120 x 4096] layer=5 (sampling every 2 rows)
+    -> 28 weight similarity edges
+  vision_tower.transformer.layers.11.attention.o_proj.weight [1024 x 1024] layer=11
+    -> 236 weight similarity edges
+  vision_tower.transformer.layers.12.attention.o_proj.weight [1024 x 1024] layer=12
+    -> 99 weight similarity edges
+  vision_tower.transformer.layers.13.attention.o_proj.weight [1024 x 1024] layer=13
+    -> 61 weight similarity edges
+  language_model.model.layers.17.self_attn.o_proj.weight [5120 x 4096] layer=17 (sampling every 2 rows)
+    -> 25 weight similarity edges
+  vision_tower.transformer.layers.14.attention.o_proj.weight [1024 x 1024] layer=14
+    -> 61 weight similarity edges
+  vision_tower.transformer.layers.15.attention.o_proj.weight [1024 x 1024] layer=15
+    -> 37 weight similarity edges
+  vision_tower.transformer.layers.9.attention.o_proj.weight [1024 x 1024] layer=9
+    -> 339 weight similarity edges
+  language_model.model.layers.4.self_attn.o_proj.weight [5120 x 4096] layer=4 (sampling every 2 rows)
+    -> 55 weight similarity edges
+  vision_tower.transformer.layers.16.attention.o_proj.weight [1024 x 1024] layer=16
+    -> 64 weight similarity edges
+  language_model.model.layers.10.self_attn.o_proj.weight [5120 x 4096] layer=10 (sampling every 2 rows)
+    -> 48 weight similarity edges
+  vision_tower.transformer.layers.17.attention.o_proj.weight [1024 x 1024] layer=17
+    -> 34 weight similarity edges
+  vision_tower.transformer.layers.18.attention.o_proj.weight [1024 x 1024] layer=18
+    -> 68 weight similarity edges
+  language_model.model.layers.22.self_attn.o_proj.weight [5120 x 4096] layer=22 (sampling every 2 rows)
+    -> 7 weight similarity edges
+  vision_tower.transformer.layers.19.attention.o_proj.weight [1024 x 1024] layer=19
+    -> 126 weight similarity edges
+  vision_tower.transformer.layers.2.attention.o_proj.weight [1024 x 1024] layer=2
+    -> 4347 weight similarity edges
+  vision_tower.transformer.layers.6.attention.o_proj.weight [1024 x 1024] layer=6
+    -> 2378 weight similarity edges
+  vision_tower.transformer.layers.20.attention.o_proj.weight [1024 x 1024] layer=20
+    -> 68 weight similarity edges
+  language_model.model.layers.18.self_attn.o_proj.weight [5120 x 4096] layer=18 (sampling every 2 rows)
+    -> 46 weight similarity edges
+  vision_tower.transformer.layers.5.attention.o_proj.weight [1024 x 1024] layer=5
+    -> 3170 weight similarity edges
+  vision_tower.transformer.layers.23.attention.o_proj.weight [1024 x 1024] layer=23
+    -> 534 weight similarity edges
+  language_model.model.layers.9.self_attn.o_proj.weight [5120 x 4096] layer=9 (sampling every 2 rows)
+    -> 48 weight similarity edges
+  language_model.model.layers.11.self_attn.o_proj.weight [5120 x 4096] layer=11 (sampling every 2 rows)
+    -> 42 weight similarity edges
+  language_model.model.layers.36.self_attn.o_proj.weight [5120 x 4096] layer=36 (sampling every 2 rows)
+    -> 1526 weight similarity edges
+  language_model.model.layers.12.self_attn.o_proj.weight [5120 x 4096] layer=12 (sampling every 2 rows)
+    -> 54 weight similarity edges
+  language_model.model.layers.7.self_attn.o_proj.weight [5120 x 4096] layer=7 (sampling every 2 rows)
+    -> 34 weight similarity edges
+  language_model.model.layers.8.self_attn.o_proj.weight [5120 x 4096] layer=8 (sampling every 2 rows)
+    -> 53 weight similarity edges
+  language_model.model.layers.13.self_attn.o_proj.weight [5120 x 4096] layer=13 (sampling every 2 rows)
+    -> 82 weight similarity edges
+  language_model.model.layers.14.self_attn.o_proj.weight [5120 x 4096] layer=14 (sampling every 2 rows)
+    -> 30 weight similarity edges
+  language_model.model.layers.15.self_attn.o_proj.weight [5120 x 4096] layer=15 (sampling every 2 rows)
+    -> 23 weight similarity edges
+  language_model.model.layers.16.self_attn.o_proj.weight [5120 x 4096] layer=16 (sampling every 2 rows)
+    -> 16 weight similarity edges
+  language_model.model.layers.19.self_attn.o_proj.weight [5120 x 4096] layer=19 (sampling every 2 rows)
+    -> 25 weight similarity edges
+  language_model.model.layers.20.self_attn.o_proj.weight [5120 x 4096] layer=20 (sampling every 2 rows)
+    -> 31 weight similarity edges
+  language_model.model.layers.21.self_attn.o_proj.weight [5120 x 4096] layer=21 (sampling every 2 rows)
+    -> 21 weight similarity edges
+  language_model.model.layers.23.self_attn.o_proj.weight [5120 x 4096] layer=23 (sampling every 2 rows)
+    -> 39 weight similarity edges
+  language_model.model.layers.24.self_attn.o_proj.weight [5120 x 4096] layer=24 (sampling every 2 rows)
+    -> 7 weight similarity edges
+  language_model.model.layers.3.self_attn.o_proj.weight [5120 x 4096] layer=3 (sampling every 2 rows)
+    -> 95 weight similarity edges
+  language_model.model.layers.6.self_attn.o_proj.weight [5120 x 4096] layer=6 (sampling every 2 rows)
+    -> 54 weight similarity edges
+  language_model.model.layers.29.self_attn.o_proj.weight [5120 x 4096] layer=29 (sampling every 2 rows)
+    -> 14 weight similarity edges
+  language_model.model.layers.30.self_attn.o_proj.weight [5120 x 4096] layer=30 (sampling every 2 rows)
+    -> 11 weight similarity edges
+  language_model.model.layers.32.self_attn.o_proj.weight [5120 x 4096] layer=32 (sampling every 2 rows)
+    -> 18 weight similarity edges
+  language_model.model.layers.33.self_attn.o_proj.weight [5120 x 4096] layer=33 (sampling every 2 rows)
+    -> 14 weight similarity edges
+  language_model.model.layers.34.self_attn.o_proj.weight [5120 x 4096] layer=34 (sampling every 2 rows)
+    -> 24 weight similarity edges
+  language_model.model.layers.35.self_attn.o_proj.weight [5120 x 4096] layer=35 (sampling every 2 rows)
+    -> 233 weight similarity edges
+  language_model.model.layers.37.self_attn.o_proj.weight [5120 x 4096] layer=37 (sampling every 2 rows)
+    -> 961 weight similarity edges
+[ATTN] Processing 64 gate_proj tensors
+  language_model.model.layers.30.mlp.gate_proj.weight [32768 x 5120] layer=30 (sampling every 16 rows)
+    -> 27 weight similarity edges
+  language_model.model.layers.24.mlp.gate_proj.weight [32768 x 5120] layer=24 (sampling every 16 rows)
+    -> 174 weight similarity edges
+  language_model.model.layers.25.mlp.gate_proj.weight [32768 x 5120] layer=25 (sampling every 16 rows)
+    -> 93 weight similarity edges
+  language_model.model.layers.12.mlp.gate_proj.weight [32768 x 5120] layer=12 (sampling every 16 rows)
+    -> 407 weight similarity edges
+  language_model.model.layers.28.mlp.gate_proj.weight [32768 x 5120] layer=28 (sampling every 16 rows)
+    -> 38 weight similarity edges
+  language_model.model.layers.16.mlp.gate_proj.weight [32768 x 5120] layer=16 (sampling every 16 rows)
+    -> 1038 weight similarity edges
+  language_model.model.layers.26.mlp.gate_proj.weight [32768 x 5120] layer=26 (sampling every 16 rows)
+    -> 94 weight similarity edges
+  language_model.model.layers.29.mlp.gate_proj.weight [32768 x 5120] layer=29 (sampling every 16 rows)
+    -> 57 weight similarity edges
+  vision_tower.transformer.layers.17.feed_forward.gate_proj.weight [4096 x 1024] layer=17 (sampling every 2 rows)
+    -> 6488 weight similarity edges
+  language_model.model.layers.32.mlp.gate_proj.weight [32768 x 5120] layer=32 (sampling every 16 rows)
+    -> 99 weight similarity edges
+  language_model.model.layers.27.mlp.gate_proj.weight [32768 x 5120] layer=27 (sampling every 16 rows)
+    -> 179 weight similarity edges
+  vision_tower.transformer.layers.8.feed_forward.gate_proj.weight [4096 x 1024] layer=8 (sampling every 2 rows)
+    -> 5645 weight similarity edges
+  language_model.model.layers.37.mlp.gate_proj.weight [32768 x 5120] layer=37 (sampling every 16 rows)
+    -> 1117 weight similarity edges
+  language_model.model.layers.38.mlp.gate_proj.weight [32768 x 5120] layer=38 (sampling every 16 rows)
+    -> 1516 weight similarity edges
+  language_model.model.layers.7.mlp.gate_proj.weight [32768 x 5120] layer=7 (sampling every 16 rows)
+    -> 303 weight similarity edges
+  language_model.model.layers.39.mlp.gate_proj.weight [32768 x 5120] layer=39 (sampling every 16 rows)
+    -> 1307 weight similarity edges
+  vision_tower.transformer.layers.0.feed_forward.gate_proj.weight [4096 x 1024] layer=0 (sampling every 2 rows)
+    -> 6605 weight similarity edges
+  language_model.model.layers.0.mlp.gate_proj.weight [32768 x 5120] layer=0 (sampling every 16 rows)
+    -> 957 weight similarity edges
+  language_model.model.layers.1.mlp.gate_proj.weight [32768 x 5120] layer=1 (sampling every 16 rows)
+    -> 1763 weight similarity edges
+  language_model.model.layers.2.mlp.gate_proj.weight [32768 x 5120] layer=2 (sampling every 16 rows)
+    -> 192 weight similarity edges
+  vision_tower.transformer.layers.15.feed_forward.gate_proj.weight [4096 x 1024] layer=15 (sampling every 2 rows)
+    -> 6553 weight similarity edges
+  language_model.model.layers.5.mlp.gate_proj.weight [32768 x 5120] layer=5 (sampling every 16 rows)
+    -> 176 weight similarity edges
+  vision_tower.transformer.layers.1.feed_forward.gate_proj.weight [4096 x 1024] layer=1 (sampling every 2 rows)
+    -> 8240 weight similarity edges
+  vision_tower.transformer.layers.10.feed_forward.gate_proj.weight [4096 x 1024] layer=10 (sampling every 2 rows)
+    -> 7299 weight similarity edges
+  vision_tower.transformer.layers.11.feed_forward.gate_proj.weight [4096 x 1024] layer=11 (sampling every 2 rows)
+    -> 7419 weight similarity edges
+  vision_tower.transformer.layers.12.feed_forward.gate_proj.weight [4096 x 1024] layer=12 (sampling every 2 rows)
+    -> 7323 weight similarity edges
+  vision_tower.transformer.layers.13.feed_forward.gate_proj.weight [4096 x 1024] layer=13 (sampling every 2 rows)
+    -> 7052 weight similarity edges
+  language_model.model.layers.13.mlp.gate_proj.weight [32768 x 5120] layer=13 (sampling every 16 rows)
+    -> 514 weight similarity edges
+  vision_tower.transformer.layers.14.feed_forward.gate_proj.weight [4096 x 1024] layer=14 (sampling every 2 rows)
+    -> 6526 weight similarity edges
+  vision_tower.transformer.layers.16.feed_forward.gate_proj.weight [4096 x 1024] layer=16 (sampling every 2 rows)
+    -> 6167 weight similarity edges
+  vision_tower.transformer.layers.18.feed_forward.gate_proj.weight [4096 x 1024] layer=18 (sampling every 2 rows)
+    -> 7886 weight similarity edges
+  language_model.model.layers.35.mlp.gate_proj.weight [32768 x 5120] layer=35 (sampling every 16 rows)
+    -> 632 weight similarity edges
+  vision_tower.transformer.layers.19.feed_forward.gate_proj.weight [4096 x 1024] layer=19 (sampling every 2 rows)
+    -> 8263 weight similarity edges
+  vision_tower.transformer.layers.7.feed_forward.gate_proj.weight [4096 x 1024] layer=7 (sampling every 2 rows)
+    -> 4373 weight similarity edges
+  vision_tower.transformer.layers.21.feed_forward.gate_proj.weight [4096 x 1024] layer=21 (sampling every 2 rows)
+    -> 10412 weight similarity edges
+  vision_tower.transformer.layers.2.feed_forward.gate_proj.weight [4096 x 1024] layer=2 (sampling every 2 rows)
+    -> 6966 weight similarity edges
+  language_model.model.layers.8.mlp.gate_proj.weight [32768 x 5120] layer=8 (sampling every 16 rows)
+    -> 463 weight similarity edges
+  vision_tower.transformer.layers.6.feed_forward.gate_proj.weight [4096 x 1024] layer=6 (sampling every 2 rows)
+    -> 4075 weight similarity edges
+  vision_tower.transformer.layers.20.feed_forward.gate_proj.weight [4096 x 1024] layer=20 (sampling every 2 rows)
+    -> 9221 weight similarity edges
+  language_model.model.layers.14.mlp.gate_proj.weight [32768 x 5120] layer=14 (sampling every 16 rows)
+    -> 650 weight similarity edges
+  language_model.model.layers.18.mlp.gate_proj.weight [32768 x 5120] layer=18 (sampling every 16 rows)
+    -> 731 weight similarity edges
+  vision_tower.transformer.layers.22.feed_forward.gate_proj.weight [4096 x 1024] layer=22 (sampling every 2 rows)
+    -> 8195 weight similarity edges
+  language_model.model.layers.3.mlp.gate_proj.weight [32768 x 5120] layer=3 (sampling every 16 rows)
+    -> 489 weight similarity edges
+  vision_tower.transformer.layers.4.feed_forward.gate_proj.weight [4096 x 1024] layer=4 (sampling every 2 rows)
+    -> 3661 weight similarity edges
+  vision_tower.transformer.layers.5.feed_forward.gate_proj.weight [4096 x 1024] layer=5 (sampling every 2 rows)
+    -> 4442 weight similarity edges
+  vision_tower.transformer.layers.23.feed_forward.gate_proj.weight [4096 x 1024] layer=23 (sampling every 2 rows)
+    -> 2911 weight similarity edges
+  language_model.model.layers.6.mlp.gate_proj.weight [32768 x 5120] layer=6 (sampling every 16 rows)
+    -> 152 weight similarity edges
+  vision_tower.transformer.layers.3.feed_forward.gate_proj.weight [4096 x 1024] layer=3 (sampling every 2 rows)
+    -> 5379 weight similarity edges
+  vision_tower.transformer.layers.9.feed_forward.gate_proj.weight [4096 x 1024] layer=9 (sampling every 2 rows)
+    -> 7345 weight similarity edges
+  language_model.model.layers.22.mlp.gate_proj.weight [32768 x 5120] layer=22 (sampling every 16 rows)
+    -> 240 weight similarity edges
+  language_model.model.layers.10.mlp.gate_proj.weight [32768 x 5120] layer=10 (sampling every 16 rows)
+    -> 287 weight similarity edges
+  language_model.model.layers.4.mlp.gate_proj.weight [32768 x 5120] layer=4 (sampling every 16 rows)
+    -> 200 weight similarity edges
+  language_model.model.layers.9.mlp.gate_proj.weight [32768 x 5120] layer=9 (sampling every 16 rows)
+    -> 192 weight similarity edges
+  language_model.model.layers.11.mlp.gate_proj.weight [32768 x 5120] layer=11 (sampling every 16 rows)
+    -> 313 weight similarity edges
+  language_model.model.layers.15.mlp.gate_proj.weight [32768 x 5120] layer=15 (sampling every 16 rows)
+    -> 1179 weight similarity edges
+  language_model.model.layers.17.mlp.gate_proj.weight [32768 x 5120] layer=17 (sampling every 16 rows)
+    -> 1027 weight similarity edges
+  language_model.model.layers.19.mlp.gate_proj.weight [32768 x 5120] layer=19 (sampling every 16 rows)
+    -> 499 weight similarity edges
+  language_model.model.layers.20.mlp.gate_proj.weight [32768 x 5120] layer=20 (sampling every 16 rows)
+    -> 298 weight similarity edges
+  language_model.model.layers.21.mlp.gate_proj.weight [32768 x 5120] layer=21 (sampling every 16 rows)
+    -> 275 weight similarity edges
+  language_model.model.layers.23.mlp.gate_proj.weight [32768 x 5120] layer=23 (sampling every 16 rows)
+    -> 201 weight similarity edges
+  language_model.model.layers.31.mlp.gate_proj.weight [32768 x 5120] layer=31 (sampling every 16 rows)
+    -> 54 weight similarity edges
+  language_model.model.layers.33.mlp.gate_proj.weight [32768 x 5120] layer=33 (sampling every 16 rows)
+    -> 112 weight similarity edges
+  language_model.model.layers.34.mlp.gate_proj.weight [32768 x 5120] layer=34 (sampling every 16 rows)
+    -> 287 weight similarity edges
+  language_model.model.layers.36.mlp.gate_proj.weight [32768 x 5120] layer=36 (sampling every 16 rows)
+    -> 1113 weight similarity edges
+[ATTN] Processing 64 up_proj tensors
+  language_model.model.layers.24.mlp.up_proj.weight [32768 x 5120] layer=24 (sampling every 16 rows)
+    -> 30 weight similarity edges
+  vision_tower.transformer.layers.10.feed_forward.up_proj.weight [4096 x 1024] layer=10 (sampling every 2 rows)
+    -> 2968 weight similarity edges
+  language_model.model.layers.25.mlp.up_proj.weight [32768 x 5120] layer=25 (sampling every 16 rows)
+    -> 10 weight similarity edges
+  language_model.model.layers.26.mlp.up_proj.weight [32768 x 5120] layer=26 (sampling every 16 rows)
+    -> 20 weight similarity edges
+  language_model.model.layers.1.mlp.up_proj.weight [32768 x 5120] layer=1 (sampling every 16 rows)
+    -> 26 weight similarity edges
+  language_model.model.layers.28.mlp.up_proj.weight [32768 x 5120] layer=28 (sampling every 16 rows)
+    -> 13 weight similarity edges
+  language_model.model.layers.27.mlp.up_proj.weight [32768 x 5120] layer=27 (sampling every 16 rows)
+    -> 46 weight similarity edges
+  language_model.model.layers.10.mlp.up_proj.weight [32768 x 5120] layer=10 (sampling every 16 rows)
+    -> 29 weight similarity edges
+  language_model.model.layers.37.mlp.up_proj.weight [32768 x 5120] layer=37 (sampling every 16 rows)
+    -> 460 weight similarity edges
+  language_model.model.layers.31.mlp.up_proj.weight [32768 x 5120] layer=31 (sampling every 16 rows)
+    -> 12 weight similarity edges
+  language_model.model.layers.38.mlp.up_proj.weight [32768 x 5120] layer=38 (sampling every 16 rows)
+    -> 1253 weight similarity edges
+  vision_tower.transformer.layers.18.feed_forward.up_proj.weight [4096 x 1024] layer=18 (sampling every 2 rows)
+    -> 237 weight similarity edges
+  language_model.model.layers.39.mlp.up_proj.weight [32768 x 5120] layer=39 (sampling every 16 rows)
+    -> 1861 weight similarity edges
+  vision_tower.transformer.layers.11.feed_forward.up_proj.weight [4096 x 1024] layer=11 (sampling every 2 rows)
+    -> 2649 weight similarity edges
+  language_model.model.layers.36.mlp.up_proj.weight [32768 x 5120] layer=36 (sampling every 16 rows)
+    -> 444 weight similarity edges
+  language_model.model.layers.11.mlp.up_proj.weight [32768 x 5120] layer=11 (sampling every 16 rows)
+    -> 27 weight similarity edges
+  language_model.model.layers.0.mlp.up_proj.weight [32768 x 5120] layer=0 (sampling every 16 rows)
+    -> 294 weight similarity edges
+  language_model.model.layers.8.mlp.up_proj.weight [32768 x 5120] layer=8 (sampling every 16 rows)
+    -> 33 weight similarity edges
+  language_model.model.layers.14.mlp.up_proj.weight [32768 x 5120] layer=14 (sampling every 16 rows)
+    -> 71 weight similarity edges
+  vision_tower.transformer.layers.0.feed_forward.up_proj.weight [4096 x 1024] layer=0 (sampling every 2 rows)
+    -> 6907 weight similarity edges
+  vision_tower.transformer.layers.5.feed_forward.up_proj.weight [4096 x 1024] layer=5 (sampling every 2 rows)
+    -> 3507 weight similarity edges
+  vision_tower.transformer.layers.23.feed_forward.up_proj.weight [4096 x 1024] layer=23 (sampling every 2 rows)
+    -> 674 weight similarity edges
+  vision_tower.transformer.layers.1.feed_forward.up_proj.weight [4096 x 1024] layer=1 (sampling every 2 rows)
+    -> 7799 weight similarity edges
+  language_model.model.layers.4.mlp.up_proj.weight [32768 x 5120] layer=4 (sampling every 16 rows)
+    -> 25 weight similarity edges
+  vision_tower.transformer.layers.12.feed_forward.up_proj.weight [4096 x 1024] layer=12 (sampling every 2 rows)
+    -> 2167 weight similarity edges
+  vision_tower.transformer.layers.13.feed_forward.up_proj.weight [4096 x 1024] layer=13 (sampling every 2 rows)
+    -> 1709 weight similarity edges
+  language_model.model.layers.18.mlp.up_proj.weight [32768 x 5120] layer=18 (sampling every 16 rows)
+    -> 120 weight similarity edges
+  vision_tower.transformer.layers.14.feed_forward.up_proj.weight [4096 x 1024] layer=14 (sampling every 2 rows)
+    -> 1565 weight similarity edges
+  vision_tower.transformer.layers.15.feed_forward.up_proj.weight [4096 x 1024] layer=15 (sampling every 2 rows)
+    -> 1234 weight similarity edges
+  language_model.model.layers.5.mlp.up_proj.weight [32768 x 5120] layer=5 (sampling every 16 rows)
+    -> 32 weight similarity edges
+  vision_tower.transformer.layers.16.feed_forward.up_proj.weight [4096 x 1024] layer=16 (sampling every 2 rows)
+    -> 671 weight similarity edges
+  language_model.model.layers.32.mlp.up_proj.weight [32768 x 5120] layer=32 (sampling every 16 rows)
+    -> 38 weight similarity edges
+  vision_tower.transformer.layers.17.feed_forward.up_proj.weight [4096 x 1024] layer=17 (sampling every 2 rows)
+    -> 269 weight similarity edges
+  vision_tower.transformer.layers.3.feed_forward.up_proj.weight [4096 x 1024] layer=3 (sampling every 2 rows)
+    -> 4646 weight similarity edges
+  vision_tower.transformer.layers.19.feed_forward.up_proj.weight [4096 x 1024] layer=19 (sampling every 2 rows)
+    -> 282 weight similarity edges
+  vision_tower.transformer.layers.2.feed_forward.up_proj.weight [4096 x 1024] layer=2 (sampling every 2 rows)
+    -> 6334 weight similarity edges
+  language_model.model.layers.16.mlp.up_proj.weight [32768 x 5120] layer=16 (sampling every 16 rows)
+    -> 194 weight similarity edges
+  language_model.model.layers.34.mlp.up_proj.weight [32768 x 5120] layer=34 (sampling every 16 rows)
+    -> 89 weight similarity edges
+  language_model.model.layers.19.mlp.up_proj.weight [32768 x 5120] layer=19 (sampling every 16 rows)
+    -> 48 weight similarity edges
+  vision_tower.transformer.layers.20.feed_forward.up_proj.weight [4096 x 1024] layer=20 (sampling every 2 rows)
+    -> 139 weight similarity edges
+  vision_tower.transformer.layers.6.feed_forward.up_proj.weight [4096 x 1024] layer=6 (sampling every 2 rows)
+    -> 3236 weight similarity edges
+  language_model.model.layers.33.mlp.up_proj.weight [32768 x 5120] layer=33 (sampling every 16 rows)
+    -> 18 weight similarity edges
+  vision_tower.transformer.layers.7.feed_forward.up_proj.weight [4096 x 1024] layer=7 (sampling every 2 rows)
+    -> 2927 weight similarity edges
+  vision_tower.transformer.layers.21.feed_forward.up_proj.weight [4096 x 1024] layer=21 (sampling every 2 rows)
+    -> 264 weight similarity edges
+  vision_tower.transformer.layers.22.feed_forward.up_proj.weight [4096 x 1024] layer=22 (sampling every 2 rows)
+    -> 378 weight similarity edges
+  language_model.model.layers.3.mlp.up_proj.weight [32768 x 5120] layer=3 (sampling every 16 rows)
+    -> 26 weight similarity edges
+  vision_tower.transformer.layers.4.feed_forward.up_proj.weight [4096 x 1024] layer=4 (sampling every 2 rows)
+    -> 2958 weight similarity edges
+  vision_tower.transformer.layers.8.feed_forward.up_proj.weight [4096 x 1024] layer=8 (sampling every 2 rows)
+    -> 3545 weight similarity edges
+  language_model.model.layers.7.mlp.up_proj.weight [32768 x 5120] layer=7 (sampling every 16 rows)
+    -> 34 weight similarity edges
+  vision_tower.transformer.layers.9.feed_forward.up_proj.weight [4096 x 1024] layer=9 (sampling every 2 rows)
+    -> 4417 weight similarity edges
+  language_model.model.layers.22.mlp.up_proj.weight [32768 x 5120] layer=22 (sampling every 16 rows)
+    -> 50 weight similarity edges
+  language_model.model.layers.6.mlp.up_proj.weight [32768 x 5120] layer=6 (sampling every 16 rows)
+    -> 21 weight similarity edges
+  language_model.model.layers.9.mlp.up_proj.weight [32768 x 5120] layer=9 (sampling every 16 rows)
+    -> 12 weight similarity edges
+  language_model.model.layers.12.mlp.up_proj.weight [32768 x 5120] layer=12 (sampling every 16 rows)
+    -> 37 weight similarity edges
+  language_model.model.layers.13.mlp.up_proj.weight [32768 x 5120] layer=13 (sampling every 16 rows)
+    -> 85 weight similarity edges
+  language_model.model.layers.15.mlp.up_proj.weight [32768 x 5120] layer=15 (sampling every 16 rows)
+    -> 102 weight similarity edges
+  language_model.model.layers.17.mlp.up_proj.weight [32768 x 5120] layer=17 (sampling every 16 rows)
+    -> 147 weight similarity edges
+  language_model.model.layers.20.mlp.up_proj.weight [32768 x 5120] layer=20 (sampling every 16 rows)
+    -> 20 weight similarity edges
+  language_model.model.layers.21.mlp.up_proj.weight [32768 x 5120] layer=21 (sampling every 16 rows)
+    -> 29 weight similarity edges
+  language_model.model.layers.23.mlp.up_proj.weight [32768 x 5120] layer=23 (sampling every 16 rows)
+    -> 39 weight similarity edges
+  language_model.model.layers.2.mlp.up_proj.weight [32768 x 5120] layer=2 (sampling every 16 rows)
+    -> 40 weight similarity edges
+  language_model.model.layers.29.mlp.up_proj.weight [32768 x 5120] layer=29 (sampling every 16 rows)
+    -> 30 weight similarity edges
+  language_model.model.layers.30.mlp.up_proj.weight [32768 x 5120] layer=30 (sampling every 16 rows)
+    -> 6 weight similarity edges
+  language_model.model.layers.35.mlp.up_proj.weight [32768 x 5120] layer=35 (sampling every 16 rows)
+    -> 170 weight similarity edges
+[ATTN] Processing 64 down_proj tensors
+  language_model.model.layers.24.mlp.down_proj.weight [5120 x 32768] layer=24 (sampling every 2 rows)
+    -> 14 weight similarity edges
+  vision_tower.transformer.layers.18.feed_forward.down_proj.weight [1024 x 4096] layer=18
+    -> 9 weight similarity edges
+  language_model.model.layers.25.mlp.down_proj.weight [5120 x 32768] layer=25 (sampling every 2 rows)
+    -> 18 weight similarity edges
+  language_model.model.layers.26.mlp.down_proj.weight [5120 x 32768] layer=26 (sampling every 2 rows)
+    -> 20 weight similarity edges
+  vision_tower.transformer.layers.9.feed_forward.down_proj.weight [1024 x 4096] layer=9
+    -> 56 weight similarity edges
+  language_model.model.layers.22.mlp.down_proj.weight [5120 x 32768] layer=22 (sampling every 2 rows)
+    -> 22 weight similarity edges
+  language_model.model.layers.27.mlp.down_proj.weight [5120 x 32768] layer=27 (sampling every 2 rows)
+    -> 12 weight similarity edges
+  language_model.model.layers.38.mlp.down_proj.weight [5120 x 32768] layer=38 (sampling every 2 rows)
+    -> 185 weight similarity edges
+  language_model.model.layers.37.mlp.down_proj.weight [5120 x 32768] layer=37 (sampling every 2 rows)
+    -> 82 weight similarity edges
+  language_model.model.layers.39.mlp.down_proj.weight [5120 x 32768] layer=39 (sampling every 2 rows)
+    -> 56 weight similarity edges
+  language_model.model.layers.18.mlp.down_proj.weight [5120 x 32768] layer=18 (sampling every 2 rows)
+    -> 68 weight similarity edges
+  language_model.model.layers.0.mlp.down_proj.weight [5120 x 32768] layer=0 (sampling every 2 rows)
+    -> 25 weight similarity edges
+  language_model.model.layers.1.mlp.down_proj.weight [5120 x 32768] layer=1 (sampling every 2 rows)
+    -> 9 weight similarity edges
+  language_model.model.layers.19.mlp.down_proj.weight [5120 x 32768] layer=19 (sampling every 2 rows)
+    -> 77 weight similarity edges
+  vision_tower.transformer.layers.6.feed_forward.down_proj.weight [1024 x 4096] layer=6
+    -> 114 weight similarity edges
+  vision_tower.transformer.layers.20.feed_forward.down_proj.weight [1024 x 4096] layer=20
+    -> 13 weight similarity edges
+  language_model.model.layers.9.mlp.down_proj.weight [5120 x 32768] layer=9 (sampling every 2 rows)
+    -> 14 weight similarity edges
+  language_model.model.layers.20.mlp.down_proj.weight [5120 x 32768] layer=20 (sampling every 2 rows)
+    -> 69 weight similarity edges
+  vision_tower.transformer.layers.0.feed_forward.down_proj.weight [1024 x 4096] layer=0
+    -> 2246 weight similarity edges
+  vision_tower.transformer.layers.1.feed_forward.down_proj.weight [1024 x 4096] layer=1
+    -> 577 weight similarity edges
+  vision_tower.transformer.layers.10.feed_forward.down_proj.weight [1024 x 4096] layer=10
+    -> 47 weight similarity edges
+  vision_tower.transformer.layers.11.feed_forward.down_proj.weight [1024 x 4096] layer=11
+    -> 36 weight similarity edges
+  vision_tower.transformer.layers.12.feed_forward.down_proj.weight [1024 x 4096] layer=12
+    -> 28 weight similarity edges
+  language_model.model.layers.23.mlp.down_proj.weight [5120 x 32768] layer=23 (sampling every 2 rows)
+    -> 13 weight similarity edges
+  vision_tower.transformer.layers.13.feed_forward.down_proj.weight [1024 x 4096] layer=13
+    -> 12 weight similarity edges
+  vision_tower.transformer.layers.14.feed_forward.down_proj.weight [1024 x 4096] layer=14
+    -> 12 weight similarity edges
+  vision_tower.transformer.layers.15.feed_forward.down_proj.weight [1024 x 4096] layer=15
+    -> 7 weight similarity edges
+  language_model.model.layers.5.mlp.down_proj.weight [5120 x 32768] layer=5 (sampling every 2 rows)
+    -> 5 weight similarity edges
+  vision_tower.transformer.layers.16.feed_forward.down_proj.weight [1024 x 4096] layer=16
+    -> 13 weight similarity edges
+  language_model.model.layers.21.mlp.down_proj.weight [5120 x 32768] layer=21 (sampling every 2 rows)
+    -> 19 weight similarity edges
+  language_model.model.layers.11.mlp.down_proj.weight [5120 x 32768] layer=11 (sampling every 2 rows)
+    -> 20 weight similarity edges
+  vision_tower.transformer.layers.17.feed_forward.down_proj.weight [1024 x 4096] layer=17
+    -> 9 weight similarity edges
+  vision_tower.transformer.layers.19.feed_forward.down_proj.weight [1024 x 4096] layer=19
+    -> 10 weight similarity edges
+  vision_tower.transformer.layers.2.feed_forward.down_proj.weight [1024 x 4096] layer=2
+    -> 297 weight similarity edges
+  vision_tower.transformer.layers.21.feed_forward.down_proj.weight [1024 x 4096] layer=21
+    -> 26 weight similarity edges
+  vision_tower.transformer.layers.7.feed_forward.down_proj.weight [1024 x 4096] layer=7
+    -> 106 weight similarity edges
+  vision_tower.transformer.layers.22.feed_forward.down_proj.weight [1024 x 4096] layer=22
+    -> 51 weight similarity edges
+  language_model.model.layers.3.mlp.down_proj.weight [5120 x 32768] layer=3 (sampling every 2 rows)
+    -> 4 weight similarity edges
+  vision_tower.transformer.layers.4.feed_forward.down_proj.weight [1024 x 4096] layer=4
+    -> 150 weight similarity edges
+  language_model.model.layers.12.mlp.down_proj.weight [5120 x 32768] layer=12 (sampling every 2 rows)
+    -> 11 weight similarity edges
+  vision_tower.transformer.layers.5.feed_forward.down_proj.weight [1024 x 4096] layer=5
+    -> 151 weight similarity edges
+  vision_tower.transformer.layers.23.feed_forward.down_proj.weight [1024 x 4096] layer=23
+    -> 185 weight similarity edges
+  language_model.model.layers.29.mlp.down_proj.weight [5120 x 32768] layer=29 (sampling every 2 rows)
+    -> 10 weight similarity edges
+  vision_tower.transformer.layers.3.feed_forward.down_proj.weight [1024 x 4096] layer=3
+    -> 283 weight similarity edges
+  vision_tower.transformer.layers.8.feed_forward.down_proj.weight [1024 x 4096] layer=8
+    -> 79 weight similarity edges
+  language_model.model.layers.10.mlp.down_proj.weight [5120 x 32768] layer=10 (sampling every 2 rows)
+    -> 22 weight similarity edges
+  language_model.model.layers.6.mlp.down_proj.weight [5120 x 32768] layer=6 (sampling every 2 rows)
+    -> 4 weight similarity edges
+  language_model.model.layers.7.mlp.down_proj.weight [5120 x 32768] layer=7 (sampling every 2 rows)
+    -> 7 weight similarity edges
+  language_model.model.layers.8.mlp.down_proj.weight [5120 x 32768] layer=8 (sampling every 2 rows)
+    -> 9 weight similarity edges
+  language_model.model.layers.13.mlp.down_proj.weight [5120 x 32768] layer=13 (sampling every 2 rows)
+    -> 14 weight similarity edges
+  language_model.model.layers.14.mlp.down_proj.weight [5120 x 32768] layer=14 (sampling every 2 rows)
+    -> 25 weight similarity edges
+  language_model.model.layers.2.mlp.down_proj.weight [5120 x 32768] layer=2 (sampling every 2 rows)
+    -> 35 weight similarity edges
+  language_model.model.layers.15.mlp.down_proj.weight [5120 x 32768] layer=15 (sampling every 2 rows)
+    -> 39 weight similarity edges
+  language_model.model.layers.16.mlp.down_proj.weight [5120 x 32768] layer=16 (sampling every 2 rows)
+    -> 74 weight similarity edges
+  language_model.model.layers.17.mlp.down_proj.weight [5120 x 32768] layer=17 (sampling every 2 rows)
+    -> 88 weight similarity edges
+  language_model.model.layers.4.mlp.down_proj.weight [5120 x 32768] layer=4 (sampling every 2 rows)
+    -> 4 weight similarity edges
+  language_model.model.layers.28.mlp.down_proj.weight [5120 x 32768] layer=28 (sampling every 2 rows)
+    -> 20 weight similarity edges
+  language_model.model.layers.30.mlp.down_proj.weight [5120 x 32768] layer=30 (sampling every 2 rows)
+    -> 18 weight similarity edges
+  language_model.model.layers.31.mlp.down_proj.weight [5120 x 32768] layer=31 (sampling every 2 rows)
+    -> 10 weight similarity edges
+  language_model.model.layers.32.mlp.down_proj.weight [5120 x 32768] layer=32 (sampling every 2 rows)
+    -> 12 weight similarity edges
+  language_model.model.layers.33.mlp.down_proj.weight [5120 x 32768] layer=33 (sampling every 2 rows)
+    -> 32 weight similarity edges
+  language_model.model.layers.34.mlp.down_proj.weight [5120 x 32768] layer=34 (sampling every 2 rows)
+    -> 73 weight similarity edges
+  language_model.model.layers.35.mlp.down_proj.weight [5120 x 32768] layer=35 (sampling every 2 rows)
+    -> 198 weight similarity edges
+  language_model.model.layers.36.mlp.down_proj.weight [5120 x 32768] layer=36 (sampling every 2 rows)
+    -> 194 weight similarity edges
+[ATTN] Processing 1 lm_head tensors
+  language_model.lm_head.weight [131072 x 5120] layer=-1 (sampling every 64 rows)
+    -> 802 weight similarity edges
+
+[TOKEN-DIM] Extracting token->dimension activation patterns...
+
+[EXTRACT] Total: 797850 relation edges from model weights
+
+=== Complete ===
+Total time: 1005 seconds
+Tensors: 585
+BPE merges: 0
+Vocab: 0 tokens
