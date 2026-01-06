@@ -7,12 +7,16 @@
  */
 
 #include "hypercube/ingest/db_operations.hpp"
+#include "hypercube/db/operations.hpp"
+#include "hypercube/db/helpers.hpp"
 
 namespace hypercube {
 namespace ingest {
 namespace db {
 
 bool insert_compositions(PGconn* conn, IngestContext& ctx) {
+    using namespace hypercube::db;
+    
     if (ctx.vocab_tokens.empty()) return true;
     
     size_t total = ctx.vocab_tokens.size();
@@ -147,101 +151,79 @@ bool insert_compositions(PGconn* conn, IngestContext& ctx) {
               << (child_total / 1024) << "KB children in " << build_ms << "ms\n";
     std::cerr << "[COMP] Streaming to database...\n";
     
-    // Phase 2: Stream to database
-    PGresult* res = PQexec(conn, "BEGIN");
-    PQclear(res);
+    // Phase 2: Stream to database with transaction
+    Transaction tx(conn);
     
     // Temp table for compositions WITH GEOMETRY COLUMNS
     std::cerr << "[COMP] Creating temp tables...\n";
-    res = PQexec(conn,
-        "CREATE TEMP TABLE tmp_comp ("
-        "  id BYTEA,"
-        "  label TEXT,"
-        "  depth INTEGER,"
-        "  child_count INTEGER,"
-        "  atom_count BIGINT,"
-        "  geom GEOMETRY(LINESTRINGZM, 0),"
-        "  centroid GEOMETRY(POINTZM, 0),"
-        "  hilbert_lo BIGINT,"
-        "  hilbert_hi BIGINT"
-        ") ON COMMIT DROP");
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[COMP] Create tmp_comp failed: " << PQerrorMessage(conn) << "\n";
-        PQclear(res);
-        PQexec(conn, "ROLLBACK");
+    if (!create_temp_table(conn, "tmp_comp", schema::composition())) {
+        std::cerr << "[COMP] Create tmp_comp failed\n";
         return false;
     }
-    PQclear(res);
     
     // Temp table for composition children
-    res = PQexec(conn,
-        "CREATE TEMP TABLE tmp_comp_child ("
-        "  composition_id BYTEA,"
-        "  ordinal SMALLINT,"
-        "  child_type CHAR(1),"
-        "  child_id BYTEA"
-        ") ON COMMIT DROP");
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[COMP] Create tmp_comp_child failed: " << PQerrorMessage(conn) << "\n";
-        PQclear(res);
-        PQexec(conn, "ROLLBACK");
+    if (!create_temp_table(conn, "tmp_comp_child", schema::composition_child())) {
+        std::cerr << "[COMP] Create tmp_comp_child failed\n";
         return false;
     }
-    PQclear(res);
     
-    // COPY compositions
+    // COPY compositions using CopyStream
     std::cerr << "[COMP] Copying compositions to temp table...\n";
-    res = PQexec(conn, "COPY tmp_comp FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "[COMP] COPY comp start failed: " << PQerrorMessage(conn) << "\n";
-        PQclear(res);
-        return false;
-    }
-    PQclear(res);
-    
-    for (size_t i = 0; i < comp_batches.size(); ++i) {
-        if (!comp_batches[i].empty()) {
-            std::cerr << "  [COPY] Batch " << (i+1) << "/" << comp_batches.size() 
-                      << " (" << (comp_batches[i].size()/1024) << "KB)\r" << std::flush;
-            PQputCopyData(conn, comp_batches[i].c_str(), static_cast<int>(comp_batches[i].size()));
+    {
+        CopyStream copy(conn, "COPY tmp_comp FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        if (!copy.ok()) {
+            std::cerr << "[COMP] COPY comp start failed: " << copy.error() << "\n";
+            return false;
+        }
+        
+        for (size_t i = 0; i < comp_batches.size(); ++i) {
+            if (!comp_batches[i].empty()) {
+                std::cerr << "  [COPY] Batch " << (i+1) << "/" << comp_batches.size() 
+                          << " (" << (comp_batches[i].size()/1024) << "KB)\r" << std::flush;
+                if (!copy.put(comp_batches[i])) {
+                    std::cerr << "\n[COMP] COPY comp failed: " << copy.error() << "\n";
+                    return false;
+                }
+            }
+        }
+        
+        if (!copy.end()) {
+            std::cerr << "\n[COMP] COPY comp end failed: " << copy.error() << "\n";
+            return false;
         }
     }
-    PQputCopyEnd(conn, nullptr);
-    res = PQgetResult(conn);
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "\n[COMP] COPY comp failed: " << PQerrorMessage(conn) << "\n";
-    }
-    PQclear(res);
     std::cerr << "\n";
     
-    // COPY composition children
+    // COPY composition children using CopyStream
     std::cerr << "[COMP] Copying composition children to temp table...\n";
-    res = PQexec(conn, "COPY tmp_comp_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "[COMP] COPY comp_child start failed: " << PQerrorMessage(conn) << "\n";
-        PQclear(res);
-        return false;
-    }
-    PQclear(res);
-    
-    for (size_t i = 0; i < child_batches.size(); ++i) {
-        if (!child_batches[i].empty()) {
-            std::cerr << "  [COPY] Batch " << (i+1) << "/" << child_batches.size() 
-                      << " (" << (child_batches[i].size()/1024) << "KB)\r" << std::flush;
-            PQputCopyData(conn, child_batches[i].c_str(), static_cast<int>(child_batches[i].size()));
+    {
+        CopyStream copy(conn, "COPY tmp_comp_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        if (!copy.ok()) {
+            std::cerr << "[COMP] COPY comp_child start failed: " << copy.error() << "\n";
+            return false;
+        }
+        
+        for (size_t i = 0; i < child_batches.size(); ++i) {
+            if (!child_batches[i].empty()) {
+                std::cerr << "  [COPY] Batch " << (i+1) << "/" << child_batches.size() 
+                          << " (" << (child_batches[i].size()/1024) << "KB)\r" << std::flush;
+                if (!copy.put(child_batches[i])) {
+                    std::cerr << "\n[COMP] COPY child failed: " << copy.error() << "\n";
+                    return false;
+                }
+            }
+        }
+        
+        if (!copy.end()) {
+            std::cerr << "\n[COMP] COPY child end failed: " << copy.error() << "\n";
+            return false;
         }
     }
-    PQputCopyEnd(conn, nullptr);
-    res = PQgetResult(conn);
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "\n[COMP] COPY child failed: " << PQerrorMessage(conn) << "\n";
-    }
-    PQclear(res);
     std::cerr << "\n";
 
     // Insert compositions WITH geometry columns
     std::cerr << "[COMP] Inserting into composition table...\n";
-    res = PQexec(conn,
+    Result res = exec(conn,
         "INSERT INTO composition (id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi) "
         "SELECT id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi "
         "FROM tmp_comp "
@@ -252,37 +234,30 @@ bool insert_compositions(PGconn* conn, IngestContext& ctx) {
         "  hilbert_hi = EXCLUDED.hilbert_hi "
         "WHERE composition.geom IS NULL");
     
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[COMP] Composition insert failed: " << PQerrorMessage(conn) << "\n";
-        PQclear(res);
-        PQexec(conn, "ROLLBACK");
+    if (!res.ok()) {
+        std::cerr << "[COMP] Composition insert failed: " << res.error_message() << "\n";
         return false;
     }
-    int inserted_comps = atoi(PQcmdTuples(res));
-    PQclear(res);
+    int inserted_comps = cmd_tuples(res);
     std::cerr << "[COMP] Inserted " << inserted_comps << " compositions\n";
     
     // Insert composition children (only for compositions that exist)
     std::cerr << "[COMP] Inserting into composition_child table...\n";
-    res = PQexec(conn,
+    res = exec(conn,
         "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
         "SELECT composition_id, ordinal, child_type, child_id "
         "FROM tmp_comp_child "
         "WHERE EXISTS (SELECT 1 FROM composition WHERE id = tmp_comp_child.composition_id) "
         "ON CONFLICT (composition_id, ordinal) DO NOTHING");
     
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[COMP] Composition child insert failed: " << PQerrorMessage(conn) << "\n";
-        PQclear(res);
-        PQexec(conn, "ROLLBACK");
+    if (!res.ok()) {
+        std::cerr << "[COMP] Composition child insert failed: " << res.error_message() << "\n";
         return false;
     }
-    int inserted_children = atoi(PQcmdTuples(res));
-    PQclear(res);
+    int inserted_children = cmd_tuples(res);
     std::cerr << "[COMP] Inserted " << inserted_children << " children\n";
     
-    res = PQexec(conn, "COMMIT");
-    PQclear(res);
+    tx.commit();
     
     auto end = std::chrono::steady_clock::now();
     auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();

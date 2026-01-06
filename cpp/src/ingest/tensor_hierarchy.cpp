@@ -8,12 +8,15 @@
 
 #include "hypercube/ingest/db_operations.hpp"
 #include "hypercube/db/helpers.hpp"
+#include "hypercube/db/operations.hpp"
 
 namespace hypercube {
 namespace ingest {
 namespace db {
 
 bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
+    using namespace hypercube::db;
+    
     if (ctx.tensors.empty()) return true;
     
     std::cerr << "[HIER] Building tensor hierarchy from " << ctx.tensors.size() << " tensors\n";
@@ -150,48 +153,35 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
     
     std::cerr << "[HIER] Built " << edge_count << " composition->composition edges\n";
     
-    // Stream to database
-    PGresult* res = PQexec(conn, "BEGIN");
-    PQclear(res);
+    // Stream to database with Transaction RAII
+    Transaction tx(conn);
     
     // Create temp table for compositions WITH GEOMETRY
-    res = PQexec(conn,
-        "CREATE TEMP TABLE tmp_hier_comp ("
-        "  id BYTEA,"
-        "  label TEXT,"
-        "  depth INTEGER,"
-        "  child_count INTEGER,"
-        "  atom_count BIGINT,"
-        "  geom GEOMETRY(LINESTRINGZM, 0),"
-        "  centroid GEOMETRY(POINTZM, 0),"
-        "  hilbert_lo BIGINT,"
-        "  hilbert_hi BIGINT"
-        ") ON COMMIT DROP");
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[HIER] Create temp table failed: " << PQerrorMessage(conn) << "\n";
-        PQexec(conn, "ROLLBACK");
+    if (!create_temp_table(conn, "tmp_hier_comp", schema::composition())) {
+        std::cerr << "[HIER] Create temp table failed\n";
         return false;
     }
-    PQclear(res);
     
-    // COPY compositions
-    res = PQexec(conn, "COPY tmp_hier_comp FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "[HIER] COPY start failed: " << PQerrorMessage(conn) << "\n";
-        PQexec(conn, "ROLLBACK");
-        return false;
+    // COPY compositions using CopyStream
+    {
+        CopyStream copy(conn, "COPY tmp_hier_comp FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        if (!copy.ok()) {
+            std::cerr << "[HIER] COPY start failed: " << copy.error() << "\n";
+            return false;
+        }
+        
+        if (!comp_batch.empty()) {
+            copy.put(comp_batch);
+        }
+        
+        if (!copy.end()) {
+            std::cerr << "[HIER] COPY end failed: " << copy.error() << "\n";
+            return false;
+        }
     }
-    PQclear(res);
-    
-    if (!comp_batch.empty()) {
-        PQputCopyData(conn, comp_batch.c_str(), static_cast<int>(comp_batch.size()));
-    }
-    PQputCopyEnd(conn, nullptr);
-    res = PQgetResult(conn);
-    PQclear(res);
     
     // Insert into composition table WITH GEOMETRY
-    res = PQexec(conn,
+    Result res = exec(conn,
         "INSERT INTO composition (id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi) "
         "SELECT id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi FROM tmp_hier_comp "
         "ON CONFLICT (id) DO UPDATE SET "
@@ -202,48 +192,34 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
         "  hilbert_lo = COALESCE(EXCLUDED.hilbert_lo, composition.hilbert_lo), "
         "  hilbert_hi = COALESCE(EXCLUDED.hilbert_hi, composition.hilbert_hi)");
     
-    int comp_inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? hypercube::db::cmd_tuples(res) : 0;
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[HIER] Insert compositions failed: " << PQerrorMessage(conn) << "\n";
+    int comp_inserted = res.ok() ? cmd_tuples(res) : 0;
+    if (!res.ok()) {
+        std::cerr << "[HIER] Insert compositions failed: " << res.error_message() << "\n";
     }
-    PQclear(res);
     
     std::cerr << "[HIER] Inserted/updated " << comp_inserted << " hierarchy compositions\n";
     
     // Insert ATOM children FIRST (the characters that make up each hierarchy path)
     // These get ordinals 0..N-1 where N is the path length
     if (!atom_child_batch.empty()) {
-        res = PQexec(conn,
-            "CREATE TEMP TABLE tmp_hier_atom_child ("
-            "  composition_id BYTEA,"
-            "  ordinal SMALLINT,"
-            "  child_type CHAR(1),"
-            "  child_id BYTEA"
-            ") ON COMMIT DROP");
-        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            std::cerr << "[HIER] Create atom child temp table failed: " << PQerrorMessage(conn) << "\n";
+        if (!create_temp_table(conn, "tmp_hier_atom_child", schema::composition_child())) {
+            std::cerr << "[HIER] Create atom child temp table failed\n";
         }
-        PQclear(res);
         
-        res = PQexec(conn, "COPY tmp_hier_atom_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        PQclear(res);
-        
-        PQputCopyData(conn, atom_child_batch.c_str(), static_cast<int>(atom_child_batch.size()));
-        PQputCopyEnd(conn, nullptr);
-        res = PQgetResult(conn);
-        PQclear(res);
+        CopyStream copy(conn, "COPY tmp_hier_atom_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        copy.put(atom_child_batch);
+        copy.end();
         
         // Insert atom children
-        res = PQexec(conn,
+        res = exec(conn,
             "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
             "SELECT composition_id, ordinal, child_type, child_id FROM tmp_hier_atom_child "
             "ON CONFLICT (composition_id, ordinal) DO NOTHING");
         
-        int atom_edges = (PQresultStatus(res) == PGRES_COMMAND_OK) ? hypercube::db::cmd_tuples(res) : 0;
-        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            std::cerr << "[HIER] Insert atom children failed: " << PQerrorMessage(conn) << "\n";
+        int atom_edges = res.ok() ? cmd_tuples(res) : 0;
+        if (!res.ok()) {
+            std::cerr << "[HIER] Insert atom children failed: " << res.error_message() << "\n";
         }
-        PQclear(res);
         
         std::cerr << "[HIER] Inserted " << atom_edges << " atom children\n";
     }
@@ -251,51 +227,36 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
     // Now insert parent->child composition edges
     // These get ordinals N..N+M-1 where N is path length and M is number of sub-compositions
     if (!child_batch.empty()) {
-        res = PQexec(conn,
-            "CREATE TEMP TABLE tmp_hier_child ("
-            "  composition_id BYTEA,"
-            "  ordinal SMALLINT,"
-            "  child_type CHAR(1),"
-            "  child_id BYTEA"
-            ") ON COMMIT DROP");
-        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            std::cerr << "[HIER] Create child temp table failed: " << PQerrorMessage(conn) << "\n";
+        if (!create_temp_table(conn, "tmp_hier_child", schema::composition_child())) {
+            std::cerr << "[HIER] Create child temp table failed\n";
         }
-        PQclear(res);
         
-        res = PQexec(conn, "COPY tmp_hier_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        PQclear(res);
-        
-        PQputCopyData(conn, child_batch.c_str(), static_cast<int>(child_batch.size()));
-        PQputCopyEnd(conn, nullptr);
-        res = PQgetResult(conn);
-        PQclear(res);
+        CopyStream copy(conn, "COPY tmp_hier_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        copy.put(child_batch);
+        copy.end();
         
         // Insert composition->composition edges using pre-computed ordinals (offset past atoms)
-        res = PQexec(conn,
+        res = exec(conn,
             "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
             "SELECT composition_id, ordinal, child_type, child_id "
             "FROM tmp_hier_child "
             "ON CONFLICT (composition_id, ordinal) DO NOTHING");
         
-        int edges_inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? hypercube::db::cmd_tuples(res) : 0;
-        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            std::cerr << "[HIER] Insert composition edges failed: " << PQerrorMessage(conn) << "\n";
+        int edges_inserted = res.ok() ? cmd_tuples(res) : 0;
+        if (!res.ok()) {
+            std::cerr << "[HIER] Insert composition edges failed: " << res.error_message() << "\n";
         }
-        PQclear(res);
         
         std::cerr << "[HIER] Inserted " << edges_inserted << " composition->composition edges\n";
     }
     
     // Update child counts on parent compositions
-    res = PQexec(conn,
+    exec(conn,
         "UPDATE composition c SET child_count = sub.cnt "
         "FROM (SELECT composition_id, COUNT(*) as cnt FROM composition_child GROUP BY composition_id) sub "
         "WHERE c.id = sub.composition_id");
-    PQclear(res);
     
-    res = PQexec(conn, "COMMIT");
-    PQclear(res);
+    tx.commit();
     
     return true;
 }
