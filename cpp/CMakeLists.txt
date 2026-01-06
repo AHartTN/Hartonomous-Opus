@@ -696,27 +696,13 @@ if(PostgreSQL_FOUND)
     endif()
     target_link_libraries(ingest_safetensor hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
     
-    # Safetensor ingestion with 4D Laplacian projection (no shape table)
-    add_executable(ingest_safetensor_4d src/tools/ingest_safetensor_4d.cpp)
-    target_include_directories(ingest_safetensor_4d PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(ingest_safetensor_4d hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
-    
-    # UNIVERSAL safetensor ingestion - ingests ALL tensors from ANY model (vision, language, etc)
-    add_executable(ingest_safetensor_universal src/tools/ingest_safetensor_universal.cpp)
-    target_include_directories(ingest_safetensor_universal PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    if(HAS_HNSWLIB)
-        target_include_directories(ingest_safetensor_universal PRIVATE ${HNSWLIB_INCLUDE_DIR})
-        target_compile_definitions(ingest_safetensor_universal PRIVATE HAS_HNSWLIB=1)
-    endif()
-    target_link_libraries(ingest_safetensor_universal hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    # ARCHIVED: ingest_safetensor_4d (moved to src/archive/)
+    # ARCHIVED: ingest_safetensor_universal (moved to src/archive/)
+    # USE: ingest_safetensor (modular version with shared library components)
     
     add_executable(extract_embeddings src/tools/extract_embeddings.cpp)
     target_include_directories(extract_embeddings PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(extract_embeddings hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
-    
-    # DEPRECATED: manifold_project (JL random projection) - moved to archive
-    # DEPRECATED: manifold_4d (normalized Laplacian + random power iteration) - moved to archive
-    # USE: ingest_safetensor_4d (Laplacian Eigenmaps + Lanczos + Gram-Schmidt) - CANONICAL
     
     # New unified ingester tool
     add_executable(ingest src/ingest/main.cpp)
