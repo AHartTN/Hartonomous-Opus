@@ -62,6 +62,7 @@
 #include "hypercube/hilbert.hpp"
 #include "hypercube/atom_calculator.hpp"
 #include "hypercube/laplacian_4d.hpp"
+#include "hypercube/embedding_ops.hpp"  // Centralized SIMD cosine similarity
 
 #ifdef HAS_HNSWLIB
 #include "hnswlib/hnswlib/hnswlib.h"
@@ -269,9 +270,6 @@ bool insert_compositions(PGconn* conn);
 bool insert_tensor_hierarchy(PGconn* conn, const IngestConfig& config);
 bool extract_embedding_relations(PGconn* conn, const IngestConfig& config);
 bool insert_attention_relations(PGconn* conn, const IngestConfig& config);
-
-// Forward declaration for SIMD cosine similarity (defined later with AVX2 guards)
-static float cosine_similarity_avx2(const float* a, const float* b, size_t n);
 
 // ============================================================================
 // Tensor Name Hierarchy Parsing
@@ -1935,60 +1933,9 @@ bool extract_embedding_relations(PGconn* conn, const IngestConfig& config) {
 // Compute pairwise cosine similarity between token embeddings.
 // Store sparse edges above threshold as semantic relations.
 // This creates the ACTUAL knowledge graph - tokens connected by meaning.
-
-// SIMD cosine similarity (AVX2)
-#ifdef __AVX2__
-#include <immintrin.h>
-
-static float cosine_similarity_avx2(const float* a, const float* b, size_t n) {
-    __m256 sum_ab = _mm256_setzero_ps();
-    __m256 sum_aa = _mm256_setzero_ps();
-    __m256 sum_bb = _mm256_setzero_ps();
-    
-    size_t i = 0;
-    for (; i + 8 <= n; i += 8) {
-        __m256 va = _mm256_loadu_ps(a + i);
-        __m256 vb = _mm256_loadu_ps(b + i);
-        sum_ab = _mm256_fmadd_ps(va, vb, sum_ab);
-        sum_aa = _mm256_fmadd_ps(va, va, sum_aa);
-        sum_bb = _mm256_fmadd_ps(vb, vb, sum_bb);
-    }
-    
-    // Horizontal sum
-    float ab[8], aa[8], bb[8];
-    _mm256_storeu_ps(ab, sum_ab);
-    _mm256_storeu_ps(aa, sum_aa);
-    _mm256_storeu_ps(bb, sum_bb);
-    
-    float dot = 0, norm_a = 0, norm_b = 0;
-    for (int j = 0; j < 8; ++j) {
-        dot += ab[j];
-        norm_a += aa[j];
-        norm_b += bb[j];
-    }
-    
-    // Handle remainder
-    for (; i < n; ++i) {
-        dot += a[i] * b[i];
-        norm_a += a[i] * a[i];
-        norm_b += b[i] * b[i];
-    }
-    
-    float denom = std::sqrt(norm_a) * std::sqrt(norm_b);
-    return (denom > 1e-8f) ? (dot / denom) : 0.0f;
-}
-#else
-static float cosine_similarity_avx2(const float* a, const float* b, size_t n) {
-    float dot = 0, norm_a = 0, norm_b = 0;
-    for (size_t i = 0; i < n; ++i) {
-        dot += a[i] * b[i];
-        norm_a += a[i] * a[i];
-        norm_b += b[i] * b[i];
-    }
-    float denom = std::sqrt(norm_a) * std::sqrt(norm_b);
-    return (denom > 1e-8f) ? (dot / denom) : 0.0f;
-}
-#endif
+// 
+// NOTE: Cosine similarity is now provided by embedding::cosine_similarity()
+// from hypercube/embedding_ops.hpp with automatic SIMD dispatch (AVX512/AVX2/SSE/scalar)
 
 bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
     // ==========================================================================
@@ -2218,7 +2165,7 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
                     neighbors.clear();
                     for (size_t j = 0; j < rows.size(); ++j) {
                         if (i == j) continue;
-                        float sim = cosine_similarity_avx2(rows[i].data(), rows[j].data(), in_dim);
+                        float sim = static_cast<float>(embedding::cosine_similarity(rows[i].data(), rows[j].data(), in_dim));
                         neighbors.emplace_back(sim, j);
                     }
                     
