@@ -2,26 +2,34 @@
 // ======================================
 // Ingests ANY HuggingFace model package into the hypercube substrate:
 //
-// 1. tokenizer.json → BPE merges become 'C' composition relations
-//    (The model already solved token composition - just parse their work)
+// ARCHITECTURE (CORRECT):
+//   Atoms:       Unicode codepoints with YOUR deterministic 4D coordinates
+//                (semantic_order → Hilbert decode → radial project to S³)
+//   Compositions: Aggregations with centroids = average of atom children
+//                (computed from atoms, NOT from model embeddings)
+//   Relations:   Edges from multiple sources - THE KNOWLEDGE GRAPH:
+//                - 'E' = Embedding k-NN similarity (token semantics)
+//                - 'R' = Router weights (MoE expert routing)
+//                - 'W' = Weight similarity (Q/K/V/O/MLP projection patterns)
+//                - 'D' = Dimension activation (token→dimension mappings)
+//                - 'C' = BPE composition relations
 //
-// 2. embed_tokens.weight → Each token's embedding stored as a LineString
-//    (The embedding IS the geometry - N floats = N-point LineString)
+// INGESTION FLOW:
+// 1. tokenizer.json → BPE merges become composition children
+// 2. Compositions inserted with centroids computed from atom children
+// 3. Embedding tensors → k-NN similarity → relation edges (type='E')
+// 4. Router tensors (MoE) → expert routing → relation edges (type='R')
+// 5. Attention projections (Q/K/V/O) → weight similarity → edges (type='W')
+// 6. FFN/MLP projections (gate/up/down) → weight similarity → edges (type='W')
+// 7. Token embeddings → top-k dimension activation → edges (type='D')
 //
-// 3. router.weight (MoE) → Expert atoms with their own geometries
-//    (Experts are first-class atoms, router weights become relations)
+// THE "BEATEN PATH": By accumulating weight similarities across layers,
+// we discover which dimensions co-activate frequently - these are the
+// learned pathways that tokens follow through the model.
 //
-// 4. Sharded models → Parse model.safetensors.index.json, stream shards
-//
-// 5. dtype support → BF16, F16, F32 all converted to float for geometry
-//
-// KEY INSIGHT: Embeddings ARE geometry. The 384-float embedding vector
-// for "captain" becomes a 384-point LineString. Similarity = shape overlap.
-// PostGIS handles the rest.
-//
-// SPARSE ENCODING: Only store relationships above threshold (default 0.5).
-// No O(n²) similarity computation - just store the shapes and let
-// spatial queries find relationships on-demand.
+// KEY INSIGHT: Every weight matrix encodes relationships. We extract ALL
+// of them as graph edges, building a comprehensive knowledge graph that
+// captures how the model learned to process tokens.
 
 #include <iostream>
 #include <fstream>
@@ -54,6 +62,10 @@
 #include "hypercube/hilbert.hpp"
 #include "hypercube/atom_calculator.hpp"
 #include "hypercube/laplacian_4d.hpp"
+
+#ifdef HAS_HNSWLIB
+#include "hnswlib/hnswlib/hnswlib.h"
+#endif
 
 namespace fs = std::filesystem;
 using namespace hypercube;
@@ -253,11 +265,58 @@ bool parse_tokenizer(const fs::path& tokenizer_path);
 bool parse_vocab(const fs::path& vocab_path);
 std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row);
 std::vector<float> read_tensor_slice(const TensorMeta& meta, size_t slice_idx, size_t row);
-std::string floats_to_linestring_ewkb(const float* data, size_t count);
 bool insert_compositions(PGconn* conn);
-bool insert_shapes(PGconn* conn, const IngestConfig& config);
-bool project_and_update_embeddings(PGconn* conn, const IngestConfig& config);
+bool insert_tensor_hierarchy(PGconn* conn, const IngestConfig& config);
+bool extract_embedding_relations(PGconn* conn, const IngestConfig& config);
 bool insert_attention_relations(PGconn* conn, const IngestConfig& config);
+
+// Forward declaration for SIMD cosine similarity (defined later with AVX2 guards)
+static float cosine_similarity_avx2(const float* a, const float* b, size_t n);
+
+// ============================================================================
+// Tensor Name Hierarchy Parsing
+// ============================================================================
+// Splits "encoder.layer.0.attention.self.query.weight" into path components:
+//   encoder
+//   encoder.layer
+//   encoder.layer.0
+//   encoder.layer.0.attention
+//   encoder.layer.0.attention.self
+//   encoder.layer.0.attention.self.query
+//   encoder.layer.0.attention.self.query.weight
+//
+// Each becomes a composition with parent->child relationships.
+
+std::vector<std::string> split_tensor_path(const std::string& tensor_name) {
+    std::vector<std::string> components;
+    std::string current;
+    
+    for (char c : tensor_name) {
+        if (c == '.') {
+            if (!current.empty()) {
+                if (components.empty()) {
+                    components.push_back(current);
+                } else {
+                    components.push_back(components.back() + "." + current);
+                }
+                current.clear();
+            }
+        } else {
+            current += c;
+        }
+    }
+    
+    // Add final component
+    if (!current.empty()) {
+        if (components.empty()) {
+            components.push_back(current);
+        } else {
+            components.push_back(components.back() + "." + current);
+        }
+    }
+    
+    return components;
+}
 
 // ============================================================================
 // Safetensor Header Parsing
@@ -1079,6 +1138,8 @@ int main(int argc, char* argv[]) {
             config.conninfo += " user=" + std::string(argv[++i]);
         } else if (arg == "-h" && i + 1 < argc) {
             config.conninfo += " host=" + std::string(argv[++i]);
+        } else if (arg == "-p" && i + 1 < argc) {
+            config.conninfo += " port=" + std::string(argv[++i]);
         } else if (arg == "-n" && i + 1 < argc) {
             config.model_name = argv[++i];
         } else if (arg == "-t" && i + 1 < argc) {
@@ -1091,7 +1152,7 @@ int main(int argc, char* argv[]) {
     }
     
     if (model_dir.empty()) {
-        std::cerr << "Usage: ingest_safetensor [-d db] [-U user] [-h host] [-n model_name] [-t threshold] <model_dir>\n";
+        std::cerr << "Usage: ingest_safetensor [-d db] [-U user] [-h host] [-p port] [-n model_name] [-t threshold] <model_dir>\n";
         std::cerr << "  -n  Model name prefix (e.g. 'minilm', 'llama4')\n";
         std::cerr << "  -t  Weight threshold for attention edges (default 0.5)\n";
         return 1;
@@ -1122,11 +1183,19 @@ int main(int argc, char* argv[]) {
     
     for (const auto& entry : fs::recursive_directory_iterator(dir)) {
         std::string name = entry.path().filename().string();
+        std::string path_str = entry.path().string();
+        
+        // Skip hidden directories and cache folders
+        if (path_str.find("\\.") != std::string::npos || 
+            path_str.find("/.") != std::string::npos ||
+            path_str.find(".cache") != std::string::npos) {
+            continue;
+        }
+        
         if (name == "vocab.txt") vocab_path = entry.path();
         else if (name == "tokenizer.json") tokenizer_path = entry.path();
         else if (name == "model.safetensors.index.json") index_path = entry.path();
-        else if (name.find(".safetensors") != std::string::npos && 
-                 name.find(".index") == std::string::npos) {
+        else if (name.ends_with(".safetensors")) {  // Must END with .safetensors
             safetensor_files.push_back(entry.path());
         }
     }
@@ -1150,8 +1219,17 @@ int main(int argc, char* argv[]) {
     } else if (!safetensor_files.empty()) {
         std::cerr << "[3] Parsing " << safetensor_files.size() << " safetensor files...\n";
         for (const auto& f : safetensor_files) {
-            parse_safetensor_header(f);
+            std::cerr << "  Parsing: " << f << "\n";
+            if (!parse_safetensor_header(f)) {
+                std::cerr << "  [ERROR] Failed to parse: " << f << "\n";
+                return 1;
+            }
         }
+    }
+    
+    if (g_tensors.empty()) {
+        std::cerr << "[ERROR] No tensors found!\n";
+        return 1;
     }
     
     std::cerr << "[INFO] Found " << g_tensors.size() << " tensors\n";
@@ -1164,26 +1242,29 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Insert vocab compositions
+    // === BUILD THE COMPOSITION HIERARCHY ===
+    // This is the structural skeleton of the model
+    
+    // Step 4: Insert tensor hierarchy as compositions
+    // "encoder.layer.0.attention.self.query.weight" becomes a tree
+    std::cerr << "\n[4] Building tensor name hierarchy...\n";
+    if (!g_tensors.empty()) {
+        insert_tensor_hierarchy(conn, config);
+    }
+    
+    // Step 5: Insert vocab token compositions (BPE tokens)
     if (!g_vocab_tokens.empty()) {
-        std::cerr << "\n[4] Inserting compositions...\n";
+        std::cerr << "\n[5] Inserting token compositions...\n";
         insert_compositions(conn);
     }
     
-    // Project embeddings to 4D via Laplacian eigenmaps
-    // This gives each token its 4D coordinate in YOUR coordinate system
-    std::cerr << "\n[5] Projecting embeddings to 4D via Laplacian eigenmaps...\n";
-    if (!g_tensors.empty()) {
-        project_and_update_embeddings(conn, config);
-    } else {
-        std::cerr << "[PROJ] No tensors found, skipping projection\n";
-    }
-    
-    // NOW compute composition centroids FROM ATOMS
-    // Atoms have their 4D coordinates from Laplacian projection
-    // Compositions get centroids = average of their constituent atoms' coordinates
-    std::cerr << "\n[6] Computing composition centroids from atoms...\n";
+    // Step 6: Compute composition centroids FROM CHILDREN
+    // - Leaf compositions with atom children: centroid = avg of atom coords
+    // - Parent compositions: centroid = avg of child composition centroids
+    // YOUR coordinate system: atoms have deterministic 4D coords from Unicode→Hilbert→S³
+    std::cerr << "\n[6] Computing composition centroids hierarchically...\n";
     {
+        // First pass: compositions with atom children
         PGresult* res = PQexec(conn, "SELECT recompute_composition_centroids()");
         if (PQresultStatus(res) != PGRES_TUPLES_OK) {
             std::cerr << "[CENTROID] Failed: " << PQerrorMessage(conn) << "\n";
@@ -1192,10 +1273,47 @@ int main(int argc, char* argv[]) {
             std::cerr << "[CENTROID] Updated " << updated << " composition centroids from atoms\n";
         }
         PQclear(res);
+        
+        // Second pass: compositions with composition children (hierarchical)
+        // This propagates centroids up the tree
+        res = PQexec(conn,
+            "WITH RECURSIVE comp_tree AS ("
+            "  SELECT id, centroid, 1 as level FROM composition WHERE centroid IS NOT NULL "
+            "  UNION ALL "
+            "  SELECT c.id, "
+            "    st_centroid_4d(ST_Collect(child.centroid)), "
+            "    ct.level + 1 "
+            "  FROM composition c "
+            "  JOIN composition_child cc ON cc.composition_id = c.id AND cc.child_type = 'C' "
+            "  JOIN comp_tree ct ON ct.id = cc.child_id "
+            "  JOIN composition child ON child.id = cc.child_id "
+            "  WHERE c.centroid IS NULL AND child.centroid IS NOT NULL "
+            "  GROUP BY c.id "
+            ") "
+            "UPDATE composition SET centroid = comp_tree.centroid "
+            "FROM comp_tree WHERE composition.id = comp_tree.id");
+        
+        int hier_updated = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
+        if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+            std::cerr << "[CENTROID] Updated " << hier_updated << " hierarchical composition centroids\n";
+        }
+        PQclear(res);
     }
     
-    // Extract sparse router relations (MoE models)
-    std::cerr << "\n[7] Extracting router weights as sparse relations...\n";
+    // === EXTRACT RELATIONS (MODEL-SPECIFIC EDGES) ===
+    
+    // Step 7: Extract k-NN similarity edges from model embeddings as RELATIONS
+    // Embeddings are model-specific addresses - extract SIMILARITY GRAPH as edges
+    // This does NOT modify composition centroids - those come from atoms only
+    std::cerr << "\n[7] Extracting embedding k-NN similarity as relations...\n";
+    if (!g_tensors.empty()) {
+        extract_embedding_relations(conn, config);
+    } else {
+        std::cerr << "[EMBED] No tensors found, skipping relation extraction\n";
+    }
+    
+    // Step 8: Extract router/attention relations (MoE models, attention weights)
+    std::cerr << "\n[8] Extracting weight-based relations (router, attention, MLP)...\n";
     insert_attention_relations(conn, config);
     
     PQfinish(conn);
@@ -1213,183 +1331,601 @@ int main(int argc, char* argv[]) {
 }
 
 // ============================================================================
-// Insert Embeddings as Shapes (external model fingerprints)
-// PARALLELIZED: Read tensor rows and build batch strings in parallel
+// Insert Tensor Name Hierarchy as Compositions
 // ============================================================================
+// Builds the hierarchical composition tree from tensor names:
+//   "encoder.layer.0.attention.self.query.weight" becomes:
+//     encoder (depth=1)
+//       └─ encoder.layer (depth=2)
+//           └─ encoder.layer.0 (depth=3)
+//               └─ encoder.layer.0.attention (depth=4)
+//                   └─ encoder.layer.0.attention.self (depth=5)
+//                       └─ encoder.layer.0.attention.self.query (depth=6)
+//                           └─ encoder.layer.0.attention.self.query.weight (depth=7)
+//
+// This is the structural skeleton of the model - the backbone for:
+//   - correct centroid computation at every level
+//   - correct semantic grouping
+//   - model navigation and comparison
+//   - cross-model structural alignment
 
-bool insert_shapes(PGconn* conn, const IngestConfig& config) {
-    // Find embedding tensor
-    TensorMeta* embed = nullptr;
-    for (auto& [name, meta] : g_tensors) {
-        if (name.find("embed_tokens") != std::string::npos ||
-            name.find("word_embeddings") != std::string::npos ||
-            name.find("wte.weight") != std::string::npos) {
-            embed = &meta;
-            break;
-        }
-    }
+bool insert_tensor_hierarchy(PGconn* conn, const IngestConfig& config) {
+    if (g_tensors.empty()) return true;
     
-    if (!embed) {
-        std::cerr << "[SHAPE] No embedding tensor found\n";
-        return true;
-    }
+    std::cerr << "[HIER] Building tensor hierarchy from " << g_tensors.size() << " tensors\n";
     
-    if (embed->shape.size() < 2) {
-        std::cerr << "[SHAPE] Invalid embedding shape\n";
-        return false;
-    }
+    // Collect all unique path components across all tensors
+    std::unordered_map<std::string, int> path_to_depth;  // path -> depth
+    std::unordered_map<std::string, std::string> path_to_parent;  // path -> parent path
     
-    int64_t vocab_size = std::min(embed->shape[0], static_cast<int64_t>(g_vocab_tokens.size()));
-    int64_t embed_dim = embed->shape[1];
-    
-    unsigned int num_threads = std::thread::hardware_concurrency();
-    if (num_threads == 0) num_threads = 4;
-    if (num_threads > 16) num_threads = 16;
-    
-    std::cerr << "[SHAPE] Processing " << vocab_size << " tokens x " << embed_dim << " dims using " << num_threads << " threads\n";
-    std::cerr << "[SHAPE] Tensor: " << embed->name << " in " << embed->shard_file << "\n";
-    
-    auto start = std::chrono::steady_clock::now();
-    
-    // Phase 1: Read all embeddings in parallel
-    std::cerr << "[SHAPE] Reading embeddings...\n";
-    std::vector<std::vector<float>> embeddings(vocab_size);
-    std::atomic<int64_t> read_idx{0};
-    std::atomic<int64_t> read_completed{0};
-    
-    auto read_worker = [&]() {
-        while (true) {
-            int64_t i = read_idx.fetch_add(1);
-            if (i >= vocab_size) break;
-            embeddings[i] = read_tensor_row(*embed, static_cast<size_t>(i));
-            read_completed.fetch_add(1);
-        }
-    };
-    
-    // Progress thread for reading
-    std::atomic<bool> read_done{false};
-    std::thread read_progress([&]() {
-        while (!read_done.load()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            int64_t c = read_completed.load();
-            if (c > 0 && c < vocab_size) {
-                auto now = std::chrono::steady_clock::now();
-                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-                double rate = (elapsed > 0) ? (c * 1000.0 / elapsed) : 0;
-                std::cerr << "  [READ] " << c << "/" << vocab_size << " (" << std::fixed << std::setprecision(0) << rate << " tok/s)\r" << std::flush;
-            }
-        }
-    });
-    
-    std::vector<std::thread> read_workers;
-    for (unsigned t = 0; t < num_threads; ++t) {
-        read_workers.emplace_back(read_worker);
-    }
-    for (auto& th : read_workers) th.join();
-    read_done.store(true);
-    read_progress.join();
-    
-    auto read_end = std::chrono::steady_clock::now();
-    auto read_ms = std::chrono::duration_cast<std::chrono::milliseconds>(read_end - start).count();
-    std::cerr << "\n[SHAPE] Embeddings read in " << read_ms << "ms, building batch strings...\n";
-    
-    // Phase 2: Build batch strings in parallel
-    std::vector<std::string> batches(num_threads);
-    for (auto& b : batches) b.reserve(1 << 21);  // 2MB per thread
-    
-    std::atomic<int64_t> build_idx{0};
-    
-    auto build_worker = [&](unsigned tid) {
-        auto& batch = batches[tid];
+    for (const auto& [tensor_name, meta] : g_tensors) {
+        std::vector<std::string> components = split_tensor_path(tensor_name);
         
-        while (true) {
-            int64_t i = build_idx.fetch_add(1);
-            if (i >= vocab_size) break;
+        std::string parent_path;
+        for (size_t i = 0; i < components.size(); ++i) {
+            const std::string& path = components[i];
+            int depth = static_cast<int>(i) + 1;
             
-            if (embeddings[i].empty()) continue;
+            // Record this path if not seen or update depth if deeper
+            auto it = path_to_depth.find(path);
+            if (it == path_to_depth.end()) {
+                path_to_depth[path] = depth;
+                if (!parent_path.empty()) {
+                    path_to_parent[path] = parent_path;
+                }
+            }
             
-            const auto& comp = g_vocab_tokens[i].comp;
-            char entity_type = (comp.children.size() <= 1) ? 'A' : 'C';
-            
-            // Convert embedding to LineString geometry (hex-encoded EWKB)
-            std::string geom = floats_to_linestring_ewkb(embeddings[i].data(), embeddings[i].size());
-            
-            batch += entity_type;
-            batch += "\t\\\\x";
-            batch += comp.hash.to_hex();
-            batch += "\t";
-            batch += config.model_name;
-            batch += "\t\\\\x";
-            batch += geom;
-            batch += "\t";
-            batch += std::to_string(embed_dim);
-            batch += "\n";
+            parent_path = path;
         }
-    };
-    
-    std::vector<std::thread> build_workers;
-    for (unsigned t = 0; t < num_threads; ++t) {
-        build_workers.emplace_back(build_worker, t);
     }
-    for (auto& th : build_workers) th.join();
     
-    auto build_end = std::chrono::steady_clock::now();
-    auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(build_end - read_end).count();
-    std::cerr << "[SHAPE] Batch strings built in " << build_ms << "ms, streaming to DB...\n";
+    std::cerr << "[HIER] Found " << path_to_depth.size() << " unique hierarchy nodes\n";
     
-    // Phase 3: Stream to database
+    // Build composition batch
+    std::string comp_batch;
+    comp_batch.reserve(path_to_depth.size() * 256);
+    
+    // Build parent->child edge batch
+    std::string child_batch;
+    child_batch.reserve(path_to_depth.size() * 128);
+    
+    // Track full composition records for linking and atom children
+    std::unordered_map<std::string, CompositionRecord> path_to_comp;
+    
+    // Batch for atom children (the characters of each path)
+    std::string atom_child_batch;
+    atom_child_batch.reserve(path_to_depth.size() * 256);  // Avg ~20 chars per path
+    
+    for (const auto& [path, depth] : path_to_depth) {
+        // Compute FULL composition from path - includes atom children
+        CompositionRecord comp = AtomCalculator::compute_vocab_token(path);
+        path_to_comp[path] = comp;
+        
+        // Build composition row with geometry:
+        // id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi
+        comp_batch += "\\\\x";
+        comp_batch += comp.hash.to_hex();
+        comp_batch += "\t";
+        
+        // Escape path for COPY
+        for (char ch : path) {
+            if (ch == '\t') comp_batch += "\\t";
+            else if (ch == '\n') comp_batch += "\\n";
+            else if (ch == '\\') comp_batch += "\\\\";
+            else comp_batch += ch;
+        }
+        comp_batch += "\t";
+        comp_batch += std::to_string(depth);
+        comp_batch += "\t";
+        comp_batch += std::to_string(comp.children.size());  // child_count = atom count
+        comp_batch += "\t";
+        comp_batch += std::to_string(comp.atom_count);
+        comp_batch += "\t";
+        
+        // geom (LINESTRINGZM from child coordinates)
+        std::string geom_ewkb = build_composition_linestringzm_ewkb(comp.child_coords);
+        if (!geom_ewkb.empty()) {
+            comp_batch += geom_ewkb;
+        } else {
+            comp_batch += "\\N";
+        }
+        comp_batch += "\t";
+        
+        // centroid (POINTZM)
+        std::string centroid_ewkb = build_composition_pointzm_ewkb(comp.centroid);
+        comp_batch += centroid_ewkb;
+        comp_batch += "\t";
+        
+        // hilbert_lo, hilbert_hi
+        comp_batch += std::to_string(static_cast<int64_t>(comp.hilbert.lo));
+        comp_batch += "\t";
+        comp_batch += std::to_string(static_cast<int64_t>(comp.hilbert.hi));
+        comp_batch += "\n";
+        
+        // Build atom children - each character in the path is an atom child
+        for (size_t j = 0; j < comp.children.size(); ++j) {
+            atom_child_batch += "\\\\x";
+            atom_child_batch += comp.hash.to_hex();
+            atom_child_batch += "\t";
+            atom_child_batch += std::to_string(j);
+            atom_child_batch += "\tA\t\\\\x";  // 'A' = atom child
+            atom_child_batch += comp.children[j].to_hex();
+            atom_child_batch += "\n";
+        }
+    }
+    
+    std::cerr << "[HIER] Built " << path_to_comp.size() << " compositions with atom children\n";
+    
+    // Track how many composition children each parent has (for ordinal tracking)
+    std::unordered_map<std::string, size_t> parent_child_count;
+    
+    // Now build parent->child edges (composition -> composition)
+    size_t edge_count = 0;
+    for (const auto& [path, parent_path] : path_to_parent) {
+        auto child_it = path_to_comp.find(path);
+        auto parent_it = path_to_comp.find(parent_path);
+        
+        if (child_it != path_to_comp.end() && parent_it != path_to_comp.end()) {
+            // Parent composition -> child composition
+            // Format: composition_id, ordinal, child_type, child_id
+            // Ordinal offset by parent's atom count so it doesn't collide with atom children
+            size_t atom_count = parent_it->second.children.size();  // Number of atoms in parent's path
+            size_t comp_ordinal = atom_count + parent_child_count[parent_path];
+            parent_child_count[parent_path]++;
+            
+            child_batch += "\\\\x";
+            child_batch += parent_it->second.hash.to_hex();  // parent's id
+            child_batch += "\t";
+            child_batch += std::to_string(comp_ordinal);  // ordinal offset past atoms
+            child_batch += "\tC\t\\\\x";  // 'C' = composition child
+            child_batch += child_it->second.hash.to_hex();  // child's id
+            child_batch += "\n";
+            edge_count++;
+        }
+    }
+    
+    std::cerr << "[HIER] Built " << edge_count << " composition->composition edges\n";
+    
+    // Stream to database
     PGresult* res = PQexec(conn, "BEGIN");
     PQclear(res);
     
+    // Create temp table for compositions WITH GEOMETRY
     res = PQexec(conn,
-        "CREATE TEMP TABLE tmp_shape ("
-        "  entity_type CHAR(1),"
-        "  entity_id BYTEA,"
-        "  model_name TEXT,"
-        "  embedding BYTEA,"
-        "  dim_count INTEGER"
+        "CREATE TEMP TABLE tmp_hier_comp ("
+        "  id BYTEA,"
+        "  label TEXT,"
+        "  depth INTEGER,"
+        "  child_count INTEGER,"
+        "  atom_count BIGINT,"
+        "  geom GEOMETRY(LINESTRINGZM, 0),"
+        "  centroid GEOMETRY(POINTZM, 0),"
+        "  hilbert_lo BIGINT,"
+        "  hilbert_hi BIGINT"
         ") ON COMMIT DROP");
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "Create tmp_shape failed: " << PQerrorMessage(conn) << "\n";
-        PQclear(res);
+        std::cerr << "[HIER] Create temp table failed: " << PQerrorMessage(conn) << "\n";
         PQexec(conn, "ROLLBACK");
         return false;
     }
     PQclear(res);
     
-    res = PQexec(conn, "COPY tmp_shape FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+    // COPY compositions
+    res = PQexec(conn, "COPY tmp_hier_comp FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+    if (PQresultStatus(res) != PGRES_COPY_IN) {
+        std::cerr << "[HIER] COPY start failed: " << PQerrorMessage(conn) << "\n";
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
     PQclear(res);
     
-    for (const auto& batch : batches) {
-        if (!batch.empty()) {
-            PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-        }
+    if (!comp_batch.empty()) {
+        PQputCopyData(conn, comp_batch.c_str(), static_cast<int>(comp_batch.size()));
     }
     PQputCopyEnd(conn, nullptr);
     res = PQgetResult(conn);
     PQclear(res);
     
-    // Insert into shape table
+    // Insert into composition table WITH GEOMETRY
     res = PQexec(conn,
-        "INSERT INTO shape (entity_type, entity_id, model_name, embedding, dim_count) "
-        "SELECT entity_type, entity_id, model_name, ST_GeomFromEWKB(embedding), dim_count "
-        "FROM tmp_shape "
-        "ON CONFLICT (entity_id, model_name) DO UPDATE SET "
-        "  embedding = EXCLUDED.embedding, "
-        "  dim_count = EXCLUDED.dim_count");
+        "INSERT INTO composition (id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi) "
+        "SELECT id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi FROM tmp_hier_comp "
+        "ON CONFLICT (id) DO UPDATE SET "
+        "  label = EXCLUDED.label, "
+        "  depth = GREATEST(composition.depth, EXCLUDED.depth), "
+        "  geom = COALESCE(EXCLUDED.geom, composition.geom), "
+        "  centroid = COALESCE(EXCLUDED.centroid, composition.centroid), "
+        "  hilbert_lo = COALESCE(EXCLUDED.hilbert_lo, composition.hilbert_lo), "
+        "  hilbert_hi = COALESCE(EXCLUDED.hilbert_hi, composition.hilbert_hi)");
     
-    int inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
+    int comp_inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[SHAPE] Insert error: " << PQerrorMessage(conn) << "\n";
+        std::cerr << "[HIER] Insert compositions failed: " << PQerrorMessage(conn) << "\n";
     }
+    PQclear(res);
+    
+    std::cerr << "[HIER] Inserted/updated " << comp_inserted << " hierarchy compositions\n";
+    
+    // Insert ATOM children FIRST (the characters that make up each hierarchy path)
+    // These get ordinals 0..N-1 where N is the path length
+    if (!atom_child_batch.empty()) {
+        res = PQexec(conn,
+            "CREATE TEMP TABLE tmp_hier_atom_child ("
+            "  composition_id BYTEA,"
+            "  ordinal SMALLINT,"
+            "  child_type CHAR(1),"
+            "  child_id BYTEA"
+            ") ON COMMIT DROP");
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            std::cerr << "[HIER] Create atom child temp table failed: " << PQerrorMessage(conn) << "\n";
+        }
+        PQclear(res);
+        
+        res = PQexec(conn, "COPY tmp_hier_atom_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        PQclear(res);
+        
+        PQputCopyData(conn, atom_child_batch.c_str(), static_cast<int>(atom_child_batch.size()));
+        PQputCopyEnd(conn, nullptr);
+        res = PQgetResult(conn);
+        PQclear(res);
+        
+        // Insert atom children
+        res = PQexec(conn,
+            "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
+            "SELECT composition_id, ordinal, child_type, child_id FROM tmp_hier_atom_child "
+            "ON CONFLICT (composition_id, ordinal) DO NOTHING");
+        
+        int atom_edges = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            std::cerr << "[HIER] Insert atom children failed: " << PQerrorMessage(conn) << "\n";
+        }
+        PQclear(res);
+        
+        std::cerr << "[HIER] Inserted " << atom_edges << " atom children\n";
+    }
+    
+    // Now insert parent->child composition edges
+    // These get ordinals N..N+M-1 where N is path length and M is number of sub-compositions
+    if (!child_batch.empty()) {
+        res = PQexec(conn,
+            "CREATE TEMP TABLE tmp_hier_child ("
+            "  composition_id BYTEA,"
+            "  ordinal SMALLINT,"
+            "  child_type CHAR(1),"
+            "  child_id BYTEA"
+            ") ON COMMIT DROP");
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            std::cerr << "[HIER] Create child temp table failed: " << PQerrorMessage(conn) << "\n";
+        }
+        PQclear(res);
+        
+        res = PQexec(conn, "COPY tmp_hier_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        PQclear(res);
+        
+        PQputCopyData(conn, child_batch.c_str(), static_cast<int>(child_batch.size()));
+        PQputCopyEnd(conn, nullptr);
+        res = PQgetResult(conn);
+        PQclear(res);
+        
+        // Insert composition->composition edges using pre-computed ordinals (offset past atoms)
+        res = PQexec(conn,
+            "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
+            "SELECT composition_id, ordinal, child_type, child_id "
+            "FROM tmp_hier_child "
+            "ON CONFLICT (composition_id, ordinal) DO NOTHING");
+        
+        int edges_inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            std::cerr << "[HIER] Insert composition edges failed: " << PQerrorMessage(conn) << "\n";
+        }
+        PQclear(res);
+        
+        std::cerr << "[HIER] Inserted " << edges_inserted << " composition->composition edges\n";
+    }
+    
+    // Update child counts on parent compositions
+    res = PQexec(conn,
+        "UPDATE composition c SET child_count = sub.cnt "
+        "FROM (SELECT composition_id, COUNT(*) as cnt FROM composition_child GROUP BY composition_id) sub "
+        "WHERE c.id = sub.composition_id");
     PQclear(res);
     
     res = PQexec(conn, "COMMIT");
     PQclear(res);
     
-    auto end = std::chrono::steady_clock::now();
-    auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cerr << "[SHAPE] Inserted " << inserted << " shapes for model '" << config.model_name << "' in " << total_ms << "ms\n";
+    return true;
+}
+
+// ============================================================================
+// Extract Embedding k-NN Similarity as Relations
+// ============================================================================
+// Builds k-NN similarity graph from model embeddings and inserts edges as
+// relation rows. This extracts the SIMILARITY STRUCTURE from model embeddings
+// WITHOUT overwriting composition centroids (those come from atoms only).
+//
+// Architecture:
+//   - Atoms: Unicode codepoints with YOUR deterministic 4D coordinates
+//   - Compositions: centroids = average of atom children (computed separately)
+//   - Relations: edges from various sources including embedding k-NN similarity
+//
+// This function handles: generation models, embedding models, vision encoders,
+// object detection models - ANY model with token/patch embeddings.
+// ============================================================================
+
+bool extract_embedding_relations(PGconn* conn, const IngestConfig& config) {
+    // Find embedding tensors - support multiple model architectures
+    std::vector<std::pair<std::string, TensorMeta*>> embed_tensors;
+    
+    for (auto& [name, meta] : g_tensors) {
+        // Language model embeddings (semantic - high cosine values)
+        if (name.find("embed_tokens") != std::string::npos ||
+            name.find("word_embeddings") != std::string::npos ||
+            name.find("wte.weight") != std::string::npos ||
+            name.find("token_embedding") != std::string::npos) {
+            embed_tensors.emplace_back("token", &meta);
+        }
+        // Vision model patch embeddings (moderate cosine values)
+        else if (name.find("patch_embed") != std::string::npos ||
+                 name.find("patch_embedding") != std::string::npos ||
+                 name.find("proj.weight") != std::string::npos && name.find("patch") != std::string::npos) {
+            embed_tensors.emplace_back("patch", &meta);
+        }
+        // CLIP/multimodal projections (moderate cosine values)
+        else if (name.find("text_projection") != std::string::npos ||
+                 name.find("visual_projection") != std::string::npos) {
+            embed_tensors.emplace_back("projection", &meta);
+        }
+        // Position embeddings (near-orthogonal by design - very low cosine values)
+        else if (name.find("position_embed") != std::string::npos ||
+                 name.find("pos_embed") != std::string::npos ||
+                 name.find("query_position") != std::string::npos) {
+            embed_tensors.emplace_back("position", &meta);
+        }
+    }
+    
+    if (embed_tensors.empty()) {
+        std::cerr << "[EMBED] No embedding tensors found\n";
+        return true;
+    }
+    
+    std::cerr << "[EMBED] Found " << embed_tensors.size() << " embedding tensor(s)\n";
+    
+    // Per-embedding-type thresholds
+    auto get_threshold = [&](const std::string& embed_type) -> float {
+        if (embed_type == "token") return 0.45f;
+        if (embed_type == "patch") return 0.25f;
+        if (embed_type == "position") return 0.02f;
+        if (embed_type == "projection") return 0.15f;
+        return 0.30f;
+    };
+    
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    if (num_threads == 0) num_threads = 4;
+    if (num_threads > 16) num_threads = 16;
+    
+    auto total_start = std::chrono::steady_clock::now();
+    
+    // =========================================================================
+    // PHASE 1: Process all embedding tensors in parallel, accumulate edges
+    // =========================================================================
+    std::mutex batch_mutex;
+    std::string global_batch;
+    global_batch.reserve(16 << 20);  // 16MB initial
+    std::atomic<size_t> total_edges{0};
+    
+    auto process_embedding = [&](const std::string& embed_type, TensorMeta* embed) {
+        if (embed->shape.size() < 2) return;
+        
+        int64_t num_items = embed->shape[0];
+        int64_t embed_dim = embed->shape[1];
+        float threshold = get_threshold(embed_type);
+        
+        if (embed_type == "token" && !g_vocab_tokens.empty()) {
+            num_items = std::min(num_items, static_cast<int64_t>(g_vocab_tokens.size()));
+        }
+        
+        std::cerr << "[EMBED] Processing " << embed->name << " [" << embed_type << ", thresh=" << threshold << "]: " 
+                  << num_items << " x " << embed_dim << " dims\n";
+        
+        auto start = std::chrono::steady_clock::now();
+        
+        // Read embeddings
+        std::vector<std::vector<float>> embeddings(num_items);
+        std::atomic<int64_t> read_idx{0};
+        auto read_worker = [&]() {
+            while (true) {
+                int64_t i = read_idx.fetch_add(1);
+                if (i >= num_items) break;
+                embeddings[i] = read_tensor_row(*embed, static_cast<size_t>(i));
+            }
+        };
+        std::vector<std::thread> readers;
+        for (unsigned t = 0; t < num_threads; ++t) readers.emplace_back(read_worker);
+        for (auto& th : readers) th.join();
+        
+        auto read_end = std::chrono::steady_clock::now();
+        auto read_ms = std::chrono::duration_cast<std::chrono::milliseconds>(read_end - start).count();
+        std::cerr << "[EMBED] Read embeddings in " << read_ms << "ms\n";
+        
+        // Build k-NN using HNSWLIB
+        const int k_neighbors = 15;
+        std::vector<std::vector<std::tuple<size_t, size_t, float>>> thread_edges(num_threads);
+        
+#ifdef HAS_HNSWLIB
+        hnswlib::InnerProductSpace space(embed_dim);
+        hnswlib::HierarchicalNSW<float> hnsw(&space, num_items, 16, 200);
+        hnsw.setEf(50);
+        
+        // Normalize for cosine similarity
+        std::vector<std::vector<float>> normalized(num_items);
+        for (int64_t i = 0; i < num_items; ++i) {
+            if (embeddings[i].empty()) continue;
+            normalized[i].resize(embed_dim);
+            float norm = 0;
+            for (size_t d = 0; d < static_cast<size_t>(embed_dim); ++d) 
+                norm += embeddings[i][d] * embeddings[i][d];
+            norm = std::sqrt(norm);
+            if (norm > 0) {
+                for (size_t d = 0; d < static_cast<size_t>(embed_dim); ++d) 
+                    normalized[i][d] = embeddings[i][d] / norm;
+            }
+        }
+        
+        // Parallel index construction
+        std::atomic<int64_t> add_idx{0};
+        auto add_worker = [&]() {
+            while (true) {
+                int64_t i = add_idx.fetch_add(1);
+                if (i >= num_items) break;
+                if (normalized[i].empty()) continue;
+                hnsw.addPoint(normalized[i].data(), i);
+            }
+        };
+        std::vector<std::thread> adders;
+        for (unsigned t = 0; t < num_threads; ++t) adders.emplace_back(add_worker);
+        for (auto& th : adders) th.join();
+        
+        // Parallel k-NN queries
+        std::atomic<int64_t> knn_idx{0};
+        auto knn_worker = [&](unsigned tid) {
+            auto& local_edges = thread_edges[tid];
+            while (true) {
+                int64_t i = knn_idx.fetch_add(1);
+                if (i >= num_items) break;
+                if (normalized[i].empty()) continue;
+                
+                auto result = hnsw.searchKnn(normalized[i].data(), k_neighbors + 1);
+                while (!result.empty()) {
+                    auto [dist, j] = result.top();
+                    result.pop();
+                    if (static_cast<int64_t>(j) == i) continue;
+                    float sim = 1.0f - dist;
+                    if (sim >= threshold && static_cast<size_t>(i) < j) {
+                        local_edges.emplace_back(static_cast<size_t>(i), j, sim);
+                    }
+                }
+            }
+        };
+        std::vector<std::thread> knn_workers;
+        for (unsigned t = 0; t < num_threads; ++t) knn_workers.emplace_back(knn_worker, t);
+        for (auto& th : knn_workers) th.join();
+#endif
+        
+        auto knn_end = std::chrono::steady_clock::now();
+        auto knn_ms = std::chrono::duration_cast<std::chrono::milliseconds>(knn_end - read_end).count();
+        
+        size_t edge_count = 0;
+        for (const auto& edges : thread_edges) edge_count += edges.size();
+        std::cerr << "[EMBED] Built k-NN graph: " << edge_count << " edges in " << knn_ms << "ms\n";
+        
+        if (edge_count == 0) {
+            std::cerr << "[EMBED] No edges above threshold " << threshold << " for " << embed_type << "\n";
+            return;
+        }
+        
+        // Build batch string for this tensor
+        std::string local_batch;
+        local_batch.reserve(edge_count * 128);
+        
+        for (const auto& edges : thread_edges) {
+            for (const auto& [i, j, sim] : edges) {
+                Blake3Hash source_hash, target_hash;
+                char source_type = 'C', target_type = 'C';
+                
+                if (embed_type == "token" && i < g_vocab_tokens.size() && j < g_vocab_tokens.size()) {
+                    const auto& src = g_vocab_tokens[i];
+                    const auto& tgt = g_vocab_tokens[j];
+                    source_hash = src.comp.hash;
+                    target_hash = tgt.comp.hash;
+                    source_type = (src.comp.children.size() <= 1) ? 'A' : 'C';
+                    target_type = (tgt.comp.children.size() <= 1) ? 'A' : 'C';
+                } else {
+                    std::string src_key = embed_type + ":" + std::to_string(i);
+                    std::string tgt_key = embed_type + ":" + std::to_string(j);
+                    source_hash = AtomCalculator::compute_vocab_token(src_key).hash;
+                    target_hash = AtomCalculator::compute_vocab_token(tgt_key).hash;
+                }
+                
+                local_batch += source_type;
+                local_batch += "\t\\\\x" + source_hash.to_hex() + "\t";
+                local_batch += target_type;
+                local_batch += "\t\\\\x" + target_hash.to_hex() + "\t";
+                local_batch += std::to_string(sim) + "\t";
+                local_batch += embed_type + "\n";
+            }
+        }
+        
+        // Append to global batch under lock
+        {
+            std::lock_guard<std::mutex> lock(batch_mutex);
+            global_batch += local_batch;
+        }
+        total_edges += edge_count;
+    };
+    
+    // Process all embedding tensors (could parallelize but tensor I/O may bottleneck)
+    for (auto& [embed_type, embed] : embed_tensors) {
+        process_embedding(embed_type, embed);
+    }
+    
+    auto process_end = std::chrono::steady_clock::now();
+    auto process_ms = std::chrono::duration_cast<std::chrono::milliseconds>(process_end - total_start).count();
+    std::cerr << "[EMBED] Processed all tensors in " << process_ms << "ms, " << total_edges << " edges\n";
+    
+    if (total_edges == 0) {
+        std::cerr << "[EMBED] No embedding relations to insert\n";
+        return true;
+    }
+    
+    // =========================================================================
+    // PHASE 2: Single bulk insert of all accumulated edges
+    // =========================================================================
+    auto insert_start = std::chrono::steady_clock::now();
+    
+    PGresult* res = PQexec(conn, "BEGIN");
+    PQclear(res);
+    
+    res = PQexec(conn,
+        "CREATE TEMP TABLE tmp_embed_rel ("
+        "  source_type CHAR(1), source_id BYTEA,"
+        "  target_type CHAR(1), target_id BYTEA,"
+        "  weight REAL, embed_type TEXT"
+        ") ON COMMIT DROP");
+    PQclear(res);
+    
+    res = PQexec(conn, "COPY tmp_embed_rel FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+    PQclear(res);
+    
+    // Stream in chunks to avoid memory issues
+    const size_t chunk_size = 4 << 20;  // 4MB chunks
+    for (size_t offset = 0; offset < global_batch.size(); offset += chunk_size) {
+        size_t len = std::min(chunk_size, global_batch.size() - offset);
+        PQputCopyData(conn, global_batch.data() + offset, static_cast<int>(len));
+    }
+    PQputCopyEnd(conn, nullptr);
+    res = PQgetResult(conn);
+    PQclear(res);
+    
+    // Bulk insert with UPSERT
+    res = PQexec(conn,
+        ("INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) "
+         "SELECT source_type, source_id, target_type, target_id, 'E', weight, '" + config.model_name + "', 1, -1, embed_type "
+         "FROM tmp_embed_rel "
+         "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
+         "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
+         "  source_count = relation.source_count + 1").c_str());
+    
+    int inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
+    PQclear(res);
+    
+    res = PQexec(conn, "COMMIT");
+    PQclear(res);
+    
+    auto insert_end = std::chrono::steady_clock::now();
+    auto insert_ms = std::chrono::duration_cast<std::chrono::milliseconds>(insert_end - insert_start).count();
+    
+    std::cerr << "[EMBED] Bulk inserted " << inserted << " relations in " << insert_ms << "ms\n";
+    std::cerr << "[EMBED] Total: " << total_edges.load() << " embedding similarity relations\n";
     return true;
 }
 
@@ -1521,13 +2057,13 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
                 if (expert_row.empty()) continue;
                 
                 // Create expert atom hash
-                std::string expert_key = config.model_name + ":expert:" + std::to_string(layer) + ":" + std::to_string(expert_idx);
+                std::string expert_key = "expert:" + std::to_string(layer) + ":" + std::to_string(expert_idx);
                 auto expert_hash = AtomCalculator::compute_vocab_token(expert_key).hash;
                 
-                // Find significant routing weights
+                // Find significant routing weights (use lower threshold 0.1 for router)
                 for (int64_t d = 0; d < hidden_dim && d < static_cast<int64_t>(g_vocab_tokens.size()); ++d) {
                     float weight = expert_row[d];
-                    if (std::fabs(weight) >= config.weight_threshold) {
+                    if (std::fabs(weight) >= 0.1f) {
                         // Create edge from token to expert
                         const auto& token = g_vocab_tokens[d];
                         char token_type = (token.comp.children.size() <= 1) ? 'A' : 'C';
@@ -1572,207 +2108,317 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
     }
     
     // -------------------------------------------------------------------------
-    // PART 2: Q/K/V attention projections - extract token relationships
-    // These show how tokens relate through attention mechanisms
+    // PART 2: Attention projections (Q/K/V/O) - token transformation relationships
+    // These weights show how tokens relate through the attention mechanism:
+    // - Q (query): what a token is looking for
+    // - K (key): what a token offers to be found
+    // - V (value): what information a token carries
+    // - O (output): how attention results are projected back
+    // 
+    // We extract ROW SIMILARITY: rows that are similar = tokens that transform similarly
     // -------------------------------------------------------------------------
-    std::vector<TensorMeta*> attn_tensors;
+    std::cerr << "\n[ATTN] Extracting attention projection similarities...\n";
+    
+    struct TensorGroup {
+        std::string component;
+        std::vector<TensorMeta*> tensors;
+    };
+    std::vector<TensorGroup> attn_groups = {
+        // Attention projections
+        {"q_proj", {}}, {"k_proj", {}}, {"v_proj", {}}, {"o_proj", {}},
+        {"query", {}}, {"key", {}}, {"value", {}},  // Alternative naming
+        {"qkv_proj", {}},  // Fused QKV
+        
+        // FFN/MLP layers (LLaMA style)
+        {"gate_proj", {}}, {"up_proj", {}}, {"down_proj", {}},
+        
+        // FFN/MLP layers (GPT style)
+        {"fc1", {}}, {"fc2", {}}, {"fc_in", {}}, {"fc_out", {}},
+        {"c_fc", {}}, {"c_proj", {}},  // GPT-2
+        
+        // Output projections
+        {"lm_head", {}}, {"output", {}}, {"classifier", {}},
+        
+        // Vision transformers
+        {"patch_embed", {}}, {"cls_token", {}},
+    };
+    
     for (auto& [name, meta] : g_tensors) {
-        if ((name.find("q_proj.weight") != std::string::npos ||
-             name.find("k_proj.weight") != std::string::npos ||
-             name.find("v_proj.weight") != std::string::npos) && meta.shape.size() == 2) {
-            attn_tensors.push_back(&meta);
+        for (auto& group : attn_groups) {
+            if (name.find(group.component + ".weight") != std::string::npos && meta.shape.size() == 2) {
+                group.tensors.push_back(&meta);
+            }
         }
     }
     
-    std::cerr << "[ATTN] Found " << attn_tensors.size() << " attention projection tensors\n";
-    std::cerr << "[ATTN] Note: Q/K/V projections are internal model weights, not token relationships.\n";
-    std::cerr << "[ATTN] Token relationships emerge from YOUR 4D coordinate system via Laplacian projection.\n";
-    std::cerr << "[ATTN] Skipping Q/K/V weight extraction - use Laplacian eigenvectors for semantic structure.\n";
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    if (num_threads == 0) num_threads = 4;
+    if (num_threads > 8) num_threads = 8;  // Limit for memory
     
-    std::cerr << "[EXTRACT] Total: " << total_edges << " edges from router tensors\n";
-    return true;
-}
-
-// ============================================================================
-// Project Embeddings to 4D and Update Compositions
-// ============================================================================
-
-bool project_and_update_embeddings(PGconn* conn, const IngestConfig& config) {
+    for (auto& group : attn_groups) {
+        if (group.tensors.empty()) continue;
+        
+        std::cerr << "[ATTN] Processing " << group.tensors.size() << " " << group.component << " tensors\n";
+        
+        for (auto* tensor : group.tensors) {
+            // Parse layer number
+            int layer = -1;
+            size_t layers_pos = tensor->name.find("layers.");
+            if (layers_pos != std::string::npos) {
+                size_t num_start = layers_pos + 7;
+                size_t num_end = tensor->name.find(".", num_start);
+                if (num_end != std::string::npos) {
+                    layer = std::stoi(tensor->name.substr(num_start, num_end - num_start));
+                }
+            }
+            
+            int64_t out_dim = tensor->shape[0];
+            int64_t in_dim = tensor->shape[1];
+            
+            // For large tensors, sample rows to keep computation tractable
+            // We're looking for which OUTPUT dimensions are related
+            int64_t max_rows = std::min(out_dim, static_cast<int64_t>(2048));
+            int64_t stride = std::max(static_cast<int64_t>(1), out_dim / max_rows);
+            
+            std::cerr << "  " << tensor->name << " [" << out_dim << " x " << in_dim << "] layer=" << layer;
+            if (stride > 1) std::cerr << " (sampling every " << stride << " rows)";
+            std::cerr << "\n";
+            
+            // Read sampled rows
+            std::vector<std::vector<float>> rows;
+            std::vector<int64_t> row_indices;
+            rows.reserve(max_rows);
+            row_indices.reserve(max_rows);
+            
+            for (int64_t i = 0; i < out_dim; i += stride) {
+                auto row = read_tensor_row(*tensor, static_cast<size_t>(i));
+                if (!row.empty()) {
+                    rows.push_back(std::move(row));
+                    row_indices.push_back(i);
+                }
+            }
+            
+            if (rows.size() < 2) continue;
+            
+            // Build k-NN similarity for these weight rows
+            // Similar rows = dimensions that behave similarly = related features
+            const int k_neighbors = 10;
+            std::vector<std::vector<std::tuple<size_t, size_t, float>>> thread_edges(num_threads);
+            std::atomic<size_t> knn_idx{0};
+            
+            auto knn_worker = [&](unsigned tid) {
+                auto& local_edges = thread_edges[tid];
+                std::vector<std::pair<float, size_t>> neighbors;
+                neighbors.reserve(rows.size());
+                
+                while (true) {
+                    size_t i = knn_idx.fetch_add(1);
+                    if (i >= rows.size()) break;
+                    
+                    neighbors.clear();
+                    for (size_t j = 0; j < rows.size(); ++j) {
+                        if (i == j) continue;
+                        float sim = cosine_similarity_avx2(rows[i].data(), rows[j].data(), in_dim);
+                        neighbors.emplace_back(sim, j);
+                    }
+                    
+                    std::partial_sort(neighbors.begin(),
+                                      neighbors.begin() + std::min(static_cast<size_t>(k_neighbors), neighbors.size()),
+                                      neighbors.end(),
+                                      [](auto& a, auto& b) { return a.first > b.first; });
+                    
+                    for (size_t k = 0; k < std::min(static_cast<size_t>(k_neighbors), neighbors.size()); ++k) {
+                        float sim = neighbors[k].first;
+                        size_t j = neighbors[k].second;
+                        // Use lower threshold for weight matrices (0.15 vs 0.5 for embeddings)
+                        if (sim >= 0.15f && i < j) {
+                            local_edges.emplace_back(i, j, sim);
+                        }
+                    }
+                }
+            };
+            
+            std::vector<std::thread> workers;
+            for (unsigned t = 0; t < num_threads; ++t) {
+                workers.emplace_back(knn_worker, t);
+            }
+            for (auto& th : workers) th.join();
+            
+            // Count edges
+            size_t edge_count = 0;
+            for (const auto& edges : thread_edges) edge_count += edges.size();
+            
+            if (edge_count == 0) continue;
+            
+            // Insert edges as relations
+            // These represent "dimension i and dimension j behave similarly in this layer"
+            // This helps identify the "beaten path" - frequently co-activated features
+            PGresult* res = PQexec(conn, "BEGIN");
+            PQclear(res);
+            
+            res = PQexec(conn,
+                "CREATE TEMP TABLE tmp_attn ("
+                "  source_type CHAR(1), source_id BYTEA,"
+                "  target_type CHAR(1), target_id BYTEA,"
+                "  weight REAL, layer SMALLINT, component TEXT"
+                ") ON COMMIT DROP");
+            PQclear(res);
+            
+            res = PQexec(conn, "COPY tmp_attn FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+            PQclear(res);
+            
+            std::string batch;
+            batch.reserve(1 << 20);
+            
+            for (const auto& edges : thread_edges) {
+                for (const auto& [i, j, sim] : edges) {
+                    // Create dimension atoms (these represent learned features)
+                    std::string src_key = group.component + ":" + std::to_string(layer) + ":dim" + std::to_string(row_indices[i]);
+                    std::string tgt_key = group.component + ":" + std::to_string(layer) + ":dim" + std::to_string(row_indices[j]);
+                    
+                    auto src_hash = AtomCalculator::compute_vocab_token(src_key).hash;
+                    auto tgt_hash = AtomCalculator::compute_vocab_token(tgt_key).hash;
+                    
+                    batch += "C\t\\\\x" + src_hash.to_hex() + "\t";
+                    batch += "C\t\\\\x" + tgt_hash.to_hex() + "\t";
+                    batch += std::to_string(sim) + "\t";
+                    batch += std::to_string(layer) + "\t" + group.component + "\n";
+                    
+                    if (batch.size() > (1 << 19)) {
+                        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+                        batch.clear();
+                    }
+                }
+            }
+            
+            if (!batch.empty()) PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+            PQputCopyEnd(conn, nullptr);
+            res = PQgetResult(conn);
+            PQclear(res);
+            
+            // Insert with relation_type='W' for weight similarity
+            res = PQexec(conn,
+                ("INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) "
+                 "SELECT source_type, source_id, target_type, target_id, 'W', weight, '" + config.model_name + "', 1, layer, component FROM tmp_attn "
+                 "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
+                 "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
+                 "  source_count = relation.source_count + 1").c_str());
+            PQclear(res);
+            
+            res = PQexec(conn, "COMMIT");
+            PQclear(res);
+            
+            std::cerr << "    -> " << edge_count << " weight similarity edges\n";
+            total_edges += edge_count;
+        }
+    }
+    
+    // -------------------------------------------------------------------------
+    // PART 3: Token-to-dimension mapping via embedding * projection
+    // This shows which tokens activate which dimensions most strongly
+    // -------------------------------------------------------------------------
+    std::cerr << "\n[TOKEN-DIM] Extracting token->dimension activation patterns...\n";
+    
     // Find embedding tensor
     TensorMeta* embed = nullptr;
     for (auto& [name, meta] : g_tensors) {
-        if (name.find("embed_tokens") != std::string::npos ||
-            name.find("word_embeddings") != std::string::npos ||
-            name.find("wte.weight") != std::string::npos) {
+        if ((name.find("embed_tokens") != std::string::npos ||
+             name.find("word_embeddings") != std::string::npos) && meta.shape.size() == 2) {
             embed = &meta;
             break;
         }
     }
     
-    if (!embed) {
-        std::cerr << "[PROJ] No embedding tensor found\n";
-        return true;
-    }
-    
-    if (embed->shape.size() < 2) {
-        std::cerr << "[PROJ] Invalid embedding shape\n";
-        return false;
-    }
-    
-    int64_t vocab_size = std::min(embed->shape[0], static_cast<int64_t>(g_vocab_tokens.size()));
-    int64_t embed_dim = embed->shape[1];
-    
-    unsigned int num_threads = std::thread::hardware_concurrency();
-    if (num_threads == 0) num_threads = 4;
-    
-    std::cerr << "[PROJ] Processing " << vocab_size << " tokens x " << embed_dim << " dims\n";
-    std::cerr << "[PROJ] Tensor: " << embed->name << " in " << embed->shard_file << "\n";
-    
-    auto start = std::chrono::steady_clock::now();
-    
-    // Phase 1: Read all embeddings
-    std::cerr << "[PROJ] Reading embeddings...\n";
-    std::vector<std::vector<float>> embeddings(vocab_size);
-    std::atomic<int64_t> read_idx{0};
-    std::atomic<int64_t> read_completed{0};
-    
-    auto read_worker = [&]() {
-        while (true) {
-            int64_t i = read_idx.fetch_add(1);
-            if (i >= vocab_size) break;
-            embeddings[i] = read_tensor_row(*embed, static_cast<size_t>(i));
-            read_completed.fetch_add(1);
+    if (embed && !g_vocab_tokens.empty()) {
+        int64_t vocab_size = std::min(embed->shape[0], static_cast<int64_t>(g_vocab_tokens.size()));
+        int64_t embed_dim = embed->shape[1];
+        
+        // For each token, find which dimensions it activates most strongly
+        // This creates token->dimension edges
+        std::cerr << "[TOKEN-DIM] Processing " << vocab_size << " tokens x " << embed_dim << " dims\n";
+        
+        PGresult* res = PQexec(conn, "BEGIN");
+        PQclear(res);
+        
+        res = PQexec(conn,
+            "CREATE TEMP TABLE tmp_tokdim ("
+            "  source_type CHAR(1), source_id BYTEA,"
+            "  target_type CHAR(1), target_id BYTEA,"
+            "  weight REAL, component TEXT"
+            ") ON COMMIT DROP");
+        PQclear(res);
+        
+        res = PQexec(conn, "COPY tmp_tokdim FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
+        PQclear(res);
+        
+        std::string batch;
+        batch.reserve(1 << 21);
+        size_t tokdim_edges = 0;
+        
+        // Top-k dimensions per token
+        const int top_k = 20;
+        
+        for (int64_t tok_idx = 0; tok_idx < vocab_size; ++tok_idx) {
+            auto emb = read_tensor_row(*embed, static_cast<size_t>(tok_idx));
+            if (emb.empty()) continue;
+            
+            const auto& token = g_vocab_tokens[tok_idx];
+            if (token.comp.hash.is_zero()) continue;
+            
+            char token_type = (token.comp.children.size() <= 1) ? 'A' : 'C';
+            
+            // Find top-k dimensions by absolute value
+            std::vector<std::pair<float, int64_t>> dim_vals;
+            dim_vals.reserve(embed_dim);
+            for (int64_t d = 0; d < embed_dim; ++d) {
+                dim_vals.emplace_back(std::fabs(emb[d]), d);
+            }
+            std::partial_sort(dim_vals.begin(), dim_vals.begin() + std::min(static_cast<int64_t>(top_k), embed_dim),
+                              dim_vals.end(), [](auto& a, auto& b) { return a.first > b.first; });
+            
+            for (int k = 0; k < std::min(static_cast<int64_t>(top_k), embed_dim); ++k) {
+                float val = emb[dim_vals[k].second];  // Keep sign
+                // Lower threshold for token->dimension activations (0.3)
+                if (std::fabs(val) < 0.3f) continue;
+                
+                int64_t dim_idx = dim_vals[k].second;
+                std::string dim_key = "embed:dim" + std::to_string(dim_idx);
+                auto dim_hash = AtomCalculator::compute_vocab_token(dim_key).hash;
+                
+                batch += token_type;
+                batch += "\t\\\\x" + token.comp.hash.to_hex() + "\t";
+                batch += "C\t\\\\x" + dim_hash.to_hex() + "\t";
+                batch += std::to_string(val) + "\tembed\n";
+                tokdim_edges++;
+                
+                if (batch.size() > (1 << 20)) {
+                    PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+                    batch.clear();
+                }
+            }
         }
-    };
-    
-    std::vector<std::thread> read_workers;
-    for (unsigned t = 0; t < num_threads; ++t) {
-        read_workers.emplace_back(read_worker);
-    }
-    for (auto& th : read_workers) th.join();
-    
-    auto read_end = std::chrono::steady_clock::now();
-    auto read_ms = std::chrono::duration_cast<std::chrono::milliseconds>(read_end - start).count();
-    std::cerr << "[PROJ] Read complete in " << read_ms << "ms\n";
-    
-    // Phase 2: Project to 4D
-    std::cerr << "[PROJ] Running Laplacian Eigenmaps + Gram-Schmidt...\n";
-    
-    LaplacianConfig lap_config;
-    lap_config.k_neighbors = 15;
-    lap_config.num_threads = num_threads;
-    lap_config.convergence_tol = 1e-8;
-    
-    LaplacianProjector projector(lap_config);
-    projector.set_progress_callback([](const std::string& stage, size_t current, size_t total) {
-        if (total > 0 && current % (total / 20 + 1) == 0) {
-             std::cerr << "  [LAPLACIAN] " << stage << ": " << (current * 100 / total) << "%\r" << std::flush;
-        }
-    });
-    
-    // Collect labels for debugging/logging if needed
-    std::vector<std::string> labels;
-    labels.reserve(vocab_size);
-    for (int64_t i = 0; i < vocab_size; ++i) {
-        labels.push_back(g_vocab_tokens[i].text);
-    }
-    
-    ProjectionResult result = projector.project(embeddings, labels);
-    std::cerr << "\n[PROJ] Projection complete. Variance explained: " << result.total_variance_explained << "\n";
-    
-    // Phase 3: Update database
-    std::cerr << "[PROJ] Updating compositions in database...\n";
-    
-    PGresult* res = PQexec(conn, "BEGIN");
-    PQclear(res);
-    
-    // Create temp table for updates
-    res = PQexec(conn, 
-        "CREATE TEMP TABLE tmp_proj ("
-        "  id BYTEA,"
-        "  centroid GEOMETRY(POINTZM, 0),"
-        "  hilbert_lo BIGINT,"
-        "  hilbert_hi BIGINT"
-        ") ON COMMIT DROP");
         
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[PROJ] Create temp table failed: " << PQerrorMessage(conn) << "\n";
-        PQexec(conn, "ROLLBACK");
-        return false;
-    }
-    PQclear(res);
-    
-    res = PQexec(conn, "COPY tmp_proj FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "[PROJ] COPY start failed: " << PQerrorMessage(conn) << "\n";
-        return false;
-    }
-    PQclear(res);
-    
-    std::string batch;
-    batch.reserve(1024 * 1024);
-    
-    for (int64_t i = 0; i < vocab_size; ++i) {
-        const auto& coords = result.coords[i];
-        const auto& token = g_vocab_tokens[i];
+        if (!batch.empty()) PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
+        PQputCopyEnd(conn, nullptr);
+        res = PQgetResult(conn);
+        PQclear(res);
         
-        // Skip if no hash (shouldn't happen for valid tokens)
-        if (token.comp.hash.is_zero()) continue;
+        // Insert with relation_type='D' for dimension activation
+        res = PQexec(conn,
+            ("INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) "
+             "SELECT source_type, source_id, target_type, target_id, 'D', weight, '" + config.model_name + "', 1, -1, component FROM tmp_tokdim "
+             "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
+             "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
+             "  source_count = relation.source_count + 1").c_str());
+        PQclear(res);
         
-        batch += "\\\\x" + token.comp.hash.to_hex() + "\t";
+        res = PQexec(conn, "COMMIT");
+        PQclear(res);
         
-        // POINTZM(x y z m)
-        std::stringstream ss;
-        ss << std::fixed << std::setprecision(6);
-        ss << "POINTZM(";
-        ss << coords[0] << " " << coords[1] << " " << coords[2] << " " << coords[3];
-        ss << ")";
-        
-        batch += ss.str() + "\t";
-        batch += std::to_string(result.hilbert_lo[i]) + "\t";
-        batch += std::to_string(result.hilbert_hi[i]) + "\n";
-        
-        if (batch.size() > (1 << 20)) {
-            PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-            batch.clear();
-        }
+        std::cerr << "[TOKEN-DIM] Created " << tokdim_edges << " token->dimension edges\n";
+        total_edges += tokdim_edges;
     }
     
-    if (!batch.empty()) {
-        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-    }
-    
-    PQputCopyEnd(conn, nullptr);
-    res = PQgetResult(conn);
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[PROJ] COPY failed: " << PQerrorMessage(conn) << "\n";
-        PQexec(conn, "ROLLBACK");
-        return false;
-    }
-    PQclear(res);
-    
-    // Perform UPDATE
-    std::cerr << "[PROJ] Applying updates...\n";
-    res = PQexec(conn,
-        "UPDATE composition c "
-        "SET centroid = t.centroid, "
-        "    hilbert_lo = t.hilbert_lo, "
-        "    hilbert_hi = t.hilbert_hi "
-        "FROM tmp_proj t "
-        "WHERE c.id = t.id");
-        
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "[PROJ] UPDATE failed: " << PQerrorMessage(conn) << "\n";
-        PQexec(conn, "ROLLBACK");
-        return false;
-    }
-    
-    int updated = atoi(PQcmdTuples(res));
-    PQclear(res);
-    
-    res = PQexec(conn, "COMMIT");
-    PQclear(res);
-    
-    std::cerr << "[PROJ] Updated " << updated << " compositions with 4D coordinates\n";
+    std::cerr << "\n[EXTRACT] Total: " << total_edges << " relation edges from model weights\n";
     return true;
 }

@@ -219,11 +219,11 @@ $successCount = 0
 $failCount = 0
 $skipCount = 0
 
-# Find universal ingester
-$universalIngester = if (Test-Path "$env:HC_BUILD_DIR\ingest_safetensor_universal.exe") {
-    "$env:HC_BUILD_DIR\ingest_safetensor_universal.exe"
-} elseif (Test-Path "$env:HC_BUILD_DIR\Release\ingest_safetensor_universal.exe") {
-    "$env:HC_BUILD_DIR\Release\ingest_safetensor_universal.exe"
+# Find the main ingester (ingest_safetensor.exe with hierarchy support)
+$universalIngester = if (Test-Path "$env:HC_BUILD_DIR\ingest_safetensor.exe") {
+    "$env:HC_BUILD_DIR\ingest_safetensor.exe"
+} elseif (Test-Path "$env:HC_BUILD_DIR\Release\ingest_safetensor.exe") {
+    "$env:HC_BUILD_DIR\Release\ingest_safetensor.exe"
 } else { $null }
 
 foreach ($m in $models) {

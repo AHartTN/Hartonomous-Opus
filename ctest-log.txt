@@ -1,0 +1,975 @@
+UpdateCTestConfiguration  from :D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/DartConfiguration.tcl
+Test project D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1
+      Start  1: HilbertTest
+
+1: Test command: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\build\test_hilbert.exe
+1: Working Directory: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+1: Test timeout computed to be: 10000000
+1: === Hilbert Curve Tests ===
+1: Testing Hilbert curve roundtrip...
+1:   Specific points: PASS
+1:   Random points (100): PASS
+1: Testing Hilbert curve locality...
+1:   Locality property: PASS
+1: Testing Hilbert index ordering...
+1:   Index comparison: PASS
+1: Testing Hilbert index arithmetic...
+1:   Arithmetic: PASS
+1: 
+1: All tests passed!
+ 1/10 Test  #1: HilbertTest ......................   Passed    0.09 sec
+test 2
+      Start  2: CoordinatesTest
+
+2: Test command: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\build\test_coordinates.exe
+2: Working Directory: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+2: Test timeout computed to be: 10000000
+2: === Coordinate Mapper Tests ===
+2: Testing Unicode categorization...
+2:   Categorization: 14/14 passed
+2: Testing surface distribution...
+2:   Surface check: 228/228 on surface
+2:   Surface distribution: PASS
+2: Testing centroid calculation...
+2:   Simple centroid: PASS
+2:   Letters centroid: (1745043598, 1837888458, 1199358572, 1146707338)
+2:   Centroid calculation: PASS
+2: Testing Euclidean distance...
+2:   Euclidean distance: PASS
+2: Testing semantic clustering...
+2:   A at: (1073741823, 1073741823, 1073741823, 1073741823)
+2:   Z at: (2552089595, 3720159182, 1659684756, 829635422)
+2:   a at: (1044753252, 1124134906, 1065341649, 1062404046)
+2:   0 at: (3623260742, 3105215293, 1742492130, 984513334)
+2:   Semantic clustering: PASS
+2: Testing Hilbert integration...
+2:   Hilbert integration: PASS
+2: 
+2: All tests passed!
+ 2/10 Test  #2: CoordinatesTest ..................   Passed    0.07 sec
+test 3
+      Start  3: Blake3Test
+
+3: Test command: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\build\test_blake3.exe
+3: Working Directory: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+3: Test timeout computed to be: 10000000
+3: === BLAKE3 Tests ===
+3: Testing basic hashing...
+3:   Empty hash: PASS
+3:   hello hash: ea8f163db38682925e4491c5e58d4bb3506ef8c14eb78a86e908c5624a67200f
+3:   Different inputs: PASS
+3:   Deterministic: PASS
+3: Testing codepoint hashing...
+3:   Codepoint hashing: PASS
+3: Testing Merkle DAG hashing...
+3:   Merkle hashing: PASS
+3: Testing incremental hashing...
+3:   Incremental hashing: PASS
+3:   Reset: PASS
+3: Testing hex conversion...
+3:   Hex conversion: PASS
+3: Testing keyed hashing...
+3:   Keyed hashing: PASS
+3: Testing key derivation...
+3:   Key derivation: PASS
+3: 
+3: All tests passed!
+ 3/10 Test  #3: Blake3Test .......................   Passed    0.07 sec
+test 4
+      Start  4: SemanticTest
+
+4: Test command: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\build\test_semantic.exe
+4: Working Directory: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+4: Test timeout computed to be: 10000000
+4: ============================================
+4:   Hartonomous Hypercube Semantic Tests
+4: ============================================
+4: 
+4: === Test: Surface Constraint ===
+4:   Total on surface: 1112064
+4:   Total off surface: 0
+4: PASSED: All atoms are on hypercube surface
+4: 
+4: === Test: Case Pair Proximity ===
+4: PASSED: A is categorized as LetterUpper
+4: PASSED: a is categorized as LetterLower
+4: PASSED: B is categorized as LetterUpper
+4: PASSED: b is categorized as LetterLower
+4: PASSED: C is categorized as LetterUpper
+4: PASSED: c is categorized as LetterLower
+4: PASSED: D is categorized as LetterUpper
+4: PASSED: d is categorized as LetterLower
+4: PASSED: E is categorized as LetterUpper
+4: PASSED: e is categorized as LetterLower
+4: PASSED: F is categorized as LetterUpper
+4: PASSED: f is categorized as LetterLower
+4: PASSED: G is categorized as LetterUpper
+4: PASSED: g is categorized as LetterLower
+4: PASSED: H is categorized as LetterUpper
+4: PASSED: h is categorized as LetterLower
+4: PASSED: I is categorized as LetterUpper
+4: PASSED: i is categorized as LetterLower
+4: PASSED: J is categorized as LetterUpper
+4: PASSED: j is categorized as LetterLower
+4: PASSED: K is categorized as LetterUpper
+4: PASSED: k is categorized as LetterLower
+4: PASSED: L is categorized as LetterUpper
+4: PASSED: l is categorized as LetterLower
+4: PASSED: M is categorized as LetterUpper
+4: PASSED: m is categorized as LetterLower
+4: PASSED: N is categorized as LetterUpper
+4: PASSED: n is categorized as LetterLower
+4: PASSED: O is categorized as LetterUpper
+4: PASSED: o is categorized as LetterLower
+4: PASSED: P is categorized as LetterUpper
+4: PASSED: p is categorized as LetterLower
+4: PASSED: Q is categorized as LetterUpper
+4: PASSED: q is categorized as LetterLower
+4: PASSED: R is categorized as LetterUpper
+4: PASSED: r is categorized as LetterLower
+4: PASSED: S is categorized as LetterUpper
+4: PASSED: s is categorized as LetterLower
+4: PASSED: T is categorized as LetterUpper
+4: PASSED: t is categorized as LetterLower
+4: PASSED: U is categorized as LetterUpper
+4: PASSED: u is categorized as LetterLower
+4: PASSED: V is categorized as LetterUpper
+4: PASSED: v is categorized as LetterLower
+4: PASSED: W is categorized as LetterUpper
+4: PASSED: w is categorized as LetterLower
+4: PASSED: X is categorized as LetterUpper
+4: PASSED: x is categorized as LetterLower
+4: PASSED: Y is categorized as LetterUpper
+4: PASSED: y is categorized as LetterLower
+4: PASSED: Z is categorized as LetterUpper
+4: PASSED: z is categorized as LetterLower
+4:   Distance A-a: 5.9824e+07
+4:   Distance A-Z: 3.09709e+09
+4: PASSED: A and a have non-zero distance (different coordinates)
+4: PASSED: A is closer to a (same letter) than to Z (different letter) (5.9824e+07 < 3.09709e+09)
+4: 
+4: === Test: Category Clustering ===
+4:   Category 0 (control): 65 points, 100% on S┬│ surface
+4:   Category 1 (format): 26 points, 100% on S┬│ surface
+4:   Category 5 (space): 15 points, 100% on S┬│ surface
+4:   Category 6 (punctuation_open): 3 points, 100% on S┬│ surface
+4:   Category 7 (punctuation_close): 3 points, 100% on S┬│ surface
+4:   Category 8 (punctuation_other): 100 points, 100% on S┬│ surface
+4:   Category 9 (digit): 10 points, 100% on S┬│ surface
+4:   Category 11 (math_symbol): 100 points, 100% on S┬│ surface
+4:   Category 14 (letter_upper): 56 points, 100% on S┬│ surface
+4:   Category 15 (letter_lower): 58 points, 100% on S┬│ surface
+4:   Category 17 (letter_modifier): 80 points, 100% on S┬│ surface
+4:   Category 18 (letter_other): 100 points, 100% on S┬│ surface
+4:   Category 19 (mark_nonspacing): 100 points, 100% on S┬│ surface
+4:   Category 22 (symbol_other): 100 points, 100% on S┬│ surface
+4:   Category 23 (separator): 2 points, 100% on S┬│ surface
+4: PASSED: Category clustering analysis complete
+4: 
+4: === Test: Digit Clustering ===
+4: PASSED: '0' is categorized as Digit
+4: PASSED: '1' is categorized as Digit
+4: PASSED: '2' is categorized as Digit
+4: PASSED: '3' is categorized as Digit
+4: PASSED: '4' is categorized as Digit
+4: PASSED: '5' is categorized as Digit
+4: PASSED: '6' is categorized as Digit
+4: PASSED: '7' is categorized as Digit
+4: PASSED: '8' is categorized as Digit
+4: PASSED: '9' is categorized as Digit
+4: PASSED: All 10 digits are on 3-sphere surface
+4:   Digit centroid: (3621257915, 2672106556, 1892803938, 746094849)
+4:   Distance 0-1: 2.84795e+08
+4:   Distance 0-A: 3.32898e+09
+4: PASSED: Digit 0 is closer to digit 1 than to letter A (2.84795e+08 < 3.32898e+09)
+4: 
+4: === Test: Hilbert Locality ===
+4:   Hilbert ordering of letters:
+4:     0: hilbert_lo=7751419922987012008
+4:     1: hilbert_lo=15836723767070259698
+4:     2: hilbert_lo=11330822538001324339
+4:     3: hilbert_lo=1477303613200650312
+4:     4: hilbert_lo=4569712626759569611
+4:     5: hilbert_lo=2501736547828558799
+4:     6: hilbert_lo=6582624226159615378
+4:     7: hilbert_lo=8911985232404592026
+4:     8: hilbert_lo=17434197756155891064
+4:     9: hilbert_lo=4805358968915538794
+4: PASSED: All 52 letters have Hilbert indices
+4: 
+4: === Test: Hilbert Roundtrip ===
+4:   Roundtrip: 1112064 passed, 0 failed
+4: PASSED: Hilbert coords->index->coords roundtrip is lossless
+4: 
+4: === Test: BLAKE3 Uniqueness ===
+4:   Unique hashes: 1112064
+4:   Duplicates: 0
+4: PASSED: All BLAKE3 hashes are unique
+4: 
+4: === Test: BLAKE3 Determinism ===
+4: PASSED: BLAKE3 hash is deterministic (same input = same output)
+4: 
+4: === Test: Generation Performance ===
+4:   Generated 1112064 atoms in 732 ms
+4: PASSED: Generation completes in under 2 seconds (732 < 2000)
+4: 
+4: === Test: Atom Count ===
+4:   Total valid codepoints: 1112064
+4: PASSED: Atom count matches expected valid codepoints
+4: 
+4: ============================================
+4:   Results: 74 passed, 0 failed
+4: ============================================
+ 4/10 Test  #4: SemanticTest .....................   Passed    2.95 sec
+test 5
+      Start  5: ClusteringTest
+
+5: Test command: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\build\test_clustering.exe
+5: Working Directory: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+5: Test timeout computed to be: 10000000
+5: ΓòöΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòù
+5: Γòæ     Semantic Clustering Validation Tests                     Γòæ
+5: ΓòÜΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓò¥
+5: 
+5: === Test: Case Pair Proximity ===
+5:   A/a distance: 5.98e+07
+5:   B/b distance: 2.28e+08
+5:   I/i distance: 2.07e+08
+5:   O/o distance: 2.27e+08
+5:   Z/z distance: 3.81e+08
+5:   Γ£ô Case pairs within 10% of space diameter
+5:   Γ£ô Average case distance < 5% of diameter
+5: 
+5: === Test: Diacritic Variant Proximity ===
+5:   A/U+c0 distance: 2.17e+08
+5:   A/U+c1 distance: 1.75e+08
+5:   A/U+c4 distance: 1.32e+08
+5:   E/U+c9 distance: 6.56e+08
+5:   O/U+d6 distance: 3.86e+08
+5:   a/U+e0 distance: 5.31e+08
+5:   a/U+e1 distance: 5.28e+08
+5:   Γ£ô Diacritics within 10% of space diameter
+5: 
+5: === Test: Cross-Base Distance ===
+5:   A-a (case pair): 5.98e+07
+5:   A-B (adjacent): 2.97e+08
+5:   A-Z (far): 3.10e+09
+5:   Γ£ô Case pair (A-a) closer than adjacent (A-B)
+5:   Γ£ô Case pair (A-a) closer than far (A-Z)
+5: 
+5: === Test: Keyboard Adjacent Keys ===
+5:   Q-W: 2.83e+09
+5:   W-E: 3.40e+09
+5:   E-R: 8.61e+08
+5:   R-T: 3.01e+09
+5:   A-S: 2.25e+09
+5:   S-D: 1.19e+09
+5:   D-F: 1.49e+09
+5:   I-O: 1.35e+09
+5:   O-P: 7.96e+08
+5:   K-L: 1.91e+09
+5:   Average keyboard-adjacent distance: 1.91e+09
+5:   (Note: Keyboard proximity learned via edges, not coordinates)
+5: 
+5: === Test: Script Family Grouping ===
+5:   Greek ╬æ/╬▒ (case): 3.07e+08
+5:   Greek ╬æ-╬⌐ (span): 4.33e+08
+5:   Cyrillic ╨É-╨» (span): 5.52e+08
+5:   Latin A vs Greek ╬æ: 3.20e+09
+5:   Γ£ô Greek case pairs closer than alphabet span
+5: 
+5: === Test: Digit Grouping ===
+5:   ASCII 0-9 span: 5.61e+08
+5:   Fullwidth ∩╝É-∩╝Ö span: 4.09e+08
+5:   ASCII 0 vs Fullwidth ∩╝É: 8.99e+08
+5:   Γ£ô ASCII digits reasonably grouped
+5: 
+5: === Test: Typo Trajectory Similarity ===
+5:   king-ling (kΓåÆl typo): 1.73e+09
+5:   king-kong (iΓåÆo typo): 1.64e+09
+5:   king-fish (different): 3.23e+09
+5:   Γ£ô One-char typo closer than completely different word
+5:   Γ£ô One-char typo closer than completely different word
+5: 
+5: ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+5:   Γ£ô All 10 tests passed!
+5: ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+ 5/10 Test  #5: ClusteringTest ...................   Passed    0.07 sec
+test 6
+      Start  6: Laplacian4DTest
+
+6: Test command: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\build\test_laplacian_4d.exe
+6: Working Directory: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+6: Test timeout computed to be: 10000000
+6: Running simd_dot_product... PASSED
+6: Running simd_cosine_similarity... PASSED
+6: Running sparse_matrix_basic... PASSED
+6: Running sparse_matrix_multiply... PASSED
+6: Running gram_schmidt_orthonormality... PASSED
+6: Running hypercube_normalization... PASSED
+6: Running hilbert_roundtrip... PASSED
+6: Running full_projection_small... 
+6: === Laplacian Eigenmap Projection to 4D ===
+6: Tokens: 50, Embedding dim: 32
+6: 
+6: [1] Building k-NN similarity graph (k=10)...
+6: [HNSWLIB] Building HNSW index for 50 points, dim=32
+6: [HNSWLIB] Index built in 1 ms
+6: [HNSWLIB] k-NN queries completed in 0 ms
+6: [HNSWLIB] Built k-NN graph with 248 edges
+6: 
+6: [1.5] Ensuring graph connectivity...
+6: [CONNECT] Found 4 disconnected components
+6: [CONNECT] Added 3 edges to ensure connectivity
+6: 
+6: [2] Building unnormalized Laplacian L = D - W...
+6: [DEBUG] Laplacian stats: size=50, nnz=502
+6: [DEBUG] ||L*1|| = 0 (should be ~0)
+6: [DEBUG] Laplacian stats: size=50, nnz=502
+6:   diagonal range: [5.75555, 11.6013]
+6:   off-diag range: [-0.982497, 0]
+6: 
+6: [3] Finding 4 smallest non-zero eigenvectors...
+6: [EIGEN] Using dense eigendecomposition for 50 points
+6: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+6: [MKL] Eigendecomposition completed in 0 ms
+6: [MKL] Found 5 eigenvalues
+6: [MKL] Eigenvalues: -9.34787e-18 0.000832598 0.0011379 0.00424285 5.56637 ...
+6: 
+6: [4] Gram-Schmidt orthonormalization...
+6: [GS] Gram-Schmidt orthonormalization on 4 columns of length 50
+6: [GS] Max off-diagonal dot product: 6.70355e-17
+6: 
+6: [5] Normalizing to [0, 2^32-1]^4...
+6: [NORM] Coordinate ranges before normalization:
+6:   dim 0: [-0.204157, 0.204163]
+6:   dim 1: [-0.135879, 0.200971]
+6:   dim 2: [-0.233506, 0.128812]
+6:   dim 3: [-0.889343, 0.227268]
+6: [NORM] Normalized 50 points to [0, 2^32-1]^4
+6: 
+6: [7] Computing Hilbert indices (parallel)...
+6: 
+6: === Projection Complete in 0 seconds ===
+6: Projected 50 tokens to 4D hypercube
+6: Similarity graph edges: 248
+6: (edges=248) PASSED
+6: 
+6: === Laplacian 4D Projection Tests ===
+6: 
+6: 
+6: === Summary ===
+6: Passed: 8
+6: Failed: 0
+ 6/10 Test  #6: Laplacian4DTest ..................   Passed    0.13 sec
+test 7
+      Start  7: IntegrationTest
+
+7: Test command: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\build\test_integration.exe
+7: Working Directory: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+7: Environment variables: 
+7:  HC_DB_NAME=hypercube
+7:  HC_DB_USER=hartonomous
+7:  HC_DB_PASS=hartonomous
+7:  HC_DB_HOST=localhost
+7:  HC_DB_PORT=5432
+7: Test timeout computed to be: 10000000
+7: 
+7: [1m+--------------------------------------------------------------+
+7: |     Hartonomous Hypercube - Integration Tests               |
+7: |     3-Table Schema Validation                               |
+7: +--------------------------------------------------------------+
+7: [0m
+7: [2mConnecting to hypercube@localhost...[0m
+7: [31mConnection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+7: [0m
+ 7/10 Test  #7: IntegrationTest ..................***Failed    0.12 sec
+test 8
+      Start  8: QueryAPITest
+
+8: Test command: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\build\test_query_api.exe
+8: Working Directory: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+8: Environment variables: 
+8:  HC_DB_NAME=hypercube
+8:  HC_DB_USER=hartonomous
+8:  HC_DB_PASS=hartonomous
+8:  HC_DB_HOST=localhost
+8:  HC_DB_PORT=5432
+8: Test timeout computed to be: 10000000
+8: 
+8: [1m+--------------------------------------------------------------+
+8: |     Hartonomous Hypercube - Query API Test Suite            |
+8: |     Human-Readable Output with Query Results                |
+8: +--------------------------------------------------------------+
+8: [0m
+8: [2mConnecting to hartonomous@localhost:5432/hypercube...[0m
+8: [31mConnection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+8: [0m
+ 8/10 Test  #8: QueryAPITest .....................***Failed    0.12 sec
+test 9
+      Start  9: HypercubeTests
+
+9: Test command: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\build\hypercube_tests.exe
+9: Working Directory: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+9: Test timeout computed to be: 10000000
+9: [==========] Running 32 tests from 5 test suites.
+9: [----------] Global test environment set-up.
+9: [----------] 6 tests from Blake3Test
+9: [ RUN      ] Blake3Test.EmptyInput
+9: [       OK ] Blake3Test.EmptyInput (0 ms)
+9: [ RUN      ] Blake3Test.Deterministic
+9: [       OK ] Blake3Test.Deterministic (0 ms)
+9: [ RUN      ] Blake3Test.DifferentInputsDifferentHashes
+9: [       OK ] Blake3Test.DifferentInputsDifferentHashes (0 ms)
+9: [ RUN      ] Blake3Test.AvalancheEffect
+9: [       OK ] Blake3Test.AvalancheEffect (0 ms)
+9: [ RUN      ] Blake3Test.HexConversion
+9: [       OK ] Blake3Test.HexConversion (0 ms)
+9: [ RUN      ] Blake3Test.LargeInput
+9: [       OK ] Blake3Test.LargeInput (1 ms)
+9: [----------] 6 tests from Blake3Test (1 ms total)
+9: 
+9: [----------] 6 tests from HilbertTest
+9: [ RUN      ] HilbertTest.OriginRoundTrip
+9: [       OK ] HilbertTest.OriginRoundTrip (0 ms)
+9: [ RUN      ] HilbertTest.RoundTrip
+9: [       OK ] HilbertTest.RoundTrip (0 ms)
+9: [ RUN      ] HilbertTest.LocalityPreservation
+9: [       OK ] HilbertTest.LocalityPreservation (0 ms)
+9: [ RUN      ] HilbertTest.Uniqueness
+9: [       OK ] HilbertTest.Uniqueness (1 ms)
+9: [ RUN      ] HilbertTest.AxisCoverage
+9: [       OK ] HilbertTest.AxisCoverage (0 ms)
+9: [ RUN      ] HilbertTest.MaxCoordinates
+9: [       OK ] HilbertTest.MaxCoordinates (0 ms)
+9: [----------] 6 tests from HilbertTest (1 ms total)
+9: 
+9: [----------] 6 tests from CoordinatesTest
+9: [ RUN      ] CoordinatesTest.ASCIIMapping
+9: [       OK ] CoordinatesTest.ASCIIMapping (0 ms)
+9: [ RUN      ] CoordinatesTest.Uniqueness
+9: [       OK ] CoordinatesTest.Uniqueness (0 ms)
+9: [ RUN      ] CoordinatesTest.CentroidCalculation
+9: [       OK ] CoordinatesTest.CentroidCalculation (0 ms)
+9: [ RUN      ] CoordinatesTest.WeightedCentroid
+9: [       OK ] CoordinatesTest.WeightedCentroid (0 ms)
+9: [ RUN      ] CoordinatesTest.CategoryDetection
+9: [       OK ] CoordinatesTest.CategoryDetection (0 ms)
+9: [ RUN      ] CoordinatesTest.Deterministic
+9: [       OK ] CoordinatesTest.Deterministic (0 ms)
+9: [----------] 6 tests from CoordinatesTest (0 ms total)
+9: 
+9: [----------] 5 tests from LaplacianTest
+9: [ RUN      ] LaplacianTest.ProjectionOutput
+9: 
+9: === Laplacian Eigenmap Projection to 4D ===
+9: Tokens: 50, Embedding dim: 32
+9: 
+9: [1] Building k-NN similarity graph (k=5)...
+9: [HNSWLIB] Building HNSW index for 50 points, dim=32
+9: [HNSWLIB] Index built in 1 ms
+9: [HNSWLIB] k-NN queries completed in 0 ms
+9: [HNSWLIB] Built k-NN graph with 124 edges
+9: 
+9: [1.5] Ensuring graph connectivity...
+9: [CONNECT] Graph is already connected
+9: 
+9: [2] Building unnormalized Laplacian L = D - W...
+9: [DEBUG] Laplacian stats: size=50, nnz=248
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
+9: [DEBUG] Laplacian stats: size=50, nnz=248
+9:   diagonal range: [0.709168, 3.0525]
+9:   off-diag range: [-0.617132, 0]
+9: 
+9: [3] Finding 4 smallest non-zero eigenvectors...
+9: [EIGEN] Using dense eigendecomposition for 50 points
+9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+9: [MKL] Eigendecomposition completed in 0 ms
+9: [MKL] Found 5 eigenvalues
+9: [MKL] Eigenvalues: -6.28288e-17 0.272987 0.349816 0.368139 0.41439 ...
+9: 
+9: [4] Gram-Schmidt orthonormalization...
+9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 50
+9: [GS] Max off-diagonal dot product: 3.90313e-17
+9: 
+9: [5] Normalizing to [0, 2^32-1]^4...
+9: [NORM] Coordinate ranges before normalization:
+9:   dim 0: [-0.400187, 0.22846]
+9:   dim 1: [-0.335249, 0.243171]
+9:   dim 2: [-0.365631, 0.402283]
+9:   dim 3: [-0.229546, 0.353603]
+9: [NORM] Normalized 50 points to [0, 2^32-1]^4
+9: 
+9: [6] Projecting to hypersphere...
+9: [SPHERE] Projecting 50 points onto hypersphere (parallel)...
+9: [SPHERE] Projection complete
+9: 
+9: [7] Computing Hilbert indices (parallel)...
+9: 
+9: === Projection Complete in 0 seconds ===
+9: Projected 50 tokens to 4D hypercube
+9: Similarity graph edges: 124
+9: [       OK ] LaplacianTest.ProjectionOutput (3 ms)
+9: [ RUN      ] LaplacianTest.LocalityPreservation
+9: 
+9: === Laplacian Eigenmap Projection to 4D ===
+9: Tokens: 30, Embedding dim: 16
+9: 
+9: [1] Building k-NN similarity graph (k=5)...
+9: [HNSWLIB] Building HNSW index for 30 points, dim=16
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] k-NN queries completed in 0 ms
+9: [HNSWLIB] Built k-NN graph with 75 edges
+9: 
+9: [1.5] Ensuring graph connectivity...
+9: [CONNECT] Found 2 disconnected components
+9: [CONNECT] Added 1 edges to ensure connectivity
+9: 
+9: [2] Building unnormalized Laplacian L = D - W...
+9: [DEBUG] Laplacian stats: size=30, nnz=152
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
+9: [DEBUG] Laplacian stats: size=30, nnz=152
+9:   diagonal range: [1.99662, 7.99361]
+9:   off-diag range: [-0.99975, 0]
+9: 
+9: [3] Finding 4 smallest non-zero eigenvectors...
+9: [EIGEN] Using dense eigendecomposition for 30 points
+9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+9: [MKL] Eigendecomposition completed in 0 ms
+9: [MKL] Found 5 eigenvalues
+9: [MKL] Eigenvalues: -2.42767e-16 0.0485441 0.760059 1.3041 1.98862 ...
+9: 
+9: [4] Gram-Schmidt orthonormalization...
+9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 30
+9: [GS] Max off-diagonal dot product: 7.51509e-17
+9: 
+9: [5] Normalizing to [0, 2^32-1]^4...
+9: [NORM] Coordinate ranges before normalization:
+9:   dim 0: [-0.149952, 0.245913]
+9:   dim 1: [-0.30851, 0.427455]
+9:   dim 2: [-0.577686, 0.658464]
+9:   dim 3: [-0.616801, 0.416977]
+9: [NORM] Normalized 30 points to [0, 2^32-1]^4
+9: 
+9: [6] Projecting to hypersphere...
+9: [SPHERE] Projecting 30 points onto hypersphere (parallel)...
+9: [SPHERE] Projection complete
+9: 
+9: [7] Computing Hilbert indices (parallel)...
+9: 
+9: === Projection Complete in 0 seconds ===
+9: Projected 30 tokens to 4D hypercube
+9: Similarity graph edges: 75
+9: [       OK ] LaplacianTest.LocalityPreservation (2 ms)
+9: [ RUN      ] LaplacianTest.Deterministic
+9: 
+9: === Laplacian Eigenmap Projection to 4D ===
+9: Tokens: 20, Embedding dim: 16
+9: 
+9: [1] Building k-NN similarity graph (k=3)...
+9: [HNSWLIB] Building HNSW index for 20 points, dim=16
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] k-NN queries completed in 0 ms
+9: [HNSWLIB] Built k-NN graph with 28 edges
+9: 
+9: [1.5] Ensuring graph connectivity...
+9: [CONNECT] Graph is already connected
+9: 
+9: [2] Building unnormalized Laplacian L = D - W...
+9: [DEBUG] Laplacian stats: size=20, nnz=56
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
+9: [DEBUG] Laplacian stats: size=20, nnz=56
+9:   diagonal range: [0.193539, 1.62729]
+9:   off-diag range: [-0.482114, 0]
+9: 
+9: [3] Finding 4 smallest non-zero eigenvectors...
+9: [EIGEN] Using dense eigendecomposition for 20 points
+9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+9: [MKL] Eigendecomposition completed in 0 ms
+9: [MKL] Found 5 eigenvalues
+9: [MKL] Eigenvalues: -4.19255e-17 0.0692284 0.0967504 0.158985 0.167093 ...
+9: 
+9: [4] Gram-Schmidt orthonormalization...
+9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 20
+9: [GS] Max off-diagonal dot product: 5.55112e-17
+9: 
+9: [5] Normalizing to [0, 2^32-1]^4...
+9: [NORM] Coordinate ranges before normalization:
+9:   dim 0: [-0.385489, 0.329274]
+9:   dim 1: [-0.281973, 0.437597]
+9:   dim 2: [-0.3061, 0.8032]
+9:   dim 3: [-0.639839, 0.299062]
+9: [NORM] Normalized 20 points to [0, 2^32-1]^4
+9: 
+9: [6] Projecting to hypersphere...
+9: [SPHERE] Projecting 20 points onto hypersphere (parallel)...
+9: [SPHERE] Projection complete
+9: 
+9: [7] Computing Hilbert indices (parallel)...
+9: 
+9: === Projection Complete in 0 seconds ===
+9: Projected 20 tokens to 4D hypercube
+9: Similarity graph edges: 28
+9: 
+9: === Laplacian Eigenmap Projection to 4D ===
+9: Tokens: 20, Embedding dim: 16
+9: 
+9: [1] Building k-NN similarity graph (k=3)...
+9: [HNSWLIB] Building HNSW index for 20 points, dim=16
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] k-NN queries completed in 0 ms
+9: [HNSWLIB] Built k-NN graph with 28 edges
+9: 
+9: [1.5] Ensuring graph connectivity...
+9: [CONNECT] Graph is already connected
+9: 
+9: [2] Building unnormalized Laplacian L = D - W...
+9: [DEBUG] Laplacian stats: size=20, nnz=56
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
+9: [DEBUG] Laplacian stats: size=20, nnz=56
+9:   diagonal range: [0.193539, 1.62729]
+9:   off-diag range: [-0.482114, 0]
+9: 
+9: [3] Finding 4 smallest non-zero eigenvectors...
+9: [EIGEN] Using dense eigendecomposition for 20 points
+9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+9: [MKL] Eigendecomposition completed in 0 ms
+9: [MKL] Found 5 eigenvalues
+9: [MKL] Eigenvalues: -4.19255e-17 0.0692284 0.0967504 0.158985 0.167093 ...
+9: 
+9: [4] Gram-Schmidt orthonormalization...
+9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 20
+9: [GS] Max off-diagonal dot product: 5.55112e-17
+9: 
+9: [5] Normalizing to [0, 2^32-1]^4...
+9: [NORM] Coordinate ranges before normalization:
+9:   dim 0: [-0.385489, 0.329274]
+9:   dim 1: [-0.281973, 0.437597]
+9:   dim 2: [-0.3061, 0.8032]
+9:   dim 3: [-0.639839, 0.299062]
+9: [NORM] Normalized 20 points to [0, 2^32-1]^4
+9: 
+9: [6] Projecting to hypersphere...
+9: [SPHERE] Projecting 20 points onto hypersphere (parallel)...
+9: [SPHERE] Projection complete
+9: 
+9: [7] Computing Hilbert indices (parallel)...
+9: 
+9: === Projection Complete in 0 seconds ===
+9: Projected 20 tokens to 4D hypercube
+9: Similarity graph edges: 28
+9: [       OK ] LaplacianTest.Deterministic (3 ms)
+9: [ RUN      ] LaplacianTest.SmallDataset
+9: 
+9: === Laplacian Eigenmap Projection to 4D ===
+9: Tokens: 5, Embedding dim: 4
+9: 
+9: [1] Building k-NN similarity graph (k=2)...
+9: [HNSWLIB] Building HNSW index for 5 points, dim=4
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] k-NN queries completed in 0 ms
+9: [HNSWLIB] Built k-NN graph with 2 edges
+9: 
+9: [1.5] Ensuring graph connectivity...
+9: [CONNECT] Found 3 disconnected components
+9: [CONNECT] Added 2 edges to ensure connectivity
+9: 
+9: [2] Building unnormalized Laplacian L = D - W...
+9: [DEBUG] Laplacian stats: size=5, nnz=8
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
+9: [DEBUG] Laplacian stats: size=5, nnz=8
+9:   diagonal range: [0.01, 1.41421]
+9:   off-diag range: [-0.707107, 0]
+9: 
+9: [3] Finding 4 smallest non-zero eigenvectors...
+9: [EIGEN] Using dense eigendecomposition for 5 points
+9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+9: [MKL] Eigendecomposition completed in 0 ms
+9: [MKL] Found 5 eigenvalues
+9: [MKL] Eigenvalues: -5.55112e-17 0.01 0.0164032 0.71732 2.1247 ...
+9: 
+9: [4] Gram-Schmidt orthonormalization...
+9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 5
+9: [GS] Max off-diagonal dot product: 6.59195e-17
+9: 
+9: [5] Normalizing to [0, 2^32-1]^4...
+9: [NORM] Coordinate ranges before normalization:
+9:   dim 0: [-0.707107, 0.707107]
+9:   dim 1: [-0.376667, 0.547627]
+9:   dim 2: [-0.701985, 0.711977]
+9:   dim 3: [-0.815184, 0.412466]
+9: [NORM] Normalized 5 points to [0, 2^32-1]^4
+9: 
+9: [6] Projecting to hypersphere...
+9: [SPHERE] Projecting 5 points onto hypersphere (parallel)...
+9: [SPHERE] Projection complete
+9: 
+9: [7] Computing Hilbert indices (parallel)...
+9: 
+9: === Projection Complete in 0 seconds ===
+9: Projected 5 tokens to 4D hypercube
+9: Similarity graph edges: 2
+9: [       OK ] LaplacianTest.SmallDataset (1 ms)
+9: [ RUN      ] LaplacianTest.SphericalProjection
+9: 
+9: === Laplacian Eigenmap Projection to 4D ===
+9: Tokens: 30, Embedding dim: 16
+9: 
+9: [1] Building k-NN similarity graph (k=5)...
+9: [HNSWLIB] Building HNSW index for 30 points, dim=16
+9: [HNSWLIB] Index built in 1 ms
+9: [HNSWLIB] k-NN queries completed in 0 ms
+9: [HNSWLIB] Built k-NN graph with 80 edges
+9: 
+9: [1.5] Ensuring graph connectivity...
+9: [CONNECT] Graph is already connected
+9: 
+9: [2] Building unnormalized Laplacian L = D - W...
+9: [DEBUG] Laplacian stats: size=30, nnz=160
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
+9: [DEBUG] Laplacian stats: size=30, nnz=160
+9:   diagonal range: [0.774192, 2.9385]
+9:   off-diag range: [-0.539821, 0]
+9: 
+9: [3] Finding 4 smallest non-zero eigenvectors...
+9: [EIGEN] Using dense eigendecomposition for 30 points
+9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+9: [MKL] Eigendecomposition completed in 0 ms
+9: [MKL] Found 5 eigenvalues
+9: [MKL] Eigenvalues: -1.44535e-16 0.25113 0.455202 0.564349 0.708118 ...
+9: 
+9: [4] Gram-Schmidt orthonormalization...
+9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 30
+9: [GS] Max off-diagonal dot product: 2.42861e-17
+9: 
+9: [5] Normalizing to [0, 2^32-1]^4...
+9: [NORM] Coordinate ranges before normalization:
+9:   dim 0: [-0.213844, 0.331653]
+9:   dim 1: [-0.250091, 0.367443]
+9:   dim 2: [-0.191876, 0.737478]
+9:   dim 3: [-0.362829, 0.416411]
+9: [NORM] Normalized 30 points to [0, 2^32-1]^4
+9: 
+9: [6] Projecting to hypersphere...
+9: [SPHERE] Projecting 30 points onto hypersphere (parallel)...
+9: [SPHERE] Projection complete
+9: 
+9: [7] Computing Hilbert indices (parallel)...
+9: 
+9: === Projection Complete in 0 seconds ===
+9: Projected 30 tokens to 4D hypercube
+9: Similarity graph edges: 80
+9: [       OK ] LaplacianTest.SphericalProjection (2 ms)
+9: [----------] 5 tests from LaplacianTest (13 ms total)
+9: 
+9: [----------] 9 tests from BackendTest
+9: [ RUN      ] BackendTest.CPUDetection
+9: [       OK ] BackendTest.CPUDetection (0 ms)
+9: [ RUN      ] BackendTest.SIMDDetection
+9: [       OK ] BackendTest.SIMDDetection (0 ms)
+9: [ RUN      ] BackendTest.SingletonCaching
+9: [       OK ] BackendTest.SingletonCaching (0 ms)
+9: [ RUN      ] BackendTest.ConvenienceAccessors
+9: [       OK ] BackendTest.ConvenienceAccessors (0 ms)
+9: [ RUN      ] BackendTest.SummaryGeneration
+9: [       OK ] BackendTest.SummaryGeneration (0 ms)
+9: [ RUN      ] BackendTest.BackendSelection
+9: [       OK ] BackendTest.BackendSelection (0 ms)
+9: [ RUN      ] BackendTest.AVXDetectionIntel
+9: [       OK ] BackendTest.AVXDetectionIntel (0 ms)
+9: [ RUN      ] BackendTest.EnumNames
+9: [       OK ] BackendTest.EnumNames (0 ms)
+9: [ RUN      ] BackendTest.SIMDWidth
+9: [       OK ] BackendTest.SIMDWidth (0 ms)
+9: [----------] 9 tests from BackendTest (0 ms total)
+9: 
+9: [----------] Global test environment tear-down
+9: [==========] 32 tests from 5 test suites ran. (16 ms total)
+9: [  PASSED  ] 32 tests.
+ 9/10 Test  #9: HypercubeTests ...................   Passed    0.14 sec
+test 10
+      Start 10: HypercubeSQLTests
+
+10: Test command: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\build\hypercube_sql_tests.exe
+10: Working Directory: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+10: Environment variables: 
+10:  HC_DB_NAME=hypercube
+10:  HC_DB_USER=hartonomous
+10:  HC_DB_PASS=hartonomous
+10:  HC_DB_HOST=localhost
+10:  HC_DB_PORT=5432
+10: Test timeout computed to be: 10000000
+10: [==========] Running 20 tests from 3 test suites.
+10: [----------] Global test environment set-up.
+10: [----------] 7 tests from SQLSchemaTest
+10: [ RUN      ] SQLSchemaTest.CoreTablesExist
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLSchemaTest.CoreTablesExist (50 ms)
+10: [ RUN      ] SQLSchemaTest.ModelRegistryExists
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLSchemaTest.ModelRegistryExists (43 ms)
+10: [ RUN      ] SQLSchemaTest.BigramStatsExists
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLSchemaTest.BigramStatsExists (40 ms)
+10: [ RUN      ] SQLSchemaTest.CoreFunctionsExist
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLSchemaTest.CoreFunctionsExist (40 ms)
+10: [ RUN      ] SQLSchemaTest.QueryAPIFunctionsExist
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLSchemaTest.QueryAPIFunctionsExist (43 ms)
+10: [ RUN      ] SQLSchemaTest.PostGISEnabled
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLSchemaTest.PostGISEnabled (40 ms)
+10: [ RUN      ] SQLSchemaTest.GeometryColumns
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_schema.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLSchemaTest.GeometryColumns (41 ms)
+10: [----------] 7 tests from SQLSchemaTest (301 ms total)
+10: 
+10: [----------] 6 tests from SQLFunctionTest
+10: [ RUN      ] SQLFunctionTest.GetOrCreateAtom
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLFunctionTest.GetOrCreateAtom (42 ms)
+10: [ RUN      ] SQLFunctionTest.CreateCompositionFromAtoms
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLFunctionTest.CreateCompositionFromAtoms (43 ms)
+10: [ RUN      ] SQLFunctionTest.BigramStatsUpdate
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLFunctionTest.BigramStatsUpdate (43 ms)
+10: [ RUN      ] SQLFunctionTest.HilbertIndexComputation
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLFunctionTest.HilbertIndexComputation (42 ms)
+10: [ RUN      ] SQLFunctionTest.Blake3HashComputation
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLFunctionTest.Blake3HashComputation (43 ms)
+10: [ RUN      ] SQLFunctionTest.RelationCreation
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_functions.cpp(29): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLFunctionTest.RelationCreation (44 ms)
+10: [----------] 6 tests from SQLFunctionTest (261 ms total)
+10: 
+10: [----------] 7 tests from SQLQueryAPITest
+10: [ RUN      ] SQLQueryAPITest.SemanticSearchCallable
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLQueryAPITest.SemanticSearchCallable (42 ms)
+10: [ RUN      ] SQLQueryAPITest.GetNeighborsCallable
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLQueryAPITest.GetNeighborsCallable (46 ms)
+10: [ RUN      ] SQLQueryAPITest.HilbertRangeQuery
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLQueryAPITest.HilbertRangeQuery (46 ms)
+10: [ RUN      ] SQLQueryAPITest.SpatialQuery
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLQueryAPITest.SpatialQuery (41 ms)
+10: [ RUN      ] SQLQueryAPITest.RelationTraversal
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLQueryAPITest.RelationTraversal (45 ms)
+10: [ RUN      ] SQLQueryAPITest.ModelRegistryQuery
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLQueryAPITest.ModelRegistryQuery (43 ms)
+10: [ RUN      ] SQLQueryAPITest.AggregateStats
+10: D:\Repositories\Github\AHartTN\Hartonomous-Opus\cpp\tests\gtest\test_sql_query_api.cpp(30): Skipped
+10: Database connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+10: 
+10: 
+10: [  SKIPPED ] SQLQueryAPITest.AggregateStats (41 ms)
+10: [----------] 7 tests from SQLQueryAPITest (308 ms total)
+10: 
+10: [----------] Global test environment tear-down
+10: [==========] 20 tests from 3 test suites ran. (871 ms total)
+10: [  PASSED  ] 0 tests.
+10: [  SKIPPED ] 20 tests, listed below:
+10: [  SKIPPED ] SQLSchemaTest.CoreTablesExist
+10: [  SKIPPED ] SQLSchemaTest.ModelRegistryExists
+10: [  SKIPPED ] SQLSchemaTest.BigramStatsExists
+10: [  SKIPPED ] SQLSchemaTest.CoreFunctionsExist
+10: [  SKIPPED ] SQLSchemaTest.QueryAPIFunctionsExist
+10: [  SKIPPED ] SQLSchemaTest.PostGISEnabled
+10: [  SKIPPED ] SQLSchemaTest.GeometryColumns
+10: [  SKIPPED ] SQLFunctionTest.GetOrCreateAtom
+10: [  SKIPPED ] SQLFunctionTest.CreateCompositionFromAtoms
+10: [  SKIPPED ] SQLFunctionTest.BigramStatsUpdate
+10: [  SKIPPED ] SQLFunctionTest.HilbertIndexComputation
+10: [  SKIPPED ] SQLFunctionTest.Blake3HashComputation
+10: [  SKIPPED ] SQLFunctionTest.RelationCreation
+10: [  SKIPPED ] SQLQueryAPITest.SemanticSearchCallable
+10: [  SKIPPED ] SQLQueryAPITest.GetNeighborsCallable
+10: [  SKIPPED ] SQLQueryAPITest.HilbertRangeQuery
+10: [  SKIPPED ] SQLQueryAPITest.SpatialQuery
+10: [  SKIPPED ] SQLQueryAPITest.RelationTraversal
+10: [  SKIPPED ] SQLQueryAPITest.ModelRegistryQuery
+10: [  SKIPPED ] SQLQueryAPITest.AggregateStats
+10/10 Test #10: HypercubeSQLTests ................   Passed    0.96 sec
+
+80% tests passed, 2 tests failed out of 10
+
+Total Test time (real) =   4.74 sec
+
+The following tests FAILED:
+	  7 - IntegrationTest (Failed)
+	  8 - QueryAPITest (Failed)
+Errors while running CTest
+Output from these tests are in: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/Testing/Temporary/LastTest.log
+Use "--rerun-failed --output-on-failure" to re-run the failed cases verbosely.

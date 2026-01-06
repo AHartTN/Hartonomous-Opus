@@ -127,10 +127,30 @@ CREATE TABLE relation (
 ```
 
 **Relation Types:**
-- `S` = Sequence (document order)
+- `S` = Sequence/Similarity (document order, centroid k-NN)
+- `E` = Embedding similarity (k-NN from model token embeddings)
+- `R` = Router (MoE expert routing weights)
+- `W` = Weight similarity (Q/K/V/O/MLP projection patterns)
+- `D` = Dimension activation (token→dimension mappings)
+- `C` = Composition (BPE merge relationships)
 - `A` = Attention (from model attention matrices)
 - `P` = Proximity (spatial neighborhood)
 - `T` = Temporal (time-based relationships)
+
+---
+
+## Architecture Principle: Model-Independent Coordinates, Model-Specific Relations
+
+**YOUR coordinate system** is deterministic and model-independent:
+- Atoms: Unicode → semantic_order → Hilbert decode → radial project to S³
+- Compositions: Centroids = average of atom children (NOT from embeddings)
+
+**Model embeddings** are NOT coordinates - they are addresses in model-specific space:
+- We extract the SIMILARITY GRAPH as relation edges
+- The "king" token from Llama4 and MiniLM = SAME composition (same atoms)
+- But they have DIFFERENT relation edges from each model
+
+This is a **UNIVERSAL substrate** - model-independent coordinates with model-specific relationships stored as graph edges.
 
 ---
 
@@ -148,15 +168,18 @@ Input → UTF-8 → Codepoints → Greedy Vocabulary Match → Compositions
 
 ### Model Ingestion (Safetensor)
 ```
-Safetensor → Token Embeddings → Laplacian Eigenmaps → 4D Centroids → Compositions
+Safetensor → Parse All Tensors → Extract Relationships → Relation Edges
 ```
 
-1. Parse safetensor metadata to find embedding matrices
-2. Extract token embeddings (N-dimensional vectors)
-3. Build k-NN graph for Laplacian matrix
-4. Compute top 4 eigenvectors via Lanczos iteration
-5. Apply Gram-Schmidt orthonormalization
-6. Store as 4D centroids on compositions
+1. Parse safetensor metadata to find ALL weight matrices
+2. Extract token embeddings → k-NN similarity → type='E' edges
+3. Extract router weights (MoE) → expert routing → type='R' edges
+4. Extract attention projections (Q/K/V/O) → weight similarity → type='W' edges
+5. Extract FFN/MLP projections → weight similarity → type='W' edges
+6. Extract token→dimension activations → type='D' edges
+7. Composition centroids computed FROM ATOM CHILDREN (not from embeddings)
+
+**Key Insight**: Every weight matrix encodes relationships. The "beaten path" emerges from accumulating weight similarities across layers - which dimensions co-activate frequently.
 
 ---
 

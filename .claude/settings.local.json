@@ -30,5 +30,6 @@
       "Bash(make:*)",
       "Bash(bash scripts/linux/setup-db.sh:*)"
     ]
-  }
+  },
+  "outputStyle": "default"
 }
