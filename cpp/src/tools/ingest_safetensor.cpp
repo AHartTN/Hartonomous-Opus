@@ -63,6 +63,7 @@
 #include "hypercube/atom_calculator.hpp"
 #include "hypercube/laplacian_4d.hpp"
 #include "hypercube/embedding_ops.hpp"  // Centralized SIMD cosine similarity
+#include "hypercube/ingest/safetensor.hpp"  // Shared safetensor types
 
 #ifdef HAS_HNSWLIB
 #include "hnswlib/hnswlib/hnswlib.h"
@@ -70,142 +71,39 @@
 
 namespace fs = std::filesystem;
 using namespace hypercube;
+using namespace hypercube::safetensor;
 
 // ============================================================================
-// Configuration
+// Extended IngestConfig for this tool (adds per-type thresholds)
 // ============================================================================
+// NOTE: Base IngestConfig in safetensor.hpp has common fields
+// This extends with additional options specific to embedding ingestion
 
-struct IngestConfig {
+struct MainIngestConfig {
     std::string conninfo;
     std::string model_name;       // e.g. "llama4-maverick", "minilm"  
     float weight_threshold = 0.5f; // Sparse: only edges above this
     bool verbose = false;
     int batch_size = 10000;       // DB batch insert size
+    
+    // Per-type thresholds (from shared IngestConfig)
+    float token_threshold = 0.45f;
+    float patch_threshold = 0.25f;
+    float position_threshold = 0.02f;
+    float projection_threshold = 0.15f;
+};
+
+// NOTE: TensorMeta and MappedFile now from hypercube::safetensor namespace
+// Extended TensorMeta with shard_file string for this tool
+struct MainTensorMeta : public TensorMeta {
+    // Base TensorMeta already has shard_file, so nothing extra needed here
 };
 
 // ============================================================================
-// Tensor Metadata from Safetensor Header
+// Global State (using shared MappedFileCache)
 // ============================================================================
 
-struct TensorMeta {
-    std::string name;
-    std::string dtype;            // "BF16", "F16", "F32", "I64"
-    std::vector<int64_t> shape;
-    uint64_t data_offset_start;
-    uint64_t data_offset_end;
-    std::string shard_file;       // Full path to containing file
-};
-
-// ============================================================================
-// Memory-Mapped File Cache (zero-copy tensor access)
-// ============================================================================
-
-class MappedFile {
-public:
-    MappedFile() = default;
-    ~MappedFile() { unmap(); }
-    
-    bool map(const std::string& path) {
-        if (data_) unmap();
-        
-#ifdef _WIN32
-        file_handle_ = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ,
-                                   nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (file_handle_ == INVALID_HANDLE_VALUE) return false;
-        
-        LARGE_INTEGER size_li;
-        GetFileSizeEx(file_handle_, &size_li);
-        size_ = static_cast<size_t>(size_li.QuadPart);
-        
-        mapping_handle_ = CreateFileMappingA(file_handle_, nullptr, PAGE_READONLY, 0, 0, nullptr);
-        if (!mapping_handle_) {
-            CloseHandle(file_handle_);
-            file_handle_ = INVALID_HANDLE_VALUE;
-            return false;
-        }
-        
-        data_ = static_cast<const uint8_t*>(MapViewOfFile(mapping_handle_, FILE_MAP_READ, 0, 0, 0));
-        if (!data_) {
-            CloseHandle(mapping_handle_);
-            CloseHandle(file_handle_);
-            mapping_handle_ = nullptr;
-            file_handle_ = INVALID_HANDLE_VALUE;
-            return false;
-        }
-#else
-        int fd = open(path.c_str(), O_RDONLY);
-        if (fd < 0) return false;
-        
-        struct stat st;
-        if (fstat(fd, &st) < 0) {
-            close(fd);
-            return false;
-        }
-        size_ = static_cast<size_t>(st.st_size);
-        
-        data_ = static_cast<const uint8_t*>(mmap(nullptr, size_, PROT_READ, MAP_PRIVATE, fd, 0));
-        close(fd);
-        
-        if (data_ == MAP_FAILED) {
-            data_ = nullptr;
-            return false;
-        }
-#endif
-        return true;
-    }
-    
-    void unmap() {
-        if (!data_) return;
-#ifdef _WIN32
-        UnmapViewOfFile(data_);
-        if (mapping_handle_) CloseHandle(mapping_handle_);
-        if (file_handle_ != INVALID_HANDLE_VALUE) CloseHandle(file_handle_);
-        file_handle_ = INVALID_HANDLE_VALUE;
-        mapping_handle_ = nullptr;
-#else
-        munmap(const_cast<uint8_t*>(data_), size_);
-#endif
-        data_ = nullptr;
-        size_ = 0;
-    }
-    
-    const uint8_t* data() const { return data_; }
-    size_t size() const { return size_; }
-    
-private:
-    const uint8_t* data_ = nullptr;
-    size_t size_ = 0;
-#ifdef _WIN32
-    HANDLE file_handle_ = INVALID_HANDLE_VALUE;
-    HANDLE mapping_handle_ = nullptr;
-#endif
-};
-
-// Global cache of memory-mapped files
-static std::unordered_map<std::string, std::unique_ptr<MappedFile>> g_mmap_cache;
-static std::mutex g_mmap_mutex;
-
-// Get or create a memory-mapped file
-static const MappedFile* get_mapped_file(const std::string& path) {
-    std::lock_guard<std::mutex> lock(g_mmap_mutex);
-    auto it = g_mmap_cache.find(path);
-    if (it != g_mmap_cache.end()) {
-        return it->second.get();
-    }
-    auto mf = std::make_unique<MappedFile>();
-    if (!mf->map(path)) {
-        return nullptr;
-    }
-    auto ptr = mf.get();
-    g_mmap_cache[path] = std::move(mf);
-    return ptr;
-}
-
-// ============================================================================
-// Global State
-// ============================================================================
-
-static std::unordered_map<std::string, TensorMeta> g_tensors;
+static std::unordered_map<std::string, MainTensorMeta> g_tensors;
 static std::vector<std::pair<std::string, std::string>> g_bpe_merges;
 static std::unordered_map<std::string, int> g_vocab;  // token -> index
 static std::string g_model_prefix;  // e.g. "llama4:" for namespacing
@@ -222,41 +120,22 @@ static std::vector<TokenInfo> g_vocab_tokens;
 static std::unordered_map<std::string, size_t> g_token_to_idx;
 
 // ============================================================================
-// BF16/F16 Conversion
+// Tensor Row Access (uses shared safetensor.hpp types)
 // ============================================================================
 
-inline float bf16_to_float(uint16_t bf16) {
-    uint32_t f32 = static_cast<uint32_t>(bf16) << 16;
-    float result;
-    std::memcpy(&result, &f32, sizeof(result));
-    return result;
-}
-
-inline float f16_to_float(uint16_t f16) {
-    // IEEE 754 half-precision conversion
-    uint32_t sign = (f16 >> 15) & 0x1;
-    uint32_t exp = (f16 >> 10) & 0x1F;
-    uint32_t mant = f16 & 0x3FF;
-    
-    uint32_t f32;
-    if (exp == 0) {
-        if (mant == 0) {
-            f32 = sign << 31;
-        } else {
-            exp = 1;
-            while (!(mant & 0x400)) { mant <<= 1; exp--; }
-            mant &= 0x3FF;
-            f32 = (sign << 31) | ((exp + 127 - 15) << 23) | (mant << 13);
-        }
-    } else if (exp == 31) {
-        f32 = (sign << 31) | 0x7F800000 | (mant << 13);
-    } else {
-        f32 = (sign << 31) | ((exp + 127 - 15) << 23) | (mant << 13);
+static std::vector<float> read_tensor_row_local(const MainTensorMeta& meta, size_t row) {
+    if (meta.shape.size() < 2 || row >= static_cast<size_t>(meta.shape[0])) {
+        return {};
     }
     
-    float result;
-    std::memcpy(&result, &f32, sizeof(result));
-    return result;
+    const MappedFile* mf = MappedFileCache::instance().get(meta.shard_file);
+    if (!mf || !mf->data()) return {};
+    
+    // Read header size from file
+    uint64_t header_size;
+    std::memcpy(&header_size, mf->data(), 8);
+    
+    return read_tensor_row(mf, meta, row, 8 + header_size);
 }
 
 // Forward declarations
@@ -264,12 +143,13 @@ bool parse_safetensor_header(const fs::path& path, const std::string& shard_file
 bool parse_model_index(const fs::path& index_path);
 bool parse_tokenizer(const fs::path& tokenizer_path);
 bool parse_vocab(const fs::path& vocab_path);
-std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row);
-std::vector<float> read_tensor_slice(const TensorMeta& meta, size_t slice_idx, size_t row);
+// NOTE: read_tensor_row and read_tensor_slice use MainTensorMeta (subclass of TensorMeta)
+std::vector<float> read_tensor_row_main(const MainTensorMeta& meta, size_t row);
+std::vector<float> read_tensor_slice(const MainTensorMeta& meta, size_t slice_idx, size_t row);
 bool insert_compositions(PGconn* conn);
-bool insert_tensor_hierarchy(PGconn* conn, const IngestConfig& config);
-bool extract_embedding_relations(PGconn* conn, const IngestConfig& config);
-bool insert_attention_relations(PGconn* conn, const IngestConfig& config);
+bool insert_tensor_hierarchy(PGconn* conn, const MainIngestConfig& config);
+bool extract_embedding_relations(PGconn* conn, const MainIngestConfig& config);
+bool insert_attention_relations(PGconn* conn, const MainIngestConfig& config);
 
 // ============================================================================
 // Tensor Name Hierarchy Parsing
@@ -357,7 +237,7 @@ bool parse_safetensor_header(const fs::path& path, const std::string& shard_file
             continue;
         }
         
-        TensorMeta meta;
+        MainTensorMeta meta;
         meta.name = name;
         meta.shard_file = shard_file.empty() ? path.string() : shard_file;
         
@@ -533,54 +413,31 @@ bool parse_tokenizer(const fs::path& tokenizer_path) {
 }
 
 // ============================================================================
-// Read Tensor Row (handles BF16, F16, F32) - MEMORY MAPPED VERSION
+// Read Tensor Row - now uses shared safetensor.hpp types
 // Zero-copy access to tensor data via mmap
 // ============================================================================
 
-std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row) {
-    if (meta.shape.size() < 2) return {};
+std::vector<float> read_tensor_row_main(const MainTensorMeta& meta, size_t row) {
+    if (meta.shape.size() < 2 || row >= static_cast<size_t>(meta.shape[0])) {
+        return {};
+    }
     
-    const MappedFile* mf = get_mapped_file(meta.shard_file);
+    const MappedFile* mf = MappedFileCache::instance().get(meta.shard_file);
     if (!mf || !mf->data()) return {};
     
-    // First 8 bytes contain header size
+    // Read header size from file
     uint64_t header_size;
     std::memcpy(&header_size, mf->data(), 8);
     
-    size_t row_size = static_cast<size_t>(meta.shape[1]);
-    size_t bytes_per_elem = 4;
-    if (meta.dtype == "BF16" || meta.dtype == "F16") bytes_per_elem = 2;
-    
-    // Calculate offset to the row
-    size_t offset = 8 + header_size + meta.data_offset_start + row * row_size * bytes_per_elem;
-    if (offset + row_size * bytes_per_elem > mf->size()) return {};
-    
-    const uint8_t* ptr = mf->data() + offset;
-    std::vector<float> result(row_size);
-    
-    if (meta.dtype == "F32") {
-        std::memcpy(result.data(), ptr, row_size * 4);
-    } else if (meta.dtype == "BF16") {
-        const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
-        for (size_t i = 0; i < row_size; ++i) {
-            result[i] = bf16_to_float(buf[i]);
-        }
-    } else if (meta.dtype == "F16") {
-        const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
-        for (size_t i = 0; i < row_size; ++i) {
-            result[i] = f16_to_float(buf[i]);
-        }
-    }
-    
-    return result;
+    return read_tensor_row(mf, meta, row, 8 + header_size);
 }
 
 // Read a row from a 3D tensor: tensor[slice_idx, row, :]
 // For experts.gate_up_proj [128, 5120, 16384]: slice_idx=expert, row=input_dim
-std::vector<float> read_tensor_slice(const TensorMeta& meta, size_t slice_idx, size_t row) {
-    if (meta.shape.size() < 3) return read_tensor_row(meta, row);  // Fallback to 2D
+std::vector<float> read_tensor_slice(const MainTensorMeta& meta, size_t slice_idx, size_t row) {
+    if (meta.shape.size() < 3) return read_tensor_row_main(meta, row);  // Fallback to 2D
     
-    const MappedFile* mf = get_mapped_file(meta.shard_file);
+    const MappedFile* mf = MappedFileCache::instance().get(meta.shard_file);
     if (!mf || !mf->data()) return {};
     
     uint64_t header_size;
@@ -588,8 +445,7 @@ std::vector<float> read_tensor_slice(const TensorMeta& meta, size_t slice_idx, s
     
     size_t dim1 = static_cast<size_t>(meta.shape[1]);  // rows per slice
     size_t dim2 = static_cast<size_t>(meta.shape[2]);  // cols
-    size_t bytes_per_elem = 4;
-    if (meta.dtype == "BF16" || meta.dtype == "F16") bytes_per_elem = 2;
+    size_t bytes_per_elem = meta.element_size();
     
     // Offset: skip to slice, then to row within slice
     size_t slice_size = dim1 * dim2 * bytes_per_elem;
@@ -612,7 +468,7 @@ std::vector<float> read_tensor_slice(const TensorMeta& meta, size_t slice_idx, s
     } else if (meta.dtype == "F16") {
         const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
         for (size_t i = 0; i < dim2; ++i) {
-            result[i] = f16_to_float(buf[i]);
+            result[i] = fp16_to_float(buf[i]);
         }
     }
     
@@ -1125,7 +981,7 @@ bool insert_compositions(PGconn* conn) {
 }
 
 int main(int argc, char* argv[]) {
-    IngestConfig config;
+    MainIngestConfig config;
     std::string model_dir;
     
     for (int i = 1; i < argc; ++i) {
@@ -1347,7 +1203,7 @@ int main(int argc, char* argv[]) {
 //   - model navigation and comparison
 //   - cross-model structural alignment
 
-bool insert_tensor_hierarchy(PGconn* conn, const IngestConfig& config) {
+bool insert_tensor_hierarchy(PGconn* conn, const MainIngestConfig& config) {
     if (g_tensors.empty()) return true;
     
     std::cerr << "[HIER] Building tensor hierarchy from " << g_tensors.size() << " tensors\n";
@@ -1650,9 +1506,9 @@ bool insert_tensor_hierarchy(PGconn* conn, const IngestConfig& config) {
 // object detection models - ANY model with token/patch embeddings.
 // ============================================================================
 
-bool extract_embedding_relations(PGconn* conn, const IngestConfig& config) {
+bool extract_embedding_relations(PGconn* conn, const MainIngestConfig& config) {
     // Find embedding tensors - support multiple model architectures
-    std::vector<std::pair<std::string, TensorMeta*>> embed_tensors;
+    std::vector<std::pair<std::string, MainTensorMeta*>> embed_tensors;
     
     for (auto& [name, meta] : g_tensors) {
         // Language model embeddings (semantic - high cosine values)
@@ -1711,7 +1567,7 @@ bool extract_embedding_relations(PGconn* conn, const IngestConfig& config) {
     global_batch.reserve(16 << 20);  // 16MB initial
     std::atomic<size_t> total_edges{0};
     
-    auto process_embedding = [&](const std::string& embed_type, TensorMeta* embed) {
+    auto process_embedding = [&](const std::string& embed_type, MainTensorMeta* embed) {
         if (embed->shape.size() < 2) return;
         
         int64_t num_items = embed->shape[0];
@@ -1734,7 +1590,7 @@ bool extract_embedding_relations(PGconn* conn, const IngestConfig& config) {
             while (true) {
                 int64_t i = read_idx.fetch_add(1);
                 if (i >= num_items) break;
-                embeddings[i] = read_tensor_row(*embed, static_cast<size_t>(i));
+                embeddings[i] = read_tensor_row_main(*embed, static_cast<size_t>(i));
             }
         };
         std::vector<std::thread> readers;
@@ -1937,7 +1793,7 @@ bool extract_embedding_relations(PGconn* conn, const IngestConfig& config) {
 // NOTE: Cosine similarity is now provided by embedding::cosine_similarity()
 // from hypercube/embedding_ops.hpp with automatic SIMD dispatch (AVX512/AVX2/SSE/scalar)
 
-bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
+bool insert_attention_relations(PGconn* conn, const MainIngestConfig& config) {
     // ==========================================================================
     // EXTRACT SPARSE RELATIONS FROM MODEL TENSORS
     // - Router weights: token -> expert routing (MoE models)
@@ -1950,7 +1806,7 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
     // PART 1: Router weights for MoE models - sparse token-to-expert routing
     // Only extract router.weight tensors which define which experts handle which tokens
     // -------------------------------------------------------------------------
-    std::vector<TensorMeta*> router_tensors;
+    std::vector<MainTensorMeta*> router_tensors;
     for (auto& [name, meta] : g_tensors) {
         if (name.find("router.weight") != std::string::npos && meta.shape.size() >= 2) {
             router_tensors.push_back(&meta);
@@ -2000,7 +1856,7 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
             size_t router_edges = 0;
             
             for (int64_t expert_idx = 0; expert_idx < num_experts; ++expert_idx) {
-                auto expert_row = read_tensor_row(*router, static_cast<size_t>(expert_idx));
+                auto expert_row = read_tensor_row_main(*router, static_cast<size_t>(expert_idx));
                 if (expert_row.empty()) continue;
                 
                 // Create expert atom hash
@@ -2068,7 +1924,7 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
     
     struct TensorGroup {
         std::string component;
-        std::vector<TensorMeta*> tensors;
+        std::vector<MainTensorMeta*> tensors;
     };
     std::vector<TensorGroup> attn_groups = {
         // Attention projections
@@ -2138,7 +1994,7 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
             row_indices.reserve(max_rows);
             
             for (int64_t i = 0; i < out_dim; i += stride) {
-                auto row = read_tensor_row(*tensor, static_cast<size_t>(i));
+                auto row = read_tensor_row_main(*tensor, static_cast<size_t>(i));
                 if (!row.empty()) {
                     rows.push_back(std::move(row));
                     row_indices.push_back(i);
@@ -2267,7 +2123,7 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
     std::cerr << "\n[TOKEN-DIM] Extracting token->dimension activation patterns...\n";
     
     // Find embedding tensor
-    TensorMeta* embed = nullptr;
+    MainTensorMeta* embed = nullptr;
     for (auto& [name, meta] : g_tensors) {
         if ((name.find("embed_tokens") != std::string::npos ||
              name.find("word_embeddings") != std::string::npos) && meta.shape.size() == 2) {
@@ -2306,7 +2162,7 @@ bool insert_attention_relations(PGconn* conn, const IngestConfig& config) {
         const int top_k = 20;
         
         for (int64_t tok_idx = 0; tok_idx < vocab_size; ++tok_idx) {
-            auto emb = read_tensor_row(*embed, static_cast<size_t>(tok_idx));
+            auto emb = read_tensor_row_main(*embed, static_cast<size_t>(tok_idx));
             if (emb.empty()) continue;
             
             const auto& token = g_vocab_tokens[tok_idx];

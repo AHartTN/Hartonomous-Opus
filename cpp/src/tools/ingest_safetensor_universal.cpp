@@ -58,6 +58,7 @@
 #include "hypercube/hilbert.hpp"
 #include "hypercube/laplacian_4d.hpp"
 #include "hypercube/embedding_ops.hpp"  // Centralized SIMD operations
+#include "hypercube/ingest/safetensor.hpp"  // Shared safetensor types
 
 // SIMD headers
 #if defined(__AVX512F__)
@@ -78,9 +79,10 @@
 
 namespace fs = std::filesystem;
 using namespace hypercube;
+using namespace hypercube::safetensor;
 
 // =============================================================================
-// Configuration
+// Configuration (Universal-specific fields beyond base IngestConfig)
 // =============================================================================
 
 struct UniversalConfig {
@@ -105,96 +107,11 @@ struct UniversalConfig {
     bool dry_run = false;
 };
 
-// =============================================================================
-// Tensor Metadata
-// =============================================================================
-
-struct TensorMeta {
-    std::string name;
-    std::string dtype;
-    std::vector<int64_t> shape;
-    uint64_t data_offset_start;
-    uint64_t data_offset_end;
-    int64_t numel;  // Total elements
-    size_t file_index;  // Which shard file this tensor is in
-};
-
-// =============================================================================
-// Memory-Mapped File
-// =============================================================================
-
-class MappedFile {
-public:
-    MappedFile() = default;
-    ~MappedFile() { unmap(); }
-    
-    bool map(const std::string& path) {
-        if (data_) unmap();
-        
-#ifdef _WIN32
-        file_handle_ = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ,
-                                   nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (file_handle_ == INVALID_HANDLE_VALUE) return false;
-        
-        LARGE_INTEGER size_li;
-        GetFileSizeEx(file_handle_, &size_li);
-        size_ = static_cast<size_t>(size_li.QuadPart);
-        
-        mapping_handle_ = CreateFileMappingA(file_handle_, nullptr, PAGE_READONLY, 0, 0, nullptr);
-        if (!mapping_handle_) {
-            CloseHandle(file_handle_);
-            file_handle_ = INVALID_HANDLE_VALUE;
-            return false;
-        }
-        
-        data_ = static_cast<const uint8_t*>(MapViewOfFile(mapping_handle_, FILE_MAP_READ, 0, 0, 0));
-        if (!data_) {
-            CloseHandle(mapping_handle_);
-            CloseHandle(file_handle_);
-            mapping_handle_ = nullptr;
-            file_handle_ = INVALID_HANDLE_VALUE;
-            return false;
-        }
-#else
-        int fd = open(path.c_str(), O_RDONLY);
-        if (fd < 0) return false;
-        
-        struct stat st;
-        if (fstat(fd, &st) < 0) { close(fd); return false; }
-        size_ = static_cast<size_t>(st.st_size);
-        
-        data_ = static_cast<const uint8_t*>(mmap(nullptr, size_, PROT_READ, MAP_PRIVATE, fd, 0));
-        close(fd);
-        if (data_ == MAP_FAILED) { data_ = nullptr; return false; }
-#endif
-        return true;
-    }
-    
-    void unmap() {
-        if (!data_) return;
-#ifdef _WIN32
-        UnmapViewOfFile(data_);
-        if (mapping_handle_) CloseHandle(mapping_handle_);
-        if (file_handle_ != INVALID_HANDLE_VALUE) CloseHandle(file_handle_);
-        mapping_handle_ = nullptr;
-        file_handle_ = INVALID_HANDLE_VALUE;
-#else
-        munmap(const_cast<uint8_t*>(data_), size_);
-#endif
-        data_ = nullptr;
-        size_ = 0;
-    }
-    
-    const uint8_t* data() const { return data_; }
-    size_t size() const { return size_; }
-    
-private:
-    const uint8_t* data_ = nullptr;
-    size_t size_ = 0;
-#ifdef _WIN32
-    HANDLE file_handle_ = INVALID_HANDLE_VALUE;
-    HANDLE mapping_handle_ = nullptr;
-#endif
+// NOTE: TensorMeta and MappedFile now from hypercube::safetensor namespace
+// Extended TensorMeta with extra fields for universal ingestion
+struct UniversalTensorMeta : public TensorMeta {
+    int64_t numel = 0;  // Total elements (computed from shape)
+    size_t file_index = 0;  // Which shard file this tensor is in
 };
 
 // =============================================================================
@@ -208,7 +125,7 @@ struct ShardInfo {
     std::string path;
 };
 static std::vector<ShardInfo> g_shards;
-static std::vector<TensorMeta> g_tensors;
+static std::vector<UniversalTensorMeta> g_tensors;
 
 // =============================================================================
 // Embedding Detection - identifies tensors with actual semantic value
@@ -296,42 +213,7 @@ bool is_embedding_tensor(const std::string& name) {
     return true;  // Has embedding pattern, no exclusion pattern
 }
 
-// =============================================================================
-// Type Conversion
-// =============================================================================
-
-inline float bf16_to_float(uint16_t bf16) {
-    uint32_t f32 = static_cast<uint32_t>(bf16) << 16;
-    float result;
-    std::memcpy(&result, &f32, sizeof(result));
-    return result;
-}
-
-inline float f16_to_float(uint16_t f16) {
-    uint32_t sign = (f16 >> 15) & 0x1;
-    uint32_t exp = (f16 >> 10) & 0x1F;
-    uint32_t mant = f16 & 0x3FF;
-    
-    uint32_t f32;
-    if (exp == 0) {
-        if (mant == 0) {
-            f32 = sign << 31;
-        } else {
-            exp = 1;
-            while (!(mant & 0x400)) { mant <<= 1; exp--; }
-            mant &= 0x3FF;
-            f32 = (sign << 31) | ((exp + 127 - 15) << 23) | (mant << 13);
-        }
-    } else if (exp == 31) {
-        f32 = (sign << 31) | 0x7F800000 | (mant << 13);
-    } else {
-        f32 = (sign << 31) | ((exp + 127 - 15) << 23) | (mant << 13);
-    }
-    
-    float result;
-    std::memcpy(&result, &f32, sizeof(result));
-    return result;
-}
+// NOTE: bf16_to_float and fp16_to_float now from hypercube::safetensor namespace
 
 // =============================================================================
 // Safetensor Parsing (supports multi-shard)
@@ -376,7 +258,7 @@ bool parse_safetensor(const fs::path& path, size_t file_index) {
             continue;
         }
         
-        TensorMeta meta;
+        UniversalTensorMeta meta;
         meta.name = name;
         meta.file_index = file_index;
         
@@ -426,7 +308,7 @@ bool parse_safetensor(const fs::path& path, size_t file_index) {
 // =============================================================================
 
 // Helper to read a single element from mmap
-inline float read_element(const uint8_t* ptr, const std::string& dtype, int64_t idx) {
+inline float read_element_local(const uint8_t* ptr, const std::string& dtype, int64_t idx) {
     if (dtype == "F32") {
         float val;
         std::memcpy(&val, ptr + idx * 4, 4);
@@ -438,7 +320,7 @@ inline float read_element(const uint8_t* ptr, const std::string& dtype, int64_t 
     } else if (dtype == "F16") {
         uint16_t val;
         std::memcpy(&val, ptr + idx * 2, 2);
-        return f16_to_float(val);
+        return fp16_to_float(val);
     } else if (dtype == "I64") {
         int64_t val;
         std::memcpy(&val, ptr + idx * 8, 8);
@@ -453,7 +335,7 @@ inline float read_element(const uint8_t* ptr, const std::string& dtype, int64_t 
 
 // Streaming summary: samples directly from mmap without loading full tensor
 // Uses ~summary_dim elements of memory regardless of tensor size
-std::vector<float> compute_summary_streaming(const TensorMeta& meta, size_t summary_dim = 256) {
+std::vector<float> compute_summary_streaming(const UniversalTensorMeta& meta, size_t summary_dim = 256) {
     const auto& shard = g_shards[meta.file_index];
     size_t offset = 8 + shard.header_size + meta.data_offset_start;
     const uint8_t* ptr = shard.mmap.data() + offset;
@@ -463,7 +345,7 @@ std::vector<float> compute_summary_streaming(const TensorMeta& meta, size_t summ
     if (meta.numel <= static_cast<int64_t>(summary_dim)) {
         // Small tensor: read all elements
         for (int64_t i = 0; i < meta.numel; ++i) {
-            result[i] = read_element(ptr, meta.dtype, i);
+            result[i] = read_element_local(ptr, meta.dtype, i);
         }
         return result;
     }
@@ -482,7 +364,7 @@ std::vector<float> compute_summary_streaming(const TensorMeta& meta, size_t summ
         int64_t count = 0;
         
         for (int64_t j = chunk_start; j < chunk_end; j += sample_stride) {
-            sum += read_element(ptr, meta.dtype, j);
+            sum += read_element_local(ptr, meta.dtype, j);
             ++count;
         }
         
@@ -493,7 +375,7 @@ std::vector<float> compute_summary_streaming(const TensorMeta& meta, size_t summ
 }
 
 // Check variance using streaming (minimal memory for huge tensors)
-bool has_meaningful_variance_streaming(const TensorMeta& meta, float min_variance = 1e-10f) {
+bool has_meaningful_variance_streaming(const UniversalTensorMeta& meta, float min_variance = 1e-10f) {
     const auto& shard = g_shards[meta.file_index];
     size_t offset = 8 + shard.header_size + meta.data_offset_start;
     const uint8_t* ptr = shard.mmap.data() + offset;
@@ -508,7 +390,7 @@ bool has_meaningful_variance_streaming(const TensorMeta& meta, float min_varianc
     size_t n = 0;
     
     for (int64_t i = 0; i < meta.numel; i += stride) {
-        float val = read_element(ptr, meta.dtype, i);
+        float val = read_element_local(ptr, meta.dtype, i);
         ++n;
         double delta = val - mean;
         mean += delta / n;
@@ -522,7 +404,7 @@ bool has_meaningful_variance_streaming(const TensorMeta& meta, float min_varianc
 // Fingerprint hash: O(1) regardless of tensor size
 // Hashes metadata + sampled chunks for content addressing
 // For 2GB tensors, hashing ~64KB of samples is sufficient for uniqueness
-Blake3Hash compute_fingerprint_hash(const TensorMeta& meta) {
+Blake3Hash compute_fingerprint_hash(const UniversalTensorMeta& meta) {
     const auto& shard = g_shards[meta.file_index];
     size_t data_offset = 8 + shard.header_size + meta.data_offset_start;
     size_t data_size = meta.data_offset_end - meta.data_offset_start;
@@ -573,7 +455,7 @@ Blake3Hash compute_fingerprint_hash(const TensorMeta& meta) {
 }
 
 // Full tensor read - only use for small tensors or when needed
-std::vector<float> read_tensor_flat(const TensorMeta& meta) {
+std::vector<float> read_tensor_flat(const UniversalTensorMeta& meta) {
     const auto& shard = g_shards[meta.file_index];
     size_t offset = 8 + shard.header_size + meta.data_offset_start;
     const uint8_t* ptr = shard.mmap.data() + offset;
@@ -590,7 +472,7 @@ std::vector<float> read_tensor_flat(const TensorMeta& meta) {
     } else if (meta.dtype == "F16") {
         const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
         for (int64_t i = 0; i < meta.numel; ++i) {
-            result[i] = f16_to_float(buf[i]);
+            result[i] = fp16_to_float(buf[i]);
         }
     } else if (meta.dtype == "I64") {
         const int64_t* buf = reinterpret_cast<const int64_t*>(ptr);

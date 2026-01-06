@@ -55,15 +55,17 @@
 #include "hypercube/atom_calculator.hpp"
 #include "hypercube/laplacian_4d.hpp"
 #include "hypercube/ingest/projection_db.hpp"
+#include "hypercube/ingest/safetensor.hpp"  // Shared types
 
 namespace fs = std::filesystem;
 using namespace hypercube;
+using namespace hypercube::safetensor;
 
 // =============================================================================
-// Configuration
+// 4D Ingestion Configuration (extends base config with Laplacian parameters)
 // =============================================================================
 
-struct IngestConfig {
+struct Ingest4DConfig {
     std::string conninfo;
     std::string model_name;
     
@@ -79,111 +81,13 @@ struct IngestConfig {
     bool verbose = false;
 };
 
-// =============================================================================
-// Tensor Metadata
-// =============================================================================
-
-struct TensorMeta {
-    std::string name;
-    std::string dtype;
-    std::vector<int64_t> shape;
-    uint64_t data_offset_start;
-    uint64_t data_offset_end;
-    std::string shard_file;
-};
-
-// =============================================================================
-// Memory-Mapped File
-// =============================================================================
-
-class MappedFile {
-public:
-    MappedFile() = default;
-    ~MappedFile() { unmap(); }
-    
-    bool map(const std::string& path) {
-        if (data_) unmap();
-        
-#ifdef _WIN32
-        file_handle_ = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ,
-                                   nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (file_handle_ == INVALID_HANDLE_VALUE) return false;
-        
-        LARGE_INTEGER size_li;
-        GetFileSizeEx(file_handle_, &size_li);
-        size_ = static_cast<size_t>(size_li.QuadPart);
-        
-        mapping_handle_ = CreateFileMappingA(file_handle_, nullptr, PAGE_READONLY, 0, 0, nullptr);
-        if (!mapping_handle_) {
-            CloseHandle(file_handle_);
-            file_handle_ = INVALID_HANDLE_VALUE;
-            return false;
-        }
-        
-        data_ = static_cast<const uint8_t*>(MapViewOfFile(mapping_handle_, FILE_MAP_READ, 0, 0, 0));
-        if (!data_) {
-            CloseHandle(mapping_handle_);
-            CloseHandle(file_handle_);
-            mapping_handle_ = nullptr;
-            file_handle_ = INVALID_HANDLE_VALUE;
-            return false;
-        }
-#else
-        int fd = open(path.c_str(), O_RDONLY);
-        if (fd < 0) return false;
-        
-        struct stat st;
-        if (fstat(fd, &st) < 0) {
-            close(fd);
-            return false;
-        }
-        size_ = static_cast<size_t>(st.st_size);
-        
-        data_ = static_cast<const uint8_t*>(mmap(nullptr, size_, PROT_READ, MAP_PRIVATE, fd, 0));
-        close(fd);
-        
-        if (data_ == MAP_FAILED) {
-            data_ = nullptr;
-            return false;
-        }
-#endif
-        return true;
-    }
-    
-    void unmap() {
-        if (!data_) return;
-#ifdef _WIN32
-        UnmapViewOfFile(data_);
-        if (mapping_handle_) CloseHandle(mapping_handle_);
-        if (file_handle_ != INVALID_HANDLE_VALUE) CloseHandle(file_handle_);
-        file_handle_ = INVALID_HANDLE_VALUE;
-        mapping_handle_ = nullptr;
-#else
-        munmap(const_cast<uint8_t*>(data_), size_);
-#endif
-        data_ = nullptr;
-        size_ = 0;
-    }
-    
-    const uint8_t* data() const { return data_; }
-    size_t size() const { return size_; }
-    
-private:
-    const uint8_t* data_ = nullptr;
-    size_t size_ = 0;
-#ifdef _WIN32
-    HANDLE file_handle_ = INVALID_HANDLE_VALUE;
-    HANDLE mapping_handle_ = nullptr;
-#endif
-};
+// NOTE: TensorMeta and MappedFile now from hypercube::safetensor namespace
 
 // =============================================================================
 // Global State
 // =============================================================================
 
 static std::unordered_map<std::string, TensorMeta> g_tensors;
-static std::unordered_map<std::string, std::unique_ptr<MappedFile>> g_mmap_cache;
-static std::mutex g_mmap_mutex;
 
 // Token info with pre-computed composition data
 struct TokenInfo {
@@ -195,95 +99,20 @@ static std::vector<TokenInfo> g_vocab_tokens;
 static std::unordered_map<std::string, size_t> g_token_to_idx;
 
 // =============================================================================
-// BF16/F16 Conversion
+// Tensor Row Access (uses shared safetensor.hpp types)
 // =============================================================================
 
-inline float bf16_to_float(uint16_t bf16) {
-    uint32_t f32 = static_cast<uint32_t>(bf16) << 16;
-    float result;
-    std::memcpy(&result, &f32, sizeof(result));
-    return result;
-}
-
-inline float f16_to_float(uint16_t f16) {
-    uint32_t sign = (f16 >> 15) & 0x1;
-    uint32_t exp = (f16 >> 10) & 0x1F;
-    uint32_t mant = f16 & 0x3FF;
-    
-    uint32_t f32;
-    if (exp == 0) {
-        if (mant == 0) {
-            f32 = sign << 31;
-        } else {
-            exp = 1;
-            while (!(mant & 0x400)) { mant <<= 1; exp--; }
-            mant &= 0x3FF;
-            f32 = (sign << 31) | ((exp + 127 - 15) << 23) | (mant << 13);
-        }
-    } else if (exp == 31) {
-        f32 = (sign << 31) | 0x7F800000 | (mant << 13);
-    } else {
-        f32 = (sign << 31) | ((exp + 127 - 15) << 23) | (mant << 13);
-    }
-    
-    float result;
-    std::memcpy(&result, &f32, sizeof(result));
-    return result;
-}
-
-// =============================================================================
-// File Utilities
-// =============================================================================
-
-static const MappedFile* get_mapped_file(const std::string& path) {
-    std::lock_guard<std::mutex> lock(g_mmap_mutex);
-    auto it = g_mmap_cache.find(path);
-    if (it != g_mmap_cache.end()) {
-        return it->second.get();
-    }
-    auto mf = std::make_unique<MappedFile>();
-    if (!mf->map(path)) {
-        return nullptr;
-    }
-    auto ptr = mf.get();
-    g_mmap_cache[path] = std::move(mf);
-    return ptr;
-}
-
-static std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row) {
+static std::vector<float> read_tensor_row_local(const TensorMeta& meta, size_t row) {
     if (meta.shape.size() < 2) return {};
     
-    const MappedFile* mf = get_mapped_file(meta.shard_file);
+    const MappedFile* mf = MappedFileCache::instance().get(meta.shard_file);
     if (!mf || !mf->data()) return {};
     
+    // Read header size from file
     uint64_t header_size;
     std::memcpy(&header_size, mf->data(), 8);
     
-    size_t row_size = static_cast<size_t>(meta.shape[1]);
-    size_t bytes_per_elem = 4;
-    if (meta.dtype == "BF16" || meta.dtype == "F16") bytes_per_elem = 2;
-    
-    size_t offset = 8 + header_size + meta.data_offset_start + row * row_size * bytes_per_elem;
-    if (offset + row_size * bytes_per_elem > mf->size()) return {};
-    
-    const uint8_t* ptr = mf->data() + offset;
-    std::vector<float> result(row_size);
-    
-    if (meta.dtype == "F32") {
-        std::memcpy(result.data(), ptr, row_size * 4);
-    } else if (meta.dtype == "BF16") {
-        const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
-        for (size_t i = 0; i < row_size; ++i) {
-            result[i] = bf16_to_float(buf[i]);
-        }
-    } else if (meta.dtype == "F16") {
-        const uint16_t* buf = reinterpret_cast<const uint16_t*>(ptr);
-        for (size_t i = 0; i < row_size; ++i) {
-            result[i] = f16_to_float(buf[i]);
-        }
-    }
-    
-    return result;
+    return read_tensor_row(mf, meta, row, 8 + header_size);
 }
 
 // =============================================================================
@@ -469,7 +298,7 @@ bool parse_vocab(const fs::path& vocab_path) {
 // Main Ingestion Pipeline with Laplacian Projection
 // =============================================================================
 
-bool ingest_with_laplacian_projection(PGconn* conn, const IngestConfig& config) {
+bool ingest_with_laplacian_projection(PGconn* conn, const Ingest4DConfig& config) {
     // Find embedding tensor
     TensorMeta* embed = nullptr;
     for (auto& [name, meta] : g_tensors) {
@@ -513,7 +342,7 @@ bool ingest_with_laplacian_projection(PGconn* conn, const IngestConfig& config) 
         while (true) {
             int64_t i = load_idx.fetch_add(1);
             if (i >= vocab_size) break;
-            embeddings[i] = read_tensor_row(*embed, static_cast<size_t>(i));
+            embeddings[i] = read_tensor_row_local(*embed, static_cast<size_t>(i));
         }
     };
     
@@ -600,7 +429,7 @@ bool ingest_with_laplacian_projection(PGconn* conn, const IngestConfig& config) 
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    IngestConfig config;
+    Ingest4DConfig config;
     std::string model_dir;
     
     for (int i = 1; i < argc; ++i) {
