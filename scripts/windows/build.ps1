@@ -1,215 +1,116 @@
 # ============================================================================
-# Hartonomous Hypercube - Build C++ Components (Windows)
+# Hartonomous Hypercube - Windows Build Script
 # ============================================================================
-# Optimized build with Intel oneAPI (MKL + OpenMP) and MSVC
-#
-# Usage:
-#   .\scripts\windows\build.ps1                 # Standard build
-#   .\scripts\windows\build.ps1 -Clean          # Clean rebuild
-#   .\scripts\windows\build.ps1 -Install        # Install PostgreSQL extensions
-#   .\scripts\windows\build.ps1 -Verbose        # Show detailed output
+# This script sets up the environment and builds the project in one session
+# to ensure VS environment variables are properly inherited.
 # ============================================================================
 
-param(
-    [switch]$Clean,
-    [switch]$Install,
-    [switch]$Verbose
-)
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = Split-Path -Parent $ScriptDir
+$ProjectRoot = Split-Path -Parent $ProjectRoot
 
-$ErrorActionPreference = "Stop"
+Write-Host "Setting up environment..." -ForegroundColor Green
 
-# Load environment
-. "$PSScriptRoot\env.ps1"
-
-if ($Clean) {
-    & "$PSScriptRoot\clean.ps1"
+# Load config.env
+$ConfigFile = "$ProjectRoot\scripts\config.env"
+if (Test-Path $ConfigFile) {
+    Get-Content $ConfigFile | ForEach-Object {
+        if ($_ -match '^([^#=]+)=(.*)$') {
+            $key = $matches[1].Trim()
+            $val = $matches[2].Trim()
+            [Environment]::SetEnvironmentVariable($key, $val, "Process")
+        }
+    }
 }
 
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " Hartonomous Hypercube - Build" -ForegroundColor Cyan
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Configuration:" -ForegroundColor Yellow
-Write-Host "  Build Type:     $env:HC_BUILD_TYPE"
-Write-Host "  Parallel Jobs:  $env:HC_PARALLEL_JOBS"
-Write-Host "  Project Root:   $env:HC_PROJECT_ROOT"
-Write-Host ""
+# Find and setup Visual Studio
+$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+if (-not (Test-Path $vswhere)) {
+    $vswhere = "${env:ProgramFiles}\Microsoft Visual Studio\Installer\vswhere.exe"
+}
 
-# ============================================================================
-# CHECK INTEL MKL
-# ============================================================================
+$vsPath = $null
+if (Test-Path $vswhere) {
+    $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+}
 
-$MKLRoot = $null
-$MKLPaths = @(
-    "D:\Intel\oneAPI\mkl\latest",
-    "$env:MKLROOT",
-    "C:\Program Files (x86)\Intel\oneAPI\mkl\latest",
-    "C:\Program Files\Intel\oneAPI\mkl\latest"
+# Setup Intel oneAPI
+$IntelOneAPIPaths = @(
+    "D:\Intel\oneAPI",
+    "C:\Program Files (x86)\Intel\oneAPI",
+    "C:\Program Files\Intel\oneAPI",
+    "$env:USERPROFILE\intel\oneAPI"
 )
 
-foreach ($path in $MKLPaths) {
-    if ($path -and (Test-Path "$path\include\mkl.h")) {
-        $MKLRoot = $path
+foreach ($oneAPIPath in $IntelOneAPIPaths) {
+    if (Test-Path $oneAPIPath) {
+        $env:MKLROOT = "$oneAPIPath\mkl\latest"
+        $compilerBin = "$oneAPIPath\compiler\latest\bin"
+        $mklBin = "$oneAPIPath\mkl\latest\bin"
+
+        if ((Test-Path $compilerBin) -and ($env:PATH -notlike "*$compilerBin*")) {
+            $env:PATH = "$compilerBin;$mklBin;$env:PATH"
+        }
         break
     }
 }
 
-if ($MKLRoot) {
-    Write-Host "Intel MKL:        $MKLRoot" -ForegroundColor Green
-    $env:MKLROOT = $MKLRoot
+# Setup VS environment
+if ($vsPath -and (Test-Path "$vsPath\Common7\Tools\VsDevCmd.bat")) {
+    $vsDevCmd = "$vsPath\Common7\Tools\VsDevCmd.bat"
+    Write-Host "Setting up VS DevCmd environment..." -ForegroundColor Yellow
+
+    # Capture VS environment variables
+    $vsEnv = cmd /c "`"$vsDevCmd`" -arch=amd64 -no_logo && set" 2>$null
+    foreach ($line in $vsEnv) {
+        if ($line -match '^([^=]+)=(.*)$') {
+            $key = $matches[1]
+            $value = $matches[2]
+            [Environment]::SetEnvironmentVariable($key, $value, "Process")
+        }
+    }
+    Write-Host "VS environment configured" -ForegroundColor Green
 } else {
-    Write-Host "Intel MKL:        Not found (using fallback BLAS)" -ForegroundColor Yellow
+    Write-Host "Warning: Could not find VS DevCmd.bat" -ForegroundColor Red
 }
 
-# ============================================================================
-# CMAKE CONFIGURE
-# ============================================================================
+# Set project variables
+$env:HC_PROJECT_ROOT = $ProjectRoot
+$env:HC_BUILD_DIR = "$ProjectRoot\cpp\build"
 
-$BuildDir = "$env:HC_PROJECT_ROOT\cpp\build"
-New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
-Push-Location $BuildDir
+# Build the project
+Write-Host "Building project..." -ForegroundColor Green
+Push-Location "$ProjectRoot\cpp"
 
-try {
-    Write-Host ""
-    Write-Host "Configuring with CMake..." -ForegroundColor Yellow
-    
-    # Check for Ninja and cl.exe
-    $hasNinja = Get-Command ninja -ErrorAction SilentlyContinue
-    $hasCL = Get-Command cl.exe -ErrorAction SilentlyContinue
-    
-    $cmakeArgs = @()
-    
-    if ($hasNinja -and $hasCL) {
-        # Ninja with MSVC (fast)
-        $cmakeArgs = @(
-            "-G", "Ninja",
-            "-DCMAKE_C_COMPILER=cl",
-            "-DCMAKE_CXX_COMPILER=cl",
-            "-DCMAKE_BUILD_TYPE=$env:HC_BUILD_TYPE"
-        )
-    } elseif ($hasCL) {
-        # Visual Studio generator (slower but works)
-        $cmakeArgs = @(
-            "-G", "Visual Studio 17 2022",
-            "-A", "x64",
-            "-DCMAKE_BUILD_TYPE=$env:HC_BUILD_TYPE"
-        )
-    } else {
-        Write-Host "ERROR: MSVC (cl.exe) not found. Run from Developer Command Prompt." -ForegroundColor Red
-        exit 1
-    }
-    
-    $cmakeArgs += ".."
-    
-    if ($Verbose) {
-        Write-Host "  Args: $($cmakeArgs -join ' ')" -ForegroundColor Gray
-    }
-    
-    & cmake @cmakeArgs
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "CMake configuration failed!" -ForegroundColor Red
-        exit 1
-    }
-    
-    # ========================================================================
-    # BUILD
-    # ========================================================================
-    
-    Write-Host ""
-    Write-Host "Building with $env:HC_PARALLEL_JOBS parallel jobs..." -ForegroundColor Yellow
-    
-    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    
-    & cmake --build . --config $env:HC_BUILD_TYPE --parallel $env:HC_PARALLEL_JOBS
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Build failed!" -ForegroundColor Red
-        exit 1
-    }
-    
-    $stopwatch.Stop()
-    
-    # ========================================================================
-    # RESULTS
-    # ========================================================================
-    
-    Write-Host ""
-    Write-Host "============================================================" -ForegroundColor Cyan
-    Write-Host " BUILD COMPLETE" -ForegroundColor Green
-    Write-Host " Time: $($stopwatch.Elapsed.ToString('mm\:ss\.fff'))" -ForegroundColor Cyan
-    Write-Host "============================================================" -ForegroundColor Cyan
-    
-    Write-Host ""
-    Write-Host "Executables:" -ForegroundColor Yellow
-    Get-ChildItem -Filter "*.exe" -Recurse | 
-        Where-Object { $_.Directory.Name -notmatch "CMakeFiles" } |
-        ForEach-Object {
-            $size = [math]::Round($_.Length / 1MB, 2)
-            Write-Host "  $($_.Name) ($size MB)"
-        }
-    
-    Write-Host ""
-    Write-Host "Extensions:" -ForegroundColor Yellow
-    Get-ChildItem -Filter "*.dll" | 
-        Where-Object { $_.Name -match "^(hypercube|semantic|embedding|generative)" } |
-        ForEach-Object { Write-Host "  $($_.Name)" }
-    
-    # Verify OpenMP linkage
-    $dumpbin = Get-Command dumpbin -ErrorAction SilentlyContinue
-    if ($dumpbin -and (Test-Path "ingest_safetensor.exe")) {
-        $deps = & dumpbin /dependents "ingest_safetensor.exe" 2>$null | Select-String -Pattern "vcomp|libiomp|libomp"
-        if ($deps) {
-            Write-Host ""
-            Write-Host "OpenMP Runtime: $($deps.Matches.Value -join ', ')" -ForegroundColor Green
-        }
-    }
-    
-    # ========================================================================
-    # INSTALL EXTENSIONS
-    # ========================================================================
-    
-    if ($Install) {
-        Write-Host ""
-        Write-Host "Installing PostgreSQL Extensions..." -ForegroundColor Yellow
-        
-        $pgConfig = Get-Command pg_config -ErrorAction SilentlyContinue
-        if (-not $pgConfig) {
-            Write-Host "pg_config not found. Cannot install extensions." -ForegroundColor Red
-            exit 1
-        }
-        
-        $pgLibDir = & pg_config --pkglibdir
-        $pgShareDir = & pg_config --sharedir
-        $pgExtDir = "$pgShareDir\extension"
-        
-        Write-Host "  Target: $pgLibDir"
-        
-        $extensions = @("hypercube", "semantic_ops", "hypercube_ops", "embedding_ops", "generative")
-        foreach ($ext in $extensions) {
-            if (Test-Path "$ext.dll") {
-                Copy-Item "$ext.dll" "$pgLibDir\" -Force
-                Write-Host "  Installed: $ext.dll" -ForegroundColor Green
-            }
-            if (Test-Path "..\sql\$ext--1.0.sql") {
-                Copy-Item "..\sql\$ext--1.0.sql" "$pgExtDir\" -Force
-            }
-            if (Test-Path "..\sql\$ext.control") {
-                Copy-Item "..\sql\$ext.control" "$pgExtDir\" -Force
-            }
-        }
-        
-        # Copy C library
-        if (Test-Path "hypercube_c.dll") {
-            Copy-Item "hypercube_c.dll" "$pgLibDir\" -Force
-            Write-Host "  Installed: hypercube_c.dll" -ForegroundColor Green
-        }
-    }
+# Clean build directory
+if (Test-Path "build") {
+    Remove-Item -Recurse -Force "build"
+}
+New-Item -ItemType Directory -Force "build" | Out-Null
 
-} finally {
+Push-Location "build"
+
+# Configure with CMake
+Write-Host "Running CMake..." -ForegroundColor Yellow
+& cmake .. -DCMAKE_BUILD_TYPE=Release
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "CMake failed" -ForegroundColor Red
     Pop-Location
+    Pop-Location
+    exit 1
 }
 
-Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  .\scripts\windows\setup-db.ps1       # Setup database schema"
-Write-Host "  .\scripts\windows\ingest.ps1 <path>  # Ingest a model"
+# Build with ninja
+Write-Host "Building with ninja..." -ForegroundColor Yellow
+& ninja
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Build failed" -ForegroundColor Red
+    Pop-Location
+    Pop-Location
+    exit 1
+}
+
+Pop-Location
+Pop-Location
+
+Write-Host "Build completed successfully!" -ForegroundColor Green

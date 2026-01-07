@@ -359,61 +359,49 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
     // =========================================================================
     
     Transaction tx(conn);
-    
-    Result res = exec(conn,
-        "CREATE TEMP TABLE tmp_semantic ("
-        "  source_type CHAR(1), source_id BYTEA,"
-        "  target_type CHAR(1), target_id BYTEA,"
-        "  weight REAL"
-        ") ON COMMIT DROP");
-    
-    CopyStream copy(conn, "COPY tmp_semantic FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    
-    std::string batch;
-    batch.reserve(1 << 20);
-    
+
+    // Direct bulk INSERT without temp table
+    std::string insert_sql = "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) VALUES ";
+    std::vector<std::string> values;
+
     for (const auto& edges : thread_edges) {
         for (const auto& [i, j, sim] : edges) {
             size_t tok_i = valid_indices[i];
             size_t tok_j = valid_indices[j];
-            
+
             const auto& comp_i = ctx.vocab_tokens[tok_i].comp;
             const auto& comp_j = ctx.vocab_tokens[tok_j].comp;
-            
+
             char type_i = (comp_i.children.size() <= 1) ? 'A' : 'C';
             char type_j = (comp_j.children.size() <= 1) ? 'A' : 'C';
-            
-            batch += type_i;
-            batch += "\t";
-            copy_bytea(batch, comp_i.hash);
-            batch += "\t";
-            batch += type_j;
-            batch += "\t";
-            copy_bytea(batch, comp_j.hash);
-            batch += "\t";
-            batch += std::to_string(sim) + "\n";
-            
-            if (batch.size() > (1 << 19)) {
-                copy.put(batch);
-                batch.clear();
-            }
+
+            std::string source_hex = "\\x" + comp_i.hash.to_hex();
+            std::string target_hex = "\\x" + comp_j.hash.to_hex();
+
+            std::string val = "('" + std::string(1, type_i) + "', '" + source_hex + "', '" +
+                              std::string(1, type_j) + "', '" + target_hex + "', 'S', " +
+                              std::to_string(sim) + ", '" + config.model_name + "', 1, -1, 'embedding')";
+            values.push_back(val);
         }
     }
-    
-    if (!batch.empty()) copy.put(batch);
-    copy.end();
-    
-    std::string insert_sql = 
-        "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) "
-        "SELECT source_type, source_id, target_type, target_id, 'S', weight, '" + config.model_name + "', 1, -1, 'embedding' FROM tmp_semantic "
-        "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
-        "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
-        "  source_count = relation.source_count + 1";
-    
-    res = exec(conn, insert_sql);
-    if (!res.ok()) {
-        std::cerr << "[SEMANTIC] Insert failed: " << res.error_message() << "\n";
-        return false;
+
+    // Batch in chunks to avoid query size limits
+    const size_t batch_size = 1000;
+    for (size_t i = 0; i < values.size(); i += batch_size) {
+        std::string batch_sql = insert_sql;
+        for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
+            if (j > i) batch_sql += ", ";
+            batch_sql += values[j];
+        }
+        batch_sql += " ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
+                    "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
+                    "  source_count = relation.source_count + 1";
+
+        Result res = exec(conn, batch_sql);
+        if (!res.ok()) {
+            std::cerr << "[SEMANTIC] Batch insert failed: " << res.error_message() << "\n";
+            return false;
+        }
     }
     
     tx.commit();

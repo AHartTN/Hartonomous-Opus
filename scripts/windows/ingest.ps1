@@ -17,13 +17,16 @@
 param(
     [Parameter(Mandatory=$true, Position=0)]
     [string]$ModelPath,
-    
+
     [Parameter(Position=1)]
     [Alias("t")]
     [float]$Threshold = 0.5,
-    
+
     [Alias("n")]
-    [string]$Name
+    [string]$Name,
+
+    [Alias("d")]
+    [string]$Database
 )
 
 $ErrorActionPreference = "Stop"
@@ -110,7 +113,11 @@ Write-Host "  Path:      $ModelPath"
 Write-Host "  Threshold: $Threshold"
 Write-Host ""
 Write-Host "Database:" -ForegroundColor Yellow
-Write-Host "  $env:PGUSER@$env:PGHOST`:$env:PGPORT/$env:PGDATABASE"
+if ($Database) {
+    Write-Host "  Connection: $Database"
+} else {
+    Write-Host "  $env:PGUSER@$env:PGHOST`:$env:PGPORT/$env:PGDATABASE"
+}
 Write-Host ""
 Write-Host "Threading:" -ForegroundColor Yellow
 Write-Host "  OpenMP:    $env:OMP_NUM_THREADS threads"
@@ -140,7 +147,10 @@ Write-Host ""
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-& $IngestExe $ModelPath -t $Threshold -n $Name
+$exeArgs = @($ModelPath, "-t", $Threshold.ToString())
+if ($Name) { $exeArgs += "-n"; $exeArgs += $Name }
+if ($Database) { $exeArgs += "-d"; $exeArgs += $Database }
+& $IngestExe @exeArgs
 
 $exitCode = $LASTEXITCODE
 $stopwatch.Stop()

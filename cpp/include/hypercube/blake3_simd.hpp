@@ -85,15 +85,88 @@ inline __m256i rotr32_avx2(__m256i x, int n) {
     return _mm256_or_si256(_mm256_srli_epi32(x, n), _mm256_slli_epi32(x, 32 - n));
 }
 
+// AVX2 G function - processes 8 words at once (2 compression states)
+inline void g_avx2(__m256i* a, __m256i* b, __m256i* c, __m256i* d, __m256i m0, __m256i m1) {
+    // a = a + b + m0
+    __m256i t0 = _mm256_add_epi32(_mm256_add_epi32(*a, *b), m0);
+    // d = rotr32(d ^ t0, 16)
+    __m256i t3 = rotr32_avx2(_mm256_xor_si256(*d, t0), 16);
+    // c = c + t3
+    __m256i t2 = _mm256_add_epi32(*c, t3);
+    // b = rotr32(b ^ t2, 12)
+    *b = rotr32_avx2(_mm256_xor_si256(*b, t2), 12);
+    // a = t0 + b + m1
+    *a = _mm256_add_epi32(_mm256_add_epi32(t0, *b), m1);
+    // d = rotr32(t3 ^ a, 8)
+    *d = rotr32_avx2(_mm256_xor_si256(t3, *a), 8);
+    // c = t2 + d
+    *c = _mm256_add_epi32(t2, *d);
+    // b = rotr32(b ^ c, 7)
+    *b = rotr32_avx2(_mm256_xor_si256(*b, *c), 7);
+}
+
 // Process 2 blocks in parallel with AVX2
-void compress_2blocks_avx2(const uint32_t cv[8], 
+void compress_2blocks_avx2(const uint32_t cv[8],
                            const uint8_t block0[BLAKE3_BLOCK_LEN],
                            const uint8_t block1[BLAKE3_BLOCK_LEN],
                            uint8_t block_len, uint64_t counter, uint8_t flags,
                            uint32_t out0[16], uint32_t out1[16]) {
-    // Load both blocks into AVX2 registers
-    // This processes 2 compression functions simultaneously
-    // Implementation would go here...
+    // Load message blocks
+    __m256i msg[16];
+    for (int i = 0; i < 16; ++i) {
+        uint32_t w0 = load32_le(&block0[i * 4]);
+        uint32_t w1 = load32_le(&block1[i * 4]);
+        msg[i] = _mm256_setr_epi32(w0, w1, w0, w1, w0, w1, w0, w1);
+    }
+
+    // Initialize state for 2 parallel compressions
+    __m256i state0 = _mm256_setr_epi32(cv[0], cv[0], cv[0], cv[0], cv[0], cv[0], cv[0], cv[0]);
+    __m256i state1 = _mm256_setr_epi32(cv[1], cv[1], cv[1], cv[1], cv[1], cv[1], cv[1], cv[1]);
+    __m256i state2 = _mm256_setr_epi32(cv[2], cv[2], cv[2], cv[2], cv[2], cv[2], cv[2], cv[2]);
+    __m256i state3 = _mm256_setr_epi32(cv[3], cv[3], cv[3], cv[3], cv[3], cv[3], cv[3], cv[3]);
+    __m256i state4 = _mm256_setr_epi32(cv[4], cv[4], cv[4], cv[4], cv[4], cv[4], cv[4], cv[4]);
+    __m256i state5 = _mm256_setr_epi32(cv[5], cv[5], cv[5], cv[5], cv[5], cv[5], cv[5], cv[5]);
+    __m256i state6 = _mm256_setr_epi32(cv[6], cv[6], cv[6], cv[6], cv[6], cv[6], cv[6], cv[6]);
+    __m256i state7 = _mm256_setr_epi32(cv[7], cv[7], cv[7], cv[7], cv[7], cv[7], cv[7], cv[7]);
+    __m256i state8 = _mm256_setr_epi32(IV[0], IV[0], IV[0], IV[0], IV[0], IV[0], IV[0], IV[0]);
+    __m256i state9 = _mm256_setr_epi32(IV[1], IV[1], IV[1], IV[1], IV[1], IV[1], IV[1], IV[1]);
+    __m256i state10 = _mm256_setr_epi32(IV[2], IV[2], IV[2], IV[2], IV[2], IV[2], IV[2], IV[2]);
+    __m256i state11 = _mm256_setr_epi32(IV[3], IV[3], IV[3], IV[3], IV[3], IV[3], IV[3], IV[3]);
+    __m256i state12 = _mm256_setr_epi32(static_cast<uint32_t>(counter), static_cast<uint32_t>(counter),
+                                        static_cast<uint32_t>(counter), static_cast<uint32_t>(counter),
+                                        static_cast<uint32_t>(counter), static_cast<uint32_t>(counter),
+                                        static_cast<uint32_t>(counter), static_cast<uint32_t>(counter));
+    __m256i state13 = _mm256_setr_epi32(static_cast<uint32_t>(counter >> 32), static_cast<uint32_t>(counter >> 32),
+                                        static_cast<uint32_t>(counter >> 32), static_cast<uint32_t>(counter >> 32),
+                                        static_cast<uint32_t>(counter >> 32), static_cast<uint32_t>(counter >> 32),
+                                        static_cast<uint32_t>(counter >> 32), static_cast<uint32_t>(counter >> 32));
+    __m256i state14 = _mm256_setr_epi32(block_len, block_len, block_len, block_len,
+                                        block_len, block_len, block_len, block_len);
+    __m256i state15 = _mm256_setr_epi32(flags, flags, flags, flags, flags, flags, flags, flags);
+
+    // 7 rounds of G functions
+    for (int round = 0; round < 7; ++round) {
+        const uint8_t* s = MSG_SCHEDULE[round];
+        g_avx2(&state0, &state4, &state8, &state12, msg[s[0]], msg[s[1]]);
+        g_avx2(&state1, &state5, &state9, &state13, msg[s[2]], msg[s[3]]);
+        g_avx2(&state2, &state6, &state10, &state14, msg[s[4]], msg[s[5]]);
+        g_avx2(&state3, &state7, &state11, &state15, msg[s[6]], msg[s[7]]);
+        g_avx2(&state0, &state5, &state10, &state15, msg[s[8]], msg[s[9]]);
+        g_avx2(&state1, &state6, &state11, &state12, msg[s[10]], msg[s[11]]);
+        g_avx2(&state2, &state7, &state8, &state13, msg[s[12]], msg[s[13]]);
+        g_avx2(&state3, &state4, &state9, &state14, msg[s[14]], msg[s[15]]);
+    }
+
+    // Extract results
+    uint32_t temp0[8], temp1[8];
+    _mm256_storeu_si256(reinterpret_cast<__m256i*>(temp0), _mm256_xor_si256(state0, state8));
+    _mm256_storeu_si256(reinterpret_cast<__m256i*>(temp1), _mm256_xor_si256(state0, state8));
+    for (int i = 0; i < 8; ++i) {
+        out0[i] = temp0[i];
+        out0[i + 8] = temp0[i] ^ cv[i];
+        out1[i] = temp1[i];
+        out1[i + 8] = temp1[i] ^ cv[i];
+    }
 }
 #endif
 

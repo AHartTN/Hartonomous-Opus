@@ -12,8 +12,10 @@
  */
 
 #include "hypercube/ingest/db_operations.hpp"
+#include "hypercube/ingest/projection_db.hpp"
 #include "hypercube/db/operations.hpp"
 #include "hypercube/db/helpers.hpp"
+#include "hypercube/laplacian_4d.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -28,6 +30,13 @@
 #include <atomic>
 #include <thread>
 
+#ifdef _WIN32
+#include <windows.h>
+#define getpid() GetCurrentProcessId()
+#else
+#include <unistd.h>
+#endif
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -41,7 +50,7 @@
 #define bswap16(x) __builtin_bswap16(x)
 #endif
 
-#ifdef HAS_MKL
+#if defined(HAS_MKL) && HAS_MKL
 #include <mkl.h>
 #endif
 
@@ -62,11 +71,9 @@ static constexpr float THRESHOLD = 0.7f;
 static constexpr float MIN_NORM = 0.01f;
 static int g_num_threads = 1;  // Set at runtime
 
-// Projection k-NN is DISABLED by default - too slow (single-threaded HNSW build)
-// The main token↔token semantic similarity from attention_relations.cpp is sufficient
-// Enable if you need projection-specific relations (Q/K/V/up layer semantics)
-static constexpr bool ENABLE_PROJECTION_KNN = false;
-static constexpr size_t MAX_PROJECTIONS = 4;  // If enabled, limit to first N projections
+// Projection k-NN is enabled for complete semantic extraction
+static constexpr bool ENABLE_PROJECTION_KNN = true;
+static constexpr size_t MAX_PROJECTIONS = 2;  // Limit to first N projections
 
 // ============================================================================
 // Load tensor
@@ -160,16 +167,16 @@ struct Edge { int32_t src, tgt; float sim; };
 static std::vector<Edge> knn(const float* data, const std::vector<size_t>& valid, size_t dim) {
     size_t n = valid.size();
     if (n < 2) return {};
-    
+
     std::cerr << "[KNN] Building index for " << n << " vectors (single-threaded)...\n";
-    
+
     hnswlib::InnerProductSpace space(dim);
     hnswlib::HierarchicalNSW<float> idx(&space, n, 16, 100);
-    
+
     // Progress logging for build (single-threaded, this is the bottleneck)
     auto build_start = std::chrono::steady_clock::now();
     size_t log_interval = std::max(size_t(1), n / 10);
-    
+
     for (size_t i = 0; i < n; i++) {
         idx.addPoint(data + valid[i] * dim, i);
         if ((i + 1) % log_interval == 0 || i + 1 == n) {
@@ -177,30 +184,29 @@ static std::vector<Edge> knn(const float* data, const std::vector<size_t>& valid
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - build_start).count();
             double pct = 100.0 * (i + 1) / n;
             double rate = (i + 1) * 1000.0 / (elapsed + 1);
-            std::cerr << "[KNN] Build: " << (i + 1) << "/" << n 
+            std::cerr << "[KNN] Build: " << (i + 1) << "/" << n
                       << " (" << std::fixed << std::setprecision(1) << pct << "%)"
                       << " - " << rate << " vecs/sec\n";
         }
     }
     idx.setEf(50);
-    
+
     std::cerr << "[KNN] Querying " << n << " vectors (PARALLEL, " << g_num_threads << " threads)...\n";
-    
+
     // PARALLEL query - searchKnn IS thread-safe
-    std::vector<std::vector<Edge>> thread_edges(g_num_threads);
-    
+    std::vector<std::set<std::tuple<size_t, size_t, float>>> thread_edge_sets(g_num_threads);
+
     auto query_start = std::chrono::steady_clock::now();
     std::atomic<size_t> progress{0};
-    
+
     #pragma omp parallel num_threads(g_num_threads)
     {
         int tid = 0;
         #ifdef _OPENMP
         tid = omp_get_thread_num();
         #endif
-        std::vector<Edge>& local = thread_edges[tid];
-        local.reserve(n * K / g_num_threads);
-        
+        std::set<std::tuple<size_t, size_t, float>>& local = thread_edge_sets[tid];
+
         #pragma omp for schedule(dynamic, 256)
         for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
             auto result = idx.searchKnn(data + valid[i] * dim, K + 1);
@@ -210,33 +216,35 @@ static std::vector<Edge> knn(const float* data, const std::vector<size_t>& valid
                 if (static_cast<size_t>(j) == i) continue;
                 float sim = 1.0f - dist;
                 if (sim >= THRESHOLD && valid[i] < valid[j]) {
-                    local.push_back({static_cast<int32_t>(valid[i]), static_cast<int32_t>(valid[j]), sim});
+                    local.emplace(valid[i], valid[j], sim);
                 }
             }
-            
+
             // Progress logging (every 10% from thread 0)
             size_t p = progress.fetch_add(1);
             if (tid == 0 && (p % (n / 10 + 1) == 0)) {
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - query_start).count();
                 double rate = (p + 1) * 1000.0 / (elapsed + 1);
-                std::cerr << "[KNN] Query: " << p << "/" << n 
+                std::cerr << "[KNN] Query: " << p << "/" << n
                           << " - " << rate << " queries/sec\n";
             }
         }
     }
-    
+
     // Merge results
-    size_t total_edges = 0;
-    for (const auto& te : thread_edges) total_edges += te.size();
-    
-    std::vector<Edge> edges;
-    edges.reserve(total_edges);
-    for (auto& te : thread_edges) {
-        edges.insert(edges.end(), te.begin(), te.end());
+    std::set<std::tuple<size_t, size_t, float>> all_edges;
+    for (auto& tes : thread_edge_sets) {
+        all_edges.insert(tes.begin(), tes.end());
     }
-    
-    std::cerr << "[KNN] Found " << edges.size() << " edges above threshold " << THRESHOLD << "\n";
+
+    std::vector<Edge> edges;
+    edges.reserve(all_edges.size());
+    for (auto& t : all_edges) {
+        edges.push_back({static_cast<int32_t>(std::get<0>(t)), static_cast<int32_t>(std::get<1>(t)), std::get<2>(t)});
+    }
+
+    std::cerr << "[KNN] Found " << edges.size() << " unique edges above threshold " << THRESHOLD << "\n";
     return edges;
 }
 #else
@@ -244,49 +252,53 @@ static std::vector<Edge> knn(const float*, const std::vector<size_t>&, size_t) {
 #endif
 
 // ============================================================================
-// Insert edges via binary COPY
+// Insert edges via batched INSERT
 // ============================================================================
 
 static void insert(PGconn* conn, const std::vector<Edge>& edges, const IngestContext& ctx, const std::string& tag) {
     if (edges.empty()) return;
-    
-    std::vector<char> buf;
-    buf.reserve(edges.size() * 90);
-    
-    const char hdr[] = "PGCOPY\n\xff\r\n\0";
-    buf.insert(buf.end(), hdr, hdr + 11);
-    uint32_t z = 0;
-    buf.insert(buf.end(), (char*)&z, (char*)&z + 4);
-    buf.insert(buf.end(), (char*)&z, (char*)&z + 4);
-    
-    auto be16 = [&](int16_t v) { uint16_t x = bswap16((uint16_t)v); buf.insert(buf.end(), (char*)&x, (char*)&x + 2); };
-    auto be32 = [&](int32_t v) { uint32_t x = bswap32((uint32_t)v); buf.insert(buf.end(), (char*)&x, (char*)&x + 4); };
-    auto bef = [&](float v) { uint32_t b; memcpy(&b, &v, 4); uint32_t x = bswap32(b); buf.insert(buf.end(), (char*)&x, (char*)&x + 4); };
-    
+
+    // Deduplicate edges (though HNSW should already produce unique edges)
+    std::set<std::tuple<Blake3Hash, Blake3Hash, float>> seen;
     for (const auto& e : edges) {
         if ((size_t)e.src >= ctx.vocab_tokens.size() || (size_t)e.tgt >= ctx.vocab_tokens.size()) continue;
         const auto& s = ctx.vocab_tokens[e.src].comp;
         const auto& t = ctx.vocab_tokens[e.tgt].comp;
-        
-        be16(8);
-        be32(1); buf.push_back('C');
-        be32(32); buf.insert(buf.end(), (char*)s.hash.data(), (char*)s.hash.data() + 32);
-        be32(1); buf.push_back('C');
-        be32(32); buf.insert(buf.end(), (char*)t.hash.data(), (char*)t.hash.data() + 32);
-        be32(1); buf.push_back('S');
-        be32(4); bef(e.sim);
-        be32((int32_t)tag.size()); buf.insert(buf.end(), tag.begin(), tag.end());
-        be32(4); be32(1);
+        seen.emplace(s.hash, t.hash, e.sim);
     }
-    be16(-1);
-    
-    auto res = PQexec(conn, "COPY relation(source_type,source_id,target_type,target_id,relation_type,weight,source_model,source_count) FROM STDIN WITH (FORMAT binary)");
-    if (PQresultStatus(res) == PGRES_COPY_IN) {
-        PQputCopyData(conn, buf.data(), (int)buf.size());
-        PQputCopyEnd(conn, nullptr);
-        PQclear(PQgetResult(conn));
+
+    // Direct COPY to relation table (text format for simplicity)
+    std::string copy_cmd = "COPY relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) FROM STDIN";
+
+    PGresult* res = PQexec(conn, copy_cmd.c_str());
+    if (PQresultStatus(res) != PGRES_COPY_IN) {
+        std::cerr << "[INSERT] COPY start failed: " << PQerrorMessage(conn) << "\n";
+        PQclear(res);
+        return;
     }
     PQclear(res);
+
+    const std::string component = "semantic";
+
+    for (const auto& [source_hash, target_hash, weight] : seen) {
+        std::string line = "C\t\\\\x" + source_hash.to_hex() + "\tC\t\\\\x" + target_hash.to_hex() +
+                          "\tS\t" + std::to_string(weight) + "\t" + tag + "\t-1\t" + component + "\n";
+
+        if (PQputCopyData(conn, line.c_str(), (int)line.size()) != 1) {
+            std::cerr << "[INSERT] COPY data failed: " << PQerrorMessage(conn) << "\n";
+            return;
+        }
+    }
+
+    if (PQputCopyEnd(conn, nullptr) != 1) {
+        std::cerr << "[INSERT] COPY end failed: " << PQerrorMessage(conn) << "\n";
+        return;
+    }
+
+    res = PQgetResult(conn);
+    PQclear(res);
+
+    std::cerr << "[INSERT] Inserted " << seen.size() << " semantic relations\n";
 }
 
 // ============================================================================
@@ -310,7 +322,7 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
     std::cerr << "[SEMANTIC] WARNING: OpenMP NOT AVAILABLE - many operations single-threaded!\n";
 #endif
     
-#ifdef HAS_MKL
+#if defined(HAS_MKL) && HAS_MKL
     mkl_set_num_threads(g_num_threads);
     mkl_set_dynamic(0);  // CRITICAL: Force thread count
     std::cerr << "[SEMANTIC] MKL threads: " << mkl_get_max_threads() << " (dynamic=0)\n";
@@ -471,7 +483,7 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
         std::vector<float> P(V * R);
         
         auto gemm_start = std::chrono::steady_clock::now();
-#ifdef HAS_MKL
+#if defined(HAS_MKL) && HAS_MKL
         // cblas_sgemm: C = alpha * A * B + beta * C
         // A = E (V x D), B = W^T (D x R), C = P (V x R)
         // W is stored as (R x D), so we use CblasTrans
@@ -505,6 +517,140 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
     }
     
     std::cerr << "[SEMANTIC] Total: " << total << " sparse relations\n";
+    return true;
+}
+
+// ============================================================================
+// Project embeddings to 4D using Laplacian eigenmaps
+// ============================================================================
+
+bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
+    std::cerr << "============================================================\n";
+    std::cerr << "[PROJECTION] LAPLACIAN EIGENMAP PROJECTION starting\n";
+    std::cerr << "============================================================\n";
+
+    // Find the token embedding tensor (same logic as extract_all_semantic_relations)
+    const TensorMeta* emb = nullptr;
+    std::string emb_name;
+
+    if (ctx.manifest.has_value()) {
+        std::cerr << "[PROJECTION] Using config-driven tensor lookup\n";
+        for (const auto& plan : ctx.manifest->extraction_plans) {
+            if (plan.category == TensorCategory::TOKEN_EMBEDDING) {
+                auto it = ctx.tensors.find(plan.name);
+                if (it != ctx.tensors.end()) {
+                    emb = &it->second;
+                    emb_name = plan.name;
+                    std::cerr << "[PROJECTION] Found TOKEN_EMBEDDING: " << plan.name
+                              << " [" << emb->shape[0] << " x " << emb->shape[1] << "]\n";
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!emb) {
+        std::cerr << "[PROJECTION] WARNING: Manifest lookup failed, falling back to tensor scan\n";
+        size_t expected_vocab = ctx.get_vocab_size();
+        for (const auto& [name, meta] : ctx.tensors) {
+            if (meta.shape.size() != 2) continue;
+            if (name.find("position") != std::string::npos) continue;
+            if (expected_vocab > 0 && meta.shape[0] == static_cast<int64_t>(expected_vocab)) {
+                emb = &meta;
+                emb_name = name;
+                std::cerr << "[PROJECTION] Found embedding: " << name
+                          << " [" << meta.shape[0] << " x " << meta.shape[1] << "]\n";
+                break;
+            }
+        }
+    }
+
+    if (!emb) {
+        std::cerr << "[PROJECTION] No embedding tensor found, skipping Laplacian projection\n";
+        return true;
+    }
+
+    size_t V = static_cast<size_t>(emb->shape[0]);
+    size_t D = static_cast<size_t>(emb->shape[1]);
+    if (!ctx.vocab_tokens.empty()) V = std::min(V, ctx.vocab_tokens.size());
+
+    std::cerr << "[PROJECTION] Loading " << V << " x " << D << " embeddings...\n";
+    auto load_start = std::chrono::steady_clock::now();
+    auto E_flat = load_tensor(*emb);
+    auto load_end = std::chrono::steady_clock::now();
+    if (E_flat.empty()) {
+        std::cerr << "[PROJECTION] Failed to load embeddings\n";
+        return false;
+    }
+    E_flat.resize(V * D);
+    std::cerr << "[PROJECTION] Loaded in "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(load_end - load_start).count() << "ms\n";
+
+    // Convert to vector<vector<float>> for LaplacianProjector
+    std::vector<std::vector<float>> embeddings(V);
+    for (size_t i = 0; i < V; ++i) {
+        embeddings[i].resize(D);
+        for (size_t j = 0; j < D; ++j) {
+            embeddings[i][j] = E_flat[i * D + j];
+        }
+    }
+
+    // Prepare labels
+    std::vector<std::string> labels(V);
+    for (size_t i = 0; i < V; ++i) {
+        if (i < ctx.vocab_tokens.size()) {
+            labels[i] = ctx.vocab_tokens[i].text;
+        } else {
+            labels[i] = "token_" + std::to_string(i);
+        }
+    }
+
+    // Configure Laplacian projector
+    LaplacianConfig lap_config;
+    lap_config.k_neighbors = 15;
+    lap_config.similarity_threshold = 0.0f;
+    lap_config.power_iterations = 100;  // Reduced for speed
+    lap_config.num_threads = g_num_threads;
+    lap_config.project_to_sphere = true;
+    lap_config.verbose = true;
+
+    std::cerr << "[PROJECTION] Projecting " << V << " embeddings to 4D using Laplacian eigenmaps...\n";
+    auto proj_start = std::chrono::steady_clock::now();
+
+    LaplacianProjector projector(lap_config);
+    ProjectionResult result = projector.project(embeddings, labels);
+
+    auto proj_end = std::chrono::steady_clock::now();
+    std::cerr << "[PROJECTION] Projection completed in "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(proj_end - proj_start).count() << "ms\n";
+    std::cerr << "[PROJECTION] 4D coordinates range computed\n";
+    std::cerr << "[PROJECTION] Variance explained: " << result.total_variance_explained * 100 << "%\n";
+
+    if (result.total_variance_explained < 0.01) {
+        std::cerr << "[PROJECTION] Variance explained too low, skipping database update\n";
+        return true;
+    }
+
+    // Prepare TokenData for database update
+    std::vector<hypercube::db::TokenData> tokens(V);
+    for (size_t i = 0; i < V; ++i) {
+        tokens[i].label = labels[i];
+        tokens[i].hash = ctx.vocab_tokens[i].comp.hash;  // Use existing hash
+        tokens[i].is_atom = false;  // These are compositions (tokens)
+        tokens[i].coords = result.coords[i];
+        tokens[i].hilbert_lo = result.hilbert_lo[i];
+        tokens[i].hilbert_hi = result.hilbert_hi[i];
+    }
+
+    // Update database with projected coordinates
+    std::cerr << "[PROJECTION] Updating database with projected 4D coordinates...\n";
+    hypercube::db::PersistConfig persist_config;
+    persist_config.update_existing = true;
+    hypercube::db::ProjectionPersister persister(conn, persist_config);
+    size_t updated = persister.persist(tokens);
+
+    std::cerr << "[PROJECTION] Updated " << updated << " token compositions with Laplacian-projected coordinates\n";
+
     return true;
 }
 

@@ -3,6 +3,10 @@
 #include <string>
 #include <cstdlib>
 #include <libpq-fe.h>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <memory>
 
 namespace hypercube::db {
 
@@ -17,8 +21,19 @@ struct ConnectionConfig {
     ConnectionConfig() {
         // Read from HC_DB_* env vars with defaults
         auto get_env = [](const char* name, const char* def) -> std::string {
+#if defined(_WIN32)
+            char* val = nullptr;
+            size_t len;
+            if (_dupenv_s(&val, &len, name) == 0 && val != nullptr) {
+                std::string result(val);
+                free(val);
+                return result;
+            }
+            return def;
+#else
             const char* val = std::getenv(name);
             return val ? val : def;
+#endif
         };
         dbname = get_env("HC_DB_NAME", "hypercube");
         host = get_env("HC_DB_HOST", "localhost");
@@ -116,6 +131,118 @@ public:
     
 private:
     PGconn* conn_;
+};
+
+// Connection pool for efficient database connections
+class ConnectionPool {
+private:
+    std::queue<std::unique_ptr<Connection>> pool_;
+    mutable std::mutex mutex_;
+    std::condition_variable cv_;
+    const std::string conninfo_;
+    size_t max_size_;
+    std::atomic<size_t> active_connections_{0};
+
+public:
+    /**
+     * @brief Create connection pool
+     * @param config Database configuration
+     * @param max_size Maximum number of connections
+     */
+    ConnectionPool(const ConnectionConfig& config, size_t max_size = 10)
+        : conninfo_(config.to_conninfo()), max_size_(max_size) {}
+
+    /**
+     * @brief Get connection from pool (blocks if none available)
+     * @return RAII connection wrapper
+     */
+    std::unique_ptr<Connection> acquire() {
+        std::unique_lock<std::mutex> lock(mutex_);
+
+        // Wait for available connection or create new one
+        while (pool_.empty() && active_connections_.load() >= max_size_) {
+            cv_.wait(lock);
+        }
+
+        if (!pool_.empty()) {
+            auto conn = std::move(pool_.front());
+            pool_.pop();
+            return conn;
+        }
+
+        // Create new connection
+        active_connections_.fetch_add(1);
+        auto conn = std::make_unique<Connection>(conninfo_);
+        if (!conn->ok()) {
+            active_connections_.fetch_sub(1);
+            throw std::runtime_error(std::string("Failed to connect: ") + conn->error());
+        }
+        return conn;
+    }
+
+    /**
+     * @brief Return connection to pool
+     * @param conn Connection to return (moves ownership)
+     */
+    void release(std::unique_ptr<Connection> conn) {
+        if (!conn || !conn->ok()) {
+            // Bad connection, don't reuse
+            active_connections_.fetch_sub(1);
+            return;
+        }
+
+        std::lock_guard<std::mutex> lock(mutex_);
+        pool_.push(std::move(conn));
+        cv_.notify_one();
+    }
+
+    /**
+     * @brief Get current pool statistics
+     */
+    std::tuple<size_t, size_t> stats() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return {pool_.size(), active_connections_.load()};
+    }
+
+    /**
+     * @brief Drain all connections (for shutdown)
+     */
+    void drain() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        while (!pool_.empty()) {
+            pool_.pop();
+        }
+        // Active connections will be cleaned up when released
+    }
+};
+
+// RAII wrapper for pooled connections
+class PooledConnection {
+private:
+    ConnectionPool* pool_;
+    std::unique_ptr<Connection> conn_;
+
+public:
+    PooledConnection(ConnectionPool& pool, std::unique_ptr<Connection> conn)
+        : pool_(&pool), conn_(std::move(conn)) {}
+
+    ~PooledConnection() {
+        if (conn_) {
+            pool_->release(std::move(conn_));
+        }
+    }
+
+    // No copy/move - connections must be managed by pool
+    PooledConnection(const PooledConnection&) = delete;
+    PooledConnection& operator=(const PooledConnection&) = delete;
+    PooledConnection(PooledConnection&&) = delete;
+    PooledConnection& operator=(PooledConnection&&) = delete;
+
+    // Access underlying connection
+    Connection* operator->() const { return conn_.get(); }
+    Connection& operator*() const { return *conn_; }
+    PGconn* get() const { return conn_->get(); }
+    operator PGconn*() const { return conn_->get(); }
 };
 
 // Execute query and check result

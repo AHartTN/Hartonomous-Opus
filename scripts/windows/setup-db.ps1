@@ -143,7 +143,7 @@ try {
     # ========================================================================
     Write-Host "[5/5] Checking atoms..." -NoNewline
     $atomCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom" 2>$null
-    
+
     if ([int]$atomCount -ge 1100000 -and -not $Force) {
         Write-Host " $atomCount atoms (already seeded)" -ForegroundColor Green
     } else {
@@ -152,27 +152,36 @@ try {
         } else {
             Write-Host " seeding Unicode atoms..." -ForegroundColor Yellow
         }
-        
+
+        Write-Host ""
+        # Use the optimized standalone seeder (built as part of the extension)
+        Write-Host "Using optimized parallel atom seeder..." -ForegroundColor Cyan
         $seeder = "$env:HC_BUILD_DIR\seed_atoms_parallel.exe"
         if (-not (Test-Path $seeder)) {
+            Write-Host "seed_atoms_parallel.exe not found, trying Release subdirectory..." -ForegroundColor Yellow
             $seeder = "$env:HC_BUILD_DIR\Release\seed_atoms_parallel.exe"
         }
-        if (-not (Test-Path $seeder)) {
-            Write-Host ""
-            Write-Host "ERROR: seed_atoms_parallel.exe not found" -ForegroundColor Red
-            Write-Host "Run: .\scripts\windows\build.ps1" -ForegroundColor Yellow
-            exit 1
+        if (Test-Path $seeder) {
+            Write-Host "Running optimized standalone seeder: $seeder"
+            & $seeder -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -p $env:HC_DB_PORT 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Standalone seeder failed (exit code: $LASTEXITCODE)" -ForegroundColor Red
+                Write-Host "Database setup failed!" -ForegroundColor Red
+                exit 1
+            }
+        } else {
+            Write-Host "Standalone seeder not found, using PostgreSQL extension function..." -ForegroundColor Cyan
+            Write-Host "Running SQL: SELECT seed_atoms();"
+            $result = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT seed_atoms();" 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Extension seeder failed: $result" -ForegroundColor Red
+                Write-Host "Database setup failed!" -ForegroundColor Red
+                exit 1
+            }
+            Write-Host "Extension seeder completed successfully" -ForegroundColor Green
         }
-        
-        Write-Host ""
-        & $seeder -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -p $env:HC_DB_PORT
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Atom seeding failed" -ForegroundColor Red
-            Write-Host "Database setup failed!" -ForegroundColor Red
-            exit 1
-        }
-        
-        $newCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom"
+
+        $newCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom" 2>$null
         Write-Host "      Seeded $newCount atoms" -ForegroundColor Green
     }
 

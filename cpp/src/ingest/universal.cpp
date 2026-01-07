@@ -15,13 +15,13 @@
 namespace hypercube::ingest {
 
 namespace {
-    inline uint32_t int32_to_uint32(int32_t val) {
-        return static_cast<uint32_t>(val);
-    }
+    // inline uint32_t int32_to_uint32(int32_t val) {
+    //     return static_cast<uint32_t>(val);
+    // }
 
-    inline int32_t uint32_to_int32(uint32_t val) {
-        return static_cast<int32_t>(val);
-    }
+    // inline int32_t uint32_to_int32(uint32_t val) {
+    //     return static_cast<int32_t>(val);
+    // }
 }
 
 // Extended child info with depth and atom count for proper tier tracking
@@ -234,7 +234,7 @@ std::pair<CompositionRecord, bool> UniversalIngester::Impl::create_composition(
     double scale = 1.0 / static_cast<double>(depth + 2);
     double factor = 1.0 - scale;
     
-    auto scale_coord = [CENTER, factor](double avg) -> uint32_t {
+    auto scale_coord = [factor](double avg) -> uint32_t {
         double result = CENTER + (avg - CENTER) * factor;
         if (result < 0.0) result = 0.0;
         if (result > 4294967295.0) result = 4294967295.0;

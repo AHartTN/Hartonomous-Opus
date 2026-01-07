@@ -164,6 +164,22 @@ std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row_idx);
  */
 bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
 
+/**
+ * @brief Project token embeddings to 4D using Laplacian eigenmaps and update database
+ *
+ * Uses Laplacian eigenmap projection to map high-dimensional token embeddings
+ * to 4D hypercube coordinates that preserve semantic relationships.
+ * Updates the composition centroids in the database with the projected coordinates.
+ *
+ * This provides semantically meaningful geometry instead of Unicode-based coordinates.
+ *
+ * @param conn PostgreSQL connection
+ * @param ctx Ingest context containing tensors and vocab_tokens
+ * @param config Ingest configuration (for model name)
+ * @return true on success, false on database error
+ */
+bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
+
 } // namespace db
 } // namespace ingest
 } // namespace hypercube

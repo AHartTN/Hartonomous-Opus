@@ -210,7 +210,7 @@ std::pair<CompositionRecord, bool> create_composition(
     // As depth increases, centroids move closer to CENTER (origin)
     double factor = 1.0 - scale;
     
-    auto scale_coord = [CENTER, factor](double avg) -> uint32_t {
+    auto scale_coord = [factor](double avg) -> uint32_t {
         double result = CENTER + (avg - CENTER) * factor;
         if (result < 0.0) result = 0.0;
         if (result > 4294967295.0) result = 4294967295.0;
@@ -447,7 +447,7 @@ Blake3Hash ingest_text(
             pc.child = sentence.words[0];
         } else {
             uint64_t total_atoms = 0;
-            for (const auto& w : sentence.words) total_atoms += 1;  // Could sum actual atom counts
+            total_atoms += sentence.words.size();  // Could sum actual atom counts
             
             auto [rec, is_new] = create_composition(sentence.words, 1, total_atoms, comp_cache);
             if (is_new) {

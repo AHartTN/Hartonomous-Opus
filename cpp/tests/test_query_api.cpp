@@ -22,14 +22,14 @@
 #include <cmath>
 #include <libpq-fe.h>
 
-// ANSI color codes for terminal output
-#define COLOR_RESET   "\033[0m"
-#define COLOR_GREEN   "\033[32m"
-#define COLOR_RED     "\033[31m"
-#define COLOR_YELLOW  "\033[33m"
-#define COLOR_CYAN    "\033[36m"
-#define COLOR_DIM     "\033[2m"
-#define COLOR_BOLD    "\033[1m"
+// ANSI color codes for terminal output - disabled for clean logs
+#define COLOR_RESET   ""
+#define COLOR_GREEN   ""
+#define COLOR_RED     ""
+#define COLOR_YELLOW  ""
+#define COLOR_CYAN    ""
+#define COLOR_DIM     ""
+#define COLOR_BOLD    ""
 
 // Test tracking
 static int tests_passed = 0;
@@ -55,17 +55,17 @@ void print_result(const char* label, const std::string& value) {
 }
 
 void print_pass(const char* msg) {
-    std::cout << COLOR_GREEN << "  [OK] " << msg << COLOR_RESET << "\n";
+    std::cout << "  PASS: " << msg << "\n";
     tests_passed++;
 }
 
 void print_fail(const char* msg) {
-    std::cout << COLOR_RED << "  [FAIL] " << msg << COLOR_RESET << "\n";
+    std::cout << "  FAIL: " << msg << "\n";
     tests_failed++;
 }
 
 void print_skip(const char* msg) {
-    std::cout << COLOR_YELLOW << "  [SKIP] " << msg << COLOR_RESET << "\n";
+    std::cout << "  SKIP: " << msg << "\n";
     tests_skipped++;
 }
 
@@ -78,7 +78,7 @@ std::string query_value(const char* sql, bool show = true) {
         const char* val = PQgetvalue(res, 0, 0);
         if (val) result = val;
     } else if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        std::cerr << COLOR_RED << "  Query error: " << PQerrorMessage(g_conn) << COLOR_RESET;
+        std::cerr << "  Query error: " << PQerrorMessage(g_conn);
     }
     PQclear(res);
     return result;
@@ -103,59 +103,40 @@ void query_table(const char* sql, int max_rows = 10) {
     print_query(sql);
     PGresult* res = PQexec(g_conn, sql);
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        std::cerr << COLOR_RED << "  Query error: " << PQerrorMessage(g_conn) << COLOR_RESET;
+        std::cerr << "  Query error: " << PQerrorMessage(g_conn);
         PQclear(res);
         return;
     }
-    
+
     int nrows = PQntuples(res);
     int ncols = PQnfields(res);
-    
+
     // Print header
-    std::cout << "  +";
+    std::cout << "  ";
     for (int c = 0; c < ncols; c++) {
-        std::cout << "-----------------";
-        if (c < ncols - 1) std::cout << "+";
-    }
-    std::cout << "+\n";
-    
-    std::cout << "  |";
-    for (int c = 0; c < ncols; c++) {
-        std::cout << COLOR_BOLD << std::setw(16) << std::left << PQfname(res, c) << COLOR_RESET << "|";
+        std::cout << PQfname(res, c);
+        if (c < ncols - 1) std::cout << ", ";
     }
     std::cout << "\n";
-    
-    std::cout << "  +";
-    for (int c = 0; c < ncols; c++) {
-        std::cout << "-----------------";
-        if (c < ncols - 1) std::cout << "+";
-    }
-    std::cout << "+\n";
-    
+
     // Print rows
     int display_rows = std::min(nrows, max_rows);
     for (int r = 0; r < display_rows; r++) {
-        std::cout << "  |";
+        std::cout << "  ";
         for (int c = 0; c < ncols; c++) {
             std::string val = PQgetvalue(res, r, c) ? PQgetvalue(res, r, c) : "NULL";
             if (val.length() > 15) val = val.substr(0, 12) + "...";
-            std::cout << std::setw(16) << std::left << val << "|";
+            std::cout << val;
+            if (c < ncols - 1) std::cout << ", ";
         }
         std::cout << "\n";
     }
-    
-    std::cout << "  +";
-    for (int c = 0; c < ncols; c++) {
-        std::cout << "-----------------";
-        if (c < ncols - 1) std::cout << "+";
-    }
-    std::cout << "+\n";
-    
+
     if (nrows > max_rows) {
-        std::cout << COLOR_DIM << "  ... and " << (nrows - max_rows) << " more rows" << COLOR_RESET << "\n";
+        std::cout << "  ... and " << (nrows - max_rows) << " more rows\n";
     }
     std::cout << "  Total: " << nrows << " rows\n";
-    
+
     PQclear(res);
 }
 
@@ -393,16 +374,46 @@ int main() {
     std::cout << "+--------------------------------------------------------------+\n" << COLOR_RESET;
     
     // Connection
-    const char* host = std::getenv("HC_DB_HOST") ? std::getenv("HC_DB_HOST") :
-                       std::getenv("PGHOST") ? std::getenv("PGHOST") : "localhost";
-    const char* port = std::getenv("HC_DB_PORT") ? std::getenv("HC_DB_PORT") :
-                       std::getenv("PGPORT") ? std::getenv("PGPORT") : "5432";
-    const char* user = std::getenv("HC_DB_USER") ? std::getenv("HC_DB_USER") :
-                       std::getenv("PGUSER") ? std::getenv("PGUSER") : "hartonomous";
-    const char* pass = std::getenv("HC_DB_PASS") ? std::getenv("HC_DB_PASS") :
-                       std::getenv("PGPASSWORD") ? std::getenv("PGPASSWORD") : "hartonomous";
-    const char* db = std::getenv("HC_DB_NAME") ? std::getenv("HC_DB_NAME") :
-                     std::getenv("PGDATABASE") ? std::getenv("PGDATABASE") : "hypercube";
+    auto get_env = [](const char* name) -> std::string {
+#if defined(_WIN32)
+        char* val = nullptr;
+        size_t len;
+        if (_dupenv_s(&val, &len, name) == 0 && val != nullptr) {
+            std::string result(val);
+            free(val);
+            return result;
+        }
+        return "";
+#else
+        const char* val = std::getenv(name);
+        return val ? val : "";
+#endif
+    };
+
+    std::string host_str = get_env("HC_DB_HOST");
+    if (host_str.empty()) host_str = get_env("PGHOST");
+    if (host_str.empty()) host_str = "localhost";
+    const char* host = host_str.c_str();
+
+    std::string port_str = get_env("HC_DB_PORT");
+    if (port_str.empty()) port_str = get_env("PGPORT");
+    if (port_str.empty()) port_str = "5432";
+    const char* port = port_str.c_str();
+
+    std::string user_str = get_env("HC_DB_USER");
+    if (user_str.empty()) user_str = get_env("PGUSER");
+    if (user_str.empty()) user_str = "hartonomous";
+    const char* user = user_str.c_str();
+
+    std::string pass_str = get_env("HC_DB_PASS");
+    if (pass_str.empty()) pass_str = get_env("PGPASSWORD");
+    if (pass_str.empty()) pass_str = "hartonomous";
+    const char* pass = pass_str.c_str();
+
+    std::string db_str = get_env("HC_DB_NAME");
+    if (db_str.empty()) db_str = get_env("PGDATABASE");
+    if (db_str.empty()) db_str = "hypercube";
+    const char* db = db_str.c_str();
     
     std::string conninfo = "host=" + std::string(host) +
                            " port=" + std::string(port) +
@@ -410,15 +421,15 @@ int main() {
                            " password=" + std::string(pass) +
                            " dbname=" + std::string(db);
     
-    std::cout << "\n" << COLOR_DIM << "Connecting to " << user << "@" << host << ":" << port << "/" << db << "..." << COLOR_RESET << "\n";
+    std::cout << "\nConnecting to " << user << "@" << host << ":" << port << "/" << db << "..." << "\n";
     
     g_conn = PQconnectdb(conninfo.c_str());
     if (PQstatus(g_conn) != CONNECTION_OK) {
-        std::cerr << COLOR_RED << "Connection failed: " << PQerrorMessage(g_conn) << COLOR_RESET << std::endl;
+        std::cerr << "Connection failed: " << PQerrorMessage(g_conn) << std::endl;
         PQfinish(g_conn);
         return 1;
     }
-    std::cout << COLOR_GREEN << "Connected!\n" << COLOR_RESET;
+    std::cout << "Connected!\n";
     
     // Run tests
     test_schema_tables();
@@ -432,12 +443,12 @@ int main() {
     
     // Summary
     std::cout << "\n";
-    std::cout << COLOR_BOLD << "================================================================\n";
+    std::cout << "================================================================\n";
     std::cout << "                         TEST SUMMARY\n";
-    std::cout << "================================================================\n" << COLOR_RESET;
-    std::cout << COLOR_GREEN << "  Passed:  " << tests_passed << COLOR_RESET << "\n";
-    std::cout << COLOR_RED << "  Failed:  " << tests_failed << COLOR_RESET << "\n";
-    std::cout << COLOR_YELLOW << "  Skipped: " << tests_skipped << COLOR_RESET << "\n";
+    std::cout << "================================================================\n";
+    std::cout << "  Passed:  " << tests_passed << "\n";
+    std::cout << "  Failed:  " << tests_failed << "\n";
+    std::cout << "  Skipped: " << tests_skipped << "\n";
     std::cout << "================================================================\n\n";
     
     PQfinish(g_conn);

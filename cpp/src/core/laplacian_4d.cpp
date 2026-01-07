@@ -64,6 +64,14 @@
 
 namespace hypercube {
 
+// Forward declaration
+std::vector<std::vector<double>> solve_eigenvectors_cg(
+    SparseSymmetricMatrix& L,
+    int k,
+    std::array<double, 4>& eigenvalues_out,
+    const LaplacianConfig& config
+);
+
 // Use centralized SIMD implementations from embedding_ops.hpp
 using embedding::cosine_similarity;
 using embedding::l2_distance;
@@ -154,7 +162,17 @@ void normalize(double* v, size_t n) {
 // =============================================================================
 
 SparseSymmetricMatrix::SparseSymmetricMatrix(size_t n)
-    : n_(n), diagonal_(n, 0.0), adj_(n), finalized_(false) {}
+    : n_(n), diagonal_(n, 0.0), adj_(n), finalized_(false)
+#ifdef HAS_MKL
+    , mkl_matrix_(nullptr), mkl_created_(false)
+#endif
+{}
+
+SparseSymmetricMatrix::~SparseSymmetricMatrix() {
+#ifdef HAS_MKL
+    destroy_mkl_matrix();
+#endif
+}
 
 void SparseSymmetricMatrix::add_edge(size_t i, size_t j, double weight) {
     if (finalized_) return;
@@ -169,13 +187,13 @@ void SparseSymmetricMatrix::add_edge(size_t i, size_t j, double weight) {
 
 void SparseSymmetricMatrix::finalize() {
     if (finalized_) return;
-    
+
     // Sort and deduplicate adjacency lists
     for (size_t i = 0; i < n_; ++i) {
         auto& list = adj_[i];
-        std::sort(list.begin(), list.end(), 
+        std::sort(list.begin(), list.end(),
                   [](const auto& a, const auto& b) { return a.first < b.first; });
-        
+
         // Merge duplicates by averaging
         if (!list.empty()) {
             std::vector<std::pair<size_t, double>> merged;
@@ -192,20 +210,20 @@ void SparseSymmetricMatrix::finalize() {
             list = std::move(merged);
         }
     }
-    
+
     // Convert to CSR
     row_ptr_.resize(n_ + 1);
     row_ptr_[0] = 0;
-    
+
     size_t total_nnz = 0;
     for (size_t i = 0; i < n_; ++i) {
         total_nnz += adj_[i].size();
         row_ptr_[i + 1] = total_nnz;
     }
-    
+
     col_idx_.resize(total_nnz);
     values_.resize(total_nnz);
-    
+
     size_t idx = 0;
     for (size_t i = 0; i < n_; ++i) {
         for (const auto& [j, w] : adj_[i]) {
@@ -214,11 +232,16 @@ void SparseSymmetricMatrix::finalize() {
             ++idx;
         }
     }
-    
+
     // Clear temporary storage
     adj_.clear();
     adj_.shrink_to_fit();
     finalized_ = true;
+
+#ifdef HAS_MKL
+    // Create MKL sparse matrix handle for optimized operations
+    create_mkl_matrix();
+#endif
 }
 
 void SparseSymmetricMatrix::multiply(const std::vector<double>& x, std::vector<double>& y) const {
@@ -231,7 +254,36 @@ void SparseSymmetricMatrix::matvec(const double* x, double* y) const {
         std::cerr << "[MATVEC] ERROR: matrix not finalized!\n";
         return;
     }
-    
+
+#ifdef HAS_MKL
+    if (mkl_created_ && values_.size() > 0 && n_ > 0) {
+        // Safe MKL path with size guards
+        try {
+            sparse_operation_t op = SPARSE_OPERATION_NON_TRANSPOSE;
+            double alpha = 1.0, beta = 0.0;
+            sparse_status_t status = mkl_sparse_d_mv(op, alpha, mkl_matrix_,
+                                                   descr_, x, beta, y);
+            if (status == SPARSE_STATUS_SUCCESS) {
+                return;  // MKL succeeded
+            } else {
+                std::cerr << "[MKL] Sparse MV failed with status " << status
+                          << ", falling back to CPU implementation\n";
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "[MKL] Exception in sparse MV: " << e.what()
+                      << ", falling back to CPU implementation\n";
+        } catch (...) {
+            std::cerr << "[MKL] Unknown exception in sparse MV, falling back to CPU implementation\n";
+        }
+    }
+#endif
+
+    // Fallback CPU implementation
+    fallback_matvec(x, y);
+}
+
+// Fallback matrix-vector multiplication (original implementation)
+void SparseSymmetricMatrix::fallback_matvec(const double* x, double* y) const {
     // Parallel sparse matrix-vector multiply
     // Each row is independent, perfect for parallelization
     const int64_t n = static_cast<int64_t>(n_);
@@ -239,7 +291,7 @@ void SparseSymmetricMatrix::matvec(const double* x, double* y) const {
     const size_t* col_idx = col_idx_.data();
     const double* values = values_.data();
     const double* diag = diagonal_.data();
-    
+
     #pragma omp parallel for schedule(static) if(n > 1000)
     for (int64_t i = 0; i < n; ++i) {
         double sum = diag[i] * x[i];
@@ -266,6 +318,55 @@ double SparseSymmetricMatrix::get_degree(size_t i) const {
     }
     return sum;
 }
+
+#ifdef HAS_MKL
+void SparseSymmetricMatrix::create_mkl_matrix() {
+    if (!finalized_ || mkl_created_) return;
+
+    // Set matrix descriptor for symmetric upper triangular
+    descr_.type = SPARSE_MATRIX_TYPE_SYMMETRIC;
+    descr_.mode = SPARSE_FILL_MODE_UPPER;
+    descr_.diag = SPARSE_DIAG_NON_UNIT;
+
+    // Convert size_t to MKL_INT
+    std::vector<MKL_INT> mkl_row_ptr(row_ptr_.size());
+    std::vector<MKL_INT> mkl_col_idx(col_idx_.size());
+
+    for (size_t i = 0; i < row_ptr_.size(); ++i) {
+        mkl_row_ptr[i] = static_cast<MKL_INT>(row_ptr_[i]);
+    }
+    for (size_t i = 0; i < col_idx_.size(); ++i) {
+        mkl_col_idx[i] = static_cast<MKL_INT>(col_idx_[i]);
+    }
+
+    // Create MKL CSR sparse matrix
+    MKL_INT m = static_cast<MKL_INT>(n_);
+    MKL_INT nnz = static_cast<MKL_INT>(values_.size());
+
+    sparse_status_t status = mkl_sparse_d_create_csr(&mkl_matrix_,
+                                                    SPARSE_INDEX_BASE_ZERO,
+                                                    m, m, mkl_row_ptr.data(),
+                                                    mkl_row_ptr.data() + 1,
+                                                    mkl_col_idx.data(),
+                                                    values_.data());
+
+    if (status != SPARSE_STATUS_SUCCESS) {
+        std::cerr << "[MKL] ERROR: Failed to create sparse matrix, status=" << status << "\n";
+        mkl_matrix_ = nullptr;
+    } else {
+        mkl_created_ = true;
+        std::cerr << "[MKL] Created sparse matrix handle: " << n_ << "x" << n_ << ", " << nnz << " non-zeros\n";
+    }
+}
+
+void SparseSymmetricMatrix::destroy_mkl_matrix() {
+    if (mkl_created_ && mkl_matrix_) {
+        mkl_sparse_destroy(mkl_matrix_);
+        mkl_matrix_ = nullptr;
+        mkl_created_ = false;
+    }
+}
+#endif
 
 // =============================================================================
 // LaplacianProjector Implementation
@@ -319,15 +420,9 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
     // Normalize embeddings for cosine similarity via inner product
     std::vector<std::vector<float>> normalized(n);
     {
-        // Parallel normalization using std::thread
-        std::vector<std::thread> norm_threads;
-        std::atomic<size_t> norm_idx{0};
-        
-        auto normalize_worker = [&]() {
-            while (true) {
-                size_t i = norm_idx.fetch_add(1);
-                if (i >= n) break;
-                
+        // Parallel normalization
+        auto norm_worker = [&](int tid) {
+            for (size_t i = tid; i < n; i += num_threads) {
                 normalized[i].resize(dim);
                 float norm_sq = 0.0f;
                 for (size_t d = 0; d < dim; ++d) {
@@ -343,9 +438,10 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
                 }
             }
         };
-        
+
+        std::vector<std::thread> norm_threads;
         for (int t = 0; t < num_threads; ++t) {
-            norm_threads.emplace_back(normalize_worker);
+            norm_threads.emplace_back(norm_worker, t);
         }
         for (auto& t : norm_threads) t.join();
     }
@@ -359,45 +455,49 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
     auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(build_end - hnsw_start).count();
     std::cerr << "[HNSWLIB] Index built in " << build_ms << " ms\n";
     
-    // Query k-NN for each point using std::thread pool
+    // Query k-NN for each point using work-stealing thread pool
     index.setEf(std::max(static_cast<size_t>(k * 2), static_cast<size_t>(50)));  // Query-time parameter
-    
+
     std::vector<std::vector<std::tuple<size_t, size_t, double>>> thread_edges(num_threads);
     std::atomic<size_t> progress{0};
-    std::atomic<size_t> query_idx{0};
-    
-    auto query_worker = [&](int tid) {
+
+    auto knn_worker = [&](int tid) {
         auto& local_edges = thread_edges[tid];
-        
-        while (true) {
-            size_t i = query_idx.fetch_add(1);
-            if (i >= n) break;
-            
+
+        for (size_t i = tid; i < n; i += num_threads) {
             auto result = index.searchKnn(normalized[i].data(), k + 1);  // +1 to skip self
-            
+
             while (!result.empty()) {
                 auto [dist, j] = result.top();
                 result.pop();
-                
+
                 if (j == i) continue;  // Skip self
-                
+
                 // Inner product of normalized vectors = cosine similarity
                 float sim = 1.0f - dist;  // Convert distance to similarity
-                
+
                 if (sim > threshold && i < j) {
                     local_edges.emplace_back(i, j, static_cast<double>(sim));
                 }
             }
-            
+
             progress.fetch_add(1);
         }
     };
-    
-    std::vector<std::thread> query_threads;
+
+    std::vector<std::thread> knn_threads;
     for (int t = 0; t < num_threads; ++t) {
-        query_threads.emplace_back(query_worker, t);
+        knn_threads.emplace_back(knn_worker, t);
     }
-    for (auto& t : query_threads) t.join();
+
+    // Progress reporting
+    while (progress.load() < n) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        report_progress("k-NN queries", progress.load(), n);
+    }
+
+    for (auto& t : knn_threads) t.join();
+    report_progress("k-NN queries", n, n);
     
     auto query_end = std::chrono::steady_clock::now();
     auto query_ms = std::chrono::duration_cast<std::chrono::milliseconds>(query_end - build_end).count();
@@ -1057,38 +1157,57 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     }
     
     // ==========================================================================
-    // FOR LARGE MATRICES: Use Lanczos
+    // FOR LARGE MATRICES: Try Conjugate Gradient first, fallback to Lanczos
     // ==========================================================================
-    
+
+    // For finding eigenvectors of graph Laplacians, we can use the fact that
+    // solving (L + σI)x = b gives us information about eigenvalues near σ
+    // For smallest eigenvalues near 0, we use inverse iteration with CG
+
+    std::cerr << "[CG] Attempting Conjugate Gradient inverse iteration for eigenvalues near 0\n";
+
+    auto cg_eigenvectors = solve_eigenvectors_cg(L, k, eigenvalues_out, config_);
+
+    if (!cg_eigenvectors.empty()) {
+        std::cerr << "[CG] Successfully found " << cg_eigenvectors.size() << " eigenvectors using CG\n";
+        return cg_eigenvectors;
+    }
+
+    std::cerr << "[CG] CG failed, falling back to Lanczos solver\n";
+
+    // ==========================================================================
+    // FALLBACK: Use Lanczos
+    // ==========================================================================
+
     std::cerr << "[LANCZOS] Finding " << k << " smallest non-zero eigenvectors using Lanczos algorithm\n";
     std::cerr << "[LANCZOS] config_.convergence_tol = " << config_.convergence_tol << "\n";
-    
+
     // Configure Lanczos solver
     lanczos::LanczosConfig lanczos_config;
     // Request k+1 eigenpairs to skip the null space (constant eigenvector at λ=0)
     lanczos_config.num_eigenpairs = k + 1;
     lanczos_config.max_iterations = std::min(300, static_cast<int>(L.size()) / 2);
-    lanczos_config.convergence_tol = config_.convergence_tol;
+    lanczos_config.convergence_tol = 1e-6;  // Real convergence tolerance (not 0)
     std::cerr << "[LANCZOS] lanczos_config.convergence_tol = " << lanczos_config.convergence_tol << "\n";
     // For graph Laplacians: direct Lanczos finds smallest eigenvalues naturally
     // Shift-invert is unstable near λ=0 null space
     lanczos_config.use_shift_invert = false;
     lanczos_config.num_threads = config_.num_threads;
-    
+
     lanczos::LanczosSolver solver(lanczos_config);
-    
+
     // Set up progress callback
     solver.set_progress_callback([this](const std::string& stage, int current, int total) {
         report_progress(stage, static_cast<size_t>(current), static_cast<size_t>(total));
     });
-    
+
     // Run Lanczos
     lanczos::LanczosResult result = solver.solve(L);
-    
+
     // Report convergence status
     std::cerr << "[LANCZOS] " << (result.converged ? "Converged" : "Did not fully converge")
               << " in " << result.iterations_used << " iterations\n";
-    
+
     if (!result.converged) {
         std::cerr << "[LANCZOS] Warning: residuals = [";
         for (size_t i = 0; i < result.residuals.size() && i < 4; ++i) {
@@ -1097,38 +1216,38 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
         }
         std::cerr << "]\n";
     }
-    
+
     // Log ALL eigenvalues found (for debugging)
     std::cerr << "[LANCZOS] All eigenvalues (raw): ";
     for (size_t i = 0; i < result.eigenvalues.size(); ++i) {
         std::cerr << result.eigenvalues[i] << " ";
     }
     std::cerr << "\n";
-    
+
     // Copy eigenvalues SKIPPING index 0 (null space)
     // eigenvalues_out[0..3] = result.eigenvalues[1..4]
     for (int i = 0; i < 4 && (i + 1) < static_cast<int>(result.eigenvalues.size()); ++i) {
         eigenvalues_out[i] = result.eigenvalues[i + 1];  // Skip index 0
     }
-    
+
     std::cerr << "[LANCZOS] Semantic eigenvalues (skipped λ_0): ";
     for (int i = 0; i < 4; ++i) {
         std::cerr << eigenvalues_out[i] << " ";
     }
     std::cerr << "\n";
-    
+
     // Return eigenvectors, SKIPPING index 0 (null space constant vector)
     // The Lanczos solver returns eigenvalues sorted smallest-to-largest
     // For Laplacian: λ_0 = 0 (constant), λ_1..λ_k are the semantic eigenvectors
     std::vector<std::vector<double>> eigenvectors;
     eigenvectors.reserve(k);
-    
+
     // Skip first eigenvector (null space) and take the next k
     int start_idx = 1;  // Skip index 0
     for (int i = start_idx; i < start_idx + k && i < static_cast<int>(result.eigenvectors.size()); ++i) {
         eigenvectors.push_back(std::move(result.eigenvectors[i]));
     }
-    
+
     std::cerr << "[LANCZOS] Returning " << eigenvectors.size() << " eigenvectors (skipped null space)\n";
     return eigenvectors;
 }
@@ -1185,8 +1304,8 @@ std::vector<std::array<uint32_t, 4>> LaplacianProjector::normalize_to_hypercube(
     // Find min/max per dimension
     std::array<double, 4> minv, maxv;
     for (int d = 0; d < k; ++d) {
-        minv[d] = std::numeric_limits<double>::infinity();
-        maxv[d] = -std::numeric_limits<double>::infinity();
+        minv[d] = 1e308;
+        maxv[d] = -1e308;
         for (size_t i = 0; i < n; ++i) {
             double v = U[d][i];
             if (v < minv[d]) minv[d] = v;
@@ -1210,22 +1329,22 @@ std::vector<std::array<uint32_t, 4>> LaplacianProjector::normalize_to_hypercube(
         num_threads = static_cast<int>(std::thread::hardware_concurrency());
         if (num_threads == 0) num_threads = 4;
     }
-    
+
     auto norm_worker = [&](int tid) {
         for (size_t i = tid; i < n; i += num_threads) {
             for (int d = 0; d < k; ++d) {
                 double range = maxv[d] - minv[d];
                 double x = (U[d][i] - minv[d]) / (range + EPS);  // Normalize to [0, 1]
-                
+
                 // Scale to uint32 range
                 uint64_t val = static_cast<uint64_t>(std::llround(x * M));
                 if (val > 0xFFFFFFFFULL) val = 0xFFFFFFFFULL;
-                
+
                 coords[i][d] = static_cast<uint32_t>(val);
             }
         }
     };
-    
+
     std::vector<std::thread> norm_threads;
     for (int t = 0; t < num_threads; ++t) {
         norm_threads.emplace_back(norm_worker, t);
@@ -1256,7 +1375,7 @@ void LaplacianProjector::project_to_sphere(std::vector<std::array<uint32_t, 4>>&
         num_threads = static_cast<int>(std::thread::hardware_concurrency());
         if (num_threads == 0) num_threads = 4;
     }
-    
+
     auto sphere_worker = [&](int tid) {
         for (size_t i = tid; i < n; i += num_threads) {
             // Convert to centered unit coordinates
@@ -1264,7 +1383,7 @@ void LaplacianProjector::project_to_sphere(std::vector<std::array<uint32_t, 4>>&
             double y = (static_cast<double>(coords[i][1]) - CENTER) / SCALE;
             double z = (static_cast<double>(coords[i][2]) - CENTER) / SCALE;
             double m = (static_cast<double>(coords[i][3]) - CENTER) / SCALE;
-            
+
             // Compute radius and normalize to sphere surface
             double r = std::sqrt(x*x + y*y + z*z + m*m);
             if (r > 1e-12) {
@@ -1274,22 +1393,24 @@ void LaplacianProjector::project_to_sphere(std::vector<std::array<uint32_t, 4>>&
                 z *= s;
                 m *= s;
             }
-            
+
             // Convert back to uint32 with CENTER at 2^31
-            auto to_uint32 = [CENTER, SCALE](double v) -> uint32_t {
+            auto to_uint32 = [](double v) -> uint32_t {
+                constexpr double CENTER = 2147483648.0;
+                constexpr double SCALE = 2147483647.0;
                 double scaled = CENTER + v * SCALE;
                 if (scaled < 0.0) scaled = 0.0;
                 if (scaled > 4294967295.0) scaled = 4294967295.0;
                 return static_cast<uint32_t>(std::round(scaled));
             };
-            
+
             coords[i][0] = to_uint32(x);
             coords[i][1] = to_uint32(y);
             coords[i][2] = to_uint32(z);
             coords[i][3] = to_uint32(m);
         }
     };
-    
+
     std::vector<std::thread> sphere_threads;
     for (int t = 0; t < num_threads; ++t) {
         sphere_threads.emplace_back(sphere_worker, t);
@@ -1381,18 +1502,18 @@ ProjectionResult LaplacianProjector::project(
     std::cerr << "\n[7] Computing Hilbert indices (parallel)...\n";
     result.hilbert_lo.resize(n);
     result.hilbert_hi.resize(n);
-    
+
     // Determine thread count
     int num_threads = config_.num_threads;
     if (num_threads <= 0) {
         num_threads = static_cast<int>(std::thread::hardware_concurrency());
         if (num_threads == 0) num_threads = 4;
     }
-    
+
     std::atomic<size_t> hilbert_progress{0};
     auto hilbert_worker = [&](int tid) {
         for (size_t i = tid; i < n; i += num_threads) {
-            Point4D pt(result.coords[i][0], result.coords[i][1], 
+            Point4D pt(result.coords[i][0], result.coords[i][1],
                        result.coords[i][2], result.coords[i][3]);
             HilbertIndex idx = HilbertCurve::coords_to_index(pt);
             result.hilbert_lo[i] = static_cast<int64_t>(idx.lo);
@@ -1400,7 +1521,7 @@ ProjectionResult LaplacianProjector::project(
             hilbert_progress.fetch_add(1);
         }
     };
-    
+
     std::vector<std::thread> hilbert_threads;
     for (int t = 0; t < num_threads; ++t) {
         hilbert_threads.emplace_back(hilbert_worker, t);
@@ -1415,6 +1536,196 @@ ProjectionResult LaplacianProjector::project(
     std::cerr << "Similarity graph edges: " << result.edge_count << "\n";
     
     return result;
+}
+
+/**
+ * @brief Conjugate Gradient solver for sparse symmetric positive definite systems
+ * Solves Ax = b using the Conjugate Gradient method with SIMD acceleration
+ */
+class ConjugateGradientSolver {
+private:
+    const SparseSymmetricMatrix& A;
+    const size_t n;
+    const int max_iterations;
+    const double tolerance;
+    const int num_threads;
+
+    // SIMD-accelerated operations
+    void matvec(const double* x, double* y) const {
+        A.matvec(x, y);
+    }
+
+    double dot_product(const double* a, const double* b) const {
+        return simd::dot_product_d(a, b, n);
+    }
+
+    void scale_inplace(double* v, double s) const {
+        simd::scale_inplace(v, s, n);
+    }
+
+    void add_scaled(double* a, const double* b, double s) const {
+        for (size_t i = 0; i < n; ++i) {
+            a[i] += s * b[i];
+        }
+    }
+
+    void copy(const double* src, double* dst) const {
+        std::memcpy(dst, src, n * sizeof(double));
+    }
+
+    double norm(const double* v) const {
+        return std::sqrt(dot_product(v, v));
+    }
+
+public:
+    ConjugateGradientSolver(const SparseSymmetricMatrix& matrix,
+                           int max_iter = 1000,
+                           double tol = 1e-8,
+                           int threads = 0)
+        : A(matrix), n(matrix.size()), max_iterations(max_iter),
+          tolerance(tol), num_threads(threads > 0 ? threads :
+              std::max(1, static_cast<int>(std::thread::hardware_concurrency()))) {}
+
+    /**
+     * @brief Solve Ax = b using Conjugate Gradient
+     * @return true if converged within tolerance
+     */
+    bool solve(const double* b, double* x, double shift = 0.0) const {
+        // Working vectors
+        std::vector<double> r(n), p(n), Ap(n);
+
+        // Initialize
+        matvec(x, Ap.data());
+        for (size_t i = 0; i < n; ++i) {
+            r[i] = b[i] - (Ap[i] + shift * x[i]);  // (A + shift*I)x - b
+        }
+
+        double r_norm_sq = dot_product(r.data(), r.data());
+        const double b_norm = norm(b);
+        const double tol_sq = tolerance * tolerance * b_norm * b_norm;
+
+        if (r_norm_sq < tol_sq) {
+            return true;  // Already converged
+        }
+
+        copy(r.data(), p.data());
+
+        for (int iter = 0; iter < max_iterations; ++iter) {
+            // Ap = A*p + shift*p
+            matvec(p.data(), Ap.data());
+            add_scaled(Ap.data(), p.data(), shift);
+
+            double alpha = r_norm_sq / dot_product(p.data(), Ap.data());
+
+            // x = x + alpha*p
+            add_scaled(x, p.data(), alpha);
+
+            // r = r - alpha*Ap
+            add_scaled(r.data(), Ap.data(), -alpha);
+
+            double r_norm_sq_new = dot_product(r.data(), r.data());
+
+            if (r_norm_sq_new < tol_sq) {
+                return true;  // Converged
+            }
+
+            double beta = r_norm_sq_new / r_norm_sq;
+            r_norm_sq = r_norm_sq_new;
+
+            // p = r + beta*p
+            scale_inplace(p.data(), beta);
+            add_scaled(p.data(), r.data(), 1.0);
+        }
+
+        return false;  // Did not converge
+    }
+};
+
+/**
+ * @brief Solve for smallest eigenvectors using inverse iteration with CG
+ *
+ * For graph Laplacians, we use the method of solving (L + σI)v = random_vector
+ * where σ is a small shift to avoid the null space. This gives us approximations
+ * to the eigenvectors corresponding to the smallest eigenvalues.
+ */
+std::vector<std::vector<double>> solve_eigenvectors_cg(
+    SparseSymmetricMatrix& L,
+    int k,
+    std::array<double, 4>& eigenvalues_out,
+    const LaplacianConfig& config
+) {
+    const size_t n = L.size();
+    const double shift = 1e-6;  // Small shift to avoid null space
+
+    std::cerr << "[CG] Using inverse iteration with CG for " << k << " eigenvectors\n";
+
+    ConjugateGradientSolver cg_solver(L, 500, 1e-10, config.num_threads);
+
+    std::vector<std::vector<double>> eigenvectors;
+    eigenvectors.reserve(k);
+
+    // Random number generator for initial vectors
+    std::mt19937 rng(42);  // Fixed seed for reproducibility
+    std::normal_distribution<double> normal(0.0, 1.0);
+
+    // For each eigenvector we want to find
+    for (int i = 0; i < k; ++i) {
+        // Create random initial vector
+        std::vector<double> x(n);
+        for (size_t j = 0; j < n; ++j) {
+            x[j] = normal(rng);
+        }
+
+        // Orthogonalize against previously found eigenvectors
+        for (const auto& prev_ev : eigenvectors) {
+            double dot = simd::dot_product_d(x.data(), prev_ev.data(), n);
+            for (size_t j = 0; j < n; ++j) {
+                x[j] -= dot * prev_ev[j];
+            }
+        }
+
+        // Normalize
+        double norm_x = std::sqrt(simd::dot_product_d(x.data(), x.data(), n));
+        if (norm_x > 1e-10) {
+            for (auto& val : x) val /= norm_x;
+        }
+
+        // Solve (L + shift*I)v = x using CG
+        // This gives us v ≈ eigenvector corresponding to eigenvalue closest to -shift
+        std::vector<double> b = x;  // Right-hand side is our random vector
+        bool converged = cg_solver.solve(b.data(), x.data(), shift);
+
+        if (!converged) {
+            std::cerr << "[CG] Failed to converge for eigenvector " << i << "\n";
+            return {};  // Return empty to fall back to Lanczos
+        }
+
+        // Normalize the result
+        norm_x = std::sqrt(simd::dot_product_d(x.data(), x.data(), n));
+        if (norm_x > 1e-10) {
+            for (auto& val : x) val /= norm_x;
+        }
+
+        // Rayleigh quotient to estimate eigenvalue: λ ≈ v^T L v / v^T v
+        std::vector<double> Lx(n);
+        L.matvec(x.data(), Lx.data());
+        double rayleigh = simd::dot_product_d(x.data(), Lx.data(), n);
+
+        // The shift gives us λ ≈ rayleigh - shift
+        double eigenvalue = rayleigh;
+
+        // Store eigenvalue
+        if (i < 4) {
+            eigenvalues_out[i] = eigenvalue;
+        }
+
+        eigenvectors.push_back(std::move(x));
+
+        std::cerr << "[CG] Eigenvector " << i << " converged, λ ≈ " << eigenvalue << "\n";
+    }
+
+    std::cerr << "[CG] Found " << eigenvectors.size() << " eigenvectors\n";
+    return eigenvectors;
 }
 
 } // namespace hypercube

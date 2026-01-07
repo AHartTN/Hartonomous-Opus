@@ -242,60 +242,59 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
     }
     
     // =========================================================================
-    // PHASE 2: Single bulk insert of all accumulated edges
+    // PHASE 2: Single bulk insert of all accumulated edges (no temp table)
     // =========================================================================
     auto insert_start = std::chrono::steady_clock::now();
-    
+
     Transaction tx(conn);
-    
-    Result res = exec(conn,
-        "CREATE TEMP TABLE tmp_embed_rel ("
-        "  source_type CHAR(1), source_id BYTEA,"
-        "  target_type CHAR(1), target_id BYTEA,"
-        "  weight REAL, embed_type TEXT"
-        ") ON COMMIT DROP");
-    
-    // Stream using CopyStream in chunks
-    {
-        CopyStream copy(conn, "COPY tmp_embed_rel FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        if (!copy.ok()) {
-            std::cerr << "[EMBED] COPY start failed: " << copy.error() << "\n";
-            return false;
+
+    // Parse global_batch and build direct INSERT with VALUES
+    std::string insert_sql = "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) VALUES ";
+    std::vector<std::string> values;
+    std::istringstream iss(global_batch);
+    std::string line;
+    while (std::getline(iss, line)) {
+        if (line.empty()) continue;
+        std::istringstream line_ss(line);
+        std::string source_type, source_id_hex, target_type, target_id_hex, weight_str, embed_type;
+        if (!(line_ss >> source_type >> source_id_hex >> target_type >> target_id_hex >> weight_str >> embed_type)) continue;
+
+        // Remove \\x prefix
+        if (source_id_hex.substr(0, 2) == "\\\\x") source_id_hex = source_id_hex.substr(2);
+        if (target_id_hex.substr(0, 2) == "\\\\x") target_id_hex = target_id_hex.substr(2);
+
+        std::string val = "('" + source_type + "', '\\x" + source_id_hex + "', '" + target_type + "', '\\x" + target_id_hex +
+                          "', 'E', " + weight_str + ", '" + config.model_name + "', 1, -1, '" + embed_type + "')";
+        values.push_back(val);
+    }
+
+    // Batch in chunks to avoid query size limits
+    const size_t batch_size = 1000;
+    int total_inserted = 0;
+    for (size_t i = 0; i < values.size(); i += batch_size) {
+        std::string batch_sql = insert_sql;
+        for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
+            if (j > i) batch_sql += ", ";
+            batch_sql += values[j];
         }
-        
-        const size_t chunk_size = 4 << 20;  // 4MB chunks
-        for (size_t offset = 0; offset < global_batch.size(); offset += chunk_size) {
-            size_t len = std::min(chunk_size, global_batch.size() - offset);
-            if (!copy.put(global_batch.data() + offset, len)) {
-                std::cerr << "[EMBED] COPY failed: " << copy.error() << "\n";
-                return false;
-            }
-        }
-        
-        if (!copy.end()) {
-            std::cerr << "[EMBED] COPY end failed: " << copy.error() << "\n";
-            return false;
+        batch_sql += " ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
+                    "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
+                    "  source_count = relation.source_count + 1";
+
+        Result res = exec(conn, batch_sql);
+        if (res.ok()) {
+            total_inserted += cmd_tuples(res);
+        } else {
+            std::cerr << "[EMBED] Batch insert failed: " << res.error_message() << "\n";
         }
     }
-    
-    // Bulk insert with UPSERT
-    std::string insert_sql = 
-        "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) "
-        "SELECT source_type, source_id, target_type, target_id, 'E', weight, '" + config.model_name + "', 1, -1, embed_type "
-        "FROM tmp_embed_rel "
-        "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
-        "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
-        "  source_count = relation.source_count + 1";
-    
-    res = exec(conn, insert_sql);
-    int inserted = res.ok() ? cmd_tuples(res) : 0;
-    
+
     tx.commit();
     
     auto insert_end = std::chrono::steady_clock::now();
     auto insert_ms = std::chrono::duration_cast<std::chrono::milliseconds>(insert_end - insert_start).count();
-    
-    std::cerr << "[EMBED] Bulk inserted " << inserted << " relations in " << insert_ms << "ms\n";
+
+    std::cerr << "[EMBED] Bulk inserted " << total_inserted << " relations in " << insert_ms << "ms\n";
     std::cerr << "[EMBED] Total: " << total_edges.load() << " embedding similarity relations\n";
     return true;
 }

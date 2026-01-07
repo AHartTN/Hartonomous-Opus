@@ -228,7 +228,20 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> search_paths;
     
     // Get paths from environment or args
+    std::string env_paths_str;
+#if defined(_WIN32)
+    char* env_paths = nullptr;
+    size_t len;
+    if (_dupenv_s(&env_paths, &len, "HC_MODEL_PATHS") == 0 && env_paths != nullptr) {
+        env_paths_str = env_paths;
+        free(env_paths);
+    }
+#else
     if (const char* env_paths = std::getenv("HC_MODEL_PATHS")) {
+        env_paths_str = env_paths;
+    }
+#endif
+    if (!env_paths_str.empty()) {
         search_paths = split_paths(env_paths);
     }
     

@@ -19,14 +19,14 @@
 #include <cmath>
 #include <libpq-fe.h>
 
-// ANSI colors
-#define RESET   "\033[0m"
-#define GREEN   "\033[32m"
-#define RED     "\033[31m"
-#define YELLOW  "\033[33m"
-#define CYAN    "\033[36m"
-#define DIM     "\033[2m"
-#define BOLD    "\033[1m"
+// ANSI colors - disabled for clean logs
+#define RESET   ""
+#define GREEN   ""
+#define RED     ""
+#define YELLOW  ""
+#define CYAN    ""
+#define DIM     ""
+#define BOLD    ""
 
 static int passed = 0, failed = 0, skipped = 0;
 static PGconn* conn = nullptr;
@@ -47,9 +47,9 @@ void result(const char* label, const std::string& val) {
     std::cout << "  " << label << ": " << YELLOW << val << RESET << "\n";
 }
 
-void pass(const char* msg) { std::cout << GREEN << "  [OK] " << msg << RESET << "\n"; passed++; }
-void fail(const char* msg) { std::cout << RED << "  [FAIL] " << msg << RESET << "\n"; failed++; }
-void skip(const char* msg) { std::cout << YELLOW << "  [SKIP] " << msg << RESET << "\n"; skipped++; }
+void pass(const char* msg) { std::cout << "  PASS: " << msg << "\n"; passed++; }
+void fail(const char* msg) { std::cout << "  FAIL: " << msg << "\n"; failed++; }
+void skip(const char* msg) { std::cout << "  SKIP: " << msg << "\n"; skipped++; }
 
 std::string qval(const char* q, bool show = true) {
     if (show) sql(q);
@@ -149,7 +149,7 @@ void test_atoms() {
     }
     
     test("Case pair proximity: 'A' vs 'a' should be neighbors");
-    int upper_cp = 65, lower_cp = 97;
+    // int upper_cp = 65, lower_cp = 97; // Not used in this test
     double case_dist = qdbl(
         "SELECT ST_3DDistance("
         "(SELECT geom FROM atom WHERE codepoint = 65),"
@@ -323,16 +323,46 @@ int main() {
     std::cout << RESET;
     
     // Connect
-    const char* host = std::getenv("HC_DB_HOST") ? std::getenv("HC_DB_HOST") :
-                       std::getenv("PGHOST") ? std::getenv("PGHOST") : "localhost";
-    const char* port = std::getenv("HC_DB_PORT") ? std::getenv("HC_DB_PORT") :
-                       std::getenv("PGPORT") ? std::getenv("PGPORT") : "5432";
-    const char* user = std::getenv("HC_DB_USER") ? std::getenv("HC_DB_USER") :
-                       std::getenv("PGUSER") ? std::getenv("PGUSER") : "hartonomous";
-    const char* pw = std::getenv("HC_DB_PASS") ? std::getenv("HC_DB_PASS") :
-                     std::getenv("PGPASSWORD") ? std::getenv("PGPASSWORD") : "hartonomous";
-    const char* db = std::getenv("HC_DB_NAME") ? std::getenv("HC_DB_NAME") :
-                     std::getenv("PGDATABASE") ? std::getenv("PGDATABASE") : "hypercube";
+    auto get_env = [](const char* name) -> std::string {
+#if defined(_WIN32)
+        char* val = nullptr;
+        size_t len;
+        if (_dupenv_s(&val, &len, name) == 0 && val != nullptr) {
+            std::string result(val);
+            free(val);
+            return result;
+        }
+        return "";
+#else
+        const char* val = std::getenv(name);
+        return val ? val : "";
+#endif
+    };
+
+    std::string host_str = get_env("HC_DB_HOST");
+    if (host_str.empty()) host_str = get_env("PGHOST");
+    if (host_str.empty()) host_str = "localhost";
+    const char* host = host_str.c_str();
+
+    std::string port_str = get_env("HC_DB_PORT");
+    if (port_str.empty()) port_str = get_env("PGPORT");
+    if (port_str.empty()) port_str = "5432";
+    const char* port = port_str.c_str();
+
+    std::string user_str = get_env("HC_DB_USER");
+    if (user_str.empty()) user_str = get_env("PGUSER");
+    if (user_str.empty()) user_str = "hartonomous";
+    const char* user = user_str.c_str();
+
+    std::string pw_str = get_env("HC_DB_PASS");
+    if (pw_str.empty()) pw_str = get_env("PGPASSWORD");
+    if (pw_str.empty()) pw_str = "hartonomous";
+    const char* pw = pw_str.c_str();
+
+    std::string db_str = get_env("HC_DB_NAME");
+    if (db_str.empty()) db_str = get_env("PGDATABASE");
+    if (db_str.empty()) db_str = "hypercube";
+    const char* db = db_str.c_str();
     
     std::string connstr = "host=" + std::string(host) + " port=" + std::string(port) +
                           " user=" + std::string(user) + " password=" + std::string(pw) +
@@ -357,13 +387,13 @@ int main() {
     test_blake3();
     
     // Summary
-    std::cout << "\n" << BOLD;
+    std::cout << "\n";
     std::cout << "================================================================\n";
     std::cout << "                         RESULTS\n";
-    std::cout << "================================================================\n" << RESET;
-    std::cout << GREEN << "  [OK] Passed:  " << passed << RESET << "\n";
-    std::cout << RED << "  [X]  Failed:  " << failed << RESET << "\n";
-    std::cout << YELLOW << "  [-]  Skipped: " << skipped << RESET << "\n";
+    std::cout << "================================================================\n";
+    std::cout << "  Passed:  " << passed << "\n";
+    std::cout << "  Failed:  " << failed << "\n";
+    std::cout << "  Skipped: " << skipped << "\n";
     std::cout << "================================================================\n\n";
     
     PQfinish(conn);

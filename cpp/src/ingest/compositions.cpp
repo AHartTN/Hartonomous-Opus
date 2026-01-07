@@ -153,7 +153,11 @@ bool insert_compositions(PGconn* conn, IngestContext& ctx) {
     
     // Phase 2: Stream to database with transaction
     Transaction tx(conn);
-    
+
+    // Drop idx_comp_label to prevent corruption during bulk insert
+    std::cerr << "[COMP] Dropping idx_comp_label to prevent corruption...\n";
+    exec(conn, "DROP INDEX IF EXISTS idx_comp_label");
+
     // Temp table for compositions WITH GEOMETRY COLUMNS
     std::cerr << "[COMP] Creating temp tables...\n";
     if (!create_temp_table(conn, "tmp_comp", schema::composition())) {
@@ -257,8 +261,12 @@ bool insert_compositions(PGconn* conn, IngestContext& ctx) {
     int inserted_children = cmd_tuples(res);
     std::cerr << "[COMP] Inserted " << inserted_children << " children\n";
     
+    // Recreate idx_comp_label
+    std::cerr << "[COMP] Recreating idx_comp_label...\n";
+    exec(conn, "CREATE INDEX idx_comp_label ON composition(label)");
+
     tx.commit();
-    
+
     auto end = std::chrono::steady_clock::now();
     auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cerr << "[COMP] Inserted " << inserted_comps << " compositions, " 

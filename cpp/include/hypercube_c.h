@@ -422,6 +422,13 @@ HC_API void hc_analogy_vector(const double* a, const double* b,
  */
 HC_API size_t hc_thread_count(void);
 
+/**
+ * Seed atoms table with all Unicode codepoints (parallel seeding)
+ * @param conninfo PostgreSQL connection string
+ * @return 0 on success, non-zero on error
+ */
+HC_API int hc_seed_atoms_parallel(const char* conninfo);
+
 #ifdef __cplusplus
 }
 #endif

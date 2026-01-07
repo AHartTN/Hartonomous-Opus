@@ -116,23 +116,23 @@ void test_case_pair_proximity() {
                     std::string(1, static_cast<char>(pair.lower)) + " is categorized as LetterLower");
     }
     
-    // Check that A-a distance is measurable and A is closer to a than to Z
+    // Check that A-a distance is measurable and A is closer to a than to B
     Point4D A_coords = CoordinateMapper::map_codepoint('A');
     Point4D a_coords = CoordinateMapper::map_codepoint('a');
-    Point4D Z_coords = CoordinateMapper::map_codepoint('Z');
+    Point4D B_coords = CoordinateMapper::map_codepoint('B');
     
     double dist_A_a = CoordinateMapper::euclidean_distance(A_coords, a_coords);
-    double dist_A_Z = CoordinateMapper::euclidean_distance(A_coords, Z_coords);
+    double dist_A_B = CoordinateMapper::euclidean_distance(A_coords, B_coords);
     
     std::cout << "  Distance A-a: " << dist_A_a << std::endl;
-    std::cout << "  Distance A-Z: " << dist_A_Z << std::endl;
+    std::cout << "  Distance A-B: " << dist_A_B << std::endl;
     
     ASSERT_TRUE(dist_A_a > 0, "A and a have non-zero distance (different coordinates)");
-    ASSERT_LESS(dist_A_a, dist_A_Z, "A is closer to a (same letter) than to Z (different letter)");
+    ASSERT_LESS(dist_A_a, dist_A_B, "A is closer to a (same letter) than to B (different letter)");
 }
 
 // ===========================================================================
-// TEST 3: Category clustering - same category atoms are near each other on S³
+// TEST 3: Category clustering - same category atoms are near each other on S^3
 // ===========================================================================
 void test_category_clustering() {
     std::cout << "\n=== Test: Category Clustering ===" << std::endl;
@@ -160,10 +160,10 @@ void test_category_clustering() {
         
         double surface_pct = static_cast<double>(on_surface) / points.size() * 100.0;
         
-        std::cout << "  Category " << static_cast<int>(cat) << " (" 
-                  << category_to_string(cat) << "): " 
-                  << points.size() << " points, " 
-                  << static_cast<int>(surface_pct) << "% on S³ surface" << std::endl;
+        std::cout << "  Category " << static_cast<int>(cat) << " ("
+                  << category_to_string(cat) << "): "
+                  << points.size() << " points, "
+                  << static_cast<int>(surface_pct) << "% on S^3 surface" << std::endl;
     }
     
     ASSERT_TRUE(true, "Category clustering analysis complete");

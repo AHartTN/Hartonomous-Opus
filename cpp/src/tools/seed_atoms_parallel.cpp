@@ -1,13 +1,12 @@
 /**
  * Parallel Partitioned Atom Seeder - Maximum Performance
- * 
+ *
  * Strategy:
  * 1. Generate all atoms in parallel (C++ threads)
  * 2. Partition by blake3 hash prefix (12 partitions)
- * 3. COPY to 12 unlogged staging tables in parallel (12 connections)
- * 4. Single INSERT ... SELECT to merge into atom table
- * 5. Rebuild indexes in parallel where possible
- * 
+ * 3. COPY directly to atom table in parallel (12 connections)
+ * 4. Rebuild indexes in parallel where possible
+ *
  * Target: Seed all 1.1M atoms in <2 seconds total
  */
 
@@ -25,12 +24,14 @@
 #include "hypercube/hilbert.hpp"
 #include "hypercube/coordinates.hpp"
 #include "hypercube/blake3.hpp"
+#include "hypercube/db/connection.hpp"
+#include "hypercube/thread_pool.hpp"
 
 using namespace hypercube;
 
 // Configuration
 static constexpr int NUM_PARTITIONS = 12;
-static constexpr int NUM_GENERATORS = 8;
+static constexpr int NUM_GENERATORS = 12;
 
 struct AtomRecord {
     Blake3Hash hash;
@@ -41,11 +42,11 @@ struct AtomRecord {
     int32_t coord_x, coord_y, coord_z, coord_m;
     // PostGIS normalized double (for spatial queries only)
     double x, y, z, m;
-    int64_t hilbert_lo, hilbert_hi;
+    uint64_t hilbert_lo, hilbert_hi;
     
-    // Partition based on first nibble of hash (0-15, mapped to 0-11)
+    // Partition based on first byte of hash (0-255, mapped to 0-11)
     int partition() const {
-        return (hash.bytes[0] >> 4) % NUM_PARTITIONS;
+        return hash.bytes[0] % NUM_PARTITIONS;
     }
 };
 
@@ -73,10 +74,10 @@ void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) 
         
         // Store uint32 coordinates as int32 (bit-preserving cast)
         // This preserves the full 32-bit value - no information loss
-        rec.coord_x = static_cast<int32_t>(mapping.coords.x);
-        rec.coord_y = static_cast<int32_t>(mapping.coords.y);
-        rec.coord_z = static_cast<int32_t>(mapping.coords.z);
-        rec.coord_m = static_cast<int32_t>(mapping.coords.m);
+        std::memcpy(&rec.coord_x, &mapping.coords.x, sizeof(rec.coord_x));
+        std::memcpy(&rec.coord_y, &mapping.coords.y, sizeof(rec.coord_y));
+        std::memcpy(&rec.coord_z, &mapping.coords.z, sizeof(rec.coord_z));
+        std::memcpy(&rec.coord_m, &mapping.coords.m, sizeof(rec.coord_m));
         
         // Store as double for PostGIS - DIRECT from uint32, no int32 reinterpretation
         // This ensures CENTER (2^31) is stored as 2147483648.0, not as negative
@@ -85,8 +86,8 @@ void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) 
         rec.z = static_cast<double>(mapping.coords.z);
         rec.m = static_cast<double>(mapping.coords.m);
         
-        rec.hilbert_lo = static_cast<int64_t>(mapping.hilbert.lo);
-        rec.hilbert_hi = static_cast<int64_t>(mapping.hilbert.hi);
+        rec.hilbert_lo = mapping.hilbert.lo;
+        rec.hilbert_hi = mapping.hilbert.hi;
         
         out.push_back(rec);
     }
@@ -108,6 +109,12 @@ void partition_atoms(const std::vector<AtomRecord>& all,
     for (const auto& a : all) {
         partitions[a.partition()].push_back(a);
     }
+
+    std::cerr << "Partition sizes: ";
+    for (int i = 0; i < NUM_PARTITIONS; ++i) {
+        std::cerr << partitions[i].size() << " ";
+    }
+    std::cerr << "\n";
 }
 
 // Encode UTF-8 for a codepoint (returns escaped BYTEA format for COPY)
@@ -139,29 +146,33 @@ std::string encode_utf8_value(uint32_t codepoint) {
     return result;
 }
 
-// COPY a partition directly to unified atom table
-bool copy_partition(const std::string& conninfo, int partition_id,
+// COPY a partition directly to atom table
+bool copy_partition(hypercube::db::ConnectionPool& pool, int partition_id,
                     const std::vector<AtomRecord>& atoms) {
-    PGconn* conn = PQconnectdb(conninfo.c_str());
+    auto copy_start = std::chrono::high_resolution_clock::now();
+    std::unique_ptr<hypercube::db::Connection> conn_handle;
+    try {
+        conn_handle = pool.acquire();
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Partition " << partition_id << " connection failed: " << e.what() << std::endl;
+        return false;
+    }
+    PGconn* conn = conn_handle->get();
     if (PQstatus(conn) != CONNECTION_OK) {
         std::cerr << "Partition " << partition_id << " connection failed: "
                   << PQerrorMessage(conn) << std::endl;
-        PQfinish(conn);
         return false;
     }
 
-    // COPY to atom table
-    // New schema: id, codepoint, value, geom, hilbert_lo, hilbert_hi
-    std::string copy_cmd =
-        "COPY atom (id, codepoint, value, geom, hilbert_lo, hilbert_hi) "
-        "FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')";
+    // COPY directly to atom table
+    // Schema: id, codepoint, value, geom, hilbert_lo, hilbert_hi
+    std::string copy_cmd = "COPY atom (id, codepoint, value, geom, hilbert_lo, hilbert_hi) FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')";
 
     PGresult* res = PQexec(conn, copy_cmd.c_str());
     if (PQresultStatus(res) != PGRES_COPY_IN) {
         std::cerr << "Partition " << partition_id << " COPY start failed: "
                   << PQerrorMessage(conn) << std::endl;
         PQclear(res);
-        PQfinish(conn);
         return false;
     }
     PQclear(res);
@@ -171,28 +182,20 @@ bool copy_partition(const std::string& conninfo, int partition_id,
     batch.reserve(8 << 20);  // 8MB
 
     static const char hex_chars[] = "0123456789abcdef";
-    char ewkb[75];
-    std::memcpy(ewkb, "01010000c0", 10);  // POINTZM little-endian, SRID=0
-    ewkb[74] = '\0';
-
-    auto double_to_hex = [&](double val, char* out) {
-        uint64_t bits;
-        std::memcpy(&bits, &val, sizeof(bits));
-        for (int i = 0; i < 8; ++i) {
-            uint8_t byte = (bits >> (i * 8)) & 0xFF;
-            out[i * 2] = hex_chars[byte >> 4];
-            out[i * 2 + 1] = hex_chars[byte & 0x0F];
-        }
-    };
+    uint8_t ewkb[37];  // 5 header + 4*8 doubles = 37 bytes
+    // WKB header for POINTZM little-endian: byte order 0x01, type 0x00000BB9 (3001)
+    uint8_t header[5] = {0x01, 0xB9, 0x0B, 0x00, 0x00};
+    std::memcpy(ewkb, header, 5);
 
     char num_buf[32];
 
+    auto build_start = std::chrono::high_resolution_clock::now();
     for (const auto& a : atoms) {
         // Build EWKB geometry (POINTZM)
-        double_to_hex(a.x, ewkb + 10);
-        double_to_hex(a.y, ewkb + 26);
-        double_to_hex(a.z, ewkb + 42);
-        double_to_hex(a.m, ewkb + 58);
+        std::memcpy(ewkb + 5, &a.x, sizeof(double));
+        std::memcpy(ewkb + 13, &a.y, sizeof(double));
+        std::memcpy(ewkb + 21, &a.z, sizeof(double));
+        std::memcpy(ewkb + 29, &a.m, sizeof(double));
 
         // id (BYTEA)
         batch += "\\\\x";
@@ -208,17 +211,21 @@ bool copy_partition(const std::string& conninfo, int partition_id,
         batch += encode_utf8_value(static_cast<uint32_t>(a.codepoint));
         batch += '\t';
 
-        // geom (POINTZM)
-        batch += ewkb;
+        // geom (POINTZM as hex-encoded WKB)
+        for (int i = 0; i < 37; ++i) {
+            uint8_t b = ewkb[i];
+            batch += hex_chars[b >> 4];
+            batch += hex_chars[b & 0x0F];
+        }
         batch += '\t';
 
         // hilbert_lo
-        snprintf(num_buf, sizeof(num_buf), "%lld", static_cast<long long>(a.hilbert_lo));
+        snprintf(num_buf, sizeof(num_buf), "%llu", static_cast<unsigned long long>(a.hilbert_lo));
         batch += num_buf;
         batch += '\t';
 
         // hilbert_hi
-        snprintf(num_buf, sizeof(num_buf), "%lld", static_cast<long long>(a.hilbert_hi));
+        snprintf(num_buf, sizeof(num_buf), "%llu", static_cast<unsigned long long>(a.hilbert_hi));
         batch += num_buf;
         batch += '\n';
 
@@ -227,37 +234,46 @@ bool copy_partition(const std::string& conninfo, int partition_id,
             if (PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size())) != 1) {
                 std::cerr << "Partition " << partition_id << " COPY data failed\n";
                 PQputCopyEnd(conn, "error");
-                PQfinish(conn);
                 return false;
             }
             batch.clear();
         }
     }
 
+    auto build_end = std::chrono::high_resolution_clock::now();
+    auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(build_end - build_start).count();
+    std::cerr << "Partition " << partition_id << " build time: " << build_ms << " ms\n";
+
     // Send remaining
     if (!batch.empty()) {
         if (PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size())) != 1) {
             std::cerr << "Partition " << partition_id << " COPY final failed\n";
             PQputCopyEnd(conn, "error");
-            PQfinish(conn);
             return false;
         }
     }
 
     if (PQputCopyEnd(conn, nullptr) != 1) {
         std::cerr << "Partition " << partition_id << " COPY end failed\n";
-        PQfinish(conn);
         return false;
     }
 
-    res = PQgetResult(conn);
-    bool success = (PQresultStatus(res) == PGRES_COMMAND_OK);
-    if (!success) {
-        std::cerr << "Partition " << partition_id << " result: "
-                  << PQerrorMessage(conn) << std::endl;
+    PGresult* final_res;
+    bool success = true;
+    while ((final_res = PQgetResult(conn)) != nullptr) {
+        if (PQresultStatus(final_res) != PGRES_COMMAND_OK) {
+            std::cerr << "Partition " << partition_id << " result: "
+                      << PQerrorMessage(conn) << std::endl;
+            success = false;
+        }
+        PQclear(final_res);
     }
-    PQclear(res);
-    PQfinish(conn);
+    // PooledConnection automatically returns connection to pool
+
+    auto copy_end = std::chrono::high_resolution_clock::now();
+    auto copy_ms = std::chrono::duration_cast<std::chrono::milliseconds>(copy_end - copy_start).count();
+    auto io_ms = copy_ms - build_ms;
+    std::cerr << "Partition " << partition_id << " total time: " << copy_ms << " ms, I/O: " << io_ms << " ms, atoms: " << atoms.size() << ", rate: " << (atoms.size() * 1000LL / (copy_ms > 0 ? copy_ms : 1)) << " atoms/sec\n";
 
     return success;
 }
@@ -294,16 +310,22 @@ int main(int argc, char* argv[]) {
         }
     }
     
-    std::string conninfo = "dbname=" + dbname;
-    if (!host.empty()) conninfo += " host=" + host;
-    if (!port.empty()) conninfo += " port=" + port;
-    if (!user.empty()) conninfo += " user=" + user;
-    
+    hypercube::db::ConnectionConfig config;
+    config.dbname = dbname;
+    config.host = host;
+    config.port = port;
+    config.user = user;
+
+    // Create connection pool with NUM_PARTITIONS connections
+    hypercube::db::ConnectionPool pool(config, NUM_PARTITIONS + 1);  // +1 for main connection
+
+    std::string conninfo = config.to_conninfo();
     std::cerr << "=== Parallel Partitioned Atom Seeder ===\n";
     std::cerr << "Connection: " << conninfo << "\n";
     std::cerr << "Partitions: " << NUM_PARTITIONS << "\n";
-    std::cerr << "Generators: " << NUM_GENERATORS << "\n\n";
-    
+    std::cerr << "Generators: " << NUM_GENERATORS << "\n";
+    std::cerr << "Connection Pool: " << NUM_PARTITIONS << " connections\n\n";
+
     auto start_time = std::chrono::high_resolution_clock::now();
     
     // === STEP 1: Generate atoms in parallel ===
@@ -356,18 +378,24 @@ int main(int argc, char* argv[]) {
     
     // === STEP 3: Setup database ===
     std::cerr << "[3/5] Preparing database...\n";
-    PGconn* main_conn = PQconnectdb(conninfo.c_str());
-    if (PQstatus(main_conn) != CONNECTION_OK) {
-        std::cerr << "Main connection failed: " << PQerrorMessage(main_conn) << std::endl;
-        PQfinish(main_conn);
+    std::unique_ptr<hypercube::db::Connection> main_conn_handle;
+    try {
+        main_conn_handle = pool.acquire();
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Main connection failed: " << e.what() << std::endl;
         return 1;
     }
-    
+    PGconn* main_conn = main_conn_handle->get();
+    if (PQstatus(main_conn) != CONNECTION_OK) {
+        std::cerr << "Main connection failed: " << PQerrorMessage(main_conn) << std::endl;
+        return 1;
+    }
+
     // Session tuning for bulk load
     PQexec(main_conn, "SET synchronous_commit = off");
     PQexec(main_conn, "SET maintenance_work_mem = '2GB'");
     PQexec(main_conn, "SET work_mem = '256MB'");
-    
+
     // Drop all indexes for fast bulk insert
     PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_geom");
     PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_hilbert");
@@ -375,43 +403,49 @@ int main(int argc, char* argv[]) {
 
     // Truncate outside transaction first (for parallel COPY to work)
     PQexec(main_conn, "TRUNCATE atom CASCADE");
-    
+
     auto setup_time = std::chrono::high_resolution_clock::now();
     auto setup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(setup_time - part_time).count();
     std::cerr << "      Setup in " << setup_ms << " ms\n";
     
     // === STEP 4: Parallel COPY ===
     std::cerr << "[4/5] Parallel COPY to atom table (" << NUM_PARTITIONS << " connections)...\n";
-    
-    std::vector<std::future<bool>> futures;
+
+    std::vector<std::thread> copy_threads;
+    std::vector<bool> results(NUM_PARTITIONS, false);
     for (int i = 0; i < NUM_PARTITIONS; ++i) {
-        futures.push_back(std::async(std::launch::async, 
-            [&conninfo, i, &partitions]() {
-                return copy_partition(conninfo, i, partitions[i]);
-            }));
+        copy_threads.emplace_back([i, &pool, &partitions, &results]() {
+            results[i] = copy_partition(pool, i, partitions[i]);
+        });
     }
-    
+
+    for (auto& t : copy_threads) {
+        t.join();
+    }
+
     bool all_success = true;
-    for (auto& f : futures) {
-        if (!f.get()) all_success = false;
+    for (bool r : results) {
+        if (!r) all_success = false;
     }
-    
+
     if (!all_success) {
         std::cerr << "Some partitions failed!\n";
-        PQfinish(main_conn);
         return 1;
     }
     
     auto copy_time = std::chrono::high_resolution_clock::now();
     auto copy_ms = std::chrono::duration_cast<std::chrono::milliseconds>(copy_time - setup_time).count();
     std::cerr << "      Parallel COPY in " << copy_ms << " ms\n";
-    
+
+
+
     // === STEP 5: Rebuild indexes ===
     std::cerr << "[5/5] Building indexes...\n";
 
+    // Index creation - critical for query performance
     PQexec(main_conn, "SET maintenance_work_mem = '2GB'");
     PQexec(main_conn, "SET max_parallel_maintenance_workers = 4");
-    
+
     PQexec(main_conn, "CREATE INDEX IF NOT EXISTS idx_atom_codepoint ON atom(codepoint)");
     PQexec(main_conn, "CREATE INDEX IF NOT EXISTS idx_atom_hilbert ON atom(hilbert_hi, hilbert_lo)");
     PQexec(main_conn, "CREATE INDEX IF NOT EXISTS idx_atom_geom ON atom USING GIST(geom)");
@@ -426,7 +460,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "Total atoms: " << total << "\n";
     std::cerr << "Total time: " << total_ms << " ms (" << (total_ms / 1000.0) << " s)\n";
     std::cerr << "Rate: " << (total * 1000 / std::max(static_cast<long long>(total_ms), 1LL)) << " atoms/sec\n";
-    
-    PQfinish(main_conn);
+
+    // PooledConnection automatically returns connection to pool
     return 0;
 }

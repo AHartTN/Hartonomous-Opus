@@ -272,35 +272,112 @@ Datum semantic_traverse(PG_FUNCTION_ARGS)
 {
     FuncCallContext *funcctx;
     TraverseState *state;
-    
+
     if (SRF_IS_FIRSTCALL())
     {
         MemoryContext oldcontext;
         TupleDesc tupdesc;
-        
+
         funcctx = SRF_FIRSTCALL_INIT();
         oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
-        
+
         if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
             ereport(ERROR,
                     (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                      errmsg("function returning record called in context that cannot accept type record")));
-        
+
+        /* Get root hash argument */
+        bytea *root_arg = PG_GETARG_BYTEA_PP(0);
+        if (VARSIZE_ANY_EXHDR(root_arg) < 32) {
+            SRF_RETURN_DONE(funcctx);
+        }
+
+        char hex[65];
+        uint8 *hash_bytes = (uint8 *)VARDATA_ANY(root_arg);
+        for (int i = 0; i < 32; i++)
+            snprintf(hex + i*2, 3, "%02x", hash_bytes[i]);
+
+        /* Load entire subtree in one query instead of row-by-row */
         state = (TraverseState *)palloc(sizeof(TraverseState));
-        state->capacity = 16;
+        state->capacity = 256;
         state->nodes = (TraverseNode *)palloc(state->capacity * sizeof(TraverseNode));
         state->count = 0;
         state->current = 0;
         state->tupdesc = BlessTupleDesc(tupdesc);
-        
+
+        if (SPI_connect() != SPI_OK_CONNECT)
+            ereport(ERROR, (errmsg("SPI_connect failed")));
+
+        /* Single query to load all reachable nodes with their depths and ordinals */
+        char query[4096];
+        snprintf(query, sizeof(query),
+            "WITH RECURSIVE subtree AS ("
+            "  SELECT id, 0 as depth, 0 as ordinal, ARRAY[id] as path "
+            "  FROM composition WHERE id = '\\x%s' "
+            "  UNION ALL "
+            "  SELECT c.id, s.depth + 1, cc.ordinal, s.path || c.id "
+            "  FROM subtree s "
+            "  JOIN composition_child cc ON cc.composition_id = s.id "
+            "  JOIN composition c ON cc.child_type = 'C' AND c.id = cc.child_id "
+            ") "
+            "SELECT id, depth, ordinal "
+            "FROM subtree "
+            "ORDER BY depth, ordinal",
+            hex);
+
+        int ret = SPI_execute(query, true, 0); /* Get all rows */
+        if (ret != SPI_OK_SELECT) {
+            SPI_finish();
+            ereport(ERROR, (errmsg("SPI_execute failed")));
+        }
+
+        /* Process all results into state */
+        for (uint64 proc = 0; proc < SPI_processed; proc++) {
+            bool isnull_id, isnull_depth, isnull_ordinal;
+            Datum id_val = SPI_getbinval(SPI_tuptable->vals[proc], SPI_tuptable->tupdesc, 1, &isnull_id);
+            Datum depth_val = SPI_getbinval(SPI_tuptable->vals[proc], SPI_tuptable->tupdesc, 2, &isnull_depth);
+            Datum ordinal_val = SPI_getbinval(SPI_tuptable->vals[proc], SPI_tuptable->tupdesc, 3, &isnull_ordinal);
+
+            if (!isnull_id && !isnull_depth && !isnull_ordinal) {
+                TraverseNode node;
+                bytea *id_bytes = DatumGetByteaPP(id_val);
+                memcpy(node.id, VARDATA_ANY(id_bytes), 32);
+                node.depth = DatumGetInt32(depth_val);
+                node.ordinal = DatumGetInt32(ordinal_val);
+                node.path_len = node.depth; /* Approximate path length */
+
+                traverse_push(state, node);
+            }
+        }
+
+        SPI_freetuptable(SPI_tuptable);
+        SPI_finish();
+
         funcctx->user_fctx = state;
         MemoryContextSwitchTo(oldcontext);
     }
-    
+
     funcctx = SRF_PERCALL_SETUP();
     state = (TraverseState *)funcctx->user_fctx;
-    
-    /* Just return empty result */
+
+    /* Return next node */
+    if (state->current < state->count) {
+        TraverseNode *node = &state->nodes[state->current++];
+
+        Datum values[4];
+        bool nulls[4] = {false, false, false, false};
+        HeapTuple tuple;
+
+        values[0] = PointerGetDatum(cstring_to_text_with_len((char*)node->id, 32));
+        values[1] = Int32GetDatum(node->depth);
+        values[2] = Int32GetDatum(node->ordinal);
+        values[3] = Int32GetDatum(node->path_len);
+
+        tuple = heap_form_tuple(state->tupdesc, values, nulls);
+        SRF_RETURN_NEXT(funcctx, HeapTupleGetDatum(tuple));
+    }
+
+    /* All done */
     SRF_RETURN_DONE(funcctx);
 }
 

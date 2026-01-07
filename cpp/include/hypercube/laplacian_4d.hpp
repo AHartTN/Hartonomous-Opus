@@ -25,6 +25,10 @@
 #include <cstdint>
 #include <functional>
 
+#ifdef HAS_MKL
+#include <mkl.h>
+#endif
+
 namespace hypercube {
 
 // Forward declarations
@@ -44,7 +48,7 @@ struct LaplacianConfig {
     bool verbose = false;               // Enable verbose debug output
     
     // Convergence tolerance for eigensolver
-    double convergence_tol = 1e-8;
+    double convergence_tol = 1e-6;
     int max_deflation_iterations = 100;
 };
 
@@ -69,7 +73,8 @@ class SparseSymmetricMatrix {
 public:
     SparseSymmetricMatrix() = default;
     explicit SparseSymmetricMatrix(size_t n);
-    
+    ~SparseSymmetricMatrix();  // Destroy MKL resources
+
     // Add edge (symmetric: adds both i->j and j->i)
     void add_edge(size_t i, size_t j, double weight);
     
@@ -81,6 +86,9 @@ public:
     
     // Matrix-vector product (pointer version for Lanczos compatibility)
     void matvec(const double* x, double* y) const;
+
+    // Fallback matrix-vector product implementation
+    void fallback_matvec(const double* x, double* y) const;
     
     // Get diagonal element
     double get_diagonal(size_t i) const;
@@ -127,10 +135,22 @@ private:
     std::vector<size_t> col_idx_;
     std::vector<double> values_;
     std::vector<double> diagonal_;
-    
+
     // Temporary storage during construction
     std::vector<std::vector<std::pair<size_t, double>>> adj_;
     bool finalized_ = false;
+
+#ifdef HAS_MKL
+    // MKL sparse matrix handle for optimized operations
+    sparse_matrix_t mkl_matrix_ = nullptr;
+    matrix_descr descr_;
+    bool mkl_created_ = false;
+
+    // Create MKL sparse matrix handle
+    void create_mkl_matrix();
+    // Destroy MKL sparse matrix handle
+    void destroy_mkl_matrix();
+#endif
 };
 
 /**

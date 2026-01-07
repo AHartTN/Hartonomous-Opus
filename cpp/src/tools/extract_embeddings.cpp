@@ -24,11 +24,20 @@
 #include <cmath>
 #include <algorithm>
 #include <unordered_map>
+#include <map>
+#include <tuple>
 #include <thread>
 #include <mutex>
 #include <atomic>
 #include <chrono>
 #include <libpq-fe.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#define getpid() GetCurrentProcessId()
+#else
+#include <unistd.h>
+#endif
 
 #include "hypercube/types.hpp"
 #include "hypercube/blake3.hpp"
@@ -238,7 +247,7 @@ bool ensure_vocab_atoms(PGconn* conn, const std::vector<std::string>& vocab) {
     return true;
 }
 
-// Batch insert semantic edges using COPY protocol (fast)
+// Batch insert semantic edges using direct COPY (deduplicated)
 bool batch_insert_edges(PGconn* conn, const std::vector<SemanticEdge>& edges) {
     if (edges.empty()) return true;
 
@@ -247,82 +256,58 @@ bool batch_insert_edges(PGconn* conn, const std::vector<SemanticEdge>& edges) {
     PGresult* res = PQexec(conn, "BEGIN");
     PQclear(res);
 
-    // Create temp table for edges
-    res = PQexec(conn,
-        "CREATE TEMP TABLE tmp_semantic_edge ("
-        "  src_id BYTEA, dst_id BYTEA, weight REAL"
-        ") ON COMMIT DROP");
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "Failed to create temp table: " << PQerrorMessage(conn) << "\n";
-        PQclear(res);
-        PQexec(conn, "ROLLBACK");
-        return false;
-    }
-    PQclear(res);
-
-    // COPY data in
-    res = PQexec(conn, "COPY tmp_semantic_edge FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "COPY failed to start\n";
-        PQclear(res);
-        PQexec(conn, "ROLLBACK");
-        return false;
-    }
-    PQclear(res);
-
-    std::string batch;
-    batch.reserve(1 << 20);  // 1MB buffer
-
+    // Deduplicate edges using a map
+    std::map<std::tuple<Blake3Hash, Blake3Hash>, float> deduplicated;
     for (const auto& e : edges) {
-        batch += "\\\\x";
-        batch += e.source.to_hex();
-        batch += "\t\\\\x";
-        batch += e.target.to_hex();
-        batch += "\t";
-        batch += std::to_string(e.weight);
-        batch += "\n";
-
-        if (batch.size() > (1 << 19)) {  // 512KB chunks
-            PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-            batch.clear();
+        auto key = std::make_tuple(e.source, e.target);
+        auto it = deduplicated.find(key);
+        if (it == deduplicated.end()) {
+            deduplicated[key] = e.weight;
+        } else {
+            // Average weights
+            it->second = (it->second + e.weight) / 2.0f;
         }
     }
 
-    if (!batch.empty()) {
-        PQputCopyData(conn, batch.c_str(), static_cast<int>(batch.size()));
-    }
+    std::cerr << "  Deduplicated to " << deduplicated.size() << " unique edges\n";
 
-    PQputCopyEnd(conn, nullptr);
-    res = PQgetResult(conn);
-    PQclear(res);
+    // Direct COPY to relation table
+    std::string copy_cmd = "COPY relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) FROM STDIN";
 
-    // Insert edges into relation table (4-table schema)
-    // Using layer=-1 and component='' as defaults for embedding similarity edges
-    res = PQexec(conn,
-        "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) "
-        "SELECT 'A', e.src_id, 'A', e.dst_id, 'S', e.weight, 'minilm', -1, 'embed_sim' "
-        "FROM tmp_semantic_edge e "
-        "WHERE EXISTS (SELECT 1 FROM atom WHERE id = e.src_id) "
-        "  AND EXISTS (SELECT 1 FROM atom WHERE id = e.dst_id) "
-        "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) "
-        "DO UPDATE SET weight = GREATEST(relation.weight, EXCLUDED.weight), "
-        "  source_count = relation.source_count + 1"
-    );
-
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "Edge insert failed: " << PQerrorMessage(conn) << "\n";
+    res = PQexec(conn, copy_cmd.c_str());
+    if (PQresultStatus(res) != PGRES_COPY_IN) {
+        std::cerr << "COPY failed to start: " << PQerrorMessage(conn) << "\n";
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
+    PQclear(res);
 
-    int inserted = atoi(PQcmdTuples(res));
+    for (const auto& [key, weight] : deduplicated) {
+        const auto& [source, target] = key;
+        std::string line = "A\t\\\\x" + source.to_hex() + "\tA\t\\\\x" + target.to_hex() +
+                          "\tS\t" + std::to_string(weight) + "\tminilm\t-1\tembed_sim\n";
+
+        if (PQputCopyData(conn, line.c_str(), (int)line.size()) != 1) {
+            std::cerr << "COPY data failed: " << PQerrorMessage(conn) << "\n";
+            PQexec(conn, "ROLLBACK");
+            return false;
+        }
+    }
+
+    if (PQputCopyEnd(conn, nullptr) != 1) {
+        std::cerr << "COPY end failed: " << PQerrorMessage(conn) << "\n";
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+
+    res = PQgetResult(conn);
     PQclear(res);
 
     res = PQexec(conn, "COMMIT");
     PQclear(res);
 
-    std::cerr << "  Inserted " << inserted << " semantic edges\n";
+    std::cerr << "  Inserted " << deduplicated.size() << " semantic edges\n";
     return true;
 }
 
@@ -426,7 +411,8 @@ void compute_sparse_edges(
     std::cerr << "\nComplete:\n";
     std::cerr << "  Pairs checked: " << pairs_checked.load() << "\n";
     std::cerr << "  Edges found (>= " << threshold << "): " << edges_found.load() << "\n";
-    std::cerr << "  Sparsity: " << (100.0 - 100.0 * edges_found.load() / std::max(pairs_checked.load(), size_t(1))) << "%\n";
+    size_t pairs = pairs_checked.load();
+    std::cerr << "  Sparsity: " << (100.0 - 100.0 * edges_found.load() / (pairs > 0 ? pairs : 1)) << "%\n";
     std::cerr << "  Time: " << ms << " ms\n";
     std::cerr << "  Insert status: " << (ok ? "SUCCESS" : "FAILED") << "\n";
 

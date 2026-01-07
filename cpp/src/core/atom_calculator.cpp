@@ -16,6 +16,8 @@ AtomRecord AtomCalculator::compute_atom(uint32_t codepoint) noexcept {
     rec.coords = CoordinateMapper::map_codepoint(codepoint);
     rec.hash = Blake3Hasher::hash_codepoint(codepoint);
     rec.hilbert = HilbertCurve::coords_to_index(rec.coords);
+    rec.depth = 0;
+    rec.atom_count = 1;
     return rec;
 }
 
@@ -37,8 +39,8 @@ CompositionRecord AtomCalculator::compute_composition(
         ChildInfo ci;
         ci.hash = atom.hash;
         ci.coords = atom.coords;
-        ci.depth = AtomRecord::depth;
-        ci.atom_count = AtomRecord::atom_count;
+        ci.depth = atom.depth;
+        ci.atom_count = atom.atom_count;
         children.push_back(ci);
     }
     
@@ -79,9 +81,7 @@ CompositionRecord AtomCalculator::compute_composition(
     }
     
     // Compute composition hash: BLAKE3(ord_0 || hash_0 || ord_1 || hash_1 || ...)
-    rec.hash = Blake3Hasher::hash_children_ordered(
-        std::span<const Blake3Hash>(rec.children)
-    );
+    rec.hash = Blake3Hasher::hash_children_ordered(std::span<const Blake3Hash>(rec.children.data(), rec.children.size()));
     
     // Compute centroid as average of child coordinates
     rec.centroid = CoordinateMapper::centroid(rec.child_coords);

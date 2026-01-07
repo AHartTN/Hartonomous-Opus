@@ -300,6 +300,14 @@ public:
                 std::stringstream buffer;
                 buffer << file.rdbuf();
                 json_content = buffer.str();
+                // Strip BOM if present
+                if (json_content.size() >= 3 &&
+                    static_cast<unsigned char>(json_content[0]) == 0xEF &&
+                    static_cast<unsigned char>(json_content[1]) == 0xBB &&
+                    static_cast<unsigned char>(json_content[2]) == 0xBF) {
+                    json_content = json_content.substr(3);
+                    std::cerr << "[VOCAB] Stripped BOM from tokenizer.json" << std::endl;
+                }
                 source_type = "tokenizer_json";
                 
                 size_t vocab_start = json_content.find("\"vocab\"");
@@ -315,6 +323,18 @@ public:
         if (fs::exists(vocab_txt)) {
             txt_file.open(vocab_txt);
             if (txt_file) {
+                // Check for BOM in vocab.txt
+                char bom_check[3];
+                if (txt_file.read(bom_check, 3) && txt_file.gcount() == 3) {
+                    if (static_cast<unsigned char>(bom_check[0]) == 0xEF &&
+                        static_cast<unsigned char>(bom_check[1]) == 0xBB &&
+                        static_cast<unsigned char>(bom_check[2]) == 0xBF) {
+                        std::cerr << "[VOCAB] BOM detected in vocab.txt, but getline will handle it" << std::endl;
+                    } else {
+                        // Not BOM, rewind
+                        txt_file.seekg(0);
+                    }
+                }
                 source_type = "vocab_txt";
                 return true;
             }

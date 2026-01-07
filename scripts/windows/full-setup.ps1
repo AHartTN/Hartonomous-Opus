@@ -1,0 +1,5 @@
+. "$PSScriptRoot\env.ps1"
+. "$PSScriptRoot\clean.ps1"
+. "$PSScriptRoot\build.ps1"
+. "$PSScriptRoot\setup-db.ps1"
+. "$PSScriptRoot\validate.ps1"

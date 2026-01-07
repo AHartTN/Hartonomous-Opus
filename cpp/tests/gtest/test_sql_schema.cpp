@@ -12,11 +12,26 @@ protected:
     PGconn* conn = nullptr;
     
     void SetUp() override {
-        const char* db = std::getenv("HC_DB_NAME");
-        const char* user = std::getenv("HC_DB_USER");
-        const char* host = std::getenv("HC_DB_HOST");
-        const char* port = std::getenv("HC_DB_PORT");
-        const char* pass = std::getenv("HC_DB_PASS");
+        auto get_env = [](const char* name) -> const char* {
+#if defined(_WIN32)
+            static thread_local std::string val;
+            char* buf = nullptr;
+            size_t len;
+            if (_dupenv_s(&buf, &len, name) == 0 && buf != nullptr) {
+                val = buf;
+                free(buf);
+                return val.c_str();
+            }
+            return nullptr;
+#else
+            return std::getenv(name);
+#endif
+        };
+        const char* db = get_env("HC_DB_NAME");
+        const char* user = get_env("HC_DB_USER");
+        const char* host = get_env("HC_DB_HOST");
+        const char* port = get_env("HC_DB_PORT");
+        const char* pass = get_env("HC_DB_PASS");
         
         std::string conninfo = "dbname=" + std::string(db ? db : "hypercube_test");
         conninfo += " user=" + std::string(user ? user : "postgres");

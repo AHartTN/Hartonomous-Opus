@@ -128,7 +128,7 @@ struct CompositionData {
 
 class CompositionBuilder {
 public:
-    CompositionBuilder(const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache)
+    CompositionBuilder(const std::unordered_map<uint32_t, hypercube::db::AtomInfo>& atom_cache)
         : atom_cache_(atom_cache) {}
     
     // Build a composition from a string, returns hash
@@ -237,7 +237,7 @@ public:
     size_t count() const { return built_compositions_.size(); }
     
 private:
-    const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache_;
+    const std::unordered_map<uint32_t, hypercube::db::AtomInfo>& atom_cache_;
     std::unordered_map<Blake3Hash, CompositionData, Blake3HashHasher> built_compositions_;
 };
 
@@ -487,7 +487,11 @@ inline bool stream_to_database(PGconn* conn,
                                const CompositionBuilder& comp_builder,
                                const RelationBuilder& rel_builder) {
     using namespace hypercube::db;
-    
+
+    // Drop problematic index before bulk operations to prevent corruption
+    std::cerr << "[STREAM] Dropping idx_comp_label to prevent corruption...\n";
+    exec(conn, "DROP INDEX IF EXISTS idx_comp_label");
+
     // Build COPY buffers
     std::string comp_buffer;
     std::string child_buffer;
@@ -678,7 +682,11 @@ inline bool stream_to_database(PGconn* conn,
     
     std::cerr << "[STREAM] Inserted: " << inserted_comps << " compositions, "
               << inserted_children << " children, " << inserted_rels << " relations\n";
-    
+
+    // Recreate the index after bulk operations
+    std::cerr << "[STREAM] Recreating idx_comp_label...\n";
+    exec(conn, "CREATE INDEX idx_comp_label ON composition(label)");
+
     return true;
 }
 

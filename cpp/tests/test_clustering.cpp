@@ -40,10 +40,10 @@ int tests_failed = 0;
 
 void check(bool condition, const std::string& name) {
     if (condition) {
-        std::cout << "  ✓ " << name << std::endl;
+        std::cout << "  PASS: " << name << std::endl;
         tests_passed++;
     } else {
-        std::cout << "  ✗ " << name << " FAILED" << std::endl;
+        std::cout << "  FAIL: " << name << " FAILED" << std::endl;
         tests_failed++;
     }
 }
@@ -287,9 +287,9 @@ void test_typo_trajectory() {
 // Main
 // =============================================================================
 int main() {
-    std::cout << "╔══════════════════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║     Semantic Clustering Validation Tests                     ║" << std::endl;
-    std::cout << "╚══════════════════════════════════════════════════════════════╝" << std::endl;
+    std::cout << "===============================================================" << std::endl;
+    std::cout << "     Semantic Clustering Validation Tests                     " << std::endl;
+    std::cout << "===============================================================" << std::endl;
     
     test_case_pairs();
     test_diacritic_variants();
@@ -299,14 +299,14 @@ int main() {
     test_digit_grouping();
     test_typo_trajectory();
     
-    std::cout << "\n════════════════════════════════════════════════════════════════" << std::endl;
+    std::cout << "\n===============================================================" << std::endl;
     if (tests_failed == 0) {
-        std::cout << "  ✓ All " << tests_passed << " tests passed!" << std::endl;
+        std::cout << "  All " << tests_passed << " tests passed!" << std::endl;
     } else {
-        std::cout << "  ✗ " << tests_failed << " tests failed, " 
+        std::cout << "  " << tests_failed << " tests failed, "
                   << tests_passed << " passed" << std::endl;
     }
-    std::cout << "════════════════════════════════════════════════════════════════" << std::endl;
+    std::cout << "===============================================================" << std::endl;
     
     return tests_failed > 0 ? 1 : 0;
 }

@@ -1242,17 +1242,29 @@ static int encode_utf8(uint32_t cp, uint8_t *out)
     }
 }
 
+/* Helper: convert double to hex string for EWKB */
+static void double_to_hex(double val, char* out)
+{
+    union { double d; uint64_t u; } conv = {val};
+    uint64_t bits = conv.u;
+    static const char hex_chars[] = "0123456789abcdef";
+    for (int i = 0; i < 8; ++i) {
+        uint8_t byte = (bits >> (i * 8)) & 0xFF;
+        out[i * 2] = hex_chars[byte >> 4];
+        out[i * 2 + 1] = hex_chars[byte & 0x0F];
+    }
+}
+
 PG_FUNCTION_INFO_V1(seed_atoms);
 Datum seed_atoms(PG_FUNCTION_ARGS)
 {
     int64 inserted = 0;
     int ret;
-    StringInfoData buf;
     bool isnull;
-    
+
     if (SPI_connect() != SPI_OK_CONNECT)
         ereport(ERROR, (errmsg("SPI_connect failed")));
-    
+
     /* Check if atoms already exist */
     ret = SPI_execute("SELECT COUNT(*) FROM atom", true, 0);
     if (ret == SPI_OK_SELECT && SPI_processed > 0) {
@@ -1264,91 +1276,125 @@ Datum seed_atoms(PG_FUNCTION_ARGS)
             PG_RETURN_INT64(existing);
         }
     }
-    
-    ereport(NOTICE, (errmsg("seeding Unicode atoms...")));
-    
-    /* Truncate for clean start */
-    SPI_execute("TRUNCATE atom CASCADE", false, 0);
-    
-    /* Temporarily disable indexes for fast loading */
-    SPI_execute("DROP INDEX IF EXISTS idx_atom_codepoint", false, 0);
-    SPI_execute("DROP INDEX IF EXISTS idx_atom_hilbert", false, 0);
-    SPI_execute("DROP INDEX IF EXISTS idx_atom_geom", false, 0);
-    
-    initStringInfo(&buf);
-    
-    #define ATOM_BATCH_SIZE 2000
-    int batch_count = 0;
-    
-    for (uint32_t cp = 0; cp <= HC_MAX_CODEPOINT; cp++)
-    {
-        /* Skip surrogates */
-        if (cp >= HC_SURROGATE_START && cp <= HC_SURROGATE_END)
-            continue;
-        
-        /* Compute hash, coordinates, Hilbert index using C API */
-        hc_hash_t hash = hc_blake3_codepoint(cp);
-        hc_point4d_t coords = hc_map_codepoint(cp);
-        hc_hilbert_t hilbert = hc_coords_to_hilbert(coords);
-        
-        /* Encode UTF-8 value */
-        uint8_t utf8[4];
-        int utf8_len = encode_utf8(cp, utf8);
-        
-        /* Start new batch INSERT if needed */
-        if (batch_count == 0) {
-            resetStringInfo(&buf);
-            appendStringInfoString(&buf,
-                "INSERT INTO atom (id, codepoint, value, geom, hilbert_lo, hilbert_hi) VALUES ");
-        } else {
-            appendStringInfoChar(&buf, ',');
+
+    ereport(WARNING, (errmsg("=== PostgreSQL Extension Atom Seeder ===")));
+    ereport(WARNING, (errmsg("Processing ~1.1M Unicode codepoints...")));
+
+    /* Use batch processing for better performance */
+    static const int BATCH_SIZE = 1000;
+    uint32_t codepoint = 0;
+    uint32_t max_codepoint = 0x10FFFF;
+    uint32_t surrogate_start = 0xD800;
+    uint32_t surrogate_end = 0xDFFF;
+
+    while (codepoint <= max_codepoint) {
+        /* Start a batch */
+        StringInfoData batch_sql;
+        initStringInfo(&batch_sql);
+        appendStringInfoString(&batch_sql, "INSERT INTO atom (id, codepoint, value, geom, hilbert_index) VALUES ");
+
+        int batch_count = 0;
+        uint32_t batch_start = codepoint;
+
+        /* Build batch of INSERTs */
+        for (; codepoint <= max_codepoint && batch_count < BATCH_SIZE; ++codepoint) {
+            /* Skip surrogates */
+            if (codepoint >= surrogate_start && codepoint <= surrogate_end) {
+                continue;
+            }
+
+            /* Map codepoint using C API functions */
+            hc_point4d_t coords = hc_map_codepoint(codepoint);
+            hc_hash_t hash = hc_blake3_codepoint(codepoint);
+            hc_hilbert_t hilbert = hc_coords_to_hilbert(coords);
+
+            /* Convert hash to hex */
+            char hash_hex[65];
+            hc_hash_to_hex(hash, hash_hex);
+
+            /* Encode UTF-8 */
+            uint8_t utf8_bytes[4];
+            int utf8_len = encode_utf8(codepoint, utf8_bytes);
+
+            /* Build EWKB geometry (POINTZM) */
+            char ewkb[75];
+            memcpy(ewkb, "\\x01010000c0", 11);  /* POINTZM little-endian */
+
+            /* Double to hex for EWKB */
+            double_to_hex(coords.x, ewkb + 11);
+            double_to_hex(coords.y, ewkb + 27);
+            double_to_hex(coords.z, ewkb + 43);
+            double_to_hex(coords.m, ewkb + 59);
+
+            /* Build Hilbert index as 16-byte hex (hi then lo, big-endian) */
+            char hilbert_hex[33];
+            static const char hex_chars[] = "0123456789abcdef";
+
+            /* Convert hi (most significant 64 bits) */
+            uint64_t hi_be = __builtin_bswap64(hilbert.hi);  /* Convert to big-endian */
+            for (int i = 0; i < 8; ++i) {
+                uint8_t byte = (hi_be >> (i * 8)) & 0xFF;
+                hilbert_hex[i * 2] = hex_chars[byte >> 4];
+                hilbert_hex[i * 2 + 1] = hex_chars[byte & 0x0F];
+            }
+
+            /* Convert lo (least significant 64 bits) */
+            uint64_t lo_be = __builtin_bswap64(hilbert.lo);  /* Convert to big-endian */
+            for (int i = 0; i < 8; ++i) {
+                uint8_t byte = (lo_be >> (i * 8)) & 0xFF;
+                hilbert_hex[16 + i * 2] = hex_chars[byte >> 4];
+                hilbert_hex[16 + i * 2 + 1] = hex_chars[byte & 0x0F];
+            }
+            hilbert_hex[32] = '\0';
+
+            /* Add to batch */
+            if (batch_count > 0) appendStringInfoChar(&batch_sql, ',');
+
+            appendStringInfo(&batch_sql, "('\\x%s'::bytea, %u, '\\x", hash_hex, codepoint);
+
+            /* Add UTF-8 bytes as hex */
+            for (int i = 0; i < utf8_len; ++i) {
+                uint8_t byte = utf8_bytes[i];
+                appendStringInfo(&batch_sql, "%c%c", hex_chars[byte >> 4], hex_chars[byte & 0x0F]);
+            }
+
+            appendStringInfo(&batch_sql, "'::bytea, '\\x%s'::geometry, '\\x%s'::bytea)",
+                ewkb, hilbert_hex);
+
+            batch_count++;
         }
-        
-        /* Build VALUES row: ('\\x...', cp, '\\x...', ST_SetSRID(...), lo, hi) */
-        appendStringInfoString(&buf, "('\\x");
-        for (int i = 0; i < 32; i++)
-            appendStringInfo(&buf, "%02x", hash.bytes[i]);
-        appendStringInfo(&buf, "'::bytea,%u,'\\x", cp);
-        for (int i = 0; i < utf8_len; i++)
-            appendStringInfo(&buf, "%02x", utf8[i]);
-        appendStringInfo(&buf, "'::bytea,ST_SetSRID(ST_MakePoint(%.0f,%.0f,%.0f,%.0f),0),%lld,%lld)",
-            (double)coords.x, (double)coords.y, (double)coords.z, (double)coords.m,
-            (long long)hilbert.lo, (long long)hilbert.hi);
-        
-        batch_count++;
-        inserted++;
-        
-        /* Execute batch */
-        if (batch_count >= ATOM_BATCH_SIZE) {
-            ret = SPI_execute(buf.data, false, 0);
-            if (ret != SPI_OK_INSERT)
-                ereport(WARNING, (errmsg("batch insert failed at cp=%u: %s", cp, SPI_result_code_string(ret))));
-            batch_count = 0;
-            
-            /* Progress every 100k */
-            if (inserted % 100000 == 0)
-                ereport(NOTICE, (errmsg("seeded %lld atoms...", (long long)inserted)));
+
+        /* Execute batch if we have items */
+        if (batch_count > 0) {
+            ret = SPI_execute(batch_sql.data, false, 0);
+            if (ret != SPI_OK_INSERT) {
+                ereport(WARNING, (errmsg("Failed batch insert for codepoints %u-%u", batch_start, codepoint - 1)));
+            }
+        }
+
+        pfree(batch_sql.data);
+
+        /* Progress reporting */
+        if (codepoint % 50000 == 0) {
+            ereport(NOTICE, (errmsg("Processed %u codepoints...", codepoint)));
         }
     }
-    
-    /* Final batch */
-    if (batch_count > 0) {
-        ret = SPI_execute(buf.data, false, 0);
-        if (ret != SPI_OK_INSERT)
-            ereport(WARNING, (errmsg("final batch insert failed: %s", SPI_result_code_string(ret))));
-    }
-    
-    pfree(buf.data);
-    
-    /* Rebuild indexes */
-    ereport(NOTICE, (errmsg("rebuilding indexes...")));
-    SPI_execute("CREATE INDEX idx_atom_codepoint ON atom(codepoint)", false, 0);
-    SPI_execute("CREATE INDEX idx_atom_hilbert ON atom(hilbert_hi, hilbert_lo)", false, 0);
-    SPI_execute("CREATE INDEX idx_atom_geom ON atom USING GIST(geom)", false, 0);
+
+    /* Create indexes after bulk insert */
+    SPI_execute("CREATE INDEX IF NOT EXISTS idx_atom_codepoint ON atom(codepoint)", false, 0);
+    SPI_execute("CREATE INDEX IF NOT EXISTS idx_atom_hilbert ON atom(hilbert_index)", false, 0);
+    SPI_execute("CREATE INDEX IF NOT EXISTS idx_atom_geom ON atom USING GIST(geom)", false, 0);
     SPI_execute("ANALYZE atom", false, 0);
-    
+
+    /* Get final count */
+    ret = SPI_execute("SELECT COUNT(*) FROM atom", true, 0);
+    if (ret == SPI_OK_SELECT && SPI_processed > 0) {
+        inserted = DatumGetInt64(SPI_getbinval(
+            SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
+    }
+
     SPI_finish();
-    
-    ereport(NOTICE, (errmsg("seeded %lld atoms successfully", (long long)inserted)));
+
+    ereport(NOTICE, (errmsg("seeded %lld atoms successfully via extension", (long long)inserted)));
     PG_RETURN_INT64(inserted);
 }

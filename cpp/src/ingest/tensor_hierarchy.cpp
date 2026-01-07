@@ -153,100 +153,126 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
     
     std::cerr << "[HIER] Built " << edge_count << " composition->composition edges\n";
     
-    // Stream to database with Transaction RAII
+    // Direct bulk insert to database with Transaction RAII
     Transaction tx(conn);
-    
-    // Create temp table for compositions WITH GEOMETRY
-    if (!create_temp_table(conn, "tmp_hier_comp", schema::composition())) {
-        std::cerr << "[HIER] Create temp table failed\n";
-        return false;
+
+    // Parse comp_batch and build direct INSERT for compositions
+    std::string insert_comp_sql = "INSERT INTO composition (id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi) VALUES ";
+    std::vector<std::string> comp_values;
+    std::istringstream comp_iss(comp_batch);
+    std::string comp_line;
+    while (std::getline(comp_iss, comp_line)) {
+        if (comp_line.empty()) continue;
+        std::istringstream line_ss(comp_line);
+        std::string id_hex, label, depth_str, child_count_str, atom_count_str, geom_ewkb, centroid_ewkb, hilbert_lo_str, hilbert_hi_str;
+        if (!(line_ss >> id_hex >> label >> depth_str >> child_count_str >> atom_count_str >> geom_ewkb >> centroid_ewkb >> hilbert_lo_str >> hilbert_hi_str)) continue;
+
+        // Handle \N for null geom
+        std::string geom_val = (geom_ewkb == "\\N") ? "NULL" : ("'" + geom_ewkb + "'");
+
+        std::string val = "('" + id_hex + "', '" + label + "', " + depth_str + ", " + child_count_str + ", " + atom_count_str +
+                          ", " + geom_val + ", '" + centroid_ewkb + "', " + hilbert_lo_str + ", " + hilbert_hi_str + ")";
+        comp_values.push_back(val);
     }
-    
-    // COPY compositions using CopyStream
-    {
-        CopyStream copy(conn, "COPY tmp_hier_comp FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        if (!copy.ok()) {
-            std::cerr << "[HIER] COPY start failed: " << copy.error() << "\n";
-            return false;
+
+    // Batch compositions insert
+    const size_t batch_size = 100;
+    int comp_inserted = 0;
+    for (size_t i = 0; i < comp_values.size(); i += batch_size) {
+        std::string batch_sql = insert_comp_sql;
+        for (size_t j = i; j < std::min(i + batch_size, comp_values.size()); ++j) {
+            if (j > i) batch_sql += ", ";
+            batch_sql += comp_values[j];
         }
-        
-        if (!comp_batch.empty()) {
-            copy.put(comp_batch);
+        batch_sql += " ON CONFLICT (id) DO UPDATE SET "
+                    "  label = EXCLUDED.label, "
+                    "  depth = GREATEST(composition.depth, EXCLUDED.depth), "
+                    "  geom = COALESCE(EXCLUDED.geom, composition.geom), "
+                    "  centroid = COALESCE(EXCLUDED.centroid, composition.centroid), "
+                    "  hilbert_lo = COALESCE(EXCLUDED.hilbert_lo, composition.hilbert_lo), "
+                    "  hilbert_hi = COALESCE(EXCLUDED.hilbert_hi, composition.hilbert_hi)";
+
+        Result res = exec(conn, batch_sql);
+        if (res.ok()) {
+            comp_inserted += cmd_tuples(res);
+        } else {
+            std::cerr << "[HIER] Batch insert compositions failed: " << res.error_message() << "\n";
         }
-        
-        if (!copy.end()) {
-            std::cerr << "[HIER] COPY end failed: " << copy.error() << "\n";
-            return false;
-        }
-    }
-    
-    // Insert into composition table WITH GEOMETRY
-    Result res = exec(conn,
-        "INSERT INTO composition (id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi) "
-        "SELECT id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi FROM tmp_hier_comp "
-        "ON CONFLICT (id) DO UPDATE SET "
-        "  label = EXCLUDED.label, "
-        "  depth = GREATEST(composition.depth, EXCLUDED.depth), "
-        "  geom = COALESCE(EXCLUDED.geom, composition.geom), "
-        "  centroid = COALESCE(EXCLUDED.centroid, composition.centroid), "
-        "  hilbert_lo = COALESCE(EXCLUDED.hilbert_lo, composition.hilbert_lo), "
-        "  hilbert_hi = COALESCE(EXCLUDED.hilbert_hi, composition.hilbert_hi)");
-    
-    int comp_inserted = res.ok() ? cmd_tuples(res) : 0;
-    if (!res.ok()) {
-        std::cerr << "[HIER] Insert compositions failed: " << res.error_message() << "\n";
     }
     
     std::cerr << "[HIER] Inserted/updated " << comp_inserted << " hierarchy compositions\n";
     
-    // Insert ATOM children FIRST (the characters that make up each hierarchy path)
-    // These get ordinals 0..N-1 where N is the path length
+    // Direct insert ATOM children
     if (!atom_child_batch.empty()) {
-        if (!create_temp_table(conn, "tmp_hier_atom_child", schema::composition_child())) {
-            std::cerr << "[HIER] Create atom child temp table failed\n";
+        std::string insert_atom_sql = "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) VALUES ";
+        std::vector<std::string> atom_values;
+        std::istringstream atom_iss(atom_child_batch);
+        std::string atom_line;
+        while (std::getline(atom_iss, atom_line)) {
+            if (atom_line.empty()) continue;
+            std::istringstream line_ss(atom_line);
+            std::string comp_id_hex, ordinal_str, child_type, child_id_hex;
+            if (!(line_ss >> comp_id_hex >> ordinal_str >> child_type >> child_id_hex)) continue;
+
+            std::string val = "('" + comp_id_hex + "', " + ordinal_str + ", '" + child_type + "', '" + child_id_hex + "')";
+            atom_values.push_back(val);
         }
-        
-        CopyStream copy(conn, "COPY tmp_hier_atom_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        copy.put(atom_child_batch);
-        copy.end();
-        
-        // Insert atom children
-        res = exec(conn,
-            "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
-            "SELECT composition_id, ordinal, child_type, child_id FROM tmp_hier_atom_child "
-            "ON CONFLICT (composition_id, ordinal) DO NOTHING");
-        
-        int atom_edges = res.ok() ? cmd_tuples(res) : 0;
-        if (!res.ok()) {
-            std::cerr << "[HIER] Insert atom children failed: " << res.error_message() << "\n";
+
+        // Batch atom children insert
+        int atom_edges = 0;
+        for (size_t i = 0; i < atom_values.size(); i += batch_size) {
+            std::string batch_sql = insert_atom_sql;
+            for (size_t j = i; j < std::min(i + batch_size, atom_values.size()); ++j) {
+                if (j > i) batch_sql += ", ";
+                batch_sql += atom_values[j];
+            }
+            batch_sql += " ON CONFLICT (composition_id, ordinal) DO NOTHING";
+
+            Result res = exec(conn, batch_sql);
+            if (res.ok()) {
+                atom_edges += cmd_tuples(res);
+            } else {
+                std::cerr << "[HIER] Batch insert atom children failed: " << res.error_message() << "\n";
+            }
         }
-        
+
         std::cerr << "[HIER] Inserted " << atom_edges << " atom children\n";
     }
-    
-    // Now insert parent->child composition edges
-    // These get ordinals N..N+M-1 where N is path length and M is number of sub-compositions
+
+    // Direct insert parent->child composition edges
     if (!child_batch.empty()) {
-        if (!create_temp_table(conn, "tmp_hier_child", schema::composition_child())) {
-            std::cerr << "[HIER] Create child temp table failed\n";
+        std::string insert_child_sql = "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) VALUES ";
+        std::vector<std::string> child_values;
+        std::istringstream child_iss(child_batch);
+        std::string child_line;
+        while (std::getline(child_iss, child_line)) {
+            if (child_line.empty()) continue;
+            std::istringstream line_ss(child_line);
+            std::string comp_id_hex, ordinal_str, child_type, child_id_hex;
+            if (!(line_ss >> comp_id_hex >> ordinal_str >> child_type >> child_id_hex)) continue;
+
+            std::string val = "('" + comp_id_hex + "', " + ordinal_str + ", '" + child_type + "', '" + child_id_hex + "')";
+            child_values.push_back(val);
         }
-        
-        CopyStream copy(conn, "COPY tmp_hier_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        copy.put(child_batch);
-        copy.end();
-        
-        // Insert composition->composition edges using pre-computed ordinals (offset past atoms)
-        res = exec(conn,
-            "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
-            "SELECT composition_id, ordinal, child_type, child_id "
-            "FROM tmp_hier_child "
-            "ON CONFLICT (composition_id, ordinal) DO NOTHING");
-        
-        int edges_inserted = res.ok() ? cmd_tuples(res) : 0;
-        if (!res.ok()) {
-            std::cerr << "[HIER] Insert composition edges failed: " << res.error_message() << "\n";
+
+        // Batch composition edges insert
+        int edges_inserted = 0;
+        for (size_t i = 0; i < child_values.size(); i += batch_size) {
+            std::string batch_sql = insert_child_sql;
+            for (size_t j = i; j < std::min(i + batch_size, child_values.size()); ++j) {
+                if (j > i) batch_sql += ", ";
+                batch_sql += child_values[j];
+            }
+            batch_sql += " ON CONFLICT (composition_id, ordinal) DO NOTHING";
+
+            Result res = exec(conn, batch_sql);
+            if (res.ok()) {
+                edges_inserted += cmd_tuples(res);
+            } else {
+                std::cerr << "[HIER] Batch insert composition edges failed: " << res.error_message() << "\n";
+            }
         }
-        
+
         std::cerr << "[HIER] Inserted " << edges_inserted << " composition->composition edges\n";
     }
     

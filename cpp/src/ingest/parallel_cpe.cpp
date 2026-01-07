@@ -302,13 +302,13 @@ std::vector<Blake3Hash> ParallelCPEIngester::ingest(
     // Process chunks in parallel
     std::vector<std::future<ChunkResult>> futures;
     futures.reserve(chunks.size());
-    
+
     for (auto& chunk : chunks) {
         futures.push_back(std::async(std::launch::async, [&chunk, &progress_chars]() {
             return process_chunk(chunk, progress_chars);
         }));
     }
-    
+
     // Progress display thread
     std::atomic<bool> done{false};
     std::thread progress_thread([&]() {
@@ -318,30 +318,30 @@ std::vector<Blake3Hash> ParallelCPEIngester::ingest(
             auto now = std::chrono::high_resolution_clock::now();
             double elapsed = std::chrono::duration<double>(now - start_time).count();
             double rate = chars / (elapsed + 0.001);
-            
+
             std::cerr << "\r[CPE] " << std::fixed << std::setprecision(1) << pct << "% "
                       << "(" << chars << "/" << total_chars << ") "
                       << std::setprecision(0) << rate << " chars/sec   " << std::flush;
-            
+
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     });
-    
+
     // Collect results
     std::vector<Blake3Hash> root_hashes;
     root_hashes.reserve(futures.size());
-    
+
     for (auto& f : futures) {
         auto result = f.get();
         root_hashes.push_back(result.root_hash);
-        
+
         // Merge compositions (deduplicate by hash)
         std::lock_guard<std::mutex> lock(impl_->comp_mutex);
         for (auto& comp : result.compositions) {
             impl_->all_compositions[comp.hash] = std::move(comp);
         }
     }
-    
+
     done = true;
     progress_thread.join();
     

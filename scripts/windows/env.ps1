@@ -89,10 +89,13 @@ $IntelOneAPIPaths = @(
 
 foreach ($oneAPIPath in $IntelOneAPIPaths) {
     if (Test-Path $oneAPIPath) {
+        # Set MKLROOT for CMake detection
+        $env:MKLROOT = "$oneAPIPath\mkl\latest"
+
         # Add compiler and MKL bin directories for DLLs
         $compilerBin = "$oneAPIPath\compiler\latest\bin"
         $mklBin = "$oneAPIPath\mkl\latest\bin"
-        
+
         if ((Test-Path $compilerBin) -and ($env:PATH -notlike "*$compilerBin*")) {
             $env:PATH = "$compilerBin;$mklBin;$env:PATH"
         }
@@ -155,3 +158,6 @@ if (-not $env:HC_ENV_LOADED) {
     Write-Host "  User:     $env:HC_DB_USER"
     Write-Host "  Project:  $env:HC_PROJECT_ROOT"
 }
+
+# Reset exit code to prevent inheritance issues
+$LASTEXITCODE = 0

@@ -1091,90 +1091,54 @@ bool ingest_universal(const UniversalConfig& config) {
     
     size_t compositions_inserted = 0;  // Track at function scope
     
-    // Create temp table for COPY (avoids ON CONFLICT overhead)
+    // Insert compositions directly using INSERT with ON CONFLICT
     PQexec(conn, "BEGIN");
-    PQexec(conn, "CREATE TEMP TABLE comp_staging (LIKE composition INCLUDING ALL) ON COMMIT DROP");
-    
-    // Start COPY to staging table
-    PGresult* copy_res = PQexec(conn, 
-        "COPY comp_staging (id, label, depth, child_count, atom_count, hilbert_lo, hilbert_hi) "
-        "FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    
-    if (PQresultStatus(copy_res) != PGRES_COPY_IN) {
-        std::cerr << "COPY init failed: " << PQerrorMessage(conn) << "\n";
-        std::cerr << "Falling back to INSERT mode...\n";
-        PQclear(copy_res);
-        
-        // Fallback to INSERT - only process valid tensors
-        for (size_t pi = 0; pi < valid_indices.size(); ++pi) {
-            size_t orig_idx = valid_indices[pi];
-            if (create_composition(conn, g_tensors[orig_idx].name, hashes[orig_idx].data(),
-                                   projections[pi], config.model_name)) {
-                compositions_inserted++;
-            }
-            if (compositions_inserted % config.batch_size == 0) {
-                std::cerr << "  " << compositions_inserted << "/" << valid_count << "\r" << std::flush;
-            }
+
+    for (size_t pi = 0; pi < valid_indices.size(); ++pi) {
+        size_t orig_idx = valid_indices[pi];
+
+        // Format hash as hex
+        char hash_hex[65];
+        for (int h = 0; h < 32; ++h) {
+            snprintf(hash_hex + h*2, 3, "%02x", hashes[orig_idx][h]);
         }
-        std::cerr << "  Inserted " << compositions_inserted << " compositions\n";
-    } else {
-        PQclear(copy_res);
-        
-        // COPY mode - only process valid tensors
-        for (size_t pi = 0; pi < valid_indices.size(); ++pi) {
-            size_t orig_idx = valid_indices[pi];
-            
-            // Format hash as hex
-            char hash_hex[65];
-            for (int h = 0; h < 32; ++h) {
-                snprintf(hash_hex + h*2, 3, "%02x", hashes[orig_idx][h]);
-            }
-            
-            // Compute Hilbert index
-            Point4D pt = {projections[pi][0], projections[pi][1], projections[pi][2], projections[pi][3]};
-            HilbertIndex hilbert = HilbertCurve::coords_to_index(pt);
-            
-            // Escape label for COPY
-            std::string escaped_label;
-            for (char c : g_tensors[orig_idx].name) {
-                if (c == '\t') escaped_label += "\\t";
-                else if (c == '\n') escaped_label += "\\n";
-                else if (c == '\\') escaped_label += "\\\\";
-                else escaped_label += c;
-            }
-            
-            // Format: id\tlabel\tdepth\tchild_count\tatom_count\thilbert_lo\thilbert_hi\n
-            char line[1024];
-            int len = snprintf(line, sizeof(line), "\\\\x%s\t%s\t1\t0\t0\t%lld\t%lld\n",
-                              hash_hex, escaped_label.c_str(),
-                              static_cast<long long>(hilbert.lo),
-                              static_cast<long long>(hilbert.hi));
-            
-            if (PQputCopyData(conn, line, len) != 1) {
-                std::cerr << "COPY data failed: " << PQerrorMessage(conn) << "\n";
-                break;
-            }
-            compositions_inserted++;
-            
-            if (compositions_inserted % 1000 == 0) {
-                std::cerr << "  " << compositions_inserted << "/" << valid_count << "\r" << std::flush;
-            }
+
+        // Escape label for SQL
+        std::string escaped_label;
+        for (char c : g_tensors[orig_idx].name) {
+            if (c == '\'') escaped_label += "''";
+            else escaped_label += c;
         }
-        
-        if (PQputCopyEnd(conn, nullptr) != 1) {
-            std::cerr << "COPY end failed: " << PQerrorMessage(conn) << "\n";
-        }
-        
-        // Merge into main table with conflict handling
-        PQexec(conn, 
+
+        // Compute Hilbert index
+        Point4D pt = {projections[pi][0], projections[pi][1], projections[pi][2], projections[pi][3]};
+        HilbertIndex hilbert = HilbertCurve::coords_to_index(pt);
+
+        // Insert directly with conflict handling
+        char sql[2048];
+        snprintf(sql, sizeof(sql),
             "INSERT INTO composition (id, label, depth, child_count, atom_count, hilbert_lo, hilbert_hi) "
-            "SELECT id, label, depth, child_count, atom_count, hilbert_lo, hilbert_hi FROM comp_staging "
-            "ON CONFLICT (id) DO NOTHING");
-        
-        std::cerr << "  COPY inserted " << compositions_inserted << " compositions\n";
+            "VALUES (decode('%s', 'hex'), '%s', 1, 0, 0, %lld, %lld) "
+            "ON CONFLICT (id) DO NOTHING",
+            hash_hex, escaped_label.c_str(),
+            static_cast<long long>(hilbert.lo), static_cast<long long>(hilbert.hi));
+
+        PGresult* res = PQexec(conn, sql);
+        if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+            int affected = atoi(PQcmdTuples(res));
+            compositions_inserted += affected;
+        } else {
+            std::cerr << "Composition insert failed: " << PQerrorMessage(conn) << "\n";
+        }
+        PQclear(res);
+
+        if (compositions_inserted % 1000 == 0) {
+            std::cerr << "  " << compositions_inserted << "/" << valid_count << "\r" << std::flush;
+        }
     }
-    
+
     PQexec(conn, "COMMIT");
+    std::cerr << "  Inserted " << compositions_inserted << " compositions\n";
     
     // Step 4: Create k-NN relations (parallel computation, batched insert)
     std::cerr << "\n[4] Creating k-NN relations (parallel)...\n";
@@ -1337,92 +1301,57 @@ bool ingest_universal(const UniversalConfig& config) {
     std::cerr << "  Computing neighbors: " << valid_count << "/" << valid_count << "          \n";
 #endif
     
-    // Batch insert relations using COPY
-    std::cerr << "  Inserting relations (COPY bulk mode)...\n";
-    
+    // Insert relations directly using INSERT with ON CONFLICT
+    std::cerr << "  Inserting relations...\n";
+
     PQexec(conn, "BEGIN");
-    PQexec(conn, "CREATE TEMP TABLE rel_staging (LIKE relation INCLUDING ALL) ON COMMIT DROP");
-    
-    PGresult* rel_copy_res = PQexec(conn,
-        "COPY rel_staging (source_type, source_id, target_type, target_id, relation_type, weight, source_model, component) "
-        "FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-    
+
     size_t relations_created = 0;
-    
-    if (PQresultStatus(rel_copy_res) != PGRES_COPY_IN) {
-        std::cerr << "COPY init failed: " << PQerrorMessage(conn) << "\n";
-        std::cerr << "Falling back to INSERT mode...\n";
-        PQclear(rel_copy_res);
-        
-        // Fallback to INSERT - use valid_indices to map back to original tensor indices
-        for (size_t i = 0; i < valid_count; ++i) {
-            size_t orig_i = valid_indices[i];
-            for (auto& [sim, j] : all_neighbors[i]) {
-                size_t orig_j = valid_indices[j];
-                if (create_relation(conn, hashes[orig_i].data(), hashes[orig_j].data(), sim, config.model_name)) {
-                    relations_created++;
-                }
-            }
-            if (i % 500 == 0) {
-                std::cerr << "  Inserting relations: " << relations_created << "\r" << std::flush;
-            }
+
+    for (size_t i = 0; i < valid_count; ++i) {
+        size_t orig_i = valid_indices[i];
+        char src_hex[65];
+        for (int h = 0; h < 32; ++h) {
+            snprintf(src_hex + h*2, 3, "%02x", hashes[orig_i][h]);
         }
-    } else {
-        PQclear(rel_copy_res);
-        
-        for (size_t i = 0; i < valid_count; ++i) {
-            size_t orig_i = valid_indices[i];
-            char src_hex[65];
+
+        for (auto& [sim, j] : all_neighbors[i]) {
+            size_t orig_j = valid_indices[j];
+            char tgt_hex[65];
             for (int h = 0; h < 32; ++h) {
-                snprintf(src_hex + h*2, 3, "%02x", hashes[orig_i][h]);
+                snprintf(tgt_hex + h*2, 3, "%02x", hashes[orig_j][h]);
             }
-            
-            for (auto& [sim, j] : all_neighbors[i]) {
-                size_t orig_j = valid_indices[j];
-                char tgt_hex[65];
-                for (int h = 0; h < 32; ++h) {
-                    snprintf(tgt_hex + h*2, 3, "%02x", hashes[orig_j][h]);
-                }
-                
-                // Escape model name for COPY
-                std::string escaped_model;
-                for (char c : config.model_name) {
-                    if (c == '\t') escaped_model += "\\t";
-                    else if (c == '\n') escaped_model += "\\n";
-                    else if (c == '\\') escaped_model += "\\\\";
-                    else escaped_model += c;
-                }
-                
-                // Format: source_type\tsource_id\ttarget_type\ttarget_id\trelation_type\tweight\tsource_model\tcomponent\n
-                char line[512];
-                int len = snprintf(line, sizeof(line), "C\t\\\\x%s\tC\t\\\\x%s\tP\t%.6f\t%s\ttensor\n",
-                                  src_hex, tgt_hex, sim, escaped_model.c_str());
-                
-                if (PQputCopyData(conn, line, len) != 1) {
-                    std::cerr << "COPY data failed: " << PQerrorMessage(conn) << "\n";
-                    break;
-                }
+
+            // Escape model name for SQL
+            std::string escaped_model;
+            for (char c : config.model_name) {
+                if (c == '\'') escaped_model += "''";
+                else escaped_model += c;
+            }
+
+            // Insert directly with conflict handling
+            char sql[1024];
+            snprintf(sql, sizeof(sql),
+                "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, component) "
+                "VALUES ('C', decode('%s', 'hex'), 'C', decode('%s', 'hex'), 'P', %.6f, '%s', 'tensor') "
+                "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
+                "weight = EXCLUDED.weight",
+                src_hex, tgt_hex, sim, escaped_model.c_str());
+
+            PGresult* res = PQexec(conn, sql);
+            if (PQresultStatus(res) == PGRES_COMMAND_OK) {
                 relations_created++;
+            } else {
+                std::cerr << "Relation insert failed: " << PQerrorMessage(conn) << "\n";
             }
-            
-            if (i % 500 == 0) {
-                std::cerr << "  COPY relations: " << relations_created << "\r" << std::flush;
-            }
+            PQclear(res);
         }
-        
-        if (PQputCopyEnd(conn, nullptr) != 1) {
-            std::cerr << "COPY end failed: " << PQerrorMessage(conn) << "\n";
+
+        if (i % 500 == 0) {
+            std::cerr << "  Inserting relations: " << relations_created << "\r" << std::flush;
         }
-        
-        // Merge with conflict handling
-        PQexec(conn,
-            "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, component) "
-            "SELECT source_type, source_id, target_type, target_id, relation_type, weight, source_model, component FROM rel_staging "
-            "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET weight = EXCLUDED.weight");
-        
-        std::cerr << "  COPY inserted " << relations_created << " relations\n";
     }
-    
+
     PQexec(conn, "COMMIT");
     std::cerr << "  Created " << relations_created << " relations          \n";
     

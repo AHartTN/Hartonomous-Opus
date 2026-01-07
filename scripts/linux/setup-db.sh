@@ -143,18 +143,28 @@ else
     else
         echo " seeding Unicode atoms..."
     fi
-    
-    SEEDER="$HC_BUILD_DIR/seed_atoms_parallel"
-    if [ ! -x "$SEEDER" ]; then
-        echo ""
-        echo "ERROR: seed_atoms_parallel not found"
-        echo "Run: ./scripts/linux/build.sh"
-        exit 1
-    fi
-    
+
     echo ""
-    "$SEEDER" -d "$HC_DB_NAME" -U "$HC_DB_USER" -h "$HC_DB_HOST" -p "$HC_DB_PORT"
-    
+    SEEDER="$HC_BUILD_DIR/seed_atoms_parallel"
+    if [ -x "$SEEDER" ]; then
+        echo "Using optimized parallel atom seeder: $SEEDER"
+        "$SEEDER" -d "$HC_DB_NAME" -U "$HC_DB_USER" -h "$HC_DB_HOST" -p "$HC_DB_PORT"
+        if [ $? -ne 0 ]; then
+            echo "Standalone seeder failed"
+            echo "Database setup failed!"
+            exit 1
+        fi
+    else
+        echo "Standalone seeder not found, using PostgreSQL extension function..."
+        echo "Running SQL: SELECT seed_atoms();"
+        if ! hc_psql -tAc "SELECT seed_atoms();" >/dev/null 2>&1; then
+            echo "Extension seeder failed"
+            echo "Database setup failed!"
+            exit 1
+        fi
+        echo "Extension seeder completed successfully"
+    fi
+
     NEW_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" | tr -d '[:space:]')
     echo "      Seeded $NEW_COUNT atoms"
 fi

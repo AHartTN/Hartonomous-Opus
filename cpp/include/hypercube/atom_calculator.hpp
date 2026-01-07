@@ -34,8 +34,8 @@ struct AtomRecord {
     HilbertIndex hilbert;
     
     // Atoms are always depth 0, atom_count 1
-    static constexpr uint32_t depth = 0;
-    static constexpr uint64_t atom_count = 1;
+    uint32_t depth;
+    uint64_t atom_count;
 };
 
 /**

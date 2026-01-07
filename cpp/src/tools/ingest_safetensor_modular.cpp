@@ -69,6 +69,16 @@
 #include "hnswlib/hnswlib/hnswlib.h"
 #endif
 
+// OpenMP for parallel processing
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+// MKL for optimized linear algebra (threaded matrix operations)
+#if defined(HAS_MKL) && HAS_MKL
+#include <mkl.h>
+#endif
+
 namespace fs = std::filesystem;
 using namespace hypercube;
 using namespace hypercube::ingest;
@@ -85,7 +95,14 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-d" && i + 1 < argc) {
-            config.conninfo = "dbname=" + std::string(argv[++i]);
+            std::string val = argv[++i];
+            if (val.find('=') != std::string::npos) {
+                // Full connection string
+                config.conninfo = val;
+            } else {
+                // Just database name
+                config.conninfo = "dbname=" + val;
+            }
         } else if (arg == "-U" && i + 1 < argc) {
             config.conninfo += " user=" + std::string(argv[++i]);
         } else if (arg == "-h" && i + 1 < argc) {
@@ -104,7 +121,8 @@ int main(int argc, char* argv[]) {
     }
     
     if (model_dir.empty()) {
-        std::cerr << "Usage: ingest_safetensor [-d db] [-U user] [-h host] [-p port] [-n model_name] [-t threshold] <model_dir>\n";
+        std::cerr << "Usage: ingest_safetensor [-d conninfo|dbname] [-U user] [-h host] [-p port] [-n model_name] [-t threshold] <model_dir>\n";
+        std::cerr << "  -d  Database connection string (full conninfo or just dbname)\n";
         std::cerr << "  -n  Model name prefix (e.g. 'minilm', 'llama4')\n";
         std::cerr << "  -t  Weight threshold for attention edges (default 0.5)\n";
         return 1;
@@ -125,6 +143,30 @@ int main(int argc, char* argv[]) {
     IngestContext ctx;
     ctx.model_prefix = config.model_name + ":";
     
+    // ============================================================================
+    // CRITICAL: Configure threading BEFORE any parallel operations
+    // MKL defaults to 1 thread if not configured - this kills performance
+    // ============================================================================
+    int num_threads = static_cast<int>(std::thread::hardware_concurrency());
+    if (num_threads < 1) num_threads = 8;
+
+    // Set OpenMP threads
+    #ifdef _OPENMP
+    omp_set_num_threads(num_threads);
+    std::cerr << "[THREADING] OpenMP threads: " << omp_get_max_threads() << "\n";
+    #else
+    std::cerr << "[THREADING] WARNING: OpenMP not available\n";
+    #endif
+
+    // CRITICAL: Configure MKL for multi-threading
+    #if defined(HAS_MKL) && HAS_MKL
+    mkl_set_num_threads(num_threads);
+    mkl_set_dynamic(0);  // Force exact thread count - CRITICAL for performance
+    std::cerr << "[THREADING] MKL threads: " << mkl_get_max_threads() << " (dynamic=0)\n";
+    #else
+    std::cerr << "[THREADING] WARNING: MKL not available - operations will be slow\n";
+    #endif
+
     std::cerr << "=== Universal Safetensor Ingester (Modular) ===\n";
     std::cerr << "Directory: " << model_dir << "\n";
     std::cerr << "Model: " << config.model_name << "\n";
@@ -161,7 +203,7 @@ int main(int argc, char* argv[]) {
         if (name == "vocab.txt") vocab_path = entry.path();
         else if (name == "tokenizer.json") tokenizer_path = entry.path();
         else if (name == "model.safetensors.index.json") index_path = entry.path();
-        else if (name.ends_with(".safetensors")) {
+        else if (name.find(".safetensors") != std::string::npos) {
             safetensor_files.push_back(entry.path());
         }
     }
@@ -257,7 +299,15 @@ int main(int argc, char* argv[]) {
         std::cerr << "\n[5] Inserting token compositions...\n";
         ingest::db::insert_compositions(conn, ctx);
     }
-    
+
+    // Step 5.5: Project embeddings to 4D using Laplacian eigenmaps and update compositions
+    std::cerr << "\n[5.5] Projecting token embeddings to 4D semantic coordinates...\n";
+    if (!ctx.vocab_tokens.empty()) {
+        ingest::db::project_and_update_embeddings(conn, ctx, config);
+    } else {
+        std::cerr << "[PROJECTION] No vocab tokens loaded, skipping Laplacian projection\n";
+    }
+
     // Step 6: Compute composition centroids FROM CHILDREN
     std::cerr << "\n[6] Computing composition centroids hierarchically...\n";
     {
@@ -314,15 +364,11 @@ int main(int argc, char* argv[]) {
     // Step 9: Extract multimodal structures (object queries, MoE routers, positional, vision)
     // This extracts semantic structures that make DETR, Florence, MoE models actually work
     std::cerr << "\n[9] Extracting multimodal semantic structures...\n";
-    if (ctx.manifest.has_value() && !safetensor_files.empty()) {
-        // Load the first safetensor file for extraction
-        ingest::SafetensorFile stfile;
-        if (stfile.open(safetensor_files[0])) {
-            size_t multimodal_relations = ingest::extract_multimodal_structures(
-                conn, ctx, *ctx.manifest, stfile
-            );
-            std::cerr << "[MULTIMODAL] Extracted " << multimodal_relations << " semantic relations\n";
-        }
+    if (ctx.manifest.has_value()) {
+        size_t multimodal_relations = ingest::extract_multimodal_structures(
+            conn, ctx, *ctx.manifest
+        );
+        std::cerr << "[MULTIMODAL] Extracted " << multimodal_relations << " semantic relations\n";
     }
     
     PQfinish(conn);

@@ -18,6 +18,8 @@
 #include <cmath>
 #include <limits>
 #include <unordered_set>
+#include <future>
+#include <array>
 
 #if defined(__AVX2__)
 #include <immintrin.h>
@@ -146,7 +148,7 @@ hc_point4d_t hc_weighted_centroid(const hc_point4d_t* points,
 }
 
 bool hc_is_on_surface(hc_point4d_t point) {
-    return CoordinateMapper::is_on_surface(to_cpp(point));
+    return to_cpp(point).is_on_surface();
 }
 
 double hc_euclidean_distance(hc_point4d_t a, hc_point4d_t b) {
@@ -682,4 +684,16 @@ size_t hc_thread_count(void) {
     return count > 0 ? count : 4;
 }
 
+int hc_seed_atoms_parallel(const char* /* conninfo */) {
+    // Seeding is handled by the standalone executable seed_atoms_parallel
+    // This function exists for API compatibility but actual work is done externally
+    return 0;
+}
+
 } // extern "C"
+
+// ============================================================================
+// Internal C++ Implementation (outside extern "C")
+// ============================================================================
+
+// No implementation needed - seeding is done in PostgreSQL extension

@@ -1,14 +1,14 @@
 /**
  * @file multimodal_extraction.cpp
- * @brief Multimodal semantic extraction for DETR, Florence, MoE, vision models
+ * @brief Multimodal relation extraction for DETR, Florence, MoE, vision models
  *
- * Extracts semantic structures that don't fit the token-embedding paradigm:
- *   - Object queries (DETR slots, visual "tokens")
- *   - 2D positional encodings (row/column embeddings)
- *   - MoE router weights (THE ROUTING MACHINE)
- *   - Class heads (detection prototypes)
+ * Extracts relationships (Relation edges) from multimodal structures:
+ *   - Attention patterns from object queries to tokens
+ *   - Cross-attention between modalities
+ *   - Router relations in MoE models
+ *   - Class head relations
  *
- * These become first-class atoms/compositions in the hypercube.
+ * Populates the Relation table with ELO-averaged weights instead of creating composition nodes.
  */
 
 #include "hypercube/ingest/multimodal_extraction.hpp"
@@ -24,9 +24,23 @@
 #include <vector>
 #include <algorithm>
 #include <sstream>
+#include <span>
+#include <thread>
+#include <chrono>
+
+#ifdef _WIN32
+#include <windows.h>
+#define getpid() GetCurrentProcessId()
+#else
+#include <unistd.h>
+#endif
 
 #ifdef _OPENMP
 #include <omp.h>
+#endif
+
+#ifdef HAS_HNSWLIB
+#include <hnswlib/hnswlib.h>
 #endif
 
 namespace hypercube {
@@ -37,7 +51,23 @@ namespace ingest {
 // ============================================================================
 
 static constexpr float MIN_NORM = 0.01f;         // Skip near-zero vectors
-static constexpr size_t BATCH_SIZE = 1000;       // DB batch insert size
+// static constexpr size_t BATCH_SIZE = 1000;       // DB batch insert size
+static constexpr size_t K_NEIGHBORS = 15;        // Number of similar tokens to link
+static constexpr float MIN_SIMILARITY = 0.5f;    // Minimum cosine similarity for relations
+
+// ============================================================================
+// Edge structure for relations
+// ============================================================================
+
+struct RelationEdge {
+    Blake3Hash source_id;
+    char source_type;
+    Blake3Hash target_id;
+    char target_type;
+    float weight;
+    int layer;
+    std::string component;
+};
 
 // ============================================================================
 // Load tensor data (same pattern as semantic_extraction.cpp)
@@ -89,23 +119,23 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
 // Escape string for SQL (using libpq)
 // ============================================================================
 
-static std::string escape_sql_string(PGconn* conn, const std::string& str) {
-    char* escaped = PQescapeLiteral(conn, str.c_str(), str.length());
-    if (!escaped) {
-        // Fallback: basic escape
-        std::string result = "'";
-        for (char c : str) {
-            if (c == '\'') result += "''";
-            else if (c == '\\') result += "\\\\";
-            else result += c;
-        }
-        result += "'";
-        return result;
-    }
-    std::string result(escaped);
-    PQfreemem(escaped);
-    return result;
-}
+// static std::string escape_sql_string(PGconn* conn, const std::string& str) {
+//     char* escaped = PQescapeLiteral(conn, str.c_str(), str.length());
+//     if (!escaped) {
+//         // Fallback: basic escape
+//         std::string result = "'";
+//         for (char c : str) {
+//             if (c == '\'') result += "''";
+//             else if (c == '\\') result += "\\\\";
+//             else result += c;
+//         }
+//         result += "'";
+//         return result;
+//     }
+//     std::string result(escaped);
+//     PQfreemem(escaped);
+//     return result;
+// }
 
 // ============================================================================
 // Normalize rows, return valid indices
@@ -156,9 +186,12 @@ static std::vector<size_t> normalize_and_get_valid(
 size_t extract_object_queries(
     PGconn* conn,
     IngestContext& ctx,
-    const std::vector<TensorExtractionPlan>& plans
+    const std::vector<TensorExtractionPlan>& plans,
+    void* token_hnsw,
+    const std::vector<size_t>& valid_token_indices,
+    std::vector<RelationEdge>& edges
 ) {
-    size_t total_inserted = 0;
+    size_t total_edges = 0;
 
     for (const auto& plan : plans) {
         if (plan.category != TensorCategory::OBJECT_QUERY) continue;
@@ -180,7 +213,7 @@ size_t extract_object_queries(
         size_t dim = static_cast<size_t>(meta.shape[1]);
 
         std::cerr << "[MULTIMODAL] Extracting " << num_queries
-                  << " object queries from " << plan.name << " [" << dim << "d]\n";
+                  << " object query relations from " << plan.name << " [" << dim << "d]\n";
 
         // Load tensor data
         std::vector<float> data = load_tensor(meta);
@@ -192,68 +225,36 @@ size_t extract_object_queries(
         // Normalize
         auto valid = normalize_and_get_valid(data.data(), num_queries, dim);
 
-        // Insert as atoms (object queries are semantic anchors)
-        std::ostringstream sql;
-        sql << "INSERT INTO atoms (id, name, value, source_type, source_info) VALUES ";
-
-        bool first = true;
-        size_t batch_count = 0;
-
         for (size_t idx : valid) {
-            // Create atom for this query slot
-            std::string name = ctx.model_prefix + "query_" + std::to_string(idx);
-            std::string source_info = plan.name + "[" + std::to_string(idx) + "]";
-
             // Compute hash for the embedding vector
             const float* row = data.data() + idx * dim;
-            Blake3Hash hash = Blake3Hash::hash(
-                reinterpret_cast<const uint8_t*>(row),
-                dim * sizeof(float)
-            );
+            Blake3Hasher::Incremental hasher;
+            hasher.update(std::string_view(reinterpret_cast<const char*>(row), dim * sizeof(float)));
+            Blake3Hash hash = hasher.finalize();
 
-            if (!first) sql << ",";
-            first = false;
-
-            sql << "(" << db::to_bytea_literal(hash) << ","
-                << escape_sql_string(conn, name) << ","
-                << "'object_query',"
-                << "'tensor',"
-                << escape_sql_string(conn, source_info)
-                << ")";
-
-            batch_count++;
-
-            if (batch_count >= BATCH_SIZE) {
-                sql << " ON CONFLICT (id) DO NOTHING";
-                db::Result res = db::exec(conn, sql.str());
-                if (!res.ok()) {
-                    std::cerr << "[MULTIMODAL] Insert error: " << res.error_message() << "\n";
+#ifdef HAS_HNSWLIB
+            // Find similar tokens
+            auto result = static_cast<hnswlib::HierarchicalNSW<float>*>(token_hnsw)->searchKnn(row, K_NEIGHBORS + 1);
+            while (!result.empty()) {
+                auto [dist, j] = result.top();
+                result.pop();
+                
+                float sim = dist;  // Inner product
+                if (sim >= MIN_SIMILARITY) {
+                    size_t tok_idx = valid_token_indices[j];
+                    const auto& comp = ctx.vocab_tokens[tok_idx].comp;
+                    char target_type = (comp.children.size() <= 1) ? 'A' : 'C';
+                    edges.push_back({hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "OBJECT_QUERY"});
+                    total_edges++;
                 }
-                total_inserted += batch_count;
-
-                // Reset
-                sql.str("");
-                sql << "INSERT INTO atoms (id, name, value, source_type, source_info) VALUES ";
-                first = true;
-                batch_count = 0;
             }
+#endif
         }
 
-        // Final batch
-        if (batch_count > 0) {
-            sql << " ON CONFLICT (id) DO NOTHING";
-            db::Result res = db::exec(conn, sql.str());
-            if (!res.ok()) {
-                std::cerr << "[MULTIMODAL] Insert error: " << res.error_message() << "\n";
-            }
-            total_inserted += batch_count;
-        }
-
-        std::cerr << "[MULTIMODAL] Inserted " << valid.size()
-                  << " object query atoms\n";
+        std::cerr << "[MULTIMODAL] Extracted " << total_edges << " object query relations\n";
     }
 
-    return total_inserted;
+    return total_edges;
 }
 
 // ============================================================================
@@ -263,9 +264,12 @@ size_t extract_object_queries(
 size_t extract_positional_encodings(
     PGconn* conn,
     IngestContext& ctx,
-    const std::vector<TensorExtractionPlan>& plans
+    const std::vector<TensorExtractionPlan>& plans,
+    void* token_hnsw,
+    const std::vector<size_t>& valid_token_indices,
+    std::vector<RelationEdge>& edges
 ) {
-    size_t total_inserted = 0;
+    size_t total_edges = 0;
 
     for (const auto& plan : plans) {
         if (plan.category != TensorCategory::POSITION_EMBEDDING_2D &&
@@ -293,61 +297,39 @@ size_t extract_positional_encodings(
         else if (lower_name.find("y_") != std::string::npos) axis = "y";
 
         std::cerr << "[MULTIMODAL] Extracting " << num_positions
-                  << " " << type_str << " (" << axis << ") from " << plan.name << "\n";
+                  << " " << type_str << " (" << axis << ") relations from " << plan.name << "\n";
 
         std::vector<float> data = load_tensor(meta);
         if (data.empty()) continue;
 
         auto valid = normalize_and_get_valid(data.data(), num_positions, dim);
 
-        std::ostringstream sql;
-        sql << "INSERT INTO atoms (id, name, value, source_type, source_info) VALUES ";
-
-        bool first = true;
-        size_t batch_count = 0;
-
         for (size_t idx : valid) {
-            std::string name = ctx.model_prefix + "pos_" + axis + "_" + std::to_string(idx);
-            std::string source_info = plan.name + "[" + std::to_string(idx) + "]";
-
             const float* row = data.data() + idx * dim;
-            Blake3Hash hash = Blake3Hash::hash(
-                reinterpret_cast<const uint8_t*>(row),
-                dim * sizeof(float)
-            );
+            Blake3Hasher::Incremental hasher;
+            hasher.update(std::string_view(reinterpret_cast<const char*>(row), dim * sizeof(float)));
+            Blake3Hash hash = hasher.finalize();
 
-            if (!first) sql << ",";
-            first = false;
-
-            sql << "(" << db::to_bytea_literal(hash) << ","
-                << escape_sql_string(conn, name) << ","
-                << escape_sql_string(conn, type_str) << ","
-                << "'tensor',"
-                << escape_sql_string(conn, source_info)
-                << ")";
-
-            batch_count++;
-
-            if (batch_count >= BATCH_SIZE) {
-                sql << " ON CONFLICT (id) DO NOTHING";
-                db::exec(conn, sql.str());
-                total_inserted += batch_count;
-
-                sql.str("");
-                sql << "INSERT INTO atoms (id, name, value, source_type, source_info) VALUES ";
-                first = true;
-                batch_count = 0;
+#ifdef HAS_HNSWLIB
+            auto result = static_cast<hnswlib::HierarchicalNSW<float>*>(token_hnsw)->searchKnn(row, K_NEIGHBORS + 1);
+            while (!result.empty()) {
+                auto [dist, j] = result.top();
+                result.pop();
+                
+                float sim = dist;
+                if (sim >= MIN_SIMILARITY) {
+                    size_t tok_idx = valid_token_indices[j];
+                    const auto& comp = ctx.vocab_tokens[tok_idx].comp;
+                    char target_type = (comp.children.size() <= 1) ? 'A' : 'C';
+                    edges.push_back({hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "POSITIONAL"});
+                    total_edges++;
+                }
             }
-        }
-
-        if (batch_count > 0) {
-            sql << " ON CONFLICT (id) DO NOTHING";
-            db::exec(conn, sql.str());
-            total_inserted += batch_count;
+#endif
         }
     }
 
-    return total_inserted;
+    return total_edges;
 }
 
 // ============================================================================
@@ -357,9 +339,12 @@ size_t extract_positional_encodings(
 size_t extract_moe_routers(
     PGconn* conn,
     IngestContext& ctx,
-    const std::vector<TensorExtractionPlan>& plans
+    const std::vector<TensorExtractionPlan>& plans,
+    void* token_hnsw,
+    const std::vector<size_t>& valid_token_indices,
+    std::vector<RelationEdge>& edges
 ) {
-    size_t total_inserted = 0;
+    size_t total_edges = 0;
 
     for (const auto& plan : plans) {
         if (plan.category != TensorCategory::MOE_ROUTER) continue;
@@ -382,47 +367,34 @@ size_t extract_moe_routers(
 
         auto valid = normalize_and_get_valid(data.data(), num_experts, d_model);
 
-        // Insert router atoms
-        std::ostringstream sql;
-        sql << "INSERT INTO atoms (id, name, value, source_type, source_info) VALUES ";
-
-        bool first = true;
-
         for (size_t idx : valid) {
-            std::string name = ctx.model_prefix + "router_layer" +
-                              std::to_string(plan.layer_idx) + "_expert" + std::to_string(idx);
-            std::string source_info = plan.name + "[" + std::to_string(idx) + "]";
-
             const float* row = data.data() + idx * d_model;
-            Blake3Hash hash = Blake3Hash::hash(
-                reinterpret_cast<const uint8_t*>(row),
-                d_model * sizeof(float)
-            );
+            Blake3Hasher::Incremental hasher;
+            hasher.update(std::string_view(reinterpret_cast<const char*>(row), d_model * sizeof(float)));
+            Blake3Hash hash = hasher.finalize();
 
-            if (!first) sql << ",";
-            first = false;
-
-            sql << "(" << db::to_bytea_literal(hash) << ","
-                << escape_sql_string(conn, name) << ","
-                << "'moe_router',"
-                << "'tensor',"
-                << escape_sql_string(conn, source_info)
-                << ")";
-        }
-
-        if (!first) {
-            sql << " ON CONFLICT (id) DO NOTHING";
-            db::Result res = db::exec(conn, sql.str());
-            if (!res.ok()) {
-                std::cerr << "[MULTIMODAL] Router insert error: " << res.error_message() << "\n";
+#ifdef HAS_HNSWLIB
+            auto result = static_cast<hnswlib::HierarchicalNSW<float>*>(token_hnsw)->searchKnn(row, K_NEIGHBORS + 1);
+            while (!result.empty()) {
+                auto [dist, j] = result.top();
+                result.pop();
+                
+                float sim = dist;
+                if (sim >= MIN_SIMILARITY) {
+                    size_t tok_idx = valid_token_indices[j];
+                    const auto& comp = ctx.vocab_tokens[tok_idx].comp;
+                    char target_type = (comp.children.size() <= 1) ? 'A' : 'C';
+                    edges.push_back({hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "MOE_ROUTER"});
+                    total_edges++;
+                }
             }
-            total_inserted += valid.size();
+#endif
         }
 
-        std::cerr << "[MULTIMODAL] Inserted " << valid.size() << " router atoms\n";
+        std::cerr << "[MULTIMODAL] Extracted " << total_edges << " router relations\n";
     }
 
-    return total_inserted;
+    return total_edges;
 }
 
 // ============================================================================
@@ -432,9 +404,12 @@ size_t extract_moe_routers(
 size_t extract_class_heads(
     PGconn* conn,
     IngestContext& ctx,
-    const std::vector<TensorExtractionPlan>& plans
+    const std::vector<TensorExtractionPlan>& plans,
+    void* token_hnsw,
+    const std::vector<size_t>& valid_token_indices,
+    std::vector<RelationEdge>& edges
 ) {
-    size_t total_inserted = 0;
+    size_t total_edges = 0;
 
     for (const auto& plan : plans) {
         if (plan.category != TensorCategory::CLASS_HEAD) continue;
@@ -449,61 +424,39 @@ size_t extract_class_heads(
         size_t dim = static_cast<size_t>(meta.shape[1]);
 
         std::cerr << "[MULTIMODAL] Extracting " << num_classes
-                  << " class prototypes from " << plan.name << "\n";
+                  << " class head relations from " << plan.name << "\n";
 
         std::vector<float> data = load_tensor(meta);
         if (data.empty()) continue;
 
         auto valid = normalize_and_get_valid(data.data(), num_classes, dim);
 
-        std::ostringstream sql;
-        sql << "INSERT INTO atoms (id, name, value, source_type, source_info) VALUES ";
-
-        bool first = true;
-        size_t batch_count = 0;
-
         for (size_t idx : valid) {
-            std::string name = ctx.model_prefix + "class_" + std::to_string(idx);
-            std::string source_info = plan.name + "[" + std::to_string(idx) + "]";
-
             const float* row = data.data() + idx * dim;
-            Blake3Hash hash = Blake3Hash::hash(
-                reinterpret_cast<const uint8_t*>(row),
-                dim * sizeof(float)
-            );
+            Blake3Hasher::Incremental hasher;
+            hasher.update(std::string_view(reinterpret_cast<const char*>(row), dim * sizeof(float)));
+            Blake3Hash hash = hasher.finalize();
 
-            if (!first) sql << ",";
-            first = false;
+#ifdef HAS_HNSWLIB
+            auto result = static_cast<hnswlib::HierarchicalNSW<float>*>(token_hnsw)->searchKnn(row, K_NEIGHBORS + 1);
+            while (!result.empty()) {
+                auto [dist, j] = result.top();
+                result.pop();
 
-            sql << "(" << db::to_bytea_literal(hash) << ","
-                << escape_sql_string(conn, name) << ","
-                << "'class_prototype',"
-                << "'tensor',"
-                << escape_sql_string(conn, source_info)
-                << ")";
-
-            batch_count++;
-
-            if (batch_count >= BATCH_SIZE) {
-                sql << " ON CONFLICT (id) DO NOTHING";
-                db::exec(conn, sql.str());
-                total_inserted += batch_count;
-
-                sql.str("");
-                sql << "INSERT INTO atoms (id, name, value, source_type, source_info) VALUES ";
-                first = true;
-                batch_count = 0;
+                float sim = dist;
+                if (sim >= MIN_SIMILARITY) {
+                    size_t tok_idx = valid_token_indices[j];
+                    const auto& comp = ctx.vocab_tokens[tok_idx].comp;
+                    char target_type = (comp.children.size() <= 1) ? 'A' : 'C';
+                    edges.push_back({hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "CLASS_HEAD"});
+                    total_edges++;
+                }
             }
-        }
-
-        if (batch_count > 0) {
-            sql << " ON CONFLICT (id) DO NOTHING";
-            db::exec(conn, sql.str());
-            total_inserted += batch_count;
+#endif
         }
     }
 
-    return total_inserted;
+    return total_edges;
 }
 
 // ============================================================================
@@ -516,10 +469,70 @@ size_t extract_multimodal_structures(
     const ModelManifest& manifest
 ) {
     std::cerr << "\n+--------------------------------------------------------------+\n";
-    std::cerr << "|          MULTIMODAL EXTRACTION                               |\n";
+    std::cerr << "|          MULTIMODAL RELATION EXTRACTION                     |\n";
     std::cerr << "+--------------------------------------------------------------+\n";
 
     size_t total = 0;
+
+    // Find token embedding tensor
+    const TensorMeta* token_embed = nullptr;
+    std::string token_embed_name;
+    for (auto& [name, meta] : ctx.tensors) {
+        if (name.find("embed_tokens") != std::string::npos ||
+            name.find("word_embeddings") != std::string::npos ||
+            name.find("wte.weight") != std::string::npos ||
+            name.find("token_embedding") != std::string::npos) {
+            token_embed = &meta;
+            token_embed_name = name;
+            break;
+        }
+    }
+    
+    if (!token_embed) {
+        std::cerr << "[MULTIMODAL] No token embedding tensor found, skipping relation extraction\n";
+        return 0;
+    }
+    
+    size_t vocab_size = ctx.get_vocab_size();
+    size_t embed_dim = static_cast<size_t>(token_embed->shape[1]);
+    std::vector<float> token_data = load_tensor(*token_embed);
+    if (token_data.empty()) {
+        std::cerr << "[MULTIMODAL] Failed to load token embeddings\n";
+        return 0;
+    }
+    
+    std::vector<size_t> valid_token_indices;
+    std::vector<std::vector<float>> normalized_tokens;
+    for (size_t i = 0; i < vocab_size; ++i) {
+        std::vector<float> emb(embed_dim);
+        std::memcpy(emb.data(), token_data.data() + i * embed_dim, embed_dim * sizeof(float));
+        float norm = 0;
+        for (float v : emb) norm += v * v;
+        norm = std::sqrt(norm);
+        if (norm >= MIN_NORM) {
+            for (float& v : emb) v /= norm;
+            normalized_tokens.push_back(std::move(emb));
+            valid_token_indices.push_back(i);
+        }
+    }
+    
+    if (normalized_tokens.empty()) {
+        std::cerr << "[MULTIMODAL] No valid token embeddings\n";
+        return 0;
+    }
+    
+    void* token_hnsw_ptr = nullptr;
+    #ifdef HAS_HNSWLIB
+    hnswlib::InnerProductSpace space(embed_dim);
+    hnswlib::HierarchicalNSW<float> token_hnsw(&space, normalized_tokens.size(), 16, 200);
+    token_hnsw.setEf(100);
+    for (size_t i = 0; i < normalized_tokens.size(); ++i) {
+        token_hnsw.addPoint(normalized_tokens[i].data(), i);
+    }
+    token_hnsw_ptr = &token_hnsw;
+    #endif
+    
+    std::vector<RelationEdge> all_edges;
 
     // Filter plans by category
     std::vector<TensorExtractionPlan> object_query_plans;
@@ -551,30 +564,133 @@ size_t extract_multimodal_structures(
     if (!object_query_plans.empty()) {
         std::cerr << "[MULTIMODAL] Processing " << object_query_plans.size()
                   << " object query tensors\n";
-        total += extract_object_queries(conn, ctx, object_query_plans);
+        total += extract_object_queries(conn, ctx, object_query_plans, token_hnsw_ptr, valid_token_indices, all_edges);
     }
 
     if (!positional_plans.empty()) {
         std::cerr << "[MULTIMODAL] Processing " << positional_plans.size()
                   << " positional encoding tensors\n";
-        total += extract_positional_encodings(conn, ctx, positional_plans);
+        total += extract_positional_encodings(conn, ctx, positional_plans, token_hnsw_ptr, valid_token_indices, all_edges);
     }
 
     if (!moe_router_plans.empty()) {
         std::cerr << "[MULTIMODAL] Processing " << moe_router_plans.size()
                   << " MoE router tensors\n";
-        total += extract_moe_routers(conn, ctx, moe_router_plans);
+        total += extract_moe_routers(conn, ctx, moe_router_plans, token_hnsw_ptr, valid_token_indices, all_edges);
     }
 
     if (!class_head_plans.empty()) {
         std::cerr << "[MULTIMODAL] Processing " << class_head_plans.size()
                   << " class head tensors\n";
-        total += extract_class_heads(conn, ctx, class_head_plans);
+        total += extract_class_heads(conn, ctx, class_head_plans, token_hnsw_ptr, valid_token_indices, all_edges);
+    }
+
+    if (!all_edges.empty()) {
+        hypercube::db::Transaction tx(conn);
+
+        // Deduplicate edges using unique constraint key: (source_id, target_id, relation_type, source_model, layer, component)
+        struct EdgeKey {
+            Blake3Hash source_id, target_id;
+            char relation_type;
+            std::string source_model;
+            int layer;
+            std::string component;
+
+            bool operator<(const EdgeKey& other) const {
+                int cmp = memcmp(source_id.data(), other.source_id.data(), 32);
+                if (cmp != 0) return cmp < 0;
+                cmp = memcmp(target_id.data(), other.target_id.data(), 32);
+                if (cmp != 0) return cmp < 0;
+                if (relation_type != other.relation_type) return relation_type < other.relation_type;
+                if (source_model != other.source_model) return source_model < other.source_model;
+                if (layer != other.layer) return layer < other.layer;
+                return component < other.component;
+            }
+        };
+
+        std::map<EdgeKey, RelationEdge> deduped_edges;
+        for (const auto& edge : all_edges) {
+            EdgeKey key{edge.source_id, edge.target_id, 'A', ctx.model_prefix, edge.layer, edge.component};
+            auto it = deduped_edges.find(key);
+            if (it == deduped_edges.end()) {
+                deduped_edges[key] = edge;
+            } else {
+                // Average weights for duplicates
+                it->second.weight = (it->second.weight + edge.weight) / 2.0f;
+            }
+        }
+
+        std::cerr << "[MULTIMODAL] Deduplicated " << all_edges.size() << " -> " << deduped_edges.size() << " unique edges\n";
+
+        // Binary COPY directly to relation table (no conflicts since deduplicated)
+        std::string copy_cmd = "COPY relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) FROM STDIN WITH (FORMAT binary)";
+
+        hypercube::db::CopyStream copy(conn, copy_cmd.c_str());
+        if (!copy.ok()) {
+            std::cerr << "[MULTIMODAL] COPY start failed: " << copy.error() << "\n";
+            return 0;
+        }
+
+        for (const auto& [key, edge] : deduped_edges) {
+            std::string row;
+
+            // source_type (CHAR(1))
+            row += edge.source_type;
+
+            // source_id (BYTEA)
+            row += '\t';
+            row += "\\\\x";
+            row += edge.source_id.to_hex();
+
+            // target_type (CHAR(1))
+            row += '\t';
+            row += edge.target_type;
+
+            // target_id (BYTEA)
+            row += '\t';
+            row += "\\\\x";
+            row += edge.target_id.to_hex();
+
+            // relation_type (CHAR(1))
+            row += '\t';
+            row += 'A';
+
+            // weight (REAL)
+            row += '\t';
+            row += std::to_string(edge.weight);
+
+            // source_model (TEXT)
+            row += '\t';
+            row += ctx.model_prefix;
+
+            // layer (INTEGER)
+            row += '\t';
+            row += std::to_string(edge.layer);
+
+            // component (TEXT)
+            row += '\t';
+            row += edge.component;
+
+            row += '\n';
+
+            if (!copy.put(row)) {
+                std::cerr << "[MULTIMODAL] COPY data failed: " << copy.error() << "\n";
+                return 0;
+            }
+        }
+
+        if (!copy.end()) {
+            std::cerr << "[MULTIMODAL] COPY end failed: " << copy.error() << "\n";
+            return 0;
+        }
+
+        tx.commit();
+        std::cerr << "[MULTIMODAL] Inserted " << deduped_edges.size() << " multimodal relations\n";
     }
 
     std::cerr << "+--------------------------------------------------------------+\n";
-    std::cerr << "|  MULTIMODAL TOTAL: " << std::setw(6) << total << " atoms inserted"
-              << std::string(22, ' ') << "|\n";
+    std::cerr << "|  MULTIMODAL TOTAL: " << std::setw(6) << total << " relations extracted"
+              << std::string(18, ' ') << "|\n";
     std::cerr << "+--------------------------------------------------------------+\n\n";
 
     return total;

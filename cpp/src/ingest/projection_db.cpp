@@ -205,80 +205,40 @@ std::string ProjectionPersister::build_pointzm_ewkb(const std::array<uint32_t, 4
 
 size_t ProjectionPersister::persist_atoms(const std::vector<TokenData>& atoms) {
     if (atoms.empty()) return 0;
-    
+
     Transaction tx(conn_);
-    
-    // Create temp table
-    Result res = exec(conn_, sql::atom_temp_table_sql());
-    if (!res.ok()) {
-        std::cerr << "[DB] Create atom temp table failed: " << res.error_message() << "\n";
-        return 0;
+
+    // Direct bulk INSERT without temp table
+    std::string insert_sql = "INSERT INTO atom (id, geom, hilbert_lo, hilbert_hi) VALUES ";
+    std::vector<std::string> values;
+
+    for (const auto& token : atoms) {
+        std::string geom_ewkb = build_pointzm_ewkb(token.coords);
+        std::string id_hex = "\\x" + token.hash.to_hex();
+        std::string val = "('" + id_hex + "', ST_GeomFromEWKB(decode('" + geom_ewkb + "', 'hex')), " +
+                          std::to_string(token.hilbert_lo) + ", " + std::to_string(token.hilbert_hi) + ")";
+        values.push_back(val);
     }
-    
-    // COPY data to temp table using CopyStream
-    {
-        CopyStream copy(conn_, "COPY tmp_atom_proj FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        if (!copy.ok()) {
-            std::cerr << "[DB] COPY atom start failed: " << copy.error() << "\n";
-            return 0;
-        }
-        
-        std::string batch;
-        batch.reserve(1 << 20);
-        
-        for (const auto& token : atoms) {
-            // id (BYTEA as hex)
-            copy_bytea(batch, token.hash);
-            copy_tab(batch);
-            
-            // geom_ewkb (no label - atoms identified by codepoint, not label)
-            batch += build_pointzm_ewkb(token.coords);
-            copy_tab(batch);
-            
-            // hilbert_lo, hilbert_hi
-            batch += std::to_string(token.hilbert_lo);
-            copy_tab(batch);
-            batch += std::to_string(token.hilbert_hi);
-            copy_newline(batch);
-            
-            if (batch.size() > (1 << 20)) {
-                if (!copy.put(batch)) {
-                    std::cerr << "[DB] COPY atom failed: " << copy.error() << "\n";
-                    return 0;
-                }
-                batch.clear();
-            }
-        }
-        
-        if (!batch.empty()) {
-            if (!copy.put(batch)) {
-                std::cerr << "[DB] COPY atom failed: " << copy.error() << "\n";
-                return 0;
-            }
-        }
-        
-        if (!copy.end()) {
-            std::cerr << "[DB] COPY atom end failed: " << copy.error() << "\n";
-            return 0;
-        }
-    }
-    
-    // Merge into atom table
-    std::string merge_sql = sql::atom_merge_sql();
-    // Replace $1 with boolean for update_existing
-    size_t pos = merge_sql.find("$1");
-    if (pos != std::string::npos) {
-        merge_sql.replace(pos, 2, config_.update_existing ? "true" : "false");
-    }
-    
-    res = exec(conn_, merge_sql);
+
+    // Batch in chunks to avoid query size limits
+    const size_t batch_size = 1000;
     size_t updated = 0;
-    if (res.ok()) {
-        updated = static_cast<size_t>(cmd_tuples(res));
-    } else {
-        std::cerr << "[DB] Atom merge failed: " << res.error_message() << "\n";
+    for (size_t i = 0; i < values.size(); i += batch_size) {
+        std::string batch_sql = insert_sql;
+        for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
+            if (j > i) batch_sql += ", ";
+            batch_sql += values[j];
+        }
+        batch_sql += " ON CONFLICT (id) DO UPDATE SET geom = EXCLUDED.geom, hilbert_lo = EXCLUDED.hilbert_lo, hilbert_hi = EXCLUDED.hilbert_hi";
+
+        Result res = exec(conn_, batch_sql);
+        if (res.ok()) {
+            updated += static_cast<size_t>(cmd_tuples(res));
+        } else {
+            std::cerr << "[DB] Batch atom insert failed: " << res.error_message() << "\n";
+        }
     }
-    
+
     tx.commit();
     return updated;
 }
@@ -287,29 +247,64 @@ size_t ProjectionPersister::persist_atoms(const std::vector<TokenData>& atoms) {
 static std::vector<uint32_t> utf8_to_codepoints(const std::string& label) {
     std::vector<uint32_t> codepoints;
     size_t i = 0;
+
+    // Check for BOM
+    if (label.size() >= 3 && (unsigned char)label[0] == 0xEF && (unsigned char)label[1] == 0xBB && (unsigned char)label[2] == 0xBF) {
+        std::cerr << "projection_db utf8_to_codepoints: BOM detected and skipped" << std::endl;
+        i += 3;
+    }
+
     while (i < label.size()) {
         uint32_t cp = 0;
         unsigned char c = label[i];
-        
+
         if ((c & 0x80) == 0) {
             cp = c;
             i += 1;
         } else if ((c & 0xE0) == 0xC0) {
+            if (i + 1 >= label.size() || (label[i+1] & 0xC0) != 0x80) {
+                std::cerr << "projection_db utf8_to_codepoints: Invalid 2-byte sequence at " << i << std::endl;
+                i += 1;
+                continue;
+            }
             cp = (c & 0x1F) << 6;
-            if (i + 1 < label.size()) cp |= (label[i+1] & 0x3F);
+            cp |= (label[i+1] & 0x3F);
+            if (cp < 0x80) {
+                std::cerr << "projection_db utf8_to_codepoints: Overlong 2-byte encoding" << std::endl;
+                cp = 0xFFFD;
+            }
             i += 2;
         } else if ((c & 0xF0) == 0xE0) {
+            if (i + 2 >= label.size() || (label[i+1] & 0xC0) != 0x80 || (label[i+2] & 0xC0) != 0x80) {
+                std::cerr << "projection_db utf8_to_codepoints: Invalid 3-byte sequence at " << i << std::endl;
+                i += 1;
+                continue;
+            }
             cp = (c & 0x0F) << 12;
-            if (i + 1 < label.size()) cp |= (label[i+1] & 0x3F) << 6;
-            if (i + 2 < label.size()) cp |= (label[i+2] & 0x3F);
+            cp |= (label[i+1] & 0x3F) << 6;
+            cp |= (label[i+2] & 0x3F);
+            if (cp < 0x800 || (cp >= 0xD800 && cp <= 0xDFFF)) {
+                std::cerr << "projection_db utf8_to_codepoints: Overlong or surrogate 3-byte encoding" << std::endl;
+                cp = 0xFFFD;
+            }
             i += 3;
         } else if ((c & 0xF8) == 0xF0) {
+            if (i + 3 >= label.size() || (label[i+1] & 0xC0) != 0x80 || (label[i+2] & 0xC0) != 0x80 || (label[i+3] & 0xC0) != 0x80) {
+                std::cerr << "projection_db utf8_to_codepoints: Invalid 4-byte sequence at " << i << std::endl;
+                i += 1;
+                continue;
+            }
             cp = (c & 0x07) << 18;
-            if (i + 1 < label.size()) cp |= (label[i+1] & 0x3F) << 12;
-            if (i + 2 < label.size()) cp |= (label[i+2] & 0x3F) << 6;
-            if (i + 3 < label.size()) cp |= (label[i+3] & 0x3F);
+            cp |= (label[i+1] & 0x3F) << 12;
+            cp |= (label[i+2] & 0x3F) << 6;
+            cp |= (label[i+3] & 0x3F);
+            if (cp < 0x10000 || cp > 0x10FFFF) {
+                std::cerr << "projection_db utf8_to_codepoints: Overlong or out-of-range 4-byte encoding" << std::endl;
+                cp = 0xFFFD;
+            }
             i += 4;
         } else {
+            std::cerr << "projection_db utf8_to_codepoints: Invalid start byte 0x" << std::hex << (int)c << " at " << std::dec << i << std::endl;
             i += 1;
             continue;
         }
@@ -379,151 +374,81 @@ size_t ProjectionPersister::persist_compositions(const std::vector<TokenData>& c
     // ==========================================================================
     
     Transaction tx(conn_);
-    
-    // Step 1: Create temp table for compositions
-    Result res = exec(conn_, sql::composition_temp_table_sql());
-    if (!res.ok()) {
-        std::cerr << "[DB] Create comp temp table failed: " << res.error_message() << "\n";
-        return 0;
+
+    // Direct bulk INSERT for compositions
+    std::string insert_comp_sql = "INSERT INTO composition (id, label, depth, child_count, atom_count, centroid, hilbert_lo, hilbert_hi) VALUES ";
+    std::vector<std::string> comp_values;
+
+    for (const auto& comp : computed) {
+        std::array<uint32_t, 4> coords = {comp.centroid.x, comp.centroid.y, comp.centroid.z, comp.centroid.m};
+        std::string centroid_ewkb = build_pointzm_ewkb(coords);
+        std::string id_hex = "\\x" + comp.hash.to_hex();
+        int64_t h_lo = static_cast<int64_t>(comp.hilbert.lo);
+        int64_t h_hi = static_cast<int64_t>(comp.hilbert.hi);
+        size_t atom_count = comp.atoms.size();
+
+        std::string val = "('" + id_hex + "', '" + comp.label + "', 1, " + std::to_string(atom_count) +
+                          ", " + std::to_string(atom_count) + ", ST_GeomFromEWKB(decode('" + centroid_ewkb + "', 'hex')), " +
+                          std::to_string(h_lo) + ", " + std::to_string(h_hi) + ")";
+        comp_values.push_back(val);
     }
-    
-    // Step 2: Create temp table for composition_child
-    res = exec(conn_, sql::composition_child_temp_table_sql());
-    if (!res.ok()) {
-        std::cerr << "[DB] Create comp_child temp table failed: " << res.error_message() << "\n";
-        return 0;
-    }
-    
-    // Step 3: COPY composition data with pre-computed centroids using CopyStream
-    {
-        CopyStream copy(conn_, "COPY tmp_comp_proj (id, label, centroid_ewkb, hilbert_lo, hilbert_hi, child_count, atom_count) FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        if (!copy.ok()) {
-            std::cerr << "[DB] COPY comp start failed: " << copy.error() << "\n";
-            return 0;
-        }
-        
-        std::string batch;
-        batch.reserve(1 << 20);
-        
-        for (const auto& comp : computed) {
-            // id (BYTEA as hex)
-            copy_bytea(batch, comp.hash);
-            copy_tab(batch);
-            
-            // label
-            copy_escape(batch, comp.label);
-            copy_tab(batch);
-            
-            // centroid_ewkb (computed in C++)
-            std::array<uint32_t, 4> coords = {comp.centroid.x, comp.centroid.y, comp.centroid.z, comp.centroid.m};
-            batch += build_pointzm_ewkb(coords);
-            copy_tab(batch);
-            
-            // hilbert_lo, hilbert_hi (computed in C++)
-            // CAST TO SIGNED INT64 FOR POSTGRESQL (bit-preserving reinterpretation)
-            int64_t h_lo = static_cast<int64_t>(comp.hilbert.lo);
-            int64_t h_hi = static_cast<int64_t>(comp.hilbert.hi);
-            batch += std::to_string(h_lo);
-            copy_tab(batch);
-            batch += std::to_string(h_hi);
-            copy_tab(batch);
-            
-            // child_count, atom_count
-            batch += std::to_string(comp.atoms.size());
-            copy_tab(batch);
-            batch += std::to_string(comp.atoms.size());
-            copy_newline(batch);
-            
-            if (batch.size() > (1 << 20)) {
-                if (!copy.put(batch)) {
-                    std::cerr << "[DB] COPY comp failed: " << copy.error() << "\n";
-                    return 0;
-                }
-                batch.clear();
-            }
-        }
-        
-        if (!batch.empty()) {
-            if (!copy.put(batch)) {
-                std::cerr << "[DB] COPY comp failed: " << copy.error() << "\n";
-                return 0;
-            }
-        }
-        
-        if (!copy.end()) {
-            std::cerr << "[DB] COPY comp end failed: " << copy.error() << "\n";
-            return 0;
-        }
-    }
-    
-    std::cerr << "[DB] Copied " << computed.size() << " compositions to temp table\n";
-    
-    // Step 4: COPY composition_child data (using pre-computed atom hashes) with CopyStream
-    size_t child_count = 0;
-    {
-        CopyStream copy(conn_, "COPY tmp_comp_child FROM STDIN WITH (FORMAT text, DELIMITER E'\\t')");
-        if (!copy.ok()) {
-            std::cerr << "[DB] COPY comp_child start failed: " << copy.error() << "\n";
-            return 0;
-        }
-        
-        std::string batch;
-        batch.reserve(1 << 20);
-        
-        for (const auto& comp : computed) {
-            int ordinal = 0;
-            for (const auto& [atom_hash, codepoint] : comp.atoms) {
-                // composition_id, child_id, child_type, ordinal
-                copy_bytea(batch, comp.hash);
-                copy_tab(batch);
-                copy_bytea(batch, atom_hash);
-                batch += "\tA\t";  // 'A' for Atom
-                batch += std::to_string(ordinal);
-                copy_newline(batch);
-                
-                ++ordinal;
-                ++child_count;
-                
-                if (batch.size() > (1 << 20)) {
-                    if (!copy.put(batch)) {
-                        std::cerr << "[DB] COPY comp_child failed: " << copy.error() << "\n";
-                        return 0;
-                    }
-                    batch.clear();
-                }
-            }
-        }
-        
-        if (!batch.empty()) {
-            if (!copy.put(batch)) {
-                std::cerr << "[DB] COPY comp_child failed: " << copy.error() << "\n";
-                return 0;
-            }
-        }
-        
-        if (!copy.end()) {
-            std::cerr << "[DB] COPY comp_child end failed: " << copy.error() << "\n";
-            return 0;
-        }
-    }
-    
-    std::cerr << "[DB] Created " << child_count << " composition_child entries\n";
-    
-    // Step 5: Merge compositions into table (with pre-computed centroids)
-    res = exec(conn_, sql::composition_merge_sql());
+
+    // Batch compositions insert
+    const size_t batch_size = 1000;
     size_t updated = 0;
-    if (res.ok()) {
-        updated = static_cast<size_t>(cmd_tuples(res));
-    } else {
-        std::cerr << "[DB] Composition merge failed: " << res.error_message() << "\n";
+    for (size_t i = 0; i < comp_values.size(); i += batch_size) {
+        std::string batch_sql = insert_comp_sql;
+        for (size_t j = i; j < std::min(i + batch_size, comp_values.size()); ++j) {
+            if (j > i) batch_sql += ", ";
+            batch_sql += comp_values[j];
+        }
+        batch_sql += " ON CONFLICT (id) DO UPDATE SET label = COALESCE(EXCLUDED.label, composition.label), child_count = EXCLUDED.child_count, atom_count = EXCLUDED.atom_count, centroid = EXCLUDED.centroid, hilbert_lo = EXCLUDED.hilbert_lo, hilbert_hi = EXCLUDED.hilbert_hi";
+
+        Result res = exec(conn_, batch_sql);
+        if (res.ok()) {
+            updated += static_cast<size_t>(cmd_tuples(res));
+        } else {
+            std::cerr << "[DB] Batch composition insert failed: " << res.error_message() << "\n";
+        }
     }
-    
-    // Step 6: Merge composition_child entries
-    res = exec(conn_, sql::composition_child_merge_sql());
-    if (!res.ok()) {
-        std::cerr << "[DB] Composition_child merge failed: " << res.error_message() << "\n";
+
+    std::cerr << "[DB] Inserted " << updated << " compositions\n";
+
+    // Direct bulk INSERT for composition_child
+    std::string insert_child_sql = "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) VALUES ";
+    std::vector<std::string> child_values;
+
+    for (const auto& comp : computed) {
+        int ordinal = 0;
+        for (const auto& [atom_hash, codepoint] : comp.atoms) {
+            std::string comp_id_hex = "\\x" + comp.hash.to_hex();
+            std::string atom_id_hex = "\\x" + atom_hash.to_hex();
+            std::string val = "('" + comp_id_hex + "', " + std::to_string(ordinal) + ", 'A', '" + atom_id_hex + "')";
+            child_values.push_back(val);
+            ++ordinal;
+        }
     }
-    
+
+    // Batch composition_child insert
+    size_t child_count = 0;
+    for (size_t i = 0; i < child_values.size(); i += batch_size) {
+        std::string batch_sql = insert_child_sql;
+        for (size_t j = i; j < std::min(i + batch_size, child_values.size()); ++j) {
+            if (j > i) batch_sql += ", ";
+            batch_sql += child_values[j];
+        }
+        batch_sql += " ON CONFLICT (composition_id, ordinal) DO NOTHING";
+
+        Result res = exec(conn_, batch_sql);
+        if (res.ok()) {
+            child_count += static_cast<size_t>(cmd_tuples(res));
+        } else {
+            std::cerr << "[DB] Batch composition_child insert failed: " << res.error_message() << "\n";
+        }
+    }
+
+    std::cerr << "[DB] Inserted " << child_count << " composition_child entries\n";
+
     tx.commit();
     
     std::cerr << "[DB] Persisted " << updated << " compositions with physical-first centroids\n";

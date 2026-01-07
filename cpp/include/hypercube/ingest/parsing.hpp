@@ -31,7 +31,7 @@ namespace ingest {
 
 inline bool parse_safetensor_header(
     IngestContext& ctx,
-    const fs::path& path, 
+    const fs::path& path,
     const std::string& shard_file = ""
 ) {
     std::ifstream file(path, std::ios::binary);
@@ -39,31 +39,41 @@ inline bool parse_safetensor_header(
         std::cerr << "Cannot open: " << path << "\n";
         return false;
     }
-    
+
     // Read 8-byte header size (little-endian)
     uint64_t header_size;
     file.read(reinterpret_cast<char*>(&header_size), 8);
-    
+    std::cerr << "[DEBUG] Header size: " << header_size << "\n";
+
     // Read JSON header
     std::vector<char> buf(header_size);
     file.read(buf.data(), header_size);
     std::string json(buf.begin(), buf.end());
+    std::cerr << "[DEBUG] JSON header length: " << json.size() << "\n";
+    std::cerr << "[DEBUG] JSON start: " << json.substr(0, std::min(size_t(200), json.size())) << "\n";
     
     // Simple parser: find each tensor entry
     size_t pos = 0;
+    int tensor_count = 0;
     while ((pos = json.find("\"dtype\"", pos)) != std::string::npos) {
+        std::cerr << "[DEBUG] Found 'dtype' at pos " << pos << "\n";
         size_t entry_start = json.rfind("{", pos);
         size_t name_end = json.rfind("\":", entry_start);
         size_t name_start = json.rfind("\"", name_end - 1);
-        
+
+        std::cerr << "[DEBUG] entry_start: " << entry_start << ", name_end: " << name_end << ", name_start: " << name_start << "\n";
+
         if (name_start == std::string::npos || name_end == std::string::npos) {
+            std::cerr << "[DEBUG] Skipping malformed entry\n";
             pos++;
             continue;
         }
-        
+
         std::string name = json.substr(name_start + 1, name_end - name_start - 1);
-        
+        std::cerr << "[DEBUG] Tensor name: '" << name << "'\n";
+
         if (name == "__metadata__" || name == "format") {
+            std::cerr << "[DEBUG] Skipping metadata entry\n";
             pos++;
             continue;
         }
@@ -99,9 +109,17 @@ inline bool parse_safetensor_header(
         meta.data_offset_end = std::stoull(off_str.substr(comma + 1));
         
         ctx.tensors[name] = meta;
+        tensor_count++;
+        std::cerr << "[DEBUG] Added tensor: " << name << " with shape [";
+        for (size_t i = 0; i < meta.shape.size(); ++i) {
+            if (i > 0) std::cerr << ",";
+            std::cerr << meta.shape[i];
+        }
+        std::cerr << "] dtype: " << meta.dtype << "\n";
         pos = off_end;
     }
-    
+
+    std::cerr << "[DEBUG] Total tensors parsed: " << tensor_count << "\n";
     return true;
 }
 

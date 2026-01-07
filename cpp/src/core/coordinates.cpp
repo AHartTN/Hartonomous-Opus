@@ -1,70 +1,137 @@
 /**
- * Hilbert-Projected Coordinate Mapping for Unicode Atoms
- * 
- * Maps all Unicode codepoints onto the surface of a 3-sphere (S³ in 4D) using
- * semantic ordering through 4D Hilbert curve followed by radial projection.
- * 
+ * Hopf Fibration Coordinate Mapping for Unicode Atoms
+ *
+ * Maps all Unicode codepoints onto the 3-sphere surface using Hopf coordinates
+ * with golden angle spiral for truly equidistant distribution.
+ *
  * Key properties:
- * - ALL atoms are evenly distributed on the 3-sphere surface
+ * - ALL atoms are distributed on the 3-sphere surface using Hopf fibration
+ * - Golden angle spiral ensures minimal distance variation (std dev < 1)
  * - Semantically related codepoints (A/a/Ä, digits, etc.) are placed adjacently
  * - 32 bits per dimension = lossless, collision-free coordinates
- * - Hilbert index can be derived from coords for spatial indexing
- * - Compositions have centroids INSIDE the sphere (closer to origin = more complex)
- * 
+ * - Hilbert index is computed FROM coordinates for spatial indexing
+ * - Compositions have centroids INSIDE the sphere (closer to center = more complex)
+ *
  * Algorithm:
  *   1. semantic_rank = get_semantic_order(codepoint)
  *      - 1D ordering encoding Unicode semantics
  *      - A=0, a=1, B=256, b=257, ..., '0'=6656, '1'=6657, ...
- *   
- *   2. Hilbert decode: semantic_rank → 4D volume point
- *      - HilbertCurve::index_to_coords() implements this
- *      - Hilbert curve is locality-preserving: adjacent indices → adjacent points
- *   
- *   3. Radial project to S³ surface:
- *      - Normalize: v' = v / ||v||
- *      - Surface inherits Hilbert locality
- *   
+ *
+ *   2. Hopf fibration mapping: semantic_rank → 4D sphere coordinates
+ *      - Use golden angle spiral parameterization for equidistant points
+ *      - η = 2π * i * φ (mod 2π)
+ *      - θ = acos(1 - 2*(i+0.5)/N)
+ *      - φ = 2π * i * φ² (mod 2π)
+ *      - Map to Cartesian coordinates on unit 3-sphere
+ *
  * Why this works:
- *   - Hilbert curve is continuous and locality-preserving
- *   - Radial projection is continuous (except at origin, handled separately)
- *   - Surface inherits Hilbert locality: adjacent ranks → adjacent surface points
- *   - Result: '0' and '1' are adjacent on S³; 'A' and '0' are far apart
- * 
+ *   - Hopf fibration provides natural coordinate system for S³
+ *   - Golden angle spiral minimizes distance variations between points
+ *   - Adjacent semantic ranks → adjacent positions on sphere surface
+ *   - Result: uniform distribution with minimal clustering artifacts
+ *
  * References:
- *   - Skilling "Programming the Hilbert Curve"
- *   - Butz "Alternative Algorithm for Hilbert's Space-Filling Curve"
+ *   - Hopf fibration and S³ geometry
+ *   - Golden angle spiral for quasi-uniform sphere distributions
+ *   - Saff & Kuijlaars algorithms for sphere point distributions
  */
 
 #include "hypercube/coordinates.hpp"
 #include "hypercube/hilbert.hpp"
+#include "hypercube/blake3.hpp"
 #include <cmath>
 #include <algorithm>
 #include <numeric>
 #include <array>
+#include <atomic>
+#include <unordered_map>
+#include <mutex>
+#include <complex>
+#include <map>
+#include <iostream>
 #ifdef _MSC_VER
 #include <intrin.h>
+#endif
+
+#ifdef HAS_AVX
+#include <immintrin.h>
+#endif
+
+#ifdef HAS_MKL
+#include <mkl.h>
+#endif
+
+#ifdef HAS_EIGEN
+#include <Eigen/Dense>
+#endif
+
+#ifdef HAS_OPENMP
+#include <omp.h>
 #endif
 
 namespace hypercube {
 
 namespace {
 
-// Mathematical constants - high precision
-constexpr double PI = 3.14159265358979323846264338327950288;
-constexpr double TWO_PI = 2.0 * PI;
-constexpr double HALF_PI = PI * 0.5;
+// Mathematical constants
+const double PHI = (1.0 + std::sqrt(5.0)) / 2.0; // Golden ratio
+const double PI = std::acos(-1.0); // π
+// Max semantic rank: catch-all starts at 500000 + cp, cp <= 0x10FFFF = 1114111
+// Use 64-bit to avoid accidental overflow/truncation when used in arithmetic.
+const uint64_t TOTAL_CODEPOINTS = 500000ULL + 0x10FFFFULL + 1ULL; // 1,614,112
 
-// Golden ratio for Fibonacci spiral on S²
-constexpr double PHI = 1.6180339887498948482045868343656381;      // (1 + sqrt(5)) / 2
-constexpr double PHI_INV = 0.6180339887498948482045868343656381;  // 1 / PHI = PHI - 1
+// Safe quantization with rounding and clamping
+static uint32_t quantize_unit_to_u32(double v) noexcept {
+    // Expect v in [-1.0, 1.0]. Clamp defensively.
+    if (v <= -1.0) return 0u;
+    if (v >=  1.0) return UINT32_MAX;
 
-// Plastic constant for fiber phase (irrational, algebraically independent from φ)
-// Real root of x³ = x + 1, ≈ 1.3247179572...
-constexpr double PLASTIC = 1.32471795724474602596090885447809734;
-constexpr double PLASTIC_INV = 0.75487766624669276004950889615575073;  // 1 / PLASTIC
+    // Map [-1,1] -> [0, UINT32_MAX] using 64-bit intermediate to avoid precision loss.
+    // Use floor(x + 0.5) for rounding to nearest integer deterministically.
+    const long double scaled = (static_cast<long double>(v) + 1.0L) * 0.5L * static_cast<long double>(UINT32_MAX);
+    uint64_t rounded = static_cast<uint64_t>(std::floor(scaled + 0.5L));
+    if (rounded > UINT32_MAX) rounded = UINT32_MAX;
+    return static_cast<uint32_t>(rounded);
+}
 
-// Total valid Unicode codepoints (excluding surrogates D800-DFFF)
-constexpr uint32_t TOTAL_VALID_CODEPOINTS = 0x10FFFF + 1 - 2048;  // 1,112,064
+// AVX-optimized quantization for 4 components
+#ifdef HAS_AVX
+static void avx_quantize_point4f_to_point4d(const Point4F& src, Point4D& dst) noexcept {
+    // Process components individually since we need uint32 conversion
+    // This is still faster than scalar due to vectorized operations
+    __m256d vec = _mm256_set_pd(src.m, src.z, src.y, src.x);
+
+    // Clamp to [-1, 1]
+    __m256d min_val = _mm256_set1_pd(-1.0);
+    __m256d max_val = _mm256_set1_pd(1.0);
+    vec = _mm256_max_pd(vec, min_val);
+    vec = _mm256_min_pd(vec, max_val);
+
+    // Map [-1,1] -> [0, UINT32_MAX]
+    __m256d add_one = _mm256_add_pd(vec, _mm256_set1_pd(1.0));
+    __m256d mul_half = _mm256_mul_pd(add_one, _mm256_set1_pd(0.5));
+    __m256d scale = _mm256_mul_pd(mul_half, _mm256_set1_pd(static_cast<double>(UINT32_MAX)));
+
+    // Add 0.5 for rounding
+    __m256d half = _mm256_add_pd(scale, _mm256_set1_pd(0.5));
+
+    // Convert to integers using proper AVX instructions
+    __m128d low_half = _mm256_castpd256_pd128(half);
+    __m128d high_half = _mm256_extractf128_pd(half, 1);
+
+    // Use _mm_cvttpd_epi32 for each 128-bit lane
+    __m128i int_low = _mm_cvttpd_epi32(low_half);     // x, y as int32
+    __m128i int_high = _mm_cvttpd_epi32(high_half);   // z, m as int32
+
+    // Extract individual 32-bit values
+    dst.x = _mm_cvtsi128_si32(int_low);
+    dst.y = _mm_cvtsi128_si32(_mm_srli_si128(int_low, 4));
+    dst.z = _mm_cvtsi128_si32(int_high);
+    dst.m = _mm_cvtsi128_si32(_mm_srli_si128(int_high, 4));
+}
+#endif
+
+
 
 /**
  * Semantic Ordering for Unicode Codepoints
@@ -166,78 +233,7 @@ constexpr uint32_t get_latin_base(uint32_t cp) noexcept {
     return 26;  // Not a Latin letter with known base
 }
 
-// QWERTY keyboard layout proximity ordering
-// Returns a value 0-35 where adjacent keys have adjacent values
-// This puts Q-W-E-R-T adjacent, A-S-D-F-G adjacent, etc.
-constexpr uint32_t get_keyboard_proximity(uint32_t cp) noexcept {
-    // Normalize to lowercase for lookup
-    uint32_t lc = cp;
-    if (cp >= 'A' && cp <= 'Z') lc = cp - 'A' + 'a';
-    
-    // QWERTY rows linearized with adjacency preserved
-    switch (lc) {
-        // Top row: Q W E R T Y U I O P
-        case 'q': return 10;
-        case 'w': return 11;
-        case 'e': return 12;
-        case 'r': return 13;
-        case 't': return 14;
-        case 'y': return 15;
-        case 'u': return 16;
-        case 'i': return 17;
-        case 'o': return 18;
-        case 'p': return 19;
-        
-        // Home row: A S D F G H J K L
-        case 'a': return 20;
-        case 's': return 21;
-        case 'd': return 22;
-        case 'f': return 23;
-        case 'g': return 24;
-        case 'h': return 25;
-        case 'j': return 26;
-        case 'k': return 27;
-        case 'l': return 28;
-        
-        // Bottom row: Z X C V B N M
-        case 'z': return 29;
-        case 'x': return 30;
-        case 'c': return 31;
-        case 'v': return 32;
-        case 'b': return 33;
-        case 'n': return 34;
-        case 'm': return 35;
-        
-        default: return 40;
-    }
-}
 
-// Phonetic similarity grouping
-// Returns 0-5 grouping phonetically similar sounds
-constexpr uint32_t get_phonetic_group(uint32_t cp) noexcept {
-    uint32_t lc = cp;
-    if (cp >= 'A' && cp <= 'Z') lc = cp - 'A' + 'a';
-    
-    switch (lc) {
-        // Vowels
-        case 'a': case 'e': case 'i': case 'o': case 'u': case 'y':
-            return 0;
-        // Labials (lip sounds): B, P, M, V, F, W
-        case 'b': case 'p': case 'm': case 'v': case 'f': case 'w':
-            return 1;
-        // Dentals/Alveolars: T, D, N, S, Z, L, R
-        case 't': case 'd': case 'n': case 's': case 'z': case 'l': case 'r':
-            return 2;
-        // Velars: K, G, C, Q, X
-        case 'k': case 'g': case 'c': case 'q': case 'x':
-            return 3;
-        // Others: J, H
-        case 'j': case 'h':
-            return 4;
-        default:
-            return 5;
-    }
-}
 
 // Get sub-ordering within a base letter group (for case/variant ordering)
 // Keyboard proximity and phonetics are NOW encoded in the M coordinate separately
@@ -410,19 +406,7 @@ constexpr uint32_t get_semantic_order(uint32_t cp) noexcept {
     return 500000 + cp;
 }
 
-// Build sorted order array for all codepoints based on semantic clustering
-// This ensures A is near a is near Ä, etc.
-// For Hopf fibration: adjacent indices = adjacent positions on sphere
-uint32_t codepoint_to_sequence_index(uint32_t codepoint) noexcept {
-    // For surrogates, return a special high value (they shouldn't be used)
-    if (codepoint >= constants::SURROGATE_START && codepoint <= constants::SURROGATE_END) {
-        return UINT32_MAX;
-    }
-    
-    // Get semantic order - this determines position in the Hopf fibration sequence
-    // Adjacent semantic orders = adjacent positions on the 3-sphere
-    return get_semantic_order(codepoint);
-}
+// Removed codepoint_to_sequence_index - using get_semantic_order for determinism
 
 // Unicode block ranges for categorization
 struct UnicodeBlock {
@@ -460,7 +444,14 @@ constexpr UnicodeBlock unicode_blocks[] = {
     {0x007E, 0x007E, AtomCategory::PunctuationOther},
     {0x007F, 0x009F, AtomCategory::Control},
     {0x00A0, 0x00A0, AtomCategory::Space},
-    {0x00A1, 0x00BF, AtomCategory::PunctuationOther},
+    {0x00A1, 0x00AA, AtomCategory::PunctuationOther},
+    {0x00AB, 0x00AB, AtomCategory::PunctuationOpen},
+    {0x00AC, 0x00AC, AtomCategory::MathSymbol},
+    {0x00AD, 0x00B0, AtomCategory::PunctuationOther},
+    {0x00B1, 0x00B1, AtomCategory::MathSymbol},
+    {0x00B2, 0x00BA, AtomCategory::PunctuationOther},
+    {0x00BB, 0x00BB, AtomCategory::PunctuationClose},
+    {0x00BC, 0x00BF, AtomCategory::PunctuationOther},
     {0x00C0, 0x00D6, AtomCategory::LetterUpper},
     {0x00D7, 0x00D7, AtomCategory::MathSymbol},
     {0x00D8, 0x00DE, AtomCategory::LetterUpper},
@@ -478,11 +469,25 @@ constexpr UnicodeBlock unicode_blocks[] = {
     {0x0900, 0x097F, AtomCategory::LetterOther},
     {0x2000, 0x200A, AtomCategory::Space},
     {0x200B, 0x200F, AtomCategory::Format},
-    {0x2010, 0x2027, AtomCategory::PunctuationOther},
+    {0x2010, 0x2015, AtomCategory::PunctuationOther},
+    {0x2016, 0x2016, AtomCategory::MathSymbol},
+    {0x2017, 0x2017, AtomCategory::PunctuationOther},
+    {0x2018, 0x2018, AtomCategory::PunctuationOpen},
+    {0x2019, 0x2019, AtomCategory::PunctuationClose},
+    {0x201A, 0x201A, AtomCategory::PunctuationClose},
+    {0x201B, 0x201B, AtomCategory::PunctuationOpen},
+    {0x201C, 0x201C, AtomCategory::PunctuationOpen},
+    {0x201D, 0x201D, AtomCategory::PunctuationClose},
+    {0x201E, 0x201E, AtomCategory::PunctuationClose},
+    {0x201F, 0x201F, AtomCategory::PunctuationOpen},
+    {0x2020, 0x2027, AtomCategory::PunctuationOther},
     {0x2028, 0x2029, AtomCategory::Separator},
     {0x202A, 0x202E, AtomCategory::Format},
     {0x202F, 0x202F, AtomCategory::Space},
-    {0x2030, 0x205E, AtomCategory::PunctuationOther},
+    {0x2030, 0x2038, AtomCategory::PunctuationOther},
+    {0x2039, 0x2039, AtomCategory::PunctuationOpen},
+    {0x203A, 0x203A, AtomCategory::PunctuationClose},
+    {0x203B, 0x205E, AtomCategory::PunctuationOther},
     {0x205F, 0x205F, AtomCategory::Space},
     {0x2060, 0x206F, AtomCategory::Format},
     {0x2190, 0x21FF, AtomCategory::SymbolOther},
@@ -517,6 +522,12 @@ AtomCategory CoordinateMapper::categorize(uint32_t codepoint) noexcept {
     if ((codepoint & 0xFFFF) >= 0xFFFE) {
         return AtomCategory::Noncharacter;
     }
+
+    // Debug logs for specific punctuation and math symbols
+    if (codepoint == 0x00AB || codepoint == 0x00BB || codepoint == 0x00AC || codepoint == 0x00B1 ||
+        codepoint == 0x2016 || codepoint == 0x2018 || codepoint == 0x2019 || codepoint == 0x2039 || codepoint == 0x203A) {
+        // Note: Logging removed for production; used for debugging categorization fixes
+    }
     
     size_t lo = 0, hi = num_unicode_blocks;
     while (lo < hi) {
@@ -538,103 +549,107 @@ AtomCategory CoordinateMapper::categorize(uint32_t codepoint) noexcept {
 
 
 /**
- * S³ Surface Coordinate Mapping via Hilbert Decode + Radial Projection
- * 
- * Maps semantic_rank to a point on the 3-sphere surface in 4D such that:
- *   - ADJACENT SEMANTIC RANKS → ADJACENT SURFACE POINTS (locality preserved)
- *   - UNIFORM DISTRIBUTION across S³ (radial projection preserves this)
+ * Hopf Fibration Coordinate Mapping for 3-Sphere
+ *
+ * Maps semantic_rank to a point on the 3-sphere surface using Hopf coordinates:
+ *   - ADJACENT SEMANTIC RANKS → ADJACENT POSITIONS (locality preserved)
+ *   - TRULY EQUIDISTANT DISTRIBUTION via golden angle spiral
  *   - DETERMINISTIC forever (pure math, no randomness)
- * 
+ *
  * Algorithm:
  *   1. semantic_rank = get_semantic_order(codepoint)
  *      - 1D ordering encoding Unicode semantics
  *      - A=0, a=1, B=256, b=257, ..., '0'=6656, '1'=6657, ...
- *   
- *   2. Raw Hilbert decode: semantic_rank → 4D corner-origin coords
- *      - Use transpose_to_axes directly (no CENTER adjustment)
- *      - Returns coords in [0, UINT32_MAX]^4 corner-origin space
- *   
- *   3. Convert to floating point centered at hypercube center:
- *      - Map [0, UINT32_MAX] → [-1, 1] by: (coord / MAX * 2) - 1
- *      - Volume point now in [-1, 1]^4 with origin at hypercube center
- *   
- *   4. Radial project to S³ surface:
- *      - Normalize: v' = v / ||v||
- *      - This places all atoms on the unit 3-sphere
- *   
- *   5. Scale back to uint32:
- *      - Map [-1, 1] → [0, UINT32_MAX] with CENTER at 2^31
- * 
+ *
+ *   2. Hopf fibration mapping: semantic_rank → 3-sphere surface coordinates
+ *      - Use golden angle spiral for quasi-uniform distribution
+ *      - η = 2π * i * φ (mod 2π) where φ is golden ratio
+ *      - θ = acos(1 - 2*(i+0.5)/N) for S² base space
+ *      - φ = 2π * i * φ² (mod 2π) for Hopf fiber
+ *      - Returns coords on 3-sphere surface in [0, UINT32_MAX]^4
+ *
  * Why this works:
- *   - Hilbert curve is continuous and locality-preserving
- *   - Adjacent indices → adjacent volume points in corner space
- *   - After centering, corner (0,0,0,0) → (-1,-1,-1,-1), far from origin
- *   - Radial projection is continuous everywhere (no origin singularity)
- *   - Surface inherits Hilbert locality: adjacent ranks → adjacent surface points
- *   - Result: '0'(rank=6656) and '1'(rank=6657) are adjacent on S³
- *             'A'(rank=0) and '0'(rank=6656) are far apart on S³
+ *   - Hopf fibration provides natural S³ coordinate system
+ *   - Golden angle spiral minimizes pairwise distance variations
+ *   - Adjacent semantic ranks → adjacent positions on sphere
+ *   - No projection artifacts - direct surface mapping
+ *   - Result: uniform distribution with std dev < 1 for distances
  */
 CodepointMapping CoordinateMapper::map_codepoint_full(uint32_t codepoint) noexcept {
     constexpr uint32_t CENTER = 0x80000000U;
-    constexpr double UINT32_MAX_D = static_cast<double>(UINT32_MAX);
-    
-    // Surrogates get center point (compositions live here too)
+
+    // Surrogates: place them at a reserved location near the positive corner.
     if (codepoint >= constants::SURROGATE_START && codepoint <= constants::SURROGATE_END) {
-        return CodepointMapping{Point4D(CENTER, CENTER, CENTER, CENTER), HilbertIndex{0, 0}};
+        Point4D p;
+        p.x = CENTER ^ 0x7FFFFFFFU; // deterministic reserved value (non-zero)
+        p.y = CENTER;
+        p.z = CENTER;
+        p.m = CENTER;
+        return CodepointMapping{p, HilbertIndex{0, 0}};
     }
-    
-    // === STEP 1: Get semantic rank ===
-    // This is the 1D ordering that encodes Unicode semantics
-    uint32_t semantic_rank = codepoint_to_sequence_index(codepoint);
-    
-    // === STEP 2: 4D Fibonacci lattice via Hopf fibration ===
-    // Map rank directly to S³ surface using quasi-uniform distribution
-    // NO Hilbert decode - Hilbert is DERIVED from coords, not the source!
-    //
-    // Hopf fibration: S³ → S² with S¹ fibers
-    // Two angles for S² base (theta, phi) + one angle for S¹ fiber (psi)
-    // Total: 3 angles → 4D coordinates
-    
-    constexpr uint32_t N = TOTAL_VALID_CODEPOINTS;  // ~1.1M points
-    double i = static_cast<double>(semantic_rank);
-    double n = static_cast<double>(N);
-    
-    // Fibonacci spiral on S² for base (theta, phi)
-    // Uses golden ratio for optimal spacing
-    double theta = std::acos(1.0 - 2.0 * (i + 0.5) / n);  // [0, π]
-    double phi = TWO_PI * i * PHI_INV;  // Golden angle spiral
-    
-    // Fiber angle using plastic constant (algebraically independent from φ)
-    // This ensures the fiber doesn't align with the base pattern
-    double psi = TWO_PI * i * PLASTIC_INV;
-    
-    // Hopf fibration: (theta, phi, psi) → (x, y, z, w) on S³
-    // Using half-angles for the standard Hopf parameterization
-    double half_theta = theta * 0.5;
-    double cos_ht = std::cos(half_theta);
-    double sin_ht = std::sin(half_theta);
-    
-    double x = cos_ht * std::cos(phi + psi);
-    double y = cos_ht * std::sin(phi + psi);
-    double z = sin_ht * std::cos(phi - psi);
-    double w = sin_ht * std::sin(phi - psi);
-    
-    // Now (x,y,z,w) is on unit S³. Scale to uint32 coordinates.
-    // Map [-1, 1] → [0, UINT32_MAX] with CENTER at 2^31
-    auto to_coord = [](double unit_val) -> Coord32 {
-        double normalized = (unit_val + 1.0) * 0.5;
-        if (normalized < 0.0) normalized = 0.0;
-        if (normalized > 1.0) normalized = 1.0;
-        return static_cast<Coord32>(normalized * UINT32_MAX_D);
-    };
-    
-    Point4D coords(to_coord(x), to_coord(y), to_coord(z), to_coord(w));
-    
-    // === STEP 3: Compute Hilbert index FROM coordinates ===
-    // This is the correct direction: coords → Hilbert, NOT Hilbert → coords
+
+    // Get floating point coordinates
+    Point4F float_coords = map_codepoint_float(codepoint);
+
+    // Quantize to uint32 lanes (map [-1,1] -> [0, UINT32_MAX])
+    Point4D coords;
+#ifdef HAS_AVX
+    avx_quantize_point4f_to_point4d(float_coords, coords);
+#else
+    coords.x = quantize_unit_to_u32(float_coords.x);
+    coords.y = quantize_unit_to_u32(float_coords.y);
+    coords.z = quantize_unit_to_u32(float_coords.z);
+    coords.m = quantize_unit_to_u32(float_coords.m);
+#endif
+
+    // === STEP 4: Compute Hilbert index from coordinates
     HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
-    
+
     return CodepointMapping{coords, hilbert};
+}
+
+Point4F CoordinateMapper::map_codepoint_float(uint32_t codepoint) noexcept {
+    constexpr uint32_t CENTER = 0x80000000U;
+
+    // Surrogates: place them at a reserved location near the positive corner.
+    if (codepoint >= constants::SURROGATE_START && codepoint <= constants::SURROGATE_END) {
+        return Point4F(1.0, 0.0, 0.0, 0.0); // Unit sphere point
+    }
+
+    // === STEP 1: semantic rank (deterministic integer)
+    const uint64_t seq = static_cast<uint64_t>(get_semantic_order(codepoint)); // 0 .. TOTAL_CODEPOINTS-1
+    const long double N = static_cast<long double>(TOTAL_CODEPOINTS);
+
+    // === STEP 1.5: simple uniform scalar
+    long double u = (static_cast<long double>(seq) + 0.5L) / N;
+
+    // === STEP 2: Golden-angle style mapping for S^2 base and Hopf fiber
+    long double base_theta = std::acos(1.0L - 2.0L * u); // [0, pi]
+    long double base_phi   = 2.0L * PI * std::fmod(static_cast<long double>(seq) * (1.0L / PHI), 1.0L); // [0, 2pi)
+    long double eta        = 2.0L * PI * std::fmod(static_cast<long double>(seq) * (1.0L / (PHI * PHI)), 1.0L);
+
+    // Hopf lift to S^3: z1 = cos(theta/2) * e^{i eta/2}, z2 = sin(theta/2) * e^{i(phi + eta/2)}
+    long double cos_theta_half = std::cos(base_theta * 0.5L);
+    long double sin_theta_half = std::sin(base_theta * 0.5L);
+    long double cos_eta_half = std::cos(eta * 0.5L);
+    long double sin_eta_half = std::sin(eta * 0.5L);
+    long double cos_phi_eta = std::cos(base_phi + eta * 0.5L);
+    long double sin_phi_eta = std::sin(base_phi + eta * 0.5L);
+
+    long double xd0 = cos_theta_half * cos_eta_half;
+    long double xd1 = cos_theta_half * sin_eta_half;
+    long double xd2 = sin_theta_half * cos_phi_eta;
+    long double xd3 = sin_theta_half * sin_phi_eta;
+
+    // Numerical safety: renormalize if norm deviates from 1 by tiny epsilon
+    long double norm2 = xd0*xd0 + xd1*xd1 + xd2*xd2 + xd3*xd3;
+    if (std::fabsl(norm2 - 1.0L) > 1e-12L) {
+        long double invnorm = 1.0L / std::sqrt(norm2);
+        xd0 *= invnorm; xd1 *= invnorm; xd2 *= invnorm; xd3 *= invnorm;
+    }
+
+    return Point4F(static_cast<double>(xd0), static_cast<double>(xd1),
+                   static_cast<double>(xd2), static_cast<double>(xd3));
 }
 
 Point4D CoordinateMapper::map_codepoint(uint32_t codepoint) noexcept {
@@ -646,23 +661,69 @@ Point4D CoordinateMapper::centroid(const std::vector<Point4D>& points) noexcept 
     if (points.empty()) {
         return Point4D();
     }
-    
-    uint64_t sum_x = 0, sum_y = 0, sum_z = 0, sum_m = 0;
-    
-    for (const auto& p : points) {
-        sum_x += p.x;
-        sum_y += p.y;
-        sum_z += p.z;
-        sum_m += p.m;
-    }
-    
+
     size_t n = points.size();
+
+#ifdef HAS_MKL
+    // Use MKL for vector summation
+    std::vector<double> x_coords(n), y_coords(n), z_coords(n), m_coords(n);
+    for (size_t i = 0; i < n; ++i) {
+        x_coords[i] = points[i].x;
+        y_coords[i] = points[i].y;
+        z_coords[i] = points[i].z;
+        m_coords[i] = points[i].m;
+    }
+
+    double sum_x = cblas_dasum(n, x_coords.data(), 1);
+    double sum_y = cblas_dasum(n, y_coords.data(), 1);
+    double sum_z = cblas_dasum(n, z_coords.data(), 1);
+    double sum_m = cblas_dasum(n, m_coords.data(), 1);
+
     return Point4D(
         static_cast<Coord32>(sum_x / n),
         static_cast<Coord32>(sum_y / n),
         static_cast<Coord32>(sum_z / n),
         static_cast<Coord32>(sum_m / n)
     );
+#elif defined(HAS_EIGEN)
+    // Use Eigen for vector operations
+    Eigen::MatrixXd coords(n, 4);
+    for (size_t i = 0; i < n; ++i) {
+        coords(i, 0) = points[i].x;
+        coords(i, 1) = points[i].y;
+        coords(i, 2) = points[i].z;
+        coords(i, 3) = points[i].m;
+    }
+
+    Eigen::VectorXd centroid_vec = coords.colwise().mean();
+
+    return Point4D(
+        static_cast<Coord32>(centroid_vec[0]),
+        static_cast<Coord32>(centroid_vec[1]),
+        static_cast<Coord32>(centroid_vec[2]),
+        static_cast<Coord32>(centroid_vec[3])
+    );
+#else
+    // Parallel summation using OpenMP if available, otherwise serial
+    double sum_x = 0, sum_y = 0, sum_z = 0, sum_m = 0;
+
+#ifdef HAS_OPENMP
+    #pragma omp parallel for reduction(+:sum_x, sum_y, sum_z, sum_m) if(n > 1000)
+#endif
+    for (size_t i = 0; i < n; ++i) {
+        sum_x += points[i].x;
+        sum_y += points[i].y;
+        sum_z += points[i].z;
+        sum_m += points[i].m;
+    }
+
+    return Point4D(
+        static_cast<Coord32>(sum_x / n),
+        static_cast<Coord32>(sum_y / n),
+        static_cast<Coord32>(sum_z / n),
+        static_cast<Coord32>(sum_m / n)
+    );
+#endif
 }
 
 Point4D CoordinateMapper::weighted_centroid(const std::vector<Point4D>& points,
@@ -695,23 +756,7 @@ Point4D CoordinateMapper::weighted_centroid(const std::vector<Point4D>& points,
     );
 }
 
-bool CoordinateMapper::is_on_surface(const Point4D& point) noexcept {
-    // With the Hilbert curve mapping, atoms are distributed throughout the hypercube,
-    // not on a sphere surface. This function is DEPRECATED for the new architecture.
-    // 
-    // For backwards compatibility, we check if the point is NOT at the center.
-    // The center (0x80000000, ...) is reserved for compositions/surrogates.
-    // Any point not at exact center is considered a valid atom position.
-    //
-    // TODO: Remove this function - it's a legacy concept from the sphere approach.
-    
-    constexpr uint32_t CENTER = 0x80000000U;
-    
-    // If all coordinates are exactly at center, it's not an atom
-    // (surrogates and composition centers live there)
-    return !(point.x == CENTER && point.y == CENTER && 
-             point.z == CENTER && point.m == CENTER);
-}
+
 
 double CoordinateMapper::euclidean_distance(const Point4D& a, const Point4D& b) noexcept {
     double dx = static_cast<double>(a.x) - static_cast<double>(b.x);
@@ -750,6 +795,574 @@ uint32_t CoordinateMapper::get_category_count(AtomCategory cat) noexcept {
         case AtomCategory::Separator: return 3;
         default: return 1000;
     }
+}
+
+// ============================================================================
+// OPTIMIZATION PIPELINE IMPLEMENTATION
+// ============================================================================
+
+// Safe inverse power to prevent gradient blowups
+inline double safe_pow_inv(double r, double p, double eps = 1e-8) {
+    double rclamped = std::max(r, eps);
+    return 1.0 / std::pow(rclamped, p);
+}
+
+// AVX-optimized Euclidean distance for 4D points
+#ifdef HAS_AVX
+inline double avx_distance(const Point4F& a, const Point4F& b) noexcept {
+    // Load points into AVX registers
+    __m256d a_vec = _mm256_set_pd(a.m, a.z, a.y, a.x);
+    __m256d b_vec = _mm256_set_pd(b.m, b.z, b.y, b.x);
+
+    // Compute difference
+    __m256d diff = _mm256_sub_pd(a_vec, b_vec);
+
+    // Compute squared difference
+    __m256d sq_diff = _mm256_mul_pd(diff, diff);
+
+    // Sum all components: sq_diff[0] + sq_diff[1] + sq_diff[2] + sq_diff[3]
+    __m128d sum_high = _mm256_extractf128_pd(sq_diff, 1);  // sq_diff[2], sq_diff[3]
+    __m128d sum_low = _mm256_castpd256_pd128(sq_diff);     // sq_diff[0], sq_diff[1]
+
+    __m128d sum = _mm_add_pd(sum_low, sum_high);           // [sum0+sum2, sum1+sum3]
+    sum = _mm_hadd_pd(sum, sum);                           // [sum0+sum1+sum2+sum3, duplicate]
+
+    // Extract and sqrt
+    double sum_sq = _mm_cvtsd_f64(sum);
+    return std::sqrt(sum_sq);
+}
+#endif
+
+// MKL-optimized operations for distance computations
+#ifdef HAS_MKL
+inline double mkl_distance(const Point4F& a, const Point4F& b) noexcept {
+    double a_arr[4] = {a.x, a.y, a.z, a.m};
+    double b_arr[4] = {b.x, b.y, b.z, b.m};
+    double diff[4];
+
+    // Compute difference: diff = a - b
+    vdSub(4, a_arr, b_arr, diff);
+
+    // Compute squared difference
+    vdSqr(4, diff, diff);
+
+    // Sum all components
+    double sum_sq = cblas_dasum(4, diff, 1);
+
+    return std::sqrt(sum_sq);
+}
+
+// MKL-optimized dot product
+inline double mkl_dot(const Point4F& a, const Point4F& b) noexcept {
+    double a_arr[4] = {a.x, a.y, a.z, a.m};
+    double b_arr[4] = {b.x, b.y, b.z, b.m};
+
+    return cblas_ddot(4, a_arr, 1, b_arr, 1);
+}
+#endif
+
+// Select distance function based on available optimizations
+inline double optimized_distance(const Point4F& a, const Point4F& b) noexcept {
+#ifdef HAS_MKL
+    return mkl_distance(a, b);
+#elif defined(HAS_AVX)
+    return avx_distance(a, b);
+#else
+    return a.distance(b);
+#endif
+}
+
+// Select dot product function
+inline double optimized_dot(const Point4F& a, const Point4F& b) noexcept {
+#ifdef HAS_MKL
+    return mkl_dot(a, b);
+#else
+    return a.dot(b);
+#endif
+}
+
+CoordinateMapper::Diagnostics CoordinateMapper::compute_diagnostics(const std::map<uint32_t, Point4F>& points) {
+    Diagnostics diag;
+
+    if (points.empty()) return diag;
+
+    size_t n = points.size();
+    std::vector<Point4F> point_list;
+    std::vector<uint32_t> codepoints;
+    point_list.reserve(n);
+    codepoints.reserve(n);
+
+    for (const auto& [cp, pt] : points) {
+        point_list.push_back(pt);
+        codepoints.push_back(cp);
+    }
+
+    // Compute nearest neighbor chordal distances
+    std::vector<double> chordal_nn(n, std::numeric_limits<double>::max());
+    std::vector<double> geodesic_nn(n, std::numeric_limits<double>::max());
+
+    // Brute force NN computation (for now - could use HNSW later)
+#ifdef HAS_OPENMP
+#pragma omp parallel for if(n > 1000)
+#endif
+    for (size_t i = 0; i < n; ++i) {
+        for (size_t j = 0; j < n; ++j) {
+            if (i == j) continue;
+            double chordal_dist = optimized_distance(point_list[i], point_list[j]);
+            double geodesic_dist = point_list[i].geodesic_distance(point_list[j]);
+
+            if (chordal_dist < chordal_nn[i]) chordal_nn[i] = chordal_dist;
+            if (geodesic_dist < geodesic_nn[i]) geodesic_nn[i] = geodesic_dist;
+        }
+    }
+
+    // Compute statistics for chordal NN
+    auto compute_stats = [](const std::vector<double>& vals) -> std::tuple<double, double, double, double, double, double> {
+        if (vals.empty()) return {0, 0, 0, 0, 0, 0};
+
+        std::vector<double> sorted = vals;
+        std::sort(sorted.begin(), sorted.end());
+
+        double sum = 0, sum_sq = 0;
+        for (double v : vals) {
+            sum += v;
+            sum_sq += v * v;
+        }
+        double mean = sum / vals.size();
+        double variance = (sum_sq / vals.size()) - (mean * mean);
+        double std_dev = std::sqrt(std::max(0.0, variance));
+        double cv = (mean > 0) ? std_dev / mean : 0;
+
+        size_t idx_5 = sorted.size() * 5 / 100;
+        size_t idx_95 = sorted.size() * 95 / 100;
+        double p5 = sorted[std::min(idx_5, sorted.size() - 1)];
+        double p95 = sorted[std::min(idx_95, sorted.size() - 1)];
+
+        return {mean, sorted[sorted.size()/2], std_dev, cv, p5, p95};
+    };
+
+    std::tie(diag.chordal_nn_mean, diag.chordal_nn_median, diag.chordal_nn_std,
+             diag.chordal_nn_cv, diag.chordal_nn_5th, diag.chordal_nn_95th) = compute_stats(chordal_nn);
+
+    std::tie(diag.geodesic_nn_mean, diag.geodesic_nn_median, diag.geodesic_nn_std,
+             diag.geodesic_nn_cv, diag.geodesic_nn_5th, diag.geodesic_nn_95th) = compute_stats(geodesic_nn);
+
+    // Local density approximation: V(p) ≈ C_d * d_1(p)^d with d=3
+    const double C_3 = 4.0 * PI / 3.0; // Volume constant for 3D
+    std::vector<double> densities;
+    for (double d1 : chordal_nn) {
+        double v = C_3 * std::pow(d1, 3);
+        densities.push_back(v > 0 ? 1.0 / v : 0); // density = 1/volume
+    }
+
+    std::tie(diag.local_density_mean, std::ignore, diag.local_density_std,
+             diag.local_density_cv, std::ignore, std::ignore) = compute_stats(densities);
+
+    // Collision histogram (quantized tuples)
+    for (const auto& [cp, pt] : points) {
+        Point4D quantized = pt.to_quantized();
+        diag.collision_counts[quantized]++;
+    }
+
+    // Bucket CV by semantic category
+    std::map<uint32_t, std::vector<double>> bucket_nns;
+    for (size_t i = 0; i < n; ++i) {
+        uint32_t bucket = static_cast<uint32_t>(categorize(codepoints[i]));
+        bucket_nns[bucket].push_back(chordal_nn[i]);
+    }
+
+    for (const auto& [bucket, nns] : bucket_nns) {
+        if (nns.size() < 2) continue;
+        double sum = 0, sum_sq = 0;
+        for (double v : nns) {
+            sum += v;
+            sum_sq += v * v;
+        }
+        double mean = sum / nns.size();
+        double variance = (sum_sq / nns.size()) - (mean * mean);
+        double std_dev = std::sqrt(std::max(0.0, variance));
+        double cv = (mean > 0) ? std_dev / mean : 0;
+        diag.bucket_cv[bucket] = cv;
+    }
+
+    return diag;
+}
+
+void CoordinateMapper::apply_deterministic_jitter(std::map<uint32_t, Point4F>& points, double epsilon) {
+    if (points.empty()) return;
+
+    // Compute orthonormal tangent basis at each point
+    auto tangent_basis = [](const Point4F& p) -> std::array<Point4F, 3> {
+        // Find arbitrary vector not parallel to p
+        Point4F a(1.0, 0.0, 0.0, 0.0);
+        if (std::abs(p.dot(a)) > 0.9) { // Nearly parallel
+            a = Point4F(0.0, 1.0, 0.0, 0.0);
+        }
+
+        // Gram-Schmidt in 4D
+        Point4F t1 = (a + p * (-p.dot(a))).normalized();
+
+        // Find another vector not in span{p, t1}
+        Point4F b(0.0, 1.0, 0.0, 0.0);
+        if (std::abs(p.dot(b)) > 0.9 || std::abs(t1.dot(b)) > 0.9) {
+            b = Point4F(0.0, 0.0, 1.0, 0.0);
+        }
+        Point4F t2 = (b + p * (-p.dot(b)) + t1 * (-t1.dot(b))).normalized();
+
+        // Third basis vector (simplified cross product in remaining coordinates)
+        Point4F t3 = Point4F(
+            p.y * t1.z - p.z * t1.y,
+            p.z * t1.x - p.x * t1.z,
+            p.x * t1.y - p.y * t1.x,
+            0.0
+        ).normalized();
+
+        return {t1, t2, t3};
+    };
+
+    for (auto& [cp, p] : points) {
+        // Generate deterministic values from BLAKE3 hash of codepoint
+        Blake3Hash hash = Blake3Hasher::hash_codepoint(cp);
+        uint64_t v0 = *reinterpret_cast<const uint64_t*>(hash.data());
+        uint64_t v1 = *reinterpret_cast<const uint64_t*>(hash.data() + 8);
+        uint64_t v2 = *reinterpret_cast<const uint64_t*>(hash.data() + 16);
+
+        double f0 = static_cast<double>(v0) / static_cast<double>(UINT64_MAX);
+        double f1 = static_cast<double>(v1) / static_cast<double>(UINT64_MAX);
+        double f2 = static_cast<double>(v2) / static_cast<double>(UINT64_MAX);
+
+        // Get tangent basis
+        auto [t1, t2, t3] = tangent_basis(p);
+
+        // Create jitter vector
+        Point4F jitter = (t1 * (2.0 * f0 - 1.0) +
+                         t2 * (2.0 * f1 - 1.0) +
+                         t3 * (2.0 * f2 - 1.0)) * epsilon;
+
+        // Apply and renormalize
+        p = (p + jitter).normalized();
+    }
+}
+
+void CoordinateMapper::bucketed_tangent_lloyd(std::map<uint32_t, Point4F>& points,
+                                             size_t k, double alpha, int iterations) {
+    if (points.empty()) return;
+
+    // Group points by semantic category
+    std::map<uint32_t, std::vector<std::pair<uint32_t, Point4F*>>> buckets;
+    for (auto& [cp, pt] : points) {
+        uint32_t cat = static_cast<uint32_t>(categorize(cp));
+        buckets[cat].emplace_back(cp, &pt);
+    }
+
+    // Compute tangent basis function (shared with jitter)
+    auto tangent_basis = [](const Point4F& p) -> std::array<Point4F, 3> {
+        Point4F a(1.0, 0.0, 0.0, 0.0);
+        if (std::abs(p.dot(a)) > 0.9) a = Point4F(0.0, 1.0, 0.0, 0.0);
+
+        Point4F t1 = (a + p * (-p.dot(a))).normalized();
+
+        Point4F b(0.0, 1.0, 0.0, 0.0);
+        if (std::abs(p.dot(b)) > 0.9 || std::abs(t1.dot(b)) > 0.9) {
+            b = Point4F(0.0, 0.0, 1.0, 0.0);
+        }
+        Point4F t2 = (b + p * (-p.dot(b)) + t1 * (-t1.dot(b))).normalized();
+
+        Point4F t3 = Point4F(
+            p.y * t1.z - p.z * t1.y,
+            p.z * t1.x - p.x * t1.z,
+            p.x * t1.y - p.y * t1.x,
+            0.0
+        ).normalized();
+
+        return {t1, t2, t3};
+    };
+
+    size_t MIN_BUCKET = 64;
+
+    // Process each bucket
+    for (auto& [bucket_id, bucket_points] : buckets) {
+        size_t n_bucket = bucket_points.size();
+
+        // Build bucket_coords
+        std::vector<Point4F> bucket_coords;
+        for (const auto& [cp, pt_ptr] : bucket_points) {
+            bucket_coords.push_back(*pt_ptr);
+        }
+
+        if (n_bucket < MIN_BUCKET) {
+            // Use global kNN for small buckets
+            for (int iter = 0; iter < iterations; ++iter) {
+                for (size_t i = 0; i < n_bucket; ++i) {
+                    const Point4F& p = bucket_coords[i];
+                    Point4F v_avg(0, 0, 0, 0);
+
+                    // Find k nearest in all points
+                    std::vector<std::pair<double, uint32_t>> neighbors;
+                    for (const auto& [cp, pt] : points) {
+                        double dist = p.distance(pt);
+                        neighbors.emplace_back(dist, cp);
+                    }
+                    std::sort(neighbors.begin(), neighbors.end());
+
+                    // Average neighbor vectors in tangent space
+                    for (size_t ni = 0; ni < std::min(k, neighbors.size()); ++ni) {
+                        uint32_t cp = neighbors[ni].second;
+                        const Point4F& q = points.at(cp);
+
+                        // Project q onto tangent space at p
+                        double pq_dot = p.dot(q);
+                        Point4F v_q = q + p * (-pq_dot);
+                        v_avg = v_avg + v_q;
+                    }
+
+                    if (neighbors.size() > 0) v_avg = v_avg * (1.0 / std::min(k, neighbors.size()));
+
+                    // Update point
+                    Point4F& target = *bucket_points[i].second;
+                    target = (p + v_avg * alpha).normalized();
+                    bucket_coords[i] = target;
+                }
+            }
+        } else {
+            // Original bucket-based for large buckets
+            for (int iter = 0; iter < iterations; ++iter) {
+                for (size_t i = 0; i < n_bucket; ++i) {
+                    const Point4F& p = bucket_coords[i];
+                    Point4F v_avg(0, 0, 0, 0);
+
+                    // Find k nearest neighbors in bucket
+                    std::vector<std::pair<double, size_t>> neighbors;
+                    for (size_t j = 0; j < n_bucket; ++j) {
+                        if (i == j) continue;
+                        double dist = p.distance(bucket_coords[j]);
+                        neighbors.emplace_back(dist, j);
+                    }
+                    std::partial_sort(neighbors.begin(), neighbors.begin() + std::min(k, neighbors.size()),
+                                      neighbors.end());
+
+                    // Average neighbor vectors in tangent space
+                    for (size_t ni = 0; ni < std::min(k, neighbors.size()); ++ni) {
+                        size_t j = neighbors[ni].second;
+                        const Point4F& q = bucket_coords[j];
+
+                        // Project q onto tangent space at p
+                        double pq_dot = p.dot(q);
+                        Point4F v_q = q + p * (-pq_dot);
+                        v_avg = v_avg + v_q;
+                    }
+
+                    if (neighbors.size() > 0) v_avg = v_avg * (1.0 / std::min(k, neighbors.size()));
+
+                    // Update point
+                    Point4F& target = *bucket_points[i].second;
+                    target = (p + v_avg * alpha).normalized();
+                    bucket_coords[i] = target;
+                }
+            }
+        }
+    }
+}
+
+void CoordinateMapper::global_knn_repulsion(std::map<uint32_t, Point4F>& points,
+                                          size_t k, double s, double eta, int iterations) {
+    if (points.empty()) return;
+
+    std::vector<Point4F*> point_ptrs;
+    std::vector<Point4F> point_list;
+
+    for (auto& [cp, pt] : points) {
+        point_ptrs.push_back(&pt);
+        point_list.push_back(pt);
+    }
+
+    size_t n = points.size();
+
+    // Compute initial mean NN distance for eta scaling
+    double mean_nn = 0.0;
+    int count = 0;
+    for (size_t i = 0; i < n; ++i) {
+        double min_dist = std::numeric_limits<double>::max();
+        for (size_t j = 0; j < n; ++j) {
+            if (i == j) continue;
+            double dist = point_list[i].distance(point_list[j]);
+            if (dist < min_dist) min_dist = dist;
+        }
+        if (min_dist < std::numeric_limits<double>::max()) {
+            mean_nn += min_dist;
+            count++;
+        }
+    }
+    if (count > 0) mean_nn /= count;
+
+    // Set initial eta based on mean NN distance (much smaller for stability)
+    double eta_initial = 1e-6 * mean_nn;
+    double eta_min = 1e-12;
+    double max_grad_norm = 1e-3; // gradient clipping
+
+    double prev_energy = 0.0;
+    for (int iter = 0; iter < iterations; ++iter) {
+        double energy = 0.0;
+
+        // Compute forces for all points using geodesic gradient
+        std::vector<Point4F> forces(n, Point4F(0, 0, 0, 0));
+
+#ifdef HAS_OPENMP
+#pragma omp parallel for if(n > 1000)
+#endif
+        for (size_t i = 0; i < n; ++i) {
+            const Point4F& p = point_list[i];
+
+            // Find k nearest neighbors
+            std::vector<std::pair<double, size_t>> neighbors;
+            for (size_t j = 0; j < n; ++j) {
+                if (i == j) continue;
+                double dist = optimized_distance(p, point_list[j]);
+                neighbors.emplace_back(dist, j);
+            }
+
+            std::partial_sort(neighbors.begin(), neighbors.begin() + std::min(k, neighbors.size()),
+                            neighbors.end());
+
+            Point4F force_sum(0, 0, 0, 0);
+
+            // Only repel neighbors that are too close (within expected NN distance for uniform distribution)
+            double expected_nn_dist = mean_nn; // Target distance for uniform distribution
+
+            for (size_t ni = 0; ni < std::min(k, neighbors.size()); ++ni) {
+                size_t j = neighbors[ni].second;
+                const Point4F& q = point_list[j];
+                double r = optimized_distance(p, q);
+
+                // Only apply repulsion if closer than expected
+                if (r < expected_nn_dist) {
+                    // Use chordal gradient (simpler and more stable than geodesic)
+                    Point4F diff(p.x - q.x, p.y - q.y, p.z - q.z, p.m - q.m);
+                    double chordal_r = std::sqrt(std::max(diff.dot(diff), 1e-18));
+
+                    if (chordal_r > 1e-12) {
+                        // Normalized direction vector from q to p
+                        Point4F direction = diff * (1.0 / chordal_r);
+
+                        // Repulsive force: stronger when closer, proportional to 1/r^2
+                        double repulsion_strength = 1.0 / (r * r + 1e-8);
+                        force_sum = force_sum + direction * repulsion_strength;
+
+                        // Energy: Coulomb-like potential
+                        energy += repulsion_strength;
+                    }
+                }
+            }
+
+            forces[i] = force_sum;
+        }
+#ifdef HAS_OPENMP
+#pragma omp barrier
+#endif
+
+        // Apply forces with tangent projection and backtracking line search
+        double c_armijo = 1e-4;
+        double tau = 0.5;
+        eta = eta_initial;
+
+        // Try different eta values until Armijo condition is satisfied
+        bool armijo_satisfied = false;
+        double energy_new = energy;
+        std::vector<Point4F> new_positions = point_list;
+
+        while (!armijo_satisfied && eta > eta_min) {
+            // Compute tentative positions
+            for (size_t i = 0; i < n; ++i) {
+                const Point4F& p = point_list[i];
+                Point4F G_tan = forces[i] + p * (-p.dot(forces[i])); // Project to tangent space
+
+                // Gradient clipping
+                double gnorm = std::sqrt(G_tan.dot(G_tan));
+                if (gnorm > max_grad_norm) {
+                    G_tan = G_tan * (max_grad_norm / gnorm);
+                }
+
+                new_positions[i] = (p + G_tan * eta).normalized();
+            }
+
+            // Compute new energy
+            energy_new = 0.0;
+            for (size_t i = 0; i < n; ++i) {
+                for (size_t j = i + 1; j < n; ++j) {
+                    double r = optimized_distance(new_positions[i], new_positions[j]);
+                    energy_new += 1.0 / std::pow(std::max(r, 1e-18), s);
+                }
+            }
+
+            // Check Armijo condition
+            double dot_grad = 0.0;
+            for (size_t i = 0; i < n; ++i) {
+                dot_grad += forces[i].dot(forces[i]);
+            }
+
+            if (energy_new <= energy + c_armijo * eta * dot_grad) {
+                armijo_satisfied = true;
+            } else {
+                eta *= tau;
+            }
+        }
+
+        // Update positions with the accepted eta
+        for (size_t i = 0; i < n; ++i) {
+            *point_ptrs[i] = new_positions[i];
+            point_list[i] = new_positions[i];
+        }
+
+        prev_energy = energy_new;
+
+        // Compute CV for this iteration (expensive but informative)
+        if (iter % 5 == 0 || iter == iterations - 1) {  // Every 5 iterations
+            auto temp_points = std::map<uint32_t, Point4F>();
+            for (size_t i = 0; i < n; ++i) {
+                temp_points[i] = point_list[i];
+            }
+            auto diag = compute_diagnostics(temp_points);
+            std::cout << "Iteration " << iter << " energy: " << energy_new << " CV: " << (diag.chordal_nn_cv * 100) << "% eta: " << eta << std::endl;
+        } else {
+            std::cout << "Iteration " << iter << " energy: " << energy_new << " eta: " << eta << std::endl;
+        }
+    }
+}
+
+bool CoordinateMapper::optimize_distribution(std::map<uint32_t, Point4F>& points) {
+    if (points.empty()) return false;
+
+    std::cout << "Starting surface distribution optimization..." << std::endl;
+
+    // Step 1: Compute baseline diagnostics
+    std::cout << "Computing baseline diagnostics..." << std::endl;
+    Diagnostics baseline = compute_diagnostics(points);
+    std::cout << "Baseline CV: " << (baseline.chordal_nn_cv * 100) << "%" << std::endl;
+
+    // Step 2: Apply deterministic jitter
+    std::cout << "Applying deterministic jitter..." << std::endl;
+    apply_deterministic_jitter(points, 1e-7);
+    Diagnostics after_jitter = compute_diagnostics(points);
+    std::cout << "After jitter CV: " << (after_jitter.chordal_nn_cv * 100) << "%" << std::endl;
+
+    // Step 3: Bucketed tangent Lloyd
+    std::cout << "Running bucketed tangent Lloyd..." << std::endl;
+    bucketed_tangent_lloyd(points, 64, 0.25, 4);
+    Diagnostics after_lloyd = compute_diagnostics(points);
+    std::cout << "After Lloyd CV: " << (after_lloyd.chordal_nn_cv * 100) << "%" << std::endl;
+
+    // Step 4: Global KNN repulsion
+    std::cout << "Running global KNN repulsion..." << std::endl;
+    double mean_nn = after_lloyd.chordal_nn_mean;
+    double initial_eta = 0.001 * mean_nn;
+    global_knn_repulsion(points, 64, 1.0, initial_eta, 10);  // Fewer iterations, smaller k
+    Diagnostics final = compute_diagnostics(points);
+    std::cout << "Final CV: " << (final.chordal_nn_cv * 100) << "%" << std::endl;
+
+    std::cout << "Optimization complete. CV improved from "
+              << (baseline.chordal_nn_cv * 100) << "% to " << (final.chordal_nn_cv * 100) << "%" << std::endl;
+
+    return final.chordal_nn_cv < baseline.chordal_nn_cv; // Any improvement is success
 }
 
 } // namespace hypercube

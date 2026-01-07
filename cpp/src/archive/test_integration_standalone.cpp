@@ -64,16 +64,16 @@ public:
         
         if (passed) {
             passed_++;
-            std::cout << "\033[32m✓\033[0m " << name << " (" << std::fixed << std::setprecision(1) << elapsed << "ms)\n";
+            std::cout << "PASS: " << name << " (" << std::fixed << std::setprecision(1) << elapsed << "ms)\n";
         } else {
             failed_++;
-            std::cout << "\033[31m✗\033[0m " << name << "\n";
+            std::cout << "FAIL: " << name << "\n";
             std::cout << "  " << message << "\n";
         }
     }
     
     void print_summary() {
-        std::cout << "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        std::cout << "\n===================================================================\n";
         std::cout << "Results: " << passed_ << " passed, " << failed_ << " failed, " << (passed_ + failed_) << " total\n";
         
         if (failed_ > 0) {
@@ -793,9 +793,9 @@ int main(int argc, char* argv[]) {
         }
     }
     
-    std::cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    std::cout << "===================================================================\n";
     std::cout << "Hypercube Integration Test Suite\n";
-    std::cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+    std::cout << "===================================================================\n\n";
     
     TestSuite suite(conninfo);
     

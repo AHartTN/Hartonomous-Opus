@@ -127,7 +127,7 @@ Write-Host "─── Core Functions ──────────────�
 $isLeaf = SafeTrim (SQL "SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))")
 Test-Result "atom_is_leaf('A')" ($isLeaf -eq "t") "returns '$isLeaf' (expected: t)"
 
-$centroid = SafeTrim (SQL "SELECT 'X=' || ROUND(ST_X(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))::numeric,2) || ' Y=' || ROUND(ST_Y(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))::numeric,2)")
+$centroid = SafeTrim (SQL "SELECT CONCAT('X=', ROUND(ST_X(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))::numeric,2), ' Y=', ROUND(ST_Y(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))::numeric,2))")
 Test-Result "atom_centroid('A')" ($centroid -match "X=") $centroid
 
 $reconstructA = SafeTrim (SQL "SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 65))")

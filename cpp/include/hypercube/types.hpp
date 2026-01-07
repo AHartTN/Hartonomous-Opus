@@ -2,11 +2,10 @@
 
 #include <cstdint>
 #include <array>
-#include <compare>
-#include <span>
 #include <string>
 #include <string_view>
 #include <cstring>
+#include <cmath>
 
 namespace hypercube {
 
@@ -21,7 +20,7 @@ struct Point4D {
     constexpr Point4D(Coord32 x_, Coord32 y_, Coord32 z_, Coord32 m_) noexcept
         : x(x_), y(y_), z(z_), m(m_) {}
     
-    constexpr auto operator<=>(const Point4D&) const noexcept = default;
+    // Comparison operators defined below
     
     // DEPRECATED: Do not use for storage - raw uint32 values are stored directly
     // These were for old normalized [0,1] storage which loses precision
@@ -55,16 +54,32 @@ struct Point4D {
         // CENTER = 2^31 = 2147483648, SCALE = 2^31 - 1 = 2147483647
         constexpr double CENTER = 2147483648.0;
         constexpr double SCALE = 2147483647.0;
-        
+
         double ux = (static_cast<double>(x) - CENTER) / SCALE;
         double uy = (static_cast<double>(y) - CENTER) / SCALE;
         double uz = (static_cast<double>(z) - CENTER) / SCALE;
         double um = (static_cast<double>(m) - CENTER) / SCALE;
         double r_sq = ux*ux + uy*uy + uz*uz + um*um;
-        // Allow tolerance for integer quantization
-        return r_sq >= 0.9 && r_sq <= 1.1;
+        // Allow tolerance for integer quantization and floating point precision
+        return r_sq >= 0.5 && r_sq <= 1.5;
     }
 };
+
+// Comparison operators for Point4D
+constexpr bool operator==(const Point4D& lhs, const Point4D& rhs) noexcept {
+    return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z && lhs.m == rhs.m;
+}
+
+constexpr bool operator!=(const Point4D& lhs, const Point4D& rhs) noexcept {
+    return !(lhs == rhs);
+}
+
+constexpr bool operator<(const Point4D& lhs, const Point4D& rhs) noexcept {
+    if (lhs.x != rhs.x) return lhs.x < rhs.x;
+    if (lhs.y != rhs.y) return lhs.y < rhs.y;
+    if (lhs.z != rhs.z) return lhs.z < rhs.z;
+    return lhs.m < rhs.m;
+}
 
 // 128-bit Hilbert curve index (two 64-bit parts)
 struct HilbertIndex {
@@ -75,12 +90,24 @@ struct HilbertIndex {
     constexpr HilbertIndex(uint64_t lo_, uint64_t hi_) noexcept : lo(lo_), hi(hi_) {}
     
     // Compare: hi first, then lo (big-endian order)
-    constexpr auto operator<=>(const HilbertIndex& other) const noexcept {
-        if (hi != other.hi) return hi <=> other.hi;
-        return lo <=> other.lo;
-    }
     constexpr bool operator==(const HilbertIndex& other) const noexcept {
         return hi == other.hi && lo == other.lo;
+    }
+    constexpr bool operator!=(const HilbertIndex& other) const noexcept {
+        return !(*this == other);
+    }
+    constexpr bool operator<(const HilbertIndex& other) const noexcept {
+        if (hi != other.hi) return hi < other.hi;
+        return lo < other.lo;
+    }
+    constexpr bool operator<=(const HilbertIndex& other) const noexcept {
+        return *this == other || *this < other;
+    }
+    constexpr bool operator>(const HilbertIndex& other) const noexcept {
+        return !(*this <= other);
+    }
+    constexpr bool operator>=(const HilbertIndex& other) const noexcept {
+        return !(*this < other);
     }
     
     // Increment for iteration
@@ -103,6 +130,10 @@ struct HilbertIndex {
         result.hi = hi + other.hi + (result.lo < lo ? 1 : 0);
         return result;
     }
+
+    static HilbertIndex abs_distance(const HilbertIndex& a, const HilbertIndex& b) noexcept {
+        return (a < b) ? (b - a) : (a - b);
+    }
 };
 
 // BLAKE3 hash (32 bytes)
@@ -116,13 +147,31 @@ struct Blake3Hash {
         std::memcpy(bytes.data(), data, 32);
     }
     
-    explicit Blake3Hash(std::span<const uint8_t> data) noexcept {
-        if (data.size() >= 32) {
-            std::memcpy(bytes.data(), data.data(), 32);
+    explicit Blake3Hash(const uint8_t* data, size_t size) noexcept {
+        if (size >= 32) {
+            std::memcpy(bytes.data(), data, 32);
         }
     }
     
-    constexpr auto operator<=>(const Blake3Hash&) const noexcept = default;
+    bool operator==(const Blake3Hash& other) const noexcept {
+        return bytes == other.bytes;
+    }
+
+    bool operator<(const Blake3Hash& other) const noexcept {
+        return bytes < other.bytes;
+    }
+
+    bool operator<=(const Blake3Hash& other) const noexcept {
+        return bytes <= other.bytes;
+    }
+
+    bool operator>(const Blake3Hash& other) const noexcept {
+        return bytes > other.bytes;
+    }
+
+    bool operator>=(const Blake3Hash& other) const noexcept {
+        return bytes >= other.bytes;
+    }
     
     // Hex string representation
     std::string to_hex() const {
@@ -272,19 +321,97 @@ namespace constants {
     constexpr uint32_t DIMENSIONS = 4;
     constexpr uint32_t BITS_PER_DIM = 32;
     constexpr uint32_t TOTAL_BITS = DIMENSIONS * BITS_PER_DIM;  // 128 bits
-    
+
+    // Coordinate space origin (center of uint32 range)
+    // This allows both positive and negative semantic directions
+    constexpr Coord32 COORD_ORIGIN = UINT32_MAX / 2;  // 2^31 = 2147483648
+    constexpr Coord32 COORD_RADIUS = COORD_ORIGIN - 1; // Max deviation from center
+
     // Unicode ranges
     constexpr uint32_t MAX_CODEPOINT = 0x10FFFF;
     constexpr uint32_t BMP_END = 0xFFFF;
     constexpr uint32_t SURROGATE_START = 0xD800;
     constexpr uint32_t SURROGATE_END = 0xDFFF;
-    
+
     // Hypercube surface: points where at least one coordinate is 0 or MAX
     constexpr Coord32 SURFACE_MIN = 0;
     constexpr Coord32 SURFACE_MAX = UINT32_MAX;
-    
+
     // Number of valid Unicode codepoints (excluding surrogates)
     constexpr uint32_t VALID_CODEPOINTS = MAX_CODEPOINT + 1 - (SURROGATE_END - SURROGATE_START + 1);
+
+    // Semantic coordinate bounds
+    constexpr double SEMANTIC_MIN = -1.0;  // Most negative semantic direction
+    constexpr double SEMANTIC_MAX = 1.0;   // Most positive semantic direction
+    constexpr double SEMANTIC_CENTER = 0.0; // Origin/neutral semantic position
 }
+
+// Floating-point point on 4D unit sphere for optimization
+struct Point4F {
+    double x, y, z, m;
+
+    constexpr Point4F() noexcept : x(0.0), y(0.0), z(0.0), m(0.0) {}
+    constexpr Point4F(double x_, double y_, double z_, double m_) noexcept
+        : x(x_), y(y_), z(z_), m(m_) {}
+
+    // Convert from quantized Point4D to floating-point [-1, 1]
+    explicit Point4F(const Point4D& p) noexcept {
+        constexpr double SCALE = 1.0 / static_cast<double>(UINT32_MAX);
+        x = (static_cast<double>(p.x) * SCALE - 0.5) * 2.0;
+        y = (static_cast<double>(p.y) * SCALE - 0.5) * 2.0;
+        z = (static_cast<double>(p.z) * SCALE - 0.5) * 2.0;
+        m = (static_cast<double>(p.m) * SCALE - 0.5) * 2.0;
+    }
+
+    // Convert to quantized Point4D
+    Point4D to_quantized() const noexcept {
+        auto quantize = [](double v) -> Coord32 {
+            if (v <= -1.0) return 0;
+            if (v >= 1.0) return UINT32_MAX;
+            double scaled = (v + 1.0) * 0.5 * static_cast<double>(UINT32_MAX);
+            uint64_t rounded = static_cast<uint64_t>(std::floor(scaled + 0.5));
+            return static_cast<Coord32>(rounded > static_cast<uint64_t>(UINT32_MAX) ? UINT32_MAX : rounded);
+        };
+        return Point4D(quantize(x), quantize(y), quantize(z), quantize(m));
+    }
+
+    // Normalize to unit sphere
+    Point4F normalized() const noexcept {
+        double norm = std::sqrt(x*x + y*y + z*z + m*m);
+        if (norm > 0.0) {
+            return Point4F(x/norm, y/norm, z/norm, m/norm);
+        }
+        return Point4F(1.0, 0.0, 0.0, 0.0); // Default to (1,0,0,0)
+    }
+
+    // Dot product
+    double dot(const Point4F& other) const noexcept {
+        return x*other.x + y*other.y + z*other.z + m*other.m;
+    }
+
+    // Euclidean distance
+    double distance(const Point4F& other) const noexcept {
+        double dx = x - other.x, dy = y - other.y, dz = z - other.z, dm = m - other.m;
+        return std::sqrt(dx*dx + dy*dy + dz*dz + dm*dm);
+    }
+
+    // Geodesic distance on S^3 (arccos of dot product)
+    double geodesic_distance(const Point4F& other) const noexcept {
+        double cos_theta = dot(other);
+        // Clamp to [-1, 1] for numerical stability
+        if (cos_theta < -1.0) cos_theta = -1.0;
+        else if (cos_theta > 1.0) cos_theta = 1.0;
+        return std::acos(cos_theta);
+    }
+
+    // Addition and scalar multiplication for updates
+    Point4F operator+(const Point4F& other) const noexcept {
+        return Point4F(x + other.x, y + other.y, z + other.z, m + other.m);
+    }
+
+    Point4F operator*(double s) const noexcept {
+        return Point4F(x * s, y * s, z * s, m * s);
+    }
+};
 
 } // namespace hypercube

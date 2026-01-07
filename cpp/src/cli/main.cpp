@@ -30,8 +30,17 @@
 #include <map>
 #include <functional>
 #include <cstring>
+#include <filesystem>
+#include <chrono>
 
 #include "hypercube/backend.hpp"
+#include "hypercube/ingest/context.hpp"
+#include "hypercube/ingest/parsing.hpp"
+#include "hypercube/ingest/db_operations.hpp"
+#include "hypercube/ingest/model_manifest.hpp"
+#include "hypercube/ingest/multimodal_extraction.hpp"
+#include "hypercube/ingest/metadata.hpp"
+#include "hypercube/ingest/metadata_db.hpp"
 
 // Forward declarations for command modules
 namespace hypercube::cli {
@@ -42,6 +51,9 @@ namespace hypercube::cli {
     int cmd_backend(int argc, char* argv[]);
     int cmd_version(int argc, char* argv[]);
     int cmd_help(int argc, char* argv[]);
+
+    // Integrated ingest functionality
+    int perform_ingest(const std::string& model_path, const hypercube::ingest::IngestConfig& config);
 }
 
 // =============================================================================
@@ -178,44 +190,42 @@ int cmd_version(int argc, char* argv[]) {
 // =============================================================================
 
 int cmd_ingest(int argc, char* argv[]) {
-    std::cerr << "Ingest command - parsing arguments...\n";
-    
     std::string model_name;
     std::string model_path;
-    int k_neighbors = 15;
-    float threshold = 0.3f;
-    
+    float threshold = 0.5f;
+
     for (int i = 0; i < argc; ++i) {
         std::string arg = argv[i];
         if ((arg == "-n" || arg == "--name") && i + 1 < argc) {
             model_name = argv[++i];
-        } else if ((arg == "-k" || arg == "--neighbors") && i + 1 < argc) {
-            k_neighbors = std::stoi(argv[++i]);
         } else if ((arg == "-t" || arg == "--threshold") && i + 1 < argc) {
             threshold = std::stof(argv[++i]);
         } else if (arg[0] != '-' && model_path.empty()) {
             model_path = arg;
         }
     }
-    
+
     if (model_path.empty()) {
         std::cerr << "Usage: hypercube ingest [options] <model_path>\n";
         std::cerr << "Options:\n";
         std::cerr << "  -n, --name <name>       Model name for database\n";
-        std::cerr << "  -k, --neighbors <k>     k-NN neighbors (default: 15)\n";
-        std::cerr << "  -t, --threshold <t>     Similarity threshold (default: 0.3)\n";
+        std::cerr << "  -t, --threshold <t>     Similarity threshold (default: 0.5)\n";
         return 1;
     }
-    
+
     std::cout << "Ingesting: " << model_path << "\n";
     std::cout << "Model name: " << (model_name.empty() ? "(auto)" : model_name) << "\n";
-    std::cout << "k-neighbors: " << k_neighbors << "\n";
-    std::cout << "threshold: " << threshold << "\n";
+    std::cout << "Threshold: " << threshold << "\n";
     std::cout << "Database: " << build_conninfo() << "\n";
-    
-    // TODO: Call actual ingest function
-    std::cerr << "ERROR: Ingest not yet integrated. Use ingest_safetensor_universal directly.\n";
-    return 1;
+
+    // Build ingest config
+    hypercube::ingest::IngestConfig config;
+    config.conninfo = build_conninfo();
+    config.model_name = model_name;
+    config.weight_threshold = threshold;
+    config.verbose = g_options.verbose;
+
+    return perform_ingest(model_path, config);
 }
 
 int cmd_query(int argc, char* argv[]) {
@@ -245,24 +255,209 @@ int cmd_test(int argc, char* argv[]) {
     bool run_cpp = false;
     bool run_sql = false;
     bool run_all = true;
-    
+
     for (int i = 0; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--cpp") { run_cpp = true; run_all = false; }
         else if (arg == "--sql") { run_sql = true; run_all = false; }
     }
-    
+
     if (run_all) {
         run_cpp = run_sql = true;
     }
-    
+
     std::cout << "Running tests:\n";
     if (run_cpp) std::cout << "  - C++ unit tests\n";
     if (run_sql) std::cout << "  - SQL integration tests\n";
-    
+
     // TODO: Call actual test runner
     std::cerr << "ERROR: Test runner not yet integrated.\n";
     return 1;
+}
+
+// Integrated ingest functionality - extracted from ingest_safetensor_modular.cpp
+int perform_ingest(const std::string& model_dir, const hypercube::ingest::IngestConfig& config) {
+    namespace fs = std::filesystem;
+    using namespace hypercube::ingest;
+
+    fs::path dir(model_dir);
+    if (!fs::is_directory(dir)) {
+        std::cerr << "Not a directory: " << model_dir << "\n";
+        return 1;
+    }
+
+    // Create ingest context
+    IngestContext ctx;
+    ctx.model_prefix = config.model_name + ":";
+
+    std::cerr << "=== Integrated Safetensor Ingester ===\n";
+    std::cerr << "Directory: " << model_dir << "\n";
+    std::cerr << "Model: " << config.model_name << "\n";
+    std::cerr << "Threshold: " << config.weight_threshold << "\n\n";
+
+    // Parse model manifest
+    std::cerr << "[0] Parsing model manifest...\n";
+    ModelManifest manifest = parse_model_manifest(dir);
+    manifest.model_name = config.model_name;
+    manifest.print_summary();
+    ctx.manifest = manifest;
+
+    auto total_start = std::chrono::steady_clock::now();
+
+    // Find model files
+    fs::path vocab_path, tokenizer_path, index_path;
+    std::vector<fs::path> safetensor_files;
+
+    for (const auto& entry : fs::recursive_directory_iterator(dir)) {
+        std::string name = entry.path().filename().string();
+        std::string path_str = entry.path().string();
+
+        // Skip hidden directories and cache folders
+        if (path_str.find("\\.") != std::string::npos ||
+            path_str.find("/.") != std::string::npos ||
+            path_str.find(".cache") != std::string::npos) {
+            continue;
+        }
+
+        if (name == "vocab.txt") vocab_path = entry.path();
+        else if (name == "tokenizer.json") tokenizer_path = entry.path();
+        else if (name == "model.safetensors.index.json") index_path = entry.path();
+        else if (name.size() >= 12 && name.substr(name.size() - 12) == ".safetensors") {
+            safetensor_files.push_back(entry.path());
+        }
+    }
+
+    // Parse tokenizer
+    if (!tokenizer_path.empty()) {
+        std::cerr << "[1] Parsing tokenizer: " << tokenizer_path << "\n";
+        parse_tokenizer(ctx, tokenizer_path);
+    }
+
+    // Parse vocab.txt
+    if (!vocab_path.empty()) {
+        std::cerr << "[2] Parsing vocab: " << vocab_path << "\n";
+        parse_vocab(ctx, vocab_path);
+    }
+
+    // Parse model metadata
+    std::cerr << "\n[2.5] Parsing model metadata...\n";
+    metadata::ModelMetadata model_meta;
+    metadata::parse_model_metadata(dir, model_meta);
+
+    if (!model_meta.vocab_tokens.empty() && ctx.vocab_tokens.empty()) {
+        ctx.vocab_tokens.resize(model_meta.vocab_tokens.size());
+        for (size_t i = 0; i < model_meta.vocab_tokens.size(); ++i) {
+            const auto& vt = model_meta.vocab_tokens[i];
+            TokenInfo info;
+            info.text = vt.text;
+            info.comp = AtomCalculator::compute_vocab_token(vt.text);
+            ctx.vocab_tokens[i] = std::move(info);
+            ctx.token_to_idx[vt.text] = i;
+        }
+        std::cerr << "[VOCAB] Transferred " << ctx.vocab_tokens.size() << " token compositions to context\n";
+    }
+
+    // Parse model tensors
+    if (!index_path.empty()) {
+        std::cerr << "[3] Parsing sharded model index: " << index_path << "\n";
+        parse_model_index(ctx, index_path);
+    } else if (!safetensor_files.empty()) {
+        std::cerr << "[3] Parsing " << safetensor_files.size() << " safetensor files...\n";
+        for (const auto& f : safetensor_files) {
+            std::cerr << "  Parsing: " << f << "\n";
+            if (!parse_safetensor_header(ctx, f)) {
+                std::cerr << "  [ERROR] Failed to parse: " << f << "\n";
+                return 1;
+            }
+        }
+    }
+
+    if (ctx.tensors.empty()) {
+        std::cerr << "[ERROR] No tensors found!\n";
+        return 1;
+    }
+
+    std::cerr << "[INFO] Found " << ctx.tensors.size() << " tensors\n";
+
+    // Categorize tensors
+    if (ctx.manifest.has_value()) {
+        std::cerr << "[3.1] Categorizing tensors for extraction...\n";
+        for (const auto& [name, meta] : ctx.tensors) {
+            ctx.manifest->categorize_tensor(name, meta.shape, meta.dtype);
+        }
+        std::cerr << "[INFO] Created " << ctx.manifest->extraction_plans.size() << " extraction plans\n";
+    }
+
+    // Connect to database
+    PGconn* conn = PQconnectdb(config.conninfo.c_str());
+    if (PQstatus(conn) != CONNECTION_OK) {
+        std::cerr << "Connection failed: " << PQerrorMessage(conn) << "\n";
+        PQfinish(conn);
+        return 1;
+    }
+
+    // Insert model metadata
+    std::cerr << "\n[3.5] Inserting model metadata...\n";
+    if (!model_meta.model_name.empty()) {
+        metadata::insert_model_metadata(conn, model_meta);
+    }
+
+    // Build composition hierarchy
+    std::cerr << "\n[4] Building tensor name hierarchy...\n";
+    if (!ctx.tensors.empty()) {
+        hypercube::ingest::db::insert_tensor_hierarchy(conn, ctx, config);
+    }
+
+    // Insert vocab token compositions
+    if (!ctx.vocab_tokens.empty()) {
+        std::cerr << "\n[5] Inserting token compositions...\n";
+        hypercube::ingest::db::insert_compositions(conn, ctx);
+    }
+
+    // Project embeddings
+    std::cerr << "\n[5.5] Projecting token embeddings to 4D...\n";
+    if (!ctx.vocab_tokens.empty()) {
+        hypercube::ingest::db::project_and_update_embeddings(conn, ctx, config);
+    }
+
+    // Compute centroids
+    std::cerr << "\n[6] Computing composition centroids...\n";
+    {
+        hypercube::db::Result res = hypercube::db::exec(conn, "SELECT recompute_composition_centroids()");
+        if (!res.ok()) {
+            std::cerr << "[CENTROID] Failed: " << res.error_message() << "\n";
+        }
+    }
+
+    // Extract semantic relations
+    std::cerr << "\n[7] Extracting semantic relations...\n";
+    if (!ctx.tensors.empty()) {
+        hypercube::ingest::db::extract_all_semantic_relations(conn, ctx, config);
+    }
+
+    // Extract weight-based relations
+    std::cerr << "\n[8] Extracting weight-based relations...\n";
+    hypercube::ingest::db::insert_attention_relations(conn, ctx, config);
+
+    // Extract multimodal structures
+    std::cerr << "\n[9] Extracting multimodal structures...\n";
+    if (ctx.manifest.has_value()) {
+        size_t multimodal_relations = extract_multimodal_structures(conn, ctx, *ctx.manifest);
+        std::cerr << "[MULTIMODAL] Extracted " << multimodal_relations << " relations\n";
+    }
+
+    PQfinish(conn);
+
+    auto total_end = std::chrono::steady_clock::now();
+    auto total_secs = std::chrono::duration_cast<std::chrono::seconds>(total_end - total_start).count();
+
+    std::cerr << "\n=== Complete ===\n";
+    std::cerr << "Total time: " << total_secs << " seconds\n";
+    std::cerr << "Tensors: " << ctx.tensors.size() << "\n";
+    std::cerr << "BPE merges: " << ctx.bpe_merges.size() << "\n";
+    std::cerr << "Vocab: " << ctx.vocab_tokens.size() << " tokens\n";
+
+    return 0;
 }
 
 }  // namespace hypercube::cli
@@ -273,9 +468,18 @@ int cmd_test(int argc, char* argv[]) {
 
 int parse_global_options(int& argc, char**& argv) {
     // Get password from environment
+#if defined(_WIN32)
+    char* pw = nullptr;
+    size_t len;
+    if (_dupenv_s(&pw, &len, "PGPASSWORD") == 0 && pw != nullptr) {
+        g_options.password = pw;
+        free(pw);
+    }
+#else
     if (const char* pw = std::getenv("PGPASSWORD")) {
         g_options.password = pw;
     }
+#endif
     
     int i = 1;  // Skip program name
     while (i < argc) {

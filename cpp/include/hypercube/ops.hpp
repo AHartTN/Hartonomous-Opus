@@ -13,6 +13,7 @@
 #include "hypercube/types.hpp"
 #include "hypercube/blake3.hpp"
 #include "hypercube/hilbert.hpp"
+#include "hypercube/cpu_features.hpp"
 
 #include <vector>
 #include <span>
@@ -93,11 +94,16 @@ inline void batch_distances(
     size_t count,
     double* distances_out
 ) noexcept {
+    // Use runtime AVX2 detection for double precision operations
+    if (hypercube::cpu_features::has_avx2()) {
 #if defined(__AVX2__)
-    batch_distances_avx2(target, points, count, distances_out);
-#else
-    batch_distances_portable(target, points, count, distances_out);
+        batch_distances_avx2(target, points, count, distances_out);
+        return;
 #endif
+    }
+
+    // Fallback to portable implementation
+    batch_distances_portable(target, points, count, distances_out);
 }
 
 /**

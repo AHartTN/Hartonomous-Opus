@@ -35,6 +35,7 @@
 #include "hypercube/embedding_ops.hpp"  // Centralized SIMD operations
 #include "hypercube/db/operations.hpp"
 #include "hypercube/db/helpers.hpp"
+#include "hypercube/ingest/projection_db.hpp"
 
 using namespace hypercube;
 using namespace hypercube::db;
@@ -235,8 +236,60 @@ bool ensure_vocab_atoms(PGconn* conn, const std::vector<std::string>& vocab) {
     std::cerr << "  " << existing << " tokens already in DB, "
               << (vocab.size() - existing) << " need ingestion\n";
 
-    // TODO: Batch ingest missing tokens via CPE
-    // For now, we'll only create edges between existing tokens
+    // Batch ingest missing tokens as compositions
+    std::vector<TokenData> missing_tokens;
+    for (size_t i = 0; i < vocab.size(); ++i) {
+        if (!g_token_cache[i].exists) {
+            TokenData token;
+            token.label = vocab[i];
+            token.hash = Blake3Hasher::hash(std::string_view(vocab[i]));
+            token.is_atom = false;  // Vocab tokens are compositions of atoms
+            // Coords will be computed from label in persist_compositions
+            missing_tokens.push_back(token);
+        }
+    }
+
+    if (!missing_tokens.empty()) {
+        std::cerr << "Ingesting " << missing_tokens.size() << " missing vocab tokens as compositions...\n";
+
+        // Use ProjectionPersister to insert missing tokens
+        hypercube::db::PersistConfig persist_config;
+        persist_config.update_existing = false;
+        hypercube::db::ProjectionPersister persister(conn, persist_config);
+
+        size_t inserted = persister.persist(missing_tokens);
+        std::cerr << "Inserted " << inserted << " missing token compositions\n";
+
+        // Update cache for newly inserted tokens
+        for (const auto& token : missing_tokens) {
+            // Find the index in vocab
+            for (size_t i = 0; i < vocab.size(); ++i) {
+                if (vocab[i] == token.label) {
+                    // Check if it was inserted successfully by querying
+                    char query[256];
+                    snprintf(query, sizeof(query),
+                        "SELECT ST_X(geom), ST_Y(geom), ST_Z(geom), ST_M(geom) "
+                        "FROM composition WHERE id = '\\x%s'::bytea",
+                        token.hash.to_hex().c_str());
+
+                    PGresult* res = PQexec(conn, query);
+                    if (PQntuples(res) > 0) {
+                        TokenAtom atom;
+                        atom.hash = token.hash;
+                        atom.x = std::stod(PQgetvalue(res, 0, 0));
+                        atom.y = std::stod(PQgetvalue(res, 0, 1));
+                        atom.z = std::stod(PQgetvalue(res, 0, 2));
+                        atom.m = std::stod(PQgetvalue(res, 0, 3));
+                        atom.exists = true;
+                        g_token_cache[i] = atom;
+                        existing++;
+                    }
+                    PQclear(res);
+                    break;
+                }
+            }
+        }
+    }
 
     return true;
 }

@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr uint32_t BLAKE3_KEY_LEN = 32;
+[[maybe_unused]] constexpr uint32_t BLAKE3_KEY_LEN = 32;
 constexpr uint32_t BLAKE3_OUT_LEN = 32;
 constexpr uint32_t BLAKE3_BLOCK_LEN = 64;
 constexpr uint32_t BLAKE3_CHUNK_LEN = 1024;
@@ -268,7 +268,7 @@ Blake3Hash Blake3Hasher::hash(std::span<const uint8_t> data) noexcept {
     blake3_hasher hasher;
     hasher_init(&hasher);
     hasher_update(&hasher, data.data(), data.size());
-    
+
     Blake3Hash result;
     hasher_finalize(&hasher, result.bytes.data());
     return result;
@@ -303,12 +303,12 @@ std::vector<uint8_t> Blake3Hasher::encode_utf8(uint32_t codepoint) noexcept {
 
 Blake3Hash Blake3Hasher::hash_codepoint(uint32_t codepoint) noexcept {
     auto utf8 = encode_utf8(codepoint);
-    return hash(std::span<const uint8_t>(utf8.data(), utf8.size()));
+    return hash(utf8);
 }
 
 Blake3Hash Blake3Hasher::hash_children(std::span<const Blake3Hash> children) noexcept {
     if (children.empty()) {
-        return hash(std::span<const uint8_t>());
+        return hash(std::vector<uint8_t>{});
     }
     
     blake3_hasher hasher;
@@ -366,8 +366,8 @@ void Blake3Hasher::Incremental::update(std::span<const uint8_t> data) noexcept {
 }
 
 void Blake3Hasher::Incremental::update(std::string_view str) noexcept {
-    update(std::span<const uint8_t>(
-        reinterpret_cast<const uint8_t*>(str.data()), str.size()));
+    std::vector<uint8_t> data(str.begin(), str.end());
+    update(data);
 }
 
 Blake3Hash Blake3Hasher::Incremental::finalize() noexcept {

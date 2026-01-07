@@ -2,6 +2,9 @@
 #include <cassert>
 #include <cstdlib>
 #include <cmath>
+#ifdef _WIN32
+#include <cstdlib>
+#endif
 #include "../include/hypercube/hilbert.hpp"
 
 using namespace hypercube;
@@ -95,51 +98,141 @@ void test_locality() {
 
 void test_ordering() {
     std::cout << "Testing Hilbert index ordering..." << std::endl;
-    
-    HilbertIndex a(100, 0);
-    HilbertIndex b(200, 0);
-    HilbertIndex c(100, 1);
-    HilbertIndex d(200, 1);
-    
-    assert(a < b);
-    assert(a < c);
-    assert(b < c);
-    assert(c < d);
-    assert(a < d);
-    
+
+    assert(HilbertIndex(100, 0) < HilbertIndex(200, 0));
+    assert(HilbertIndex(100, 0) < HilbertIndex(100, 1));
+    assert(HilbertIndex(200, 0) < HilbertIndex(100, 1));
+    assert(HilbertIndex(100, 1) < HilbertIndex(200, 1));
+    assert(HilbertIndex(100, 0) < HilbertIndex(200, 1));
+
     std::cout << "  Index comparison: PASS" << std::endl;
 }
 
 void test_arithmetic() {
     std::cout << "Testing Hilbert index arithmetic..." << std::endl;
-    
+
     HilbertIndex a(UINT64_MAX, 0);
     HilbertIndex b(1, 0);
     HilbertIndex sum_result = a + b;
-    
+
     assert(sum_result.lo == 0);
     assert(sum_result.hi == 1);
     (void)sum_result;  // Mark as used
-    
+
     HilbertIndex c(100, 5);
     HilbertIndex d(50, 3);
     HilbertIndex diff_result = c - d;
-    
+
     assert(diff_result.lo == 50);
     assert(diff_result.hi == 2);
     (void)diff_result;  // Mark as used
-    
+
     std::cout << "  Arithmetic: PASS" << std::endl;
 }
 
+void test_abs_distance() {
+    std::cout << "Testing Hilbert index abs_distance..." << std::endl;
+
+    HilbertIndex a(100, 5);
+    HilbertIndex b(50, 3);
+    HilbertIndex dist1 = HilbertIndex::abs_distance(a, b);
+    HilbertIndex dist2 = HilbertIndex::abs_distance(b, a);
+
+    assert(dist1 == dist2);
+    assert(dist1.lo == 50);
+    assert(dist1.hi == 2);
+
+    // Test with zero
+    HilbertIndex zero(0, 0);
+    HilbertIndex dist_zero = HilbertIndex::abs_distance(a, a);
+    assert(dist_zero.lo == 0 && dist_zero.hi == 0);
+
+    std::cout << "  Abs distance: PASS" << std::endl;
+}
+
+void test_roundtrip_edge_cases() {
+    std::cout << "Testing roundtrip edge cases..." << std::endl;
+
+    // Test CENTER_TO_CORNER mapping
+    Point4D center_point(0x80000000U, 0x80000000U, 0x80000000U, 0x80000000U);
+    HilbertIndex idx = HilbertCurve::coords_to_index(center_point);
+    Point4D recovered = HilbertCurve::index_to_coords(idx);
+    assert(recovered.x == center_point.x && recovered.y == center_point.y &&
+           recovered.z == center_point.z && recovered.m == center_point.m);
+
+    // Test corner points
+    Point4D corner_min(0, 0, 0, 0);
+    idx = HilbertCurve::coords_to_index(corner_min);
+    recovered = HilbertCurve::index_to_coords(idx);
+    assert(recovered.x == corner_min.x && recovered.y == corner_min.y &&
+           recovered.z == corner_min.z && recovered.m == corner_min.m);
+
+    Point4D corner_max(UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX);
+    idx = HilbertCurve::coords_to_index(corner_max);
+    recovered = HilbertCurve::index_to_coords(idx);
+    assert(recovered.x == corner_max.x && recovered.y == corner_max.y &&
+           recovered.z == corner_max.z && recovered.m == corner_max.m);
+
+    std::cout << "  Edge cases: PASS" << std::endl;
+}
+
+void test_index_to_raw_coords() {
+    std::cout << "Testing index_to_raw_coords..." << std::endl;
+
+    Point4D point(1000000, 2000000, 3000000, 4000000);
+    HilbertIndex idx = HilbertCurve::coords_to_index(point);
+    Point4D raw_coords = HilbertCurve::index_to_raw_coords(idx);
+
+    // raw_coords should be corner-origin: point XOR CENTER_TO_CORNER
+    constexpr uint32_t CENTER_TO_CORNER = 0x80000000U;
+    Point4D expected_raw(point.x ^ CENTER_TO_CORNER,
+                         point.y ^ CENTER_TO_CORNER,
+                         point.z ^ CENTER_TO_CORNER,
+                         point.m ^ CENTER_TO_CORNER);
+
+    assert(raw_coords.x == expected_raw.x && raw_coords.y == expected_raw.y &&
+           raw_coords.z == expected_raw.z && raw_coords.m == expected_raw.m);
+
+    std::cout << "  Raw coords: PASS" << std::endl;
+}
+
+void test_bit_ordering_consistency() {
+    std::cout << "Testing bit ordering consistency..." << std::endl;
+
+    // The implementation uses bit-plane interleave with bit 0 as least significant nibble at index 0
+    // Test that consecutive points have consecutive indices for small values
+
+    Point4D p1(0x80000000U, 0x80000000U, 0x80000000U, 0x80000000U);
+    Point4D p2(0x80000001U, 0x80000000U, 0x80000000U, 0x80000000U);
+
+    HilbertIndex i1 = HilbertCurve::coords_to_index(p1);
+    HilbertIndex i2 = HilbertCurve::coords_to_index(p2);
+
+    // Should be close but not necessarily consecutive due to Hilbert curve properties
+    // Just verify roundtrip
+    assert(HilbertCurve::index_to_coords(i1).x == p1.x);
+    assert(HilbertCurve::index_to_coords(i2).x == p2.x);
+
+    std::cout << "  Bit ordering: PASS" << std::endl;
+}
+
 int main() {
+#ifdef _WIN32
+    // Disable abort dialog on Windows to prevent message box when assert fails
+    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+#endif
+
     std::cout << "=== Hilbert Curve Tests ===" << std::endl;
-    
+
     test_roundtrip();
     test_locality();
     test_ordering();
     test_arithmetic();
-    
+    test_abs_distance();
+    test_roundtrip_edge_cases();
+    test_index_to_raw_coords();
+    test_bit_ordering_consistency();
+
     std::cout << "\nAll tests passed!" << std::endl;
     return 0;
 }

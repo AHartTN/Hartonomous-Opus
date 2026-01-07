@@ -16,22 +16,6 @@ namespace hypercube {
 
 namespace {
 
-// Gray code: i XOR (i >> 1)
-constexpr uint32_t gray_encode(uint32_t i) noexcept {
-    return i ^ (i >> 1);
-}
-
-// Inverse Gray code
-constexpr uint32_t gray_decode(uint32_t g) noexcept {
-    uint32_t i = g;
-    i ^= (i >> 1);
-    i ^= (i >> 2);
-    i ^= (i >> 4);
-    i ^= (i >> 8);
-    i ^= (i >> 16);
-    return i;
-}
-
 } // anonymous namespace
 
 void HilbertCurve::transpose_to_axes(uint32_t* x, uint32_t n, uint32_t bits) noexcept {
@@ -62,16 +46,16 @@ void HilbertCurve::transpose_to_axes(uint32_t* x, uint32_t n, uint32_t bits) noe
 
 void HilbertCurve::axes_to_transpose(uint32_t* x, uint32_t n, uint32_t bits) noexcept {
     // Skilling's algorithm: convert from axes (Cartesian) to transpose (Hilbert)
-    
-    // Rotations - iterate from bits-1 down to 1 to avoid UB
-    for (uint32_t b = bits - 1; b >= 1; --b) {
-        uint32_t Q = 1U << b;
-        uint32_t P = Q - 1;
+
+    // Rotations - iterate from bits-1 down to 1
+    for (int b = static_cast<int>(bits) - 1; b >= 1; --b) {
+        uint64_t Q = 1ULL << b;
+        uint64_t P = Q - 1ULL;
         for (uint32_t i = 0; i < n; ++i) {
-            if (x[i] & Q) {
-                x[0] ^= P;
+            if (x[i] & static_cast<uint32_t>(Q)) {
+                x[0] ^= static_cast<uint32_t>(P);
             } else {
-                uint32_t t = (x[0] ^ x[i]) & P;
+                uint32_t t = (x[0] ^ x[i]) & static_cast<uint32_t>(P);
                 x[0] ^= t;
                 x[i] ^= t;
             }
@@ -83,9 +67,9 @@ void HilbertCurve::axes_to_transpose(uint32_t* x, uint32_t n, uint32_t bits) noe
         x[i] ^= x[i - 1];
     }
     uint32_t t = 0;
-    for (uint32_t b = bits - 1; b >= 1; --b) {
-        uint32_t Q = 1U << b;
-        if (x[n - 1] & Q) t ^= (Q - 1);
+    for (int b = static_cast<int>(bits) - 1; b >= 1; --b) {
+        uint64_t Q = 1ULL << b;
+        if (x[n - 1] & static_cast<uint32_t>(Q)) t ^= static_cast<uint32_t>((Q - 1));
     }
     for (uint32_t i = 0; i < n; ++i) {
         x[i] ^= t;
@@ -108,7 +92,9 @@ HilbertIndex HilbertCurve::coords_to_index(const Point4D& point) noexcept {
     axes_to_transpose(X, 4, 32);
     
     // Interleave the 4 transposed coordinates into 128-bit index
-    // Bit i of dimension d goes to position i*4 + d
+    // Bit-plane interleave: bit i of dimension d goes to position i*4 + d
+    // Bit 0 (LSB) is least significant nibble at index 0
+    // This preserves locality: nearby coordinates map to nearby indices
     HilbertIndex result{0, 0};
     
     for (uint32_t bit = 0; bit < 32; ++bit) {
@@ -190,8 +176,7 @@ Point4D HilbertCurve::index_to_raw_coords(const HilbertIndex& index) noexcept {
 }
 
 HilbertIndex HilbertCurve::distance(const HilbertIndex& a, const HilbertIndex& b) noexcept {
-    if (a > b) return a - b;
-    return b - a;
+    return HilbertIndex::abs_distance(a, b);
 }
 
 bool HilbertCurve::in_range(const HilbertIndex& center, const HilbertIndex& point,

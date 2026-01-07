@@ -1,15 +1,16 @@
 /**
  * Lanczos Eigensolver Implementation
- * 
+ *
  * Complete from-scratch implementation of Lanczos algorithm
  * for finding smallest non-zero eigenvalues of sparse symmetric matrices.
- * 
+ *
  * Key components:
- * 1. SIMD-optimized vector operations (AVX2/AVX512)
- * 2. Lanczos iteration with full reorthogonalization
- * 3. Shift-invert with Conjugate Gradient
- * 4. Tridiagonal QR eigensolver (implicit QR with Wilkinson shifts)
- * 5. Ritz value/vector extraction and residual estimation
+ * 1. MKL/Eigen-optimized vector operations when available
+ * 2. SIMD-optimized vector operations (AVX2/AVX512) as fallback
+ * 3. Lanczos iteration with full reorthogonalization
+ * 4. Shift-invert with Conjugate Gradient
+ * 5. Tridiagonal QR eigensolver (implicit QR with Wilkinson shifts)
+ * 6. Ritz value/vector extraction and residual estimation
  */
 
 #include "hypercube/lanczos.hpp"
@@ -19,6 +20,14 @@
 #include <stdexcept>
 #include <iostream>
 #include <iomanip>
+
+#ifdef HAS_MKL
+#include <mkl.h>
+#endif
+
+#ifdef HAS_EIGEN
+#include <Eigen/Dense>
+#endif
 
 #ifdef __AVX2__
 #include <immintrin.h>
@@ -34,6 +43,11 @@ namespace lanczos {
 namespace vec {
 
 double dot(const double* a, const double* b, size_t n) {
+#ifdef HAS_MKL
+    return cblas_ddot(static_cast<int>(n), a, 1, b, 1);
+#elif defined(HAS_EIGEN)
+    return Eigen::Map<const Eigen::VectorXd>(a, n).dot(Eigen::Map<const Eigen::VectorXd>(b, n));
+#else
 #ifdef __AVX512F__
     __m512d sum = _mm512_setzero_pd();
     size_t i = 0;
@@ -51,7 +65,7 @@ double dot(const double* a, const double* b, size_t n) {
     __m256d sum0 = _mm256_setzero_pd();
     __m256d sum1 = _mm256_setzero_pd();
     size_t i = 0;
-    
+
     // Process 8 doubles per iteration (2 x AVX2 registers)
     for (; i + 8 <= n; i += 8) {
         __m256d va0 = _mm256_loadu_pd(a + i);
@@ -61,14 +75,14 @@ double dot(const double* a, const double* b, size_t n) {
         sum0 = _mm256_fmadd_pd(va0, vb0, sum0);
         sum1 = _mm256_fmadd_pd(va1, vb1, sum1);
     }
-    
+
     // Process remaining 4 doubles
     for (; i + 4 <= n; i += 4) {
         __m256d va = _mm256_loadu_pd(a + i);
         __m256d vb = _mm256_loadu_pd(b + i);
         sum0 = _mm256_fmadd_pd(va, vb, sum0);
     }
-    
+
     // Horizontal sum
     sum0 = _mm256_add_pd(sum0, sum1);
     __m128d low = _mm256_castpd256_pd128(sum0);
@@ -76,7 +90,7 @@ double dot(const double* a, const double* b, size_t n) {
     low = _mm_add_pd(low, high);
     low = _mm_hadd_pd(low, low);
     double result = _mm_cvtsd_f64(low);
-    
+
     // Scalar tail
     for (; i < n; ++i) {
         result += a[i] * b[i];
@@ -89,18 +103,34 @@ double dot(const double* a, const double* b, size_t n) {
     }
     return result;
 #endif
+#endif
 }
 
 double dot(const std::vector<double>& a, const std::vector<double>& b) {
+#ifdef HAS_EIGEN
+    Eigen::Map<const Eigen::VectorXd> va(a.data(), a.size());
+    Eigen::Map<const Eigen::VectorXd> vb(b.data(), b.size());
+    return va.head(std::min(a.size(), b.size())).dot(vb.head(std::min(a.size(), b.size())));
+#else
     return dot(a.data(), b.data(), std::min(a.size(), b.size()));
+#endif
 }
 
 double norm(const double* v, size_t n) {
+#ifdef HAS_MKL
+    return cblas_dnrm2(static_cast<int>(n), v, 1);
+#else
     return std::sqrt(dot(v, v, n));
+#endif
 }
 
 double norm(const std::vector<double>& v) {
+#ifdef HAS_EIGEN
+    Eigen::Map<const Eigen::VectorXd> vv(v.data(), v.size());
+    return vv.norm();
+#else
     return norm(v.data(), v.size());
+#endif
 }
 
 void normalize(std::vector<double>& v) {
@@ -111,6 +141,9 @@ void normalize(std::vector<double>& v) {
 }
 
 void axpy(double a, const double* x, double* y, size_t n) {
+#ifdef HAS_MKL
+    cblas_daxpy(static_cast<int>(n), a, x, 1, y, 1);
+#else
 #ifdef __AVX512F__
     __m512d va = _mm512_set1_pd(a);
     size_t i = 0;
@@ -140,13 +173,28 @@ void axpy(double a, const double* x, double* y, size_t n) {
         y[i] += a * x[i];
     }
 #endif
+#endif
 }
 
 void axpy(double a, const std::vector<double>& x, std::vector<double>& y) {
+#ifdef HAS_EIGEN
+    Eigen::Map<Eigen::VectorXd> vy(y.data(), y.size());
+    Eigen::Map<const Eigen::VectorXd> vx(x.data(), x.size());
+    size_t n = std::min(x.size(), y.size());
+    vy.head(n) += a * vx.head(n);
+#else
     axpy(a, x.data(), y.data(), std::min(x.size(), y.size()));
+#endif
 }
 
 void scale(double a, std::vector<double>& v) {
+#ifdef HAS_EIGEN
+    Eigen::Map<Eigen::VectorXd> vv(v.data(), v.size());
+    vv *= a;
+#else
+#ifdef HAS_MKL
+    cblas_dscal(static_cast<int>(v.size()), a, v.data(), 1);
+#else
 #ifdef __AVX512F__
     __m512d va = _mm512_set1_pd(a);
     size_t i = 0;
@@ -174,11 +222,17 @@ void scale(double a, std::vector<double>& v) {
         x *= a;
     }
 #endif
+#endif
+#endif
 }
 
 void copy(const std::vector<double>& src, std::vector<double>& dst) {
+#ifdef HAS_EIGEN
+    dst = src;  // Eigen handles this efficiently
+#else
     dst.resize(src.size());
     std::memcpy(dst.data(), src.data(), src.size() * sizeof(double));
+#endif
 }
 
 } // namespace vec
@@ -237,8 +291,13 @@ int ConjugateGradient::solve(
         // α = r^T r / p^T Ap
         double pAp = vec::dot(p, Ap);
         if (std::abs(pAp) < 1e-15) {
-            // Treat as convergence, not failure - we're close enough
-            return iter > 0 ? iter : 0;
+            if (iter == 0) {
+                std::cerr << "[CG] Breakdown at iteration 0, pAp=" << pAp << " (likely singular system)\n";
+                return -1; // Indicate failure due to singular system
+            } else {
+                // For later iterations, treat as convergence
+                return iter;
+            }
         }
         double alpha = rs_old / pAp;
         
@@ -647,7 +706,31 @@ void LanczosSolver::extract_ritz_pairs(
     
     // Solve tridiagonal eigenproblem
     auto ritz_pairs = TridiagonalEigensolver::solve(T);
-    
+
+    // LOG THE RAW RITZ SPECTRUM BEFORE ANY TRANSFORMS
+    std::cerr << "[RITZ] Raw eigenvalues from tridiagonal solver: ";
+    for (size_t i = 0; i < ritz_pairs.size(); ++i) {
+        if (i < 10) {  // Log first 10
+            std::cerr << ritz_pairs[i].eigenvalue << " ";
+        } else if (i == 10) {
+            std::cerr << "...";
+            break;
+        }
+    }
+    std::cerr << "\n";
+
+    // Check for degenerate case (all zeros)
+    bool all_zeros = true;
+    for (const auto& pair : ritz_pairs) {
+        if (std::abs(pair.eigenvalue) > 1e-12) {
+            all_zeros = false;
+            break;
+        }
+    }
+    if (all_zeros) {
+        std::cerr << "[RITZ] WARNING: All Ritz eigenvalues are zero - tridiagonal solver failed!\n";
+    }
+
     // For shift-invert: eigenvalues of (L-σI)^{-1} are 1/(λ-σ)
     // So we convert back: λ = σ + 1/θ where θ is Ritz value
     if (config_.use_shift_invert) {
@@ -677,7 +760,7 @@ void LanczosSolver::extract_ritz_pairs(
     eigenvectors.clear();
     residuals.clear();
     
-    auto& pool = ThreadPool::instance();
+    // auto& pool = ThreadPool::instance(); // Not used in this context
     
     for (int i = start_idx; i < start_idx + k && i < static_cast<int>(ritz_pairs.size()); ++i) {
         eigenvalues.push_back(ritz_pairs[i].eigenvalue);
@@ -704,7 +787,7 @@ bool LanczosSolver::check_convergence(const std::vector<double>& residuals, int 
         std::cerr << "\n[CONV] Not enough residuals: " << residuals.size() << " < " << k << "\n";
         return false;
     }
-    
+
     double max_res = 0.0;
     int max_idx = 0;
     for (int i = 0; i < k; ++i) {
@@ -713,12 +796,20 @@ bool LanczosSolver::check_convergence(const std::vector<double>& residuals, int 
             max_idx = i;
         }
         if (residuals[i] > config_.convergence_tol) {
-            std::cerr << "\n[CONV] Residual[" << i << "] = " << residuals[i] 
-                      << " > tol=" << config_.convergence_tol << "\n";
+            std::cerr << "\n[CONV] Residual[" << i << "] = " << residuals[i]
+                      << " > tol=" << config_.convergence_tol << " - not converged\n";
             return false;
         }
     }
-    std::cerr << "\n[CONV] All " << k << " residuals below tol=" << config_.convergence_tol 
+
+    // Guard against the degenerate "all zero" case when we know we didn't converge
+    // This happens when subspace is exhausted (T.beta.back() ≈ 0) but we still get zero residuals
+    if (max_res == 0.0 && !config_.use_shift_invert) {
+        std::cerr << "\n[CONV] Degenerate residuals (all zero) – treating as NOT converged\n";
+        return false;
+    }
+
+    std::cerr << "\n[CONV] All " << k << " residuals below tol=" << config_.convergence_tol
               << " (max=" << max_res << " at idx " << max_idx << ")\n";
     return true;
 }

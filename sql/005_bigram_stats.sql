@@ -167,55 +167,53 @@ $$;
 
 CREATE OR REPLACE FUNCTION extract_bigrams_from_compositions()
 RETURNS INTEGER
-LANGUAGE PLPGSQL AS $$
+LANGUAGE PLPGSQL AS $
 DECLARE
     inserted_count INTEGER := 0;
-    parent_rec RECORD;
-    prev_child BYTEA;
-    child_rec RECORD;
 BEGIN
     -- Clear existing data
     TRUNCATE bigram_stats, unigram_stats;
-    
-    -- For each depth-2 composition (sentences containing tokens)
-    FOR parent_rec IN 
-        SELECT DISTINCT c.id as composition_id
-        FROM composition c
-        WHERE c.depth = 2
-    LOOP
-        prev_child := NULL;
-        
-        -- Iterate depth-1 children (tokens with labels) in order
-        FOR child_rec IN
-            SELECT cc.child_id, c.label
-            FROM composition_child cc
-            JOIN composition c ON c.id = cc.child_id
-            WHERE cc.composition_id = parent_rec.composition_id
-              AND cc.child_type = 'C'
-              AND c.depth = 1
-              AND c.label IS NOT NULL
-              AND c.label NOT LIKE '[%'
-            ORDER BY cc.ordinal
-        LOOP
-            IF prev_child IS NOT NULL THEN
-                -- Insert bigram between consecutive tokens
-                PERFORM increment_bigram(prev_child, child_rec.child_id);
-                inserted_count := inserted_count + 1;
-            END IF;
-            
-            -- Update unigram
-            PERFORM increment_unigram(child_rec.child_id);
-            
-            prev_child := child_rec.child_id;
-        END LOOP;
-    END LOOP;
-    
+
+    -- Extract bigrams using window function LAG (no loops!)
+    INSERT INTO bigram_stats (left_id, right_id, count)
+    SELECT left_id, right_id, COUNT(*) as count
+    FROM (
+        SELECT
+            LAG(cc.child_id) OVER (PARTITION BY cc.composition_id ORDER BY cc.ordinal) as left_id,
+            cc.child_id as right_id
+        FROM composition_child cc
+        JOIN composition p ON p.id = cc.composition_id AND p.depth = 2
+        JOIN composition c ON c.id = cc.child_id AND c.depth = 1
+            AND c.label IS NOT NULL
+            AND c.label NOT LIKE '[%'
+        WHERE cc.child_type = 'C'
+    ) pairs
+    WHERE left_id IS NOT NULL
+    GROUP BY left_id, right_id
+    ON CONFLICT (left_id, right_id)
+    DO UPDATE SET count = bigram_stats.count + EXCLUDED.count;
+
+    GET DIAGNOSTICS inserted_count = ROW_COUNT;
+
+    -- Extract unigrams in single query
+    INSERT INTO unigram_stats (token_id, count)
+    SELECT cc.child_id, COUNT(*) as count
+    FROM composition_child cc
+    JOIN composition p ON p.id = cc.composition_id AND p.depth = 2
+    JOIN composition c ON c.id = cc.child_id AND c.depth = 1
+        AND c.label IS NOT NULL
+        AND c.label NOT LIKE '[%'
+    WHERE cc.child_type = 'C'
+    GROUP BY cc.child_id
+    ON CONFLICT (token_id)
+    DO UPDATE SET count = unigram_stats.count + EXCLUDED.count;
+
     -- Compute PMI scores
     PERFORM compute_pmi_scores();
-    
+
     RETURN inserted_count;
 END;
-$$;
+$;
 
 COMMENT ON FUNCTION extract_bigrams_from_compositions() IS
 'Extract bigram statistics from existing composition_child relationships.
