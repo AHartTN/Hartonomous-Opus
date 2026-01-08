@@ -38,12 +38,16 @@ if (-not $env:VSCMD_VER) {
     if (-not (Test-Path $vswhere)) {
         $vswhere = "${env:ProgramFiles}\Microsoft Visual Studio\Installer\vswhere.exe"
     }
-    
+
     $vsPath = $null
     if (Test-Path $vswhere) {
-        $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+        try {
+            $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+        } catch {
+            # vswhere failed, will try fallback paths
+        }
     }
-    
+
     # Fallback: check common locations
     if (-not $vsPath) {
         $searchPaths = @(
@@ -63,15 +67,26 @@ if (-not $env:VSCMD_VER) {
             }
         }
     }
-    
-    if ($vsPath -and (Test-Path "$vsPath\Common7\Tools\VsDevCmd.bat")) {
-        # Import VS environment variables into PowerShell
-        $vsDevCmd = "$vsPath\Common7\Tools\VsDevCmd.bat"
-        cmd /c "`"$vsDevCmd`" -arch=amd64 -no_logo && set" | ForEach-Object {
-            if ($_ -match '^([^=]+)=(.*)$') {
-                [Environment]::SetEnvironmentVariable($matches[1], $matches[2], "Process")
+
+    if ($vsPath) {
+        $vsDevCmdPath = "$vsPath\Common7\Tools\VsDevCmd.bat"
+        if (Test-Path $vsDevCmdPath) {
+            # Import VS environment variables into PowerShell
+            try {
+                cmd /c "`"$vsDevCmdPath`" -arch=amd64 -no_logo && set" | ForEach-Object {
+                    if ($_ -match '^([^=]+)=(.*)$') {
+                        [Environment]::SetEnvironmentVariable($matches[1], $matches[2], "Process")
+                    }
+                }
+                Write-Verbose "Visual Studio environment initialized from: $vsPath"
+            } catch {
+                Write-Warning "Failed to initialize Visual Studio environment (C++ builds may fail)"
             }
+        } else {
+            Write-Verbose "Visual Studio found but VsDevCmd.bat missing: $vsPath"
         }
+    } else {
+        Write-Verbose "Visual Studio not found (optional for database-only operations)"
     }
 }
 

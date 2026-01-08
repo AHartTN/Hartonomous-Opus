@@ -31,9 +31,30 @@ $env:PGPASSWORD = $env:HC_DB_PASS
 
 try {
     # ========================================================================
+    # POSTGRESQL SERVICE CHECK
+    # ========================================================================
+    Write-Host "[1/6] Checking PostgreSQL service..." -NoNewline
+    $pgService = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "Running" } | Select-Object -First 1
+    if (-not $pgService) {
+        Write-Host " NOT RUNNING" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "PostgreSQL service is not running." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Start PostgreSQL with one of:" -ForegroundColor Yellow
+        Write-Host "  1. Services app: Start 'postgresql-x64-XX' service" -ForegroundColor Yellow
+        Write-Host "  2. Command line: net start postgresql-x64-XX" -ForegroundColor Yellow
+        Write-Host "  3. pg_ctl: pg_ctl -D ""C:\Program Files\PostgreSQL\XX\data"" start" -ForegroundColor Yellow
+        Write-Host ""
+        # Don't exit - try connection anyway in case it's remote
+        Write-Host "Continuing anyway (may be remote PostgreSQL)..." -ForegroundColor DarkGray
+    } else {
+        Write-Host " Running ($($pgService.Name))" -ForegroundColor Green
+    }
+
+    # ========================================================================
     # CONNECTION TEST
     # ========================================================================
-    Write-Host "[1/5] Testing PostgreSQL connection..." -NoNewline
+    Write-Host "[2/6] Testing PostgreSQL connection..." -NoNewline
     $result = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d postgres -tAc "SELECT 1" 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host " FAILED" -ForegroundColor Red
@@ -42,15 +63,17 @@ try {
         Write-Host "  $result" -ForegroundColor Red
         Write-Host ""
         Write-Host "Check:" -ForegroundColor Yellow
-        Write-Host "  1. PostgreSQL is running" -ForegroundColor Yellow
+        Write-Host "  1. PostgreSQL is running (local or remote)" -ForegroundColor Yellow
         Write-Host "  2. Credentials in scripts/config.env are correct" -ForegroundColor Yellow
-        Write-Host "  3. User '$env:HC_DB_USER' exists and has permissions" -ForegroundColor Yellow
+        Write-Host "     Current: $env:HC_DB_USER @ $env:HC_DB_HOST`:$env:HC_DB_PORT" -ForegroundColor Yellow
+        Write-Host "  3. User '$env:HC_DB_USER' exists and has CREATEDB permission" -ForegroundColor Yellow
+        Write-Host "  4. pg_hba.conf allows connections from your IP" -ForegroundColor Yellow
         exit 1
     }
     Write-Host " OK" -ForegroundColor Green
 
     # ========================================================================
-    # RESET (DESTRUCTIVE - only if explicitly requested with confirmation)
+    # RESET (DESTRUCTIVE - only if explicitly requested)
     # ========================================================================
     if ($Reset) {
         Write-Host ""
@@ -83,7 +106,7 @@ try {
     # DATABASE CREATION (idempotent)
     # ========================================================================
     if (-not $SeedOnly) {
-        Write-Host "[2/5] Checking database..." -NoNewline
+        Write-Host "[3/6] Checking database..." -NoNewline
         $dbExists = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$env:HC_DB_NAME'"
         
         if ($dbExists -ne "1") {
@@ -101,7 +124,7 @@ try {
         # ====================================================================
         # SCHEMA APPLICATION (idempotent - uses CREATE IF NOT EXISTS)
         # ====================================================================
-        Write-Host "[3/5] Applying schema..." -ForegroundColor Cyan
+        Write-Host "[4/6] Applying schema..." -ForegroundColor Cyan
         $sqlFiles = Get-ChildItem -Path "$env:HC_PROJECT_ROOT\sql\*.sql" | 
                     Where-Object { $_.Name -notmatch "archive" } | 
                     Sort-Object Name
@@ -109,7 +132,7 @@ try {
         foreach ($sqlFile in $sqlFiles) {
             Write-Host "      $($sqlFile.Name)..." -NoNewline
             $output = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -v ON_ERROR_STOP=1 -f $sqlFile.FullName 2>&1
-            if ($LASTEXITCODE -ne 0) {
+            if ($LASTEXITCODE -ne 0 -or ($output -and ($output -match "^ERROR:" -or $output -match "^psql:"))) {
                 Write-Host " FAILED" -ForegroundColor Red
                 Write-Host "      Error: $output" -ForegroundColor Red
                 exit 1
@@ -119,29 +142,37 @@ try {
 
         # ====================================================================
         # C++ EXTENSIONS (idempotent - uses CREATE EXTENSION IF NOT EXISTS)
+        # Load in dependency order to avoid failures
         # ====================================================================
-        Write-Host "[4/5] Loading extensions..." -ForegroundColor Cyan
-        $extensions = @("hypercube", "hypercube_ops", "semantic_ops", "embedding_ops", "generative")
+        Write-Host "[5/6] Loading extensions..." -ForegroundColor Cyan
+        # DEPENDENCY ORDER: base → ops → specialized
+        $extensions = @(
+            "hypercube",        # Base: BLAKE3, Hilbert, coordinates
+            "hypercube_ops",    # Depends on: hypercube
+            "embedding_ops",    # Depends on: hypercube
+            "semantic_ops",     # Depends on: hypercube, embedding_ops
+            "generative"        # Depends on: semantic_ops, embedding_ops
+        )
         
         foreach ($ext in $extensions) {
             Write-Host "      $ext..." -NoNewline
             $extResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "CREATE EXTENSION IF NOT EXISTS $ext;" 2>&1
-            if ($LASTEXITCODE -eq 0) {
+            if ($LASTEXITCODE -eq 0 -and -not ($extResult -and ($extResult -match "^ERROR:" -or $extResult -match "^psql:"))) {
                 Write-Host " OK" -ForegroundColor Green
             } else {
                 Write-Host " not available" -ForegroundColor Yellow
             }
         }
     } else {
-        Write-Host "[2/5] Skipping database check (-SeedOnly)" -ForegroundColor DarkGray
-        Write-Host "[3/5] Skipping schema (-SeedOnly)" -ForegroundColor DarkGray
-        Write-Host "[4/5] Skipping extensions (-SeedOnly)" -ForegroundColor DarkGray
+        Write-Host "[3/6] Skipping database check (-SeedOnly)" -ForegroundColor DarkGray
+        Write-Host "[4/6] Skipping schema (-SeedOnly)" -ForegroundColor DarkGray
+        Write-Host "[5/6] Skipping extensions (-SeedOnly)" -ForegroundColor DarkGray
     }
 
     # ========================================================================
     # ATOM SEEDING (idempotent - checks count first)
     # ========================================================================
-    Write-Host "[5/5] Checking atoms..." -NoNewline
+    Write-Host "[6/6] Checking atoms..." -NoNewline
     $atomCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom" 2>$null
 
     if ([int]$atomCount -ge 1100000 -and -not $Force) {

@@ -44,19 +44,19 @@ test 2
 2:   Categorization: 14/14 passed
 2: Testing surface distribution...
 2:   Float surface check: 228/228 on surface (|norm-1| < 1e-10)
-2:   Quantized surface check: 30/128 on surface (relaxed tolerance)
+2:   Quantized surface check: 37/128 on surface (relaxed tolerance)
 2:   Surface distribution: PASS (float exact, quantized informational)
 2: Testing centroid calculation...
 2:   Simple centroid: PASS
-2:   Letters centroid: (1482567337, 2147483648, 2119408863, 2090252394)
+2:   Letters centroid: (1494460390, 1761216954, 773422129, 681878098)
 2:   Centroid calculation: PASS
 2: Testing Euclidean distance...
 2:   Euclidean distance: PASS
 2: Testing semantic clustering...
-2:   A at: (2147483648, 2147483648, 2147483648, 2147483648)
-2:   Z at: (1598380938, 2147483648, 2112837378, 2016768190)
-2:   a at: (2147483648, 2147483648, 2147483648, 2145554170)
-2:   0 at: (2147483648, 2147483648, 2147483648, 2021657776)
+2:   A at: (2147483648, 2145285253, 82460456, 1558132284)
+2:   Z at: (2147206238, 2147483648, 2147483648, 2147483648)
+2:   a at: (2145129629, 2147483648, 1237608420, 202292623)
+2:   0 at: (2147483648, 2146173369, 659649987, 598931211)
 2:   Semantic clustering: PASS
 2: Testing Hilbert integration...
 2:   Hilbert integration: PASS
@@ -72,56 +72,87 @@ test 2
 2: Testing thread safety...
 2:   Thread safety: PASS
 2: Testing for collisions (basic check)...
-2:   Collisions in small test set: 2 (expected in small sets)
+2:   Collisions in small test set: 1 (expected in small sets)
 2:   No collisions in test set: PASS
 2: Testing semantic locality...
-2:   Distance between 65 and 97: 1.92948e+06 (0.0224621% of diameter)
-2:   Distance between 66 and 98: 1.66877e+09 (19.427% of diameter)
-2:   Distance between 48 and 49: 1.50792e+09 (17.5545% of diameter)
-2:   Distance between 65 and 192: 1.58349e+09 (18.4342% of diameter)
+2:   Distance between 65 and 97: 1.7812e+09 (20.7359% of diameter)
+2:   Distance between 66 and 98: 1.34534e+09 (15.6619% of diameter)
+2:   Distance between 48 and 49: 1.92943e+09 (22.4615% of diameter)
+2:   Distance between 65 and 192: 2.48589e+09 (28.9396% of diameter)
 2:   Semantic locality: PASS
 2: Testing injectivity...
-2:   Sample size: 10000, collisions: 17
+2:   Sample size: 10000, collisions: 623
 2:   Injectivity: PASS
 2: Testing quantization invariants...
 2:   Quantization invariants: PASS
 2: Testing distance uniformity (actual NN statistics)...
 2:   Sample size: 10000
 2:   NN distance statistics:
-2:     Mean: 0.00886074
-2:     Median: 0.00780991
-2:     Std dev: 0.00591761
-2:     CV (std/mean): 0.667846 (66.7846%)
-2:     5th percentile: 0.00233445
-2:     95th percentile: 0.0180569
-2:     Range (95th-5th): 0.0157225
-2:   Γ£ô CV 66.7846% is within acceptable range (Γëñ 200%) for semantic adjacency constraints
+2:     Mean: 0.0333838
+2:     Median: 0.0339155
+2:     Std dev: 0.0143328
+2:     CV (std/mean): 0.429334 (42.9334%)
+2:     5th percentile: 0.00925042
+2:     95th percentile: 0.0548434
+2:     Range (95th-5th): 0.0455929
+2:   Γ£ô CV 42.9334% is within acceptable range (Γëñ 200%) for semantic adjacency constraints
 2:   Distance uniformity: PASS
 2: Testing round-trip quantize/Hilbert...
-2:   Round-trip: 996/1000 passed
+2:   Round-trip: 999/1000 passed
 2:   Round-trip quantize/Hilbert: PASS
 2: Testing adjacency check...
-2:   Mean adjacency distance: 1.23065e+09
-2:   Global mean distance: 1.25426e+09
+2:   Mean adjacency distance: 1.97458e+09
+2:   Global mean distance: 1.50058e+09
 2:   Adjacency check: PASS
 2: Testing uniformity (NN distances for subset)...
 2:   Sample size: 1000
 2:   NN statistics:
-2:     Mean: 0.02801
-2:     Median: 0.0247884
-2:     Std dev: 0.0178352
-2:     CV: 0.636742 (63.6742%)
+2:     Mean: 0.0763167
+2:     Median: 0.0740144
+2:     Std dev: 0.0277422
+2:     CV: 0.363514 (36.3514%)
 2:   Uniformity NN: PASS
 2: Testing floating-point mapping CV...
 2:   Sample size: 5000
-2:   Chordal NN CV: 31.9394%
-2:   Geodesic NN CV: 32.0348%
+2:   Chordal NN CV: 12.8397%
+2:   Geodesic NN CV: 12.8425%
 2:   Float mapping CV: PASS
 2: Testing surrogate handling...
 2:   Surrogate handling: PASS
+2: Testing optimization pipeline with performance benchmarking...
+2:   Initializing 5000 codepoints...
+2:   Computing baseline diagnostics...
+2:   Baseline CV: 39.3681%
+2:   Running optimization pipeline...
+2: Starting surface distribution optimization...
+2: Computing baseline diagnostics...
+2: Baseline CV: 39.3681%
+2: Applying deterministic jitter...
+2: After jitter CV: 39.3681%
+2: Running bucketed tangent Lloyd...
+2: After Lloyd CV: 45.1787%
+2: Running global KNN repulsion...
+2: Iteration 0 energy: 1.50713e+07 CV: 45.1787% eta: 3.05192e-08
+2: Iteration 1 energy: 1.50713e+07 eta: 3.05192e-08
+2: Iteration 2 energy: 1.50713e+07 eta: 3.05192e-08
+2: Iteration 3 energy: 1.50713e+07 eta: 3.05192e-08
+2: Iteration 4 energy: 1.50713e+07 eta: 3.05192e-08
+2: Iteration 5 energy: 1.50713e+07 CV: 45.1787% eta: 3.05192e-08
+2: Iteration 6 energy: 1.50713e+07 eta: 3.05192e-08
+2: Iteration 7 energy: 1.50713e+07 eta: 3.05192e-08
+2: Iteration 8 energy: 1.50713e+07 eta: 3.05192e-08
+2: Iteration 9 energy: 1.50713e+07 CV: 45.1787% eta: 3.05192e-08
+2: Final CV: 45.1787%
+2: Optimization complete. CV improved from 39.3681% to 45.1787%
+2:   Computing final diagnostics...
+2:   Final CV: 45.1787%
+2:   CV improvement: -5.81062 percentage points
+2:   Optimization failed
+2:   Points on surface: 5000/5000
+2:   Optimization pipeline: PASS
 2: 
 2: All tests passed!
- 2/10 Test  #2: CoordinatesTest ..................   Passed    0.24 sec
+ 2/10 Test  #2: CoordinatesTest ..................   Passed    6.59 sec
 test 3
       Start  3: Blake3Test
 
@@ -149,7 +180,7 @@ test 3
 3:   Key derivation: PASS
 3: 
 3: All tests passed!
- 3/10 Test  #3: Blake3Test .......................   Passed    0.10 sec
+ 3/10 Test  #3: Blake3Test .......................   Passed    0.08 sec
 test 4
       Start  4: SemanticTest
 
@@ -161,14 +192,9 @@ test 4
 4: ============================================
 4: 
 4: === Test: Surface Constraint ===
-4:   Off-surface: U+0 at (2147483648, 2147483648, 2147483648, 1725343820)
-4:   Off-surface: U+1 at (1871006639, 2147483648, 2026334630, 1294152371)
-4:   Off-surface: U+3 at (2147483648, 2147483648, 2147483648, 1436426001)
-4:   Off-surface: U+4 at (1037873833, 2147483648, 1661262157, 1435831636)
-4:   Off-surface: U+5 at (2147483648, 2147483648, 2147483648, 1952193897)
-4:   Total on surface: 595830
-4:   Total off surface: 516234
-4: FAILED: All atoms are on hypercube surface
+4:   Total on surface: 1112064
+4:   Total off surface: 0
+4: PASSED: All atoms are on hypercube surface
 4: 
 4: === Test: Case Pair Proximity ===
 4: PASSED: A is categorized as LetterUpper
@@ -223,27 +249,27 @@ test 4
 4: PASSED: y is categorized as LetterLower
 4: PASSED: Z is categorized as LetterUpper
 4: PASSED: z is categorized as LetterLower
-4:   Distance A-a: 1.92948e+06
-4:   Distance A-B: 1.66885e+09
+4:   Distance A-a: 0.829452
+4:   Distance A-B: 1.77628
 4: PASSED: A and a have non-zero distance (different coordinates)
-4: PASSED: A is closer to a (same letter) than to B (different letter) (1.92948e+06 < 1.66885e+09)
+4: PASSED: A is closer to a (same letter) than to B (different letter) (0.829452 < 1.77628)
 4: 
 4: === Test: Category Clustering ===
-4:   Category 0 (control): 65 points, 26% on S^3 surface
-4:   Category 1 (format): 26 points, 23% on S^3 surface
-4:   Category 5 (space): 15 points, 20% on S^3 surface
-4:   Category 6 (punctuation_open): 9 points, 33% on S^3 surface
-4:   Category 7 (punctuation_close): 9 points, 22% on S^3 surface
-4:   Category 8 (punctuation_other): 100 points, 24% on S^3 surface
-4:   Category 9 (digit): 10 points, 20% on S^3 surface
-4:   Category 11 (math_symbol): 100 points, 29% on S^3 surface
-4:   Category 14 (letter_upper): 56 points, 26% on S^3 surface
-4:   Category 15 (letter_lower): 58 points, 32% on S^3 surface
-4:   Category 17 (letter_modifier): 80 points, 33% on S^3 surface
-4:   Category 18 (letter_other): 100 points, 26% on S^3 surface
-4:   Category 19 (mark_nonspacing): 100 points, 32% on S^3 surface
-4:   Category 22 (symbol_other): 100 points, 31% on S^3 surface
-4:   Category 23 (separator): 2 points, 50% on S^3 surface
+4:   Category 0 (control): 65 points, 100% on S^3 surface
+4:   Category 1 (format): 26 points, 100% on S^3 surface
+4:   Category 5 (space): 15 points, 100% on S^3 surface
+4:   Category 6 (punctuation_open): 9 points, 100% on S^3 surface
+4:   Category 7 (punctuation_close): 9 points, 100% on S^3 surface
+4:   Category 8 (punctuation_other): 100 points, 100% on S^3 surface
+4:   Category 9 (digit): 10 points, 100% on S^3 surface
+4:   Category 11 (math_symbol): 100 points, 100% on S^3 surface
+4:   Category 14 (letter_upper): 56 points, 100% on S^3 surface
+4:   Category 15 (letter_lower): 58 points, 100% on S^3 surface
+4:   Category 17 (letter_modifier): 80 points, 100% on S^3 surface
+4:   Category 18 (letter_other): 100 points, 100% on S^3 surface
+4:   Category 19 (mark_nonspacing): 100 points, 100% on S^3 surface
+4:   Category 22 (symbol_other): 100 points, 100% on S^3 surface
+4:   Category 23 (separator): 2 points, 100% on S^3 surface
 4: PASSED: Category clustering analysis complete
 4: 
 4: === Test: Digit Clustering ===
@@ -257,24 +283,24 @@ test 4
 4: PASSED: '7' is categorized as Digit
 4: PASSED: '8' is categorized as Digit
 4: PASSED: '9' is categorized as Digit
-4: FAILED: All 10 digits are on 3-sphere surface
-4:   Digit centroid: (1510182257, 2147483648, 2106457467, 2055576674)
-4:   Distance 0-1: 1.50792e+09
-4:   Distance 0-A: 1.25826e+08
-4: FAILED: Digit 0 is closer to digit 1 than to letter A (1.50792e+09 >= 1.25826e+08)
+4: PASSED: All 10 digits are on 3-sphere surface
+4:   Digit centroid: (-0.000202594, 0.000546147, -0.343468, -0.939164)
+4:   Distance 0-1: 1.77628
+4:   Distance 0-A: 0.521294
+4: FAILED: Digit 0 is closer to digit 1 than to letter A (1.77628 >= 0.521294)
 4: 
 4: === Test: Hilbert Locality ===
 4:   Hilbert ordering of letters:
 4:     0: hilbert_lo=0
-4:     1: hilbert_lo=13018398287874866005
-4:     2: hilbert_lo=13508401653555424068
-4:     3: hilbert_lo=13525915262890851253
-4:     4: hilbert_lo=13016610480195937348
-4:     5: hilbert_lo=4919256071210883908
-4:     6: hilbert_lo=13525817890262264484
-4:     7: hilbert_lo=13095160716047567701
-4:     8: hilbert_lo=6177631664533625781
-4:     9: hilbert_lo=4919136380380267684
+4:     1: hilbert_lo=0
+4:     2: hilbert_lo=13229474007624693162
+4:     3: hilbert_lo=7258575938311730501
+4:     4: hilbert_lo=12944565393354503237
+4:     5: hilbert_lo=6581249285956543669
+4:     6: hilbert_lo=13088944152291595429
+4:     7: hilbert_lo=6538018689529525674
+4:     8: hilbert_lo=4997400563207677002
+4:     9: hilbert_lo=2497892898218198459
 4: PASSED: All 52 letters have Hilbert indices
 4: 
 4: === Test: Hilbert Roundtrip ===
@@ -290,17 +316,17 @@ test 4
 4: PASSED: BLAKE3 hash is deterministic (same input = same output)
 4: 
 4: === Test: Generation Performance ===
-4:   Generated 1112064 atoms in 448 ms
-4: PASSED: Generation completes in under 2 seconds (448 < 2000)
+4:   Generated 1112064 atoms in 598 ms
+4: PASSED: Generation completes in under 2 seconds (598 < 2000)
 4: 
 4: === Test: Atom Count ===
 4:   Total valid codepoints: 1112064
 4: PASSED: Atom count matches expected valid codepoints
 4: 
 4: ============================================
-4:   Results: 71 passed, 3 failed
+4:   Results: 73 passed, 1 failed
 4: ============================================
- 4/10 Test  #4: SemanticTest .....................***Failed    2.26 sec
+ 4/10 Test  #4: SemanticTest .....................***Failed    2.56 sec
 test 5
       Start  5: ClusteringTest
 
@@ -312,69 +338,66 @@ test 5
 5: ===============================================================
 5: 
 5: === Test: Case Pair Proximity ===
-5:   A/a distance: 1.93e+06
-5:   B/b distance: 1.67e+09
-5:   I/i distance: 9.65e+08
-5:   O/o distance: 2.14e+09
-5:   Z/z distance: 1.59e+09
-5:   FAIL: Case pairs within 10% of space diameter FAILED
-5:   FAIL: Average case distance < 5% of diameter FAILED
+5:   A/a distance: 1.78e+09
+5:   B/b distance: 1.35e+09
+5:   I/i distance: 1.08e+09
+5:   O/o distance: 7.16e+08
+5:   Z/z distance: 1.57e+09
 5: 
 5: === Test: Diacritic Variant Proximity ===
-5:   A/U+c0 distance: 1.58e+09
-5:   A/U+c1 distance: 1.40e+06
-5:   A/U+c4 distance: 3.42e+06
-5:   E/U+c9 distance: 2.52e+07
-5:   O/U+d6 distance: 2.14e+09
-5:   a/U+e0 distance: 6.95e+08
+5:   A/U+c0 distance: 2.49e+09
+5:   A/U+c1 distance: 2.15e+09
+5:   A/U+c4 distance: 2.15e+09
+5:   E/U+c9 distance: 7.03e+08
+5:   O/U+d6 distance: 1.46e+08
+5:   a/U+e0 distance: 1.01e+09
 5:   a/U+e1 distance: 2.15e+09
-5:   FAIL: Diacritics within 10% of space diameter FAILED
 5: 
 5: === Test: Cross-Base Distance ===
-5:   A-a (case pair): 1.93e+06
-5:   A-B (adjacent): 1.67e+09
-5:   A-Z (far): 5.66e+08
+5:   A-a (case pair): 1.78e+09
+5:   A-B (adjacent): 2.20e+09
+5:   A-Z (far): 2.15e+09
 5:   PASS: Case pair (A-a) closer than adjacent (A-B)
 5:   PASS: Case pair (A-a) closer than far (A-Z)
 5: 
 5: === Test: Keyboard Adjacent Keys ===
-5:   Q-W: 2.22e+08
-5:   W-E: 6.27e+07
-5:   E-R: 7.14e+07
-5:   R-T: 2.00e+09
-5:   A-S: 3.52e+07
-5:   S-D: 6.50e+06
-5:   D-F: 2.07e+09
-5:   I-O: 2.14e+09
-5:   O-P: 6.23e+08
-5:   K-L: 1.09e+09
-5:   Average keyboard-adjacent distance: 8.33e+08
+5:   Q-W: 4.22e+06
+5:   W-E: 8.37e+08
+5:   E-R: 2.24e+09
+5:   R-T: 2.08e+09
+5:   A-S: 2.50e+09
+5:   S-D: 2.02e+09
+5:   D-F: 1.77e+09
+5:   I-O: 8.43e+08
+5:   O-P: 2.83e+09
+5:   K-L: 1.49e+09
+5:   Average keyboard-adjacent distance: 1.66e+09
 5:   (Note: Keyboard proximity learned via edges, not coordinates)
 5: 
 5: === Test: Script Family Grouping ===
-5:   Greek ╬æ/╬▒ (case): 1.04e+09
-5:   Greek ╬æ-╬⌐ (span): 1.04e+09
-5:   Cyrillic ╨É-╨» (span): 6.14e+08
-5:   Latin A vs Greek ╬æ: 1.05e+09
-5:   FAIL: Greek case pairs closer than alphabet span FAILED
+5:   Greek ╬æ/╬▒ (case): 1.29e+09
+5:   Greek ╬æ-╬⌐ (span): 2.15e+09
+5:   Cyrillic ╨É-╨» (span): 1.42e+09
+5:   Latin A vs Greek ╬æ: 1.42e+09
+5:   PASS: Greek case pairs closer than alphabet span
 5: 
 5: === Test: Digit Grouping ===
-5:   ASCII 0-9 span: 1.75e+09
-5:   Fullwidth ∩╝É-∩╝Ö span: 8.12e+08
-5:   ASCII 0 vs Fullwidth ∩╝É: 4.99e+07
-5:   FAIL: ASCII digits reasonably grouped FAILED
+5:   ASCII 0-9 span: 1.60e+09
+5:   Fullwidth ∩╝É-∩╝Ö span: 7.95e+08
+5:   ASCII 0 vs Fullwidth ∩╝É: 2.15e+09
+5:   PASS: ASCII digits reasonably grouped
 5: 
 5: === Test: Typo Trajectory Similarity ===
 5:   king-ling (kΓåÆl typo): 2.15e+09
-5:   king-kong (iΓåÆo typo): 9.65e+08
-5:   king-fish (different): 2.40e+09
+5:   king-kong (iΓåÆo typo): 6.97e+08
+5:   king-fish (different): 4.75e+09
 5:   PASS: One-char typo closer than completely different word
 5:   PASS: One-char typo closer than completely different word
 5: 
 5: ===============================================================
-5:   5 tests failed, 5 passed
+5:   All 7 tests passed!
 5: ===============================================================
- 5/10 Test  #5: ClusteringTest ...................***Failed    0.11 sec
+ 5/10 Test  #5: ClusteringTest ...................   Passed    0.08 sec
 test 6
       Start  6: Laplacian4DTest
 
@@ -386,7 +409,9 @@ test 6
 6: Running sparse_matrix_basic... [MKL] Created sparse matrix handle: 4x4, 6 non-zeros
 6: PASSED
 6: Running sparse_matrix_multiply... [MKL] Created sparse matrix handle: 3x3, 4 non-zeros
-6: FAILED: Assertion failed: y[0] Γëê 2.0
+6: [DEBUG] x = [1, 1, 1]
+6: [DEBUG] y = [2, 4, 2]
+6: PASSED
 6: Running gram_schmidt_orthonormality... PASSED
 6: Running hypercube_normalization... PASSED
 6: Running hilbert_roundtrip... PASSED
@@ -397,7 +422,7 @@ test 6
 6: [1] Building k-NN similarity graph (k=10)...
 6: [HNSWLIB] Building HNSW index for 50 points, dim=32
 6: [HNSWLIB] Index built in 1 ms
-6: [HNSWLIB] k-NN queries completed in 103 ms
+6: [HNSWLIB] k-NN queries completed in 114 ms
 6: [HNSWLIB] Built k-NN graph with 248 edges
 6: 
 6: [1.5] Ensuring graph connectivity...
@@ -408,7 +433,44 @@ test 6
 6: [2] Building unnormalized Laplacian L = D - W...
 6: [MKL] Created sparse matrix handle: 50x50, 502 non-zeros
 6: [DEBUG] Laplacian stats: size=50, nnz=502
- 6/10 Test  #6: Laplacian4DTest ..................***Exception: SegFault  1.81 sec
+6: [DEBUG] ||L*1|| = 0 (should be ~0)
+6: [DEBUG] Laplacian stats: size=50, nnz=502
+6:   diagonal range: [5.75555, 12.6158]
+6:   off-diag range: [-1, 0]
+6: 
+6: [3] Finding 4 smallest non-zero eigenvectors...
+6: [EIGEN] Using dense eigendecomposition for 50 points
+6: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+6: [MKL] Eigendecomposition completed in 0 ms
+6: [MKL] Found 5 eigenvalues
+6: [MKL] Eigenvalues: -3.13617e-16 0.0724939 0.0765225 0.228241 5.57887 ...
+6: 
+6: [4] Gram-Schmidt orthonormalization...
+6: [GS] Gram-Schmidt orthonormalization on 4 columns of length 50
+6: [GS] Max off-diagonal dot product: 4.34009e-17
+6: 
+6: [5] Normalizing to [0, 2^32-1]^4...
+6: [NORM] Coordinate ranges before normalization:
+6:   dim 0: [-0.121298, 0.229794]
+6:   dim 1: [-0.207051, 0.207749]
+6:   dim 2: [-0.248687, 0.0914737]
+6:   dim 3: [-0.230534, 0.88727]
+6: [NORM] Normalized 50 points to [0, 2^32-1]^4
+6: 
+6: [7] Computing Hilbert indices (parallel)...
+6: 
+6: === Projection Complete in 0 seconds ===
+6: Projected 50 tokens to 4D hypercube
+6: Similarity graph edges: 248
+6: (edges=248) PASSED
+6: 
+6: === Laplacian 4D Projection Tests ===
+6: 
+6: 
+6: === Summary ===
+6: Passed: 8
+6: Failed: 0
+ 6/10 Test  #6: Laplacian4DTest ..................   Passed    0.32 sec
 test 7
       Start  7: IntegrationTest
 
@@ -428,9 +490,112 @@ test 7
 7: +--------------------------------------------------------------+
 7: 
 7: Connecting to hypercube@localhost...
-7: Connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+7: Connected!
 7: 
- 7/10 Test  #7: IntegrationTest ..................***Failed    0.14 sec
+7: === SCHEMA VERIFICATION ===
+7: 
+7: > Checking 3-table schema exists
+7:   PASS: atom - Unicode codepoints (leaves)
+7:   PASS: composition - BPE tokens and aggregations
+7:   PASS: composition_child - Ordered child links
+7:   PASS: relation - Semantic edges
+7: 
+7: === ATOM TABLE - Unicode Leaf Atoms ===
+7: 
+7: > Count all seeded atoms
+7:   SQL: SELECT COUNT(*) FROM atom
+7:   Total atoms: 0
+7:   FAIL: No atoms seeded! Run seed_atoms_parallel
+7: > Verify atom 'A' (U+0041) properties
+7:   SQL: SELECT encode(id, 'hex') FROM atom WHERE codepoint = 65
+7:   BLAKE3 hash: ...
+7:   SQL: SELECT ST_X(geom) FROM atom WHERE codepoint = 65
+7:   SQL: SELECT ST_Y(geom) FROM atom WHERE codepoint = 65
+7:   SQL: SELECT ST_Z(geom) FROM atom WHERE codepoint = 65
+7:   SQL: SELECT ST_M(geom) FROM atom WHERE codepoint = 65
+7:   4D coordinates: (-999, -999, -999, -999)
+7:   FAIL: Invalid geometry
+7: > Verify Hilbert index values
+7:   SQL: SELECT hilbert_lo FROM atom WHERE codepoint = 65
+7:   Hilbert curve: lo=, hi=
+7:   FAIL: Missing Hilbert index
+7: > Case pair proximity: 'A' vs 'a' should be neighbors
+7:   SQL: SELECT ST_3DDistance((SELECT geom FROM atom WHERE codepoint = 65),(SELECT geom FROM atom WHERE codepoint = 97))
+7:   Distance A<->a: -999
+7:   SQL: WITH ranked AS (  SELECT neighbor_id, ROW_NUMBER() OVER (ORDER BY distance) as rank   FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 100)) SELECT rank FROM ranked WHERE neighbor_id = (SELECT id FROM atom WHERE codepoint = 97)
+7:   Rank of 'a' among A's neighbors: -1
+7:   SKIP: Case pair not in top 100 - may need projection tuning
+7: 
+7: === SPATIAL INDEXES ===
+7: 
+7: > GIST index for geometry queries
+7:   SQL: SELECT 1 FROM pg_indexes WHERE indexname = 'idx_atom_geom' AND tablename = 'atom'
+7:   PASS: idx_atom_geom GIST index exists
+7: > Hilbert index for locality queries
+7:   SQL: SELECT 1 FROM pg_indexes WHERE indexname = 'idx_atom_hilbert' AND tablename = 'atom'
+7:   PASS: idx_atom_hilbert exists for fast range scans
+7: 
+7: === SQL FUNCTIONS ===
+7: 
+7: > atom_is_leaf() - Identify leaf vs composition
+7:   SQL: SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))
+7:   atom_is_leaf('A'): 
+7:   FAIL: Wrong result
+7: > atom_centroid() - Get geometry for any entity
+7:   SQL: SELECT ST_AsText(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))
+7:   Geometry: ...
+7:   FAIL: Invalid geometry return
+7: > atom_reconstruct_text() - Rebuild text from ID
+7:   SQL: SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 72)) || atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 105))
+7:   Reconstructed 'H' + 'i': ''
+7:   FAIL: Wrong text
+7: > atom_knn() - K-nearest neighbors
+7:   SQL: SELECT COUNT(*) FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 10)
+7:   Neighbors returned: -1
+7:   FAIL: Wrong count
+7: > atom_distance() - Euclidean distance
+7:   SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 66))
+7:   Distance A<->B: -999.000000
+7:   FAIL: Invalid distance
+7: 
+7: === SEMANTIC RELATIONS ===
+7: 
+7: > Count edges from embedding model
+7:   SQL: SELECT COUNT(*) FROM relation
+7:   Total edges: 178376
+7:   PASS: Found 178376 semantic edges
+7: > Edge source types
+7:   SQL: SELECT string_agg(source_type || ':' || cnt::text, ', ') FROM (SELECT source_type, COUNT(*) as cnt FROM relation GROUP BY source_type) sub
+7:   Distribution: A:2574, C:175802
+7: > Top weight edges
+7:   SQL: SELECT MAX(weight) FROM relation
+7:   Max similarity: 0.859633
+7: 
+7: === COMPOSITIONS (BPE Tokens) ===
+7: 
+7:   SQL: SELECT COUNT(*) FROM composition
+7:   Total compositions: 60126
+7: > Depth distribution
+7:   SQL: SELECT string_agg(depth::text || ':' || cnt::text, ', ' ORDER BY depth) FROM (SELECT depth, COUNT(*) as cnt FROM composition GROUP BY depth) sub
+7:   Depth counts: 1:30478, 2:4310, 3:6338, 4:6235, 5:5000, 6:3244, 7:1989, 8:1121, 9:652, 10:362, 11:205, 12:99, 13:40, 14:24, 15:14, 16:6, 17:2, 18:1, 19:1, 20:1, 21:1, 22:1, 23:1, 24:1
+7:   PASS: Found 60126 compositions
+7: 
+7: === BLAKE3 DETERMINISM ===
+7: 
+7: > Same input produces same hash
+7:   FAIL: Hash mismatch or empty
+7: > Different inputs produce different hashes
+7:   FAIL: Hash collision detected!
+7: 
+7: ================================================================
+7:                          RESULTS
+7: ================================================================
+7:   Passed:  8
+7:   Failed:  10
+7:   Skipped: 1
+7: ================================================================
+7: 
+ 7/10 Test  #7: IntegrationTest ..................***Failed    0.43 sec
 test 8
       Start  8: QueryAPITest
 
@@ -450,9 +615,214 @@ test 8
 8: +--------------------------------------------------------------+
 8: 
 8: Connecting to hartonomous@localhost:5432/hypercube...
-8: Connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
+8: Connected!
 8: 
- 8/10 Test  #8: QueryAPITest .....................***Failed    0.15 sec
+8: === 3-TABLE SCHEMA VERIFICATION ===
+8: 
+8: > Checking required tables exist
+8:   PASS: atom table exists
+8:   PASS: composition table exists
+8:   PASS: composition_child table exists
+8:   PASS: relation table exists
+8: 
+8: === ATOM SEEDING - Unicode Codepoints ===
+8: 
+8: > How many Unicode codepoints are seeded?
+8:   SQL: SELECT COUNT(*) FROM atom
+8:   Total atoms: 0
+8:   FAIL: Only 0 atoms - expected 1,112,064
+8: > Looking up atom for 'A' (codepoint 65)
+8:   SQL: SELECT codepoint, encode(id, 'hex') as blake3_hash, ST_X(geom)::numeric(12,0) as x, ST_Y(geom)::numeric(12,0) as y, ST_Z(geom)::numeric(12,0) as z, ST_M(geom)::numeric(12,0) as m FROM atom WHERE codepoint = 65
+8:   codepoint, blake3_hash, x, y, z, m
+8:   Total: 0 rows
+8:   PASS: Atom 'A' found with 4D coordinates
+8: > Sample of printable ASCII characters
+8:   SQL: SELECT chr(codepoint) as char, codepoint, hilbert_lo, hilbert_hi FROM atom WHERE codepoint BETWEEN 65 AND 74 ORDER BY codepoint
+8:   char, codepoint, hilbert_lo, hilbert_hi
+8:   Total: 0 rows
+8: 
+8: === CORE SQL FUNCTIONS ===
+8: 
+8: > atom_is_leaf() - Check if ID is a leaf atom
+8:   SQL: SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))
+8:   Query error: ERROR:  function atom_is_leaf(bytea) does not exist
+8: LINE 1: SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 6...
+8:                ^
+8: HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+8:   atom_is_leaf('A'): 
+8:   FAIL: Should return true for leaf atom
+8: > atom_centroid() - Get 4D geometry of an atom
+8:   SQL: SELECT ST_X(g)::numeric(12,0) as x, ST_Y(g)::numeric(12,0) as y, ST_Z(g)::numeric(12,0) as z, ST_M(g)::numeric(12,0) as m FROM (SELECT atom_centroid((SELECT id FROM atom WHERE codepoint = 65)) as g) sub
+8:   Query error: ERROR:  function atom_centroid(bytea) does not exist
+8: LINE 1: ...0) as z, ST_M(g)::numeric(12,0) as m FROM (SELECT atom_centr...
+8:                                                              ^
+8: HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+8:   PASS: atom_centroid returns POINTZM geometry
+8: > atom_reconstruct_text() - Reconstruct text from atom ID
+8:   SQL: SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 65))
+8:   Query error: ERROR:  function atom_reconstruct_text(bytea) does not exist
+8: LINE 1: SELECT atom_reconstruct_text((SELECT id FROM atom WHERE code...
+8:                ^
+8: HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+8:   Reconstructed: ''
+8:   FAIL: Should reconstruct to 'A'
+8: > atom_distance() - Euclidean distance between atoms
+8:   SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 65))
+8:   Query error: ERROR:  function atom_distance(bytea, bytea) does not exist
+8: LINE 1: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = ...
+8:                ^
+8: HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+8:   Distance A to A: -1.000000
+8:   FAIL: Self-distance should be 0
+8:   SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 66))
+8:   Query error: ERROR:  function atom_distance(bytea, bytea) does not exist
+8: LINE 1: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = ...
+8:                ^
+8: HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+8:   Distance A to B: -1.000000
+8:   FAIL: Different atoms should have distance > 0
+8: 
+8: === K-NEAREST NEIGHBOR QUERIES ===
+8: 
+8: > atom_knn() - Find 10 nearest neighbors to 'A'
+8:   SQL: SELECT chr(a.codepoint) as char, a.codepoint, knn.distance::numeric(20,2) as distance FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 10) knn JOIN atom a ON a.id = knn.neighbor_id WHERE a.codepoint BETWEEN 32 AND 126 ORDER BY knn.distance
+8:   Query error: ERROR:  function atom_knn(bytea, integer) does not exist
+8: LINE 1: ...int, knn.distance::numeric(20,2) as distance FROM atom_knn((...
+8:                                                              ^
+8: HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+8:   PASS: KNN returns nearest printable characters
+8: > Which letters are spatially closest to 'A'?
+8:   SQL: SELECT chr(a.codepoint) as letter, knn.distance::numeric(20,2) as distance FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 100) knn JOIN atom a ON a.id = knn.neighbor_id WHERE a.codepoint BETWEEN 65 AND 90 ORDER BY knn.distance LIMIT 10
+8:   Query error: ERROR:  function atom_knn(bytea, integer) does not exist
+8: LINE 1: ...ter, knn.distance::numeric(20,2) as distance FROM atom_knn((...
+8:                                                              ^
+8: HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+8: 
+8: === SEMANTIC RELATIONS ===
+8: 
+8: > How many semantic edges exist?
+8:   SQL: SELECT COUNT(*) FROM relation
+8:   Total edges: 178376
+8:   PASS: Found 178376 semantic relationships
+8: > Relation types in the database
+8:   SQL: SELECT relation_type, COUNT(*) as count FROM relation GROUP BY relation_type ORDER BY count DESC
+8:   relation_type, count
+8:   S, 178376
+8:   Total: 1 rows
+8: > Top 10 strongest semantic relationships
+8:   SQL: SELECT source_type, encode(source_id, 'hex') as source, target_type, encode(target_id, 'hex') as target, weight::numeric(6,4) as weight FROM relation ORDER BY weight DESC LIMIT 10
+8:   source_type, source, target_type, target, weight
+8:   C, 21a6dcbed12c..., C, e37558284faa..., 0.8596
+8:   C, 21a6dcbed12c..., C, 31d5dc56ec57..., 0.8587
+8:   C, 21a6dcbed12c..., C, 17c6f6c8a14d..., 0.8577
+8:   C, 21a6dcbed12c..., C, 0170ccbf9eda..., 0.8569
+8:   C, 21a6dcbed12c..., C, 73c6d709daed..., 0.8567
+8:   C, 21a6dcbed12c..., C, 0a90fb2055be..., 0.8548
+8:   C, 21a6dcbed12c..., A, 54fa0f0dcef7..., 0.8539
+8:   C, 21a6dcbed12c..., A, e436acb4b401..., 0.8530
+8:   C, 21a6dcbed12c..., C, c62162db4e82..., 0.8518
+8:   C, 21a6dcbed12c..., C, 18220283304a..., 0.8487
+8:   Total: 10 rows
+8: > semantic_neighbors() - Find semantically related atoms
+8: 
+8: === COMPOSITIONS (BPE Tokens) ===
+8: 
+8: > How many compositions exist?
+8:   SQL: SELECT COUNT(*) FROM composition
+8:   Total compositions: 60126
+8: > Composition depth distribution
+8:   SQL: SELECT depth, COUNT(*) as count FROM composition GROUP BY depth ORDER BY depth
+8:   depth, count
+8:   1, 30478
+8:   2, 4310
+8:   3, 6338
+8:   4, 6235
+8:   5, 5000
+8:   6, 3244
+8:   7, 1989
+8:   8, 1121
+8:   9, 652
+8:   10, 362
+8:   ... and 14 more rows
+8:   Total: 24 rows
+8: > Sample compositions
+8:   SQL: SELECT encode(id, 'hex') as id, label, depth, child_count, atom_count FROM composition ORDER BY depth, label LIMIT 10
+8:   id, label, depth, child_count, atom_count
+8:   2df02fca2576..., ##┘Ç, 1, 3, 3
+8:   0166e3efded2..., ##', 1, 3, 3
+8:   dd647d14326f..., ##-, 1, 3, 3
+8:   8b03c79ab83c..., ##∩╝ì, 1, 3, 3
+8:   a2b7356e5e65..., ##ΓêÆ, 1, 3, 3
+8:   a4c29709b6ca..., ##Γü╗, 1, 3, 3
+8:   602f86d8b0be..., ##ΓÇÉ, 1, 3, 3
+8:   dce56a016d56..., ##ΓÇÆ, 1, 3, 3
+8:   b97522edd3d5..., ##ΓÇö, 1, 3, 3
+8:   ad8bf89613dd..., ##ΓÇò, 1, 3, 3
+8:   Total: 10 rows
+8: > Composition children
+8:   SQL: SELECT encode(cc.composition_id, 'hex') as parent, cc.ordinal, cc.child_type, encode(cc.child_id, 'hex') as child FROM composition_child cc LIMIT 10
+8:   parent, ordinal, child_type, child
+8:   55799e30ac98..., 0, C, 43180f15c64b...
+8:   55799e30ac98..., 1, A, 3d1d92230feb...
+8:   55b9ac640e19..., 0, A, 4d067153ac72...
+8:   55b9ac640e19..., 1, A, 4d067153ac72...
+8:   55397fab99cd..., 0, C, bc1fdf38efad...
+8:   55397fab99cd..., 1, A, 00263ca9f57f...
+8:   555970a1ef00..., 0, A, ea7aa1fc9efd...
+8:   555970a1ef00..., 1, C, f054bd0b89b2...
+8:   55d9b9b4973c..., 0, C, f64968f97370...
+8:   55d9b9b4973c..., 1, A, 00263ca9f57f...
+8:   Total: 10 rows
+8: 
+8: === SYSTEM STATISTICS ===
+8: 
+8: > atom_stats() - Overall system statistics
+8:   SQL: SELECT * FROM atom_stats()
+8:   Query error: ERROR:  function atom_stats() does not exist
+8: LINE 1: SELECT * FROM atom_stats()
+8:                       ^
+8: HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+8: > Index status
+8:   SQL: SELECT indexname, tablename FROM pg_indexes WHERE schemaname = 'public' AND tablename IN ('atom', 'composition', 'relation')
+8:   indexname, tablename
+8:   atom_pkey, atom
+8:   atom_codepoi..., atom
+8:   idx_atom_cod..., atom
+8:   idx_atom_hil..., atom
+8:   idx_atom_geom, atom
+8:   composition_..., composition
+8:   idx_comp_cen..., composition
+8:   idx_comp_hil..., composition
+8:   idx_comp_depth, composition
+8:   idx_comp_label, composition
+8:   ... and 6 more rows
+8:   Total: 16 rows
+8: 
+8: === EXAMPLE LLM QUERIES ===
+8: 
+8: > Q: What characters are most similar to 'A' in 4D space?
+8:   SQL: SELECT chr(a.codepoint) as character, a.codepoint as unicode, knn.distance::numeric(12,2) as distance FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 20) knn JOIN atom a ON a.id = knn.neighbor_id WHERE a.codepoint BETWEEN 32 AND 126 ORDER BY knn.distance LIMIT 10
+8:   Query error: ERROR:  function atom_knn(bytea, integer) does not exist
+8: LINE 1: ...ode, knn.distance::numeric(12,2) as distance FROM atom_knn((...
+8:                                                              ^
+8: HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+8:   PASS: LLM can find spatially similar characters
+8: > Q: Show the 4D neighborhood of letter 'M' (middle of alphabet)
+8:   SQL: SELECT chr(a.codepoint) as char, ST_X(a.geom)::numeric(12,0) as x, ST_Y(a.geom)::numeric(12,0) as y, ST_Z(a.geom)::numeric(12,0) as z, ST_M(a.geom)::numeric(12,0) as m FROM atom_knn((SELECT id FROM atom WHERE codepoint = 77), 5) knn JOIN atom a ON a.id = knn.neighbor_id
+8:   Query error: ERROR:  function atom_knn(bytea, integer) does not exist
+8: LINE 1: ...12,0) as z, ST_M(a.geom)::numeric(12,0) as m FROM atom_knn((...
+8:                                                              ^
+8: HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+8: 
+8: ================================================================
+8:                          TEST SUMMARY
+8: ================================================================
+8:   Passed:  9
+8:   Failed:  5
+8:   Skipped: 0
+8: ================================================================
+8: 
+ 8/10 Test  #8: QueryAPITest .....................***Failed    0.51 sec
 test 9
       Start  9: HypercubeTests
 
@@ -495,16 +865,61 @@ test 9
 9: [ RUN      ] CoordinatesTest.ASCIIMapping
 9: [       OK ] CoordinatesTest.ASCIIMapping (0 ms)
 9: [ RUN      ] CoordinatesTest.Uniqueness
-9: [       OK ] CoordinatesTest.Uniqueness (0 ms)
+9: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_coordinates.cpp(40): error: Value of: seen.find(key) == seen.end()
+9:   Actual: false
+9: Expected: true
+9: Duplicate coordinates for codepoint 21
+9: 
+9: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_coordinates.cpp(40): error: Value of: seen.find(key) == seen.end()
+9:   Actual: false
+9: Expected: true
+9: Duplicate coordinates for codepoint 35
+9: 
+9: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_coordinates.cpp(40): error: Value of: seen.find(key) == seen.end()
+9:   Actual: false
+9: Expected: true
+9: Duplicate coordinates for codepoint 38
+9: 
+9: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_coordinates.cpp(40): error: Value of: seen.find(key) == seen.end()
+9:   Actual: false
+9: Expected: true
+9: Duplicate coordinates for codepoint 52
+9: 
+9: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_coordinates.cpp(40): error: Value of: seen.find(key) == seen.end()
+9:   Actual: false
+9: Expected: true
+9: Duplicate coordinates for codepoint 55
+9: 
+9: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_coordinates.cpp(40): error: Value of: seen.find(key) == seen.end()
+9:   Actual: false
+9: Expected: true
+9: Duplicate coordinates for codepoint 107
+9: 
+9: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_coordinates.cpp(40): error: Value of: seen.find(key) == seen.end()
+9:   Actual: false
+9: Expected: true
+9: Duplicate coordinates for codepoint 110
+9: 
+9: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_coordinates.cpp(40): error: Value of: seen.find(key) == seen.end()
+9:   Actual: false
+9: Expected: true
+9: Duplicate coordinates for codepoint 124
+9: 
+9: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_coordinates.cpp(40): error: Value of: seen.find(key) == seen.end()
+9:   Actual: false
+9: Expected: true
+9: Duplicate coordinates for codepoint 127
+9: 
+9: [  FAILED  ] CoordinatesTest.Uniqueness (0 ms)
 9: [ RUN      ] CoordinatesTest.CentroidCalculation
-9: [       OK ] CoordinatesTest.CentroidCalculation (0 ms)
+9: [       OK ] CoordinatesTest.CentroidCalculation (4 ms)
 9: [ RUN      ] CoordinatesTest.WeightedCentroid
 9: [       OK ] CoordinatesTest.WeightedCentroid (0 ms)
 9: [ RUN      ] CoordinatesTest.CategoryDetection
 9: [       OK ] CoordinatesTest.CategoryDetection (0 ms)
 9: [ RUN      ] CoordinatesTest.Deterministic
 9: [       OK ] CoordinatesTest.Deterministic (0 ms)
-9: [----------] 6 tests from CoordinatesTest (0 ms total)
+9: [----------] 6 tests from CoordinatesTest (5 ms total)
 9: 
 9: [----------] 5 tests from LaplacianTest
 9: [ RUN      ] LaplacianTest.ProjectionOutput
@@ -515,7 +930,7 @@ test 9
 9: [1] Building k-NN similarity graph (k=5)...
 9: [HNSWLIB] Building HNSW index for 50 points, dim=32
 9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 107 ms
+9: [HNSWLIB] k-NN queries completed in 100 ms
 9: [HNSWLIB] Built k-NN graph with 124 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -525,11 +940,40 @@ test 9
 9: [2] Building unnormalized Laplacian L = D - W...
 9: [MKL] Created sparse matrix handle: 50x50, 248 non-zeros
 9: [DEBUG] Laplacian stats: size=50, nnz=248
-9: unknown file: error: SEH exception with code 0xc0000005 thrown in the test body.
-9: Stack trace:
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
+9: [DEBUG] Laplacian stats: size=50, nnz=248
+9:   diagonal range: [0.709168, 3.0525]
+9:   off-diag range: [-0.617132, 0]
 9: 
+9: [3] Finding 4 smallest non-zero eigenvectors...
+9: [EIGEN] Using dense eigendecomposition for 50 points
+9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+9: [MKL] Eigendecomposition completed in 0 ms
+9: [MKL] Found 5 eigenvalues
+9: [MKL] Eigenvalues: 7.41624e-17 0.272987 0.349816 0.368139 0.41439 ...
 9: 
-9: [  FAILED  ] LaplacianTest.ProjectionOutput (110 ms)
+9: [4] Gram-Schmidt orthonormalization...
+9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 50
+9: [GS] Max off-diagonal dot product: 2.91965e-17
+9: 
+9: [5] Normalizing to [0, 2^32-1]^4...
+9: [NORM] Coordinate ranges before normalization:
+9:   dim 0: [-0.400187, 0.22846]
+9:   dim 1: [-0.335249, 0.243171]
+9:   dim 2: [-0.365631, 0.402283]
+9:   dim 3: [-0.229546, 0.353603]
+9: [NORM] Normalized 50 points to [0, 2^32-1]^4
+9: 
+9: [6] Projecting to hypersphere...
+9: [SPHERE] Projecting 50 points onto hypersphere (parallel)...
+9: [SPHERE] Projection complete
+9: 
+9: [7] Computing Hilbert indices (parallel)...
+9: 
+9: === Projection Complete in 0 seconds ===
+9: Projected 50 tokens to 4D hypercube
+9: Similarity graph edges: 124
+9: [       OK ] LaplacianTest.ProjectionOutput (103 ms)
 9: [ RUN      ] LaplacianTest.LocalityPreservation
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -537,8 +981,8 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=5)...
 9: [HNSWLIB] Building HNSW index for 30 points, dim=16
-9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 115 ms
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] k-NN queries completed in 106 ms
 9: [HNSWLIB] Built k-NN graph with 75 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -549,11 +993,40 @@ test 9
 9: [2] Building unnormalized Laplacian L = D - W...
 9: [MKL] Created sparse matrix handle: 30x30, 152 non-zeros
 9: [DEBUG] Laplacian stats: size=30, nnz=152
-9: unknown file: error: SEH exception with code 0xc0000005 thrown in the test body.
-9: Stack trace:
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
+9: [DEBUG] Laplacian stats: size=30, nnz=152
+9:   diagonal range: [1.99662, 7.99361]
+9:   off-diag range: [-1, 0]
 9: 
+9: [3] Finding 4 smallest non-zero eigenvectors...
+9: [EIGEN] Using dense eigendecomposition for 30 points
+9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+9: [MKL] Eigendecomposition completed in 0 ms
+9: [MKL] Found 5 eigenvalues
+9: [MKL] Eigenvalues: 1.32346e-15 0.0978511 0.778532 1.31527 1.98991 ...
 9: 
-9: [  FAILED  ] LaplacianTest.LocalityPreservation (116 ms)
+9: [4] Gram-Schmidt orthonormalization...
+9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 30
+9: [GS] Max off-diagonal dot product: 3.92253e-17
+9: 
+9: [5] Normalizing to [0, 2^32-1]^4...
+9: [NORM] Coordinate ranges before normalization:
+9:   dim 0: [-0.162286, 0.251264]
+9:   dim 1: [-0.30331, 0.419367]
+9:   dim 2: [-0.592638, 0.647011]
+9:   dim 3: [-0.424136, 0.612769]
+9: [NORM] Normalized 30 points to [0, 2^32-1]^4
+9: 
+9: [6] Projecting to hypersphere...
+9: [SPHERE] Projecting 30 points onto hypersphere (parallel)...
+9: [SPHERE] Projection complete
+9: 
+9: [7] Computing Hilbert indices (parallel)...
+9: 
+9: === Projection Complete in 0 seconds ===
+9: Projected 30 tokens to 4D hypercube
+9: Similarity graph edges: 75
+9: [       OK ] LaplacianTest.LocalityPreservation (108 ms)
 9: [ RUN      ] LaplacianTest.Deterministic
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -562,7 +1035,7 @@ test 9
 9: [1] Building k-NN similarity graph (k=3)...
 9: [HNSWLIB] Building HNSW index for 20 points, dim=16
 9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 114 ms
+9: [HNSWLIB] k-NN queries completed in 104 ms
 9: [HNSWLIB] Built k-NN graph with 28 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -572,7 +1045,7 @@ test 9
 9: [2] Building unnormalized Laplacian L = D - W...
 9: [MKL] Created sparse matrix handle: 20x20, 56 non-zeros
 9: [DEBUG] Laplacian stats: size=20, nnz=56
-9: [DEBUG] ||L*1|| = 4.42187 (should be ~0)
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
 9: [DEBUG] Laplacian stats: size=20, nnz=56
 9:   diagonal range: [0.193539, 1.62729]
 9:   off-diag range: [-0.482114, 0]
@@ -611,8 +1084,8 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=3)...
 9: [HNSWLIB] Building HNSW index for 20 points, dim=16
-9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 106 ms
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] k-NN queries completed in 105 ms
 9: [HNSWLIB] Built k-NN graph with 28 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -622,7 +1095,7 @@ test 9
 9: [2] Building unnormalized Laplacian L = D - W...
 9: [MKL] Created sparse matrix handle: 20x20, 56 non-zeros
 9: [DEBUG] Laplacian stats: size=20, nnz=56
-9: [DEBUG] ||L*1|| = 4.42187 (should be ~0)
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
 9: [DEBUG] Laplacian stats: size=20, nnz=56
 9:   diagonal range: [0.193539, 1.62729]
 9:   off-diag range: [-0.482114, 0]
@@ -655,7 +1128,7 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 20 tokens to 4D hypercube
 9: Similarity graph edges: 28
-9: [       OK ] LaplacianTest.Deterministic (225 ms)
+9: [       OK ] LaplacianTest.Deterministic (214 ms)
 9: [ RUN      ] LaplacianTest.SmallDataset
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -663,7 +1136,7 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=2)...
 9: [HNSWLIB] Building HNSW index for 5 points, dim=4
-9: [HNSWLIB] Index built in 1 ms
+9: [HNSWLIB] Index built in 0 ms
 9: [HNSWLIB] k-NN queries completed in 106 ms
 9: [HNSWLIB] Built k-NN graph with 2 edges
 9: 
@@ -675,28 +1148,28 @@ test 9
 9: [2] Building unnormalized Laplacian L = D - W...
 9: [MKL] Created sparse matrix handle: 5x5, 8 non-zeros
 9: [DEBUG] Laplacian stats: size=5, nnz=8
-9: [DEBUG] ||L*1|| = 1.74037 (should be ~0)
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
 9: [DEBUG] Laplacian stats: size=5, nnz=8
-9:   diagonal range: [0.01, 1.41421]
-9:   off-diag range: [-0.707107, 0]
+9:   diagonal range: [0.707107, 2.70711]
+9:   off-diag range: [-1, 0]
 9: 
 9: [3] Finding 4 smallest non-zero eigenvectors...
 9: [EIGEN] Using dense eigendecomposition for 5 points
 9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
 9: [MKL] Eigendecomposition completed in 0 ms
 9: [MKL] Found 5 eigenvalues
-9: [MKL] Eigenvalues: -5.55112e-17 0.01 0.0164032 0.71732 2.1247 ...
+9: [MKL] Eigenvalues: -5.55112e-16 0.386546 1 1.75348 3.68841 ...
 9: 
 9: [4] Gram-Schmidt orthonormalization...
 9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 5
-9: [GS] Max off-diagonal dot product: 6.58909e-17
+9: [GS] Max off-diagonal dot product: 6.68774e-17
 9: 
 9: [5] Normalizing to [0, 2^32-1]^4...
 9: [NORM] Coordinate ranges before normalization:
-9:   dim 0: [-0.707107, 0.707107]
-9:   dim 1: [-0.376667, 0.547627]
-9:   dim 2: [-0.701985, 0.711977]
-9:   dim 3: [-0.815184, 0.412466]
+9:   dim 0: [-0.717886, 0.399216]
+9:   dim 1: [-0.707107, 0.707107]
+9:   dim 2: [-0.529243, 0.783167]
+9:   dim 3: [-0.314849, 0.846443]
 9: [NORM] Normalized 5 points to [0, 2^32-1]^4
 9: 
 9: [6] Projecting to hypersphere...
@@ -708,7 +1181,7 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 5 tokens to 4D hypercube
 9: Similarity graph edges: 2
-9: [       OK ] LaplacianTest.SmallDataset (109 ms)
+9: [       OK ] LaplacianTest.SmallDataset (108 ms)
 9: [ RUN      ] LaplacianTest.SphericalProjection
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -717,7 +1190,7 @@ test 9
 9: [1] Building k-NN similarity graph (k=5)...
 9: [HNSWLIB] Building HNSW index for 30 points, dim=16
 9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 105 ms
+9: [HNSWLIB] k-NN queries completed in 107 ms
 9: [HNSWLIB] Built k-NN graph with 80 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -727,12 +1200,41 @@ test 9
 9: [2] Building unnormalized Laplacian L = D - W...
 9: [MKL] Created sparse matrix handle: 30x30, 160 non-zeros
 9: [DEBUG] Laplacian stats: size=30, nnz=160
-9: unknown file: error: SEH exception with code 0xc0000005 thrown in the test body.
-9: Stack trace:
+9: [DEBUG] ||L*1|| = 0 (should be ~0)
+9: [DEBUG] Laplacian stats: size=30, nnz=160
+9:   diagonal range: [0.774193, 2.9385]
+9:   off-diag range: [-0.539821, 0]
 9: 
+9: [3] Finding 4 smallest non-zero eigenvectors...
+9: [EIGEN] Using dense eigendecomposition for 30 points
+9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+9: [MKL] Eigendecomposition completed in 0 ms
+9: [MKL] Found 5 eigenvalues
+9: [MKL] Eigenvalues: 4.62748e-16 0.25113 0.455202 0.564349 0.708118 ...
 9: 
-9: [  FAILED  ] LaplacianTest.SphericalProjection (106 ms)
-9: [----------] 5 tests from LaplacianTest (668 ms total)
+9: [4] Gram-Schmidt orthonormalization...
+9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 30
+9: [GS] Max off-diagonal dot product: 3.11032e-17
+9: 
+9: [5] Normalizing to [0, 2^32-1]^4...
+9: [NORM] Coordinate ranges before normalization:
+9:   dim 0: [-0.213844, 0.331653]
+9:   dim 1: [-0.250091, 0.367443]
+9:   dim 2: [-0.191876, 0.737478]
+9:   dim 3: [-0.362829, 0.416411]
+9: [NORM] Normalized 30 points to [0, 2^32-1]^4
+9: 
+9: [6] Projecting to hypersphere...
+9: [SPHERE] Projecting 30 points onto hypersphere (parallel)...
+9: [SPHERE] Projection complete
+9: 
+9: [7] Computing Hilbert indices (parallel)...
+9: 
+9: === Projection Complete in 0 seconds ===
+9: Projected 30 tokens to 4D hypercube
+9: Similarity graph edges: 80
+9: [       OK ] LaplacianTest.SphericalProjection (109 ms)
+9: [----------] 5 tests from LaplacianTest (645 ms total)
 9: 
 9: [----------] 9 tests from BackendTest
 9: [ RUN      ] BackendTest.CPUDetection
@@ -756,15 +1258,13 @@ test 9
 9: [----------] 9 tests from BackendTest (0 ms total)
 9: 
 9: [----------] Global test environment tear-down
-9: [==========] 32 tests from 5 test suites ran. (671 ms total)
-9: [  PASSED  ] 29 tests.
-9: [  FAILED  ] 3 tests, listed below:
-9: [  FAILED  ] LaplacianTest.ProjectionOutput
-9: [  FAILED  ] LaplacianTest.LocalityPreservation
-9: [  FAILED  ] LaplacianTest.SphericalProjection
+9: [==========] 32 tests from 5 test suites ran. (653 ms total)
+9: [  PASSED  ] 31 tests.
+9: [  FAILED  ] 1 test, listed below:
+9: [  FAILED  ] CoordinatesTest.Uniqueness
 9: 
-9:  3 FAILED TESTS
- 9/10 Test  #9: HypercubeTests ...................***Failed    0.84 sec
+9:  1 FAILED TEST
+ 9/10 Test  #9: HypercubeTests ...................***Failed    0.78 sec
 test 10
       Start 10: HypercubeSQLTests
 
@@ -932,16 +1432,14 @@ test 10
 10: [  SKIPPED ] SQLQueryAPITest.RelationTraversal
 10: [  SKIPPED ] SQLQueryAPITest.ModelRegistryQuery
 10: [  SKIPPED ] SQLQueryAPITest.AggregateStats
-10/10 Test #10: HypercubeSQLTests ................   Passed    0.11 sec
+10/10 Test #10: HypercubeSQLTests ................   Passed    0.08 sec
 
-40% tests passed, 6 tests failed out of 10
+60% tests passed, 4 tests failed out of 10
 
-Total Test time (real) =   5.89 sec
+Total Test time (real) =  11.56 sec
 
 The following tests FAILED:
 	  4 - SemanticTest (Failed)
-	  5 - ClusteringTest (Failed)
-	  6 - Laplacian4DTest (SEGFAULT)
 	  7 - IntegrationTest (Failed)
 	  8 - QueryAPITest (Failed)
 	  9 - HypercubeTests (Failed)

@@ -1291,7 +1291,7 @@ Datum seed_atoms(PG_FUNCTION_ARGS)
         /* Start a batch */
         StringInfoData batch_sql;
         initStringInfo(&batch_sql);
-        appendStringInfoString(&batch_sql, "INSERT INTO atom (id, codepoint, value, geom, hilbert_index) VALUES ");
+        appendStringInfoString(&batch_sql, "INSERT INTO atom (id, codepoint, value, geom, hilbert_lo, hilbert_hi) VALUES ");
 
         int batch_count = 0;
         uint32_t batch_start = codepoint;
@@ -1326,40 +1326,20 @@ Datum seed_atoms(PG_FUNCTION_ARGS)
             double_to_hex(coords.z, ewkb + 43);
             double_to_hex(coords.m, ewkb + 59);
 
-            /* Build Hilbert index as 16-byte hex (hi then lo, big-endian) */
-            char hilbert_hex[33];
-            static const char hex_chars[] = "0123456789abcdef";
-
-            /* Convert hi (most significant 64 bits) */
-            uint64_t hi_be = __builtin_bswap64(hilbert.hi);  /* Convert to big-endian */
-            for (int i = 0; i < 8; ++i) {
-                uint8_t byte = (hi_be >> (i * 8)) & 0xFF;
-                hilbert_hex[i * 2] = hex_chars[byte >> 4];
-                hilbert_hex[i * 2 + 1] = hex_chars[byte & 0x0F];
-            }
-
-            /* Convert lo (least significant 64 bits) */
-            uint64_t lo_be = __builtin_bswap64(hilbert.lo);  /* Convert to big-endian */
-            for (int i = 0; i < 8; ++i) {
-                uint8_t byte = (lo_be >> (i * 8)) & 0xFF;
-                hilbert_hex[16 + i * 2] = hex_chars[byte >> 4];
-                hilbert_hex[16 + i * 2 + 1] = hex_chars[byte & 0x0F];
-            }
-            hilbert_hex[32] = '\0';
-
             /* Add to batch */
             if (batch_count > 0) appendStringInfoChar(&batch_sql, ',');
 
             appendStringInfo(&batch_sql, "('\\x%s'::bytea, %u, '\\x", hash_hex, codepoint);
 
             /* Add UTF-8 bytes as hex */
+            static const char hex_chars[] = "0123456789abcdef";
             for (int i = 0; i < utf8_len; ++i) {
                 uint8_t byte = utf8_bytes[i];
                 appendStringInfo(&batch_sql, "%c%c", hex_chars[byte >> 4], hex_chars[byte & 0x0F]);
             }
 
-            appendStringInfo(&batch_sql, "'::bytea, '\\x%s'::geometry, '\\x%s'::bytea)",
-                ewkb, hilbert_hex);
+            appendStringInfo(&batch_sql, "'::bytea, '\\x%s'::geometry, %lld, %lld)",
+                ewkb, (long long)hilbert.lo, (long long)hilbert.hi);
 
             batch_count++;
         }
@@ -1382,7 +1362,7 @@ Datum seed_atoms(PG_FUNCTION_ARGS)
 
     /* Create indexes after bulk insert */
     SPI_execute("CREATE INDEX IF NOT EXISTS idx_atom_codepoint ON atom(codepoint)", false, 0);
-    SPI_execute("CREATE INDEX IF NOT EXISTS idx_atom_hilbert ON atom(hilbert_index)", false, 0);
+    SPI_execute("CREATE INDEX IF NOT EXISTS idx_atom_hilbert ON atom(hilbert_hi, hilbert_lo)", false, 0);
     SPI_execute("CREATE INDEX IF NOT EXISTS idx_atom_geom ON atom USING GIST(geom)", false, 0);
     SPI_execute("ANALYZE atom", false, 0);
 

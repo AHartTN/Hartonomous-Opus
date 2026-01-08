@@ -17,6 +17,7 @@ Write-Host ""
 $TestsPassed = 0
 $TestsFailed = 0
 $env:PGPASSWORD = $env:HC_DB_PASS
+$env:PGCLIENTENCODING = "UTF8"
 
 function SQL { 
     param([string]$q) 
@@ -61,8 +62,8 @@ foreach ($test in $unitTests) {
     $exe = "$BuildDir\$test.exe"
     if (Test-Path $exe) {
         $output = & $exe 2>&1
-        $pass = $LASTEXITCODE -eq 0
-        $summary = ($output | Select-String -Pattern "passed|failed|OK|PASS" | Select-Object -First 1) -replace "`r`n", ""
+        $pass = $LASTEXITCODE -eq 0 -and -not ($output -match "FAILED|FAIL")
+        $summary = ($output | Select-String -Pattern "passed|FAILED|FAIL|OK|PASS" | Select-Object -First 1) -replace "`r`n", ""
         if (-not $summary) { $summary = if ($pass) { "all assertions passed" } else { "failed" } }
         Test-Result $test $pass $summary
     }
@@ -127,7 +128,7 @@ Write-Host "─── Core Functions ──────────────�
 $isLeaf = SafeTrim (SQL "SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))")
 Test-Result "atom_is_leaf('A')" ($isLeaf -eq "t") "returns '$isLeaf' (expected: t)"
 
-$centroid = SafeTrim (SQL "SELECT CONCAT('X=', ROUND(ST_X(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))::numeric,2), ' Y=', ROUND(ST_Y(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))::numeric,2))")
+$centroid = SafeTrim (SQL 'SELECT CONCAT(''X='', ROUND(ST_X(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))::numeric,2), '' Y='', ROUND(ST_Y(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))::numeric,2))')
 Test-Result "atom_centroid('A')" ($centroid -match "X=") $centroid
 
 $reconstructA = SafeTrim (SQL "SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 65))")
@@ -138,7 +139,7 @@ Write-Host ""
 Write-Host "─── Spatial Queries ───────────────────────────────────────" -ForegroundColor Blue
 
 $knnCount = SafeTrim (SQL "SELECT COUNT(*) FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 5)")
-Test-Result "atom_knn('A', k=5)" ($knnCount -match "\d" -and $knnCount -ne "0") "$knnCount neighbors found"
+Test-Result 'atom_knn(''A'', k=5)' (($knnCount -match '\d') -and ($knnCount -ne '0')) "$knnCount neighbors found"
 
 # ═══════════════════════════════════════════════════════════════════════════
 Write-Host ""
@@ -148,15 +149,17 @@ $compCount = SafeTrim (SQL "SELECT COUNT(*) FROM composition")
 $compInt = 0
 [int]::TryParse($compCount, [ref]$compInt) | Out-Null
 $maxDepth = SafeTrim (SQL "SELECT COALESCE(MAX(depth), 0) FROM composition")
-Test-Result "Compositions in DB" $true "$($compInt.ToString('N0')) compositions, max depth=$maxDepth"
+Test-Result "Compositions in DB" (-not $compSamplesError) "$($compInt.ToString('N0')) compositions, max depth=$maxDepth"
 
 if ($compInt -gt 0) {
     Write-Host ""
     Write-Host "  ┌─ Sample Compositions ─────────────────────────────────────────────" -ForegroundColor Cyan
-    $compSamples = SQL "SELECT '    │ depth=' || depth || ', children=' || child_count || ', id=' || LEFT(encode(id, 'hex'), 16) || '...' FROM composition ORDER BY depth DESC, child_count LIMIT 5"
+    $compSamples = SQL 'SELECT ''    │ depth='' || depth || '', children='' || child_count || '', id='' || LEFT(encode(id, ''hex''), 16) || ''...'' FROM composition ORDER BY depth DESC, child_count LIMIT 5'
+    $compSamplesError = $compSamples -match "^ERROR:"
     if ($compSamples -is [string]) { Write-Host $compSamples -ForegroundColor Gray }
     Write-Host "  └───────────────────────────────────────────────────────────────────" -ForegroundColor Cyan
 } else {
+    $compSamplesError = $false
     Write-Host "  (No compositions yet - run ingest_safetensor)" -ForegroundColor DarkGray
 }
 
@@ -168,21 +171,25 @@ Write-Host "  (Edges from MiniLM embedding model - token similarity)" -Foregroun
 $edgeCount = SafeTrim (SQL "SELECT COUNT(*) FROM relation")
 $edgeInt = 0
 [int]::TryParse($edgeCount, [ref]$edgeInt) | Out-Null
-Test-Result "Total semantic edges" ($edgeInt -gt 0) "$($edgeInt.ToString('N0')) relationships in relation table"
+Test-Result "Total semantic edges" (($edgeInt -gt 0) -and -not $topEdgesError) "$($edgeInt.ToString('N0')) relationships in relation table"
 
 if ($edgeInt -gt 0) {
     Write-Host ""
     Write-Host "  ┌─ Top 5 Semantic Edges (highest weight) ───────────────────────────" -ForegroundColor Cyan
-    $topEdges = SQL "SELECT '    │ w=' || ROUND(r.weight::numeric, 4) || ' | ' || LEFT(encode(r.source_id, 'hex'), 12) || '.. ↔ ' || LEFT(encode(r.target_id, 'hex'), 12) || '..' FROM relation r ORDER BY r.weight DESC LIMIT 5"
+    $topEdges = SQL 'SELECT ''    │ w='' || ROUND(r.weight::numeric, 4) || '' | '' || LEFT(encode(r.source_id, ''hex''), 12) || ''.. ↔ '' || LEFT(encode(r.target_id, ''hex''), 12) || ''..'' FROM relation r ORDER BY r.weight DESC LIMIT 5'
+    $topEdgesError = $topEdges -match "^ERROR:"
     if ($topEdges -is [string]) { Write-Host $topEdges -ForegroundColor Gray }
     Write-Host "  └───────────────────────────────────────────────────────────────────" -ForegroundColor Cyan
-    
+
     Write-Host ""
     Write-Host "  ┌─ Semantic Neighbors ──────────────────────────────────────────────" -ForegroundColor Cyan
     $neighborsCount = SafeTrim (SQL "SELECT COUNT(*) FROM semantic_neighbors((SELECT source_id FROM relation ORDER BY weight DESC LIMIT 1), 5)")
-    Test-Result "semantic_neighbors()" ($neighborsCount -match "\d") "$neighborsCount neighbors found for top token"
+    $neighborsError = $neighborsCount -match "^ERROR:"
+    Test-Result "semantic_neighbors()" (-not $neighborsError -and $neighborsCount -match "\d") "$neighborsCount neighbors found for top token"
     Write-Host "  └───────────────────────────────────────────────────────────────────" -ForegroundColor Cyan
 } else {
+    $topEdgesError = $false
+    $neighborsError = $true
     Write-Host "  (No semantic edges yet - run ingest-testdata.ps1)" -ForegroundColor DarkGray
 }
 

@@ -55,33 +55,33 @@ static int tests_failed = 0;
 // ===========================================================================
 void test_surface_constraint() {
     std::cout << "\n=== Test: Surface Constraint ===" << std::endl;
-    
+
     int on_surface = 0;
     int off_surface = 0;
-    
+
     // Check all valid Unicode codepoints
     for (uint32_t cp = 0; cp <= constants::MAX_CODEPOINT; ++cp) {
         // Skip surrogates
         if (cp >= constants::SURROGATE_START && cp <= constants::SURROGATE_END) {
             continue;
         }
-        
-        Point4D coords = CoordinateMapper::map_codepoint(cp);
-        if (coords.is_on_surface()) {
+
+        Point4F coords_float = CoordinateMapper::map_codepoint_float(cp);
+        double r_sq = coords_float.dot(coords_float);
+        if (std::abs(r_sq - 1.0) < 1e-10) {
             on_surface++;
         } else {
             off_surface++;
             if (off_surface <= 5) {
-                std::cerr << "  Off-surface: U+" << std::hex << cp << std::dec 
-                          << " at (" << coords.x << ", " << coords.y 
-                          << ", " << coords.z << ", " << coords.m << ")" << std::endl;
+                std::cerr << "  Off-surface: U+" << std::hex << cp << std::dec
+                          << " r²=" << r_sq << std::endl;
             }
         }
     }
-    
+
     std::cout << "  Total on surface: " << on_surface << std::endl;
     std::cout << "  Total off surface: " << off_surface << std::endl;
-    
+
     ASSERT_TRUE(off_surface == 0, "All atoms are on hypercube surface");
 }
 
@@ -117,12 +117,12 @@ void test_case_pair_proximity() {
     }
     
     // Check that A-a distance is measurable and A is closer to a than to B
-    Point4D A_coords = CoordinateMapper::map_codepoint('A');
-    Point4D a_coords = CoordinateMapper::map_codepoint('a');
-    Point4D B_coords = CoordinateMapper::map_codepoint('B');
-    
-    double dist_A_a = CoordinateMapper::euclidean_distance(A_coords, a_coords);
-    double dist_A_B = CoordinateMapper::euclidean_distance(A_coords, B_coords);
+    Point4F A_coords = CoordinateMapper::map_codepoint_float('A');
+    Point4F a_coords = CoordinateMapper::map_codepoint_float('a');
+    Point4F B_coords = CoordinateMapper::map_codepoint_float('B');
+
+    double dist_A_a = A_coords.distance(a_coords);
+    double dist_A_B = A_coords.distance(B_coords);
     
     std::cout << "  Distance A-a: " << dist_A_a << std::endl;
     std::cout << "  Distance A-B: " << dist_A_B << std::endl;
@@ -136,36 +136,37 @@ void test_case_pair_proximity() {
 // ===========================================================================
 void test_category_clustering() {
     std::cout << "\n=== Test: Category Clustering ===" << std::endl;
-    
-    std::map<AtomCategory, std::vector<Point4D>> category_points;
-    
+
+    std::map<AtomCategory, std::vector<Point4F>> category_points;
+
     // Collect sample points from each category
     for (uint32_t cp = 0; cp < 0x3000; ++cp) {
         if (cp >= constants::SURROGATE_START && cp <= constants::SURROGATE_END) continue;
-        
+
         AtomCategory cat = CoordinateMapper::categorize(cp);
         if (category_points[cat].size() < 100) {
-            category_points[cat].push_back(CoordinateMapper::map_codepoint(cp));
+            category_points[cat].push_back(CoordinateMapper::map_codepoint_float(cp));
         }
     }
-    
+
     // Verify each category has points on the 3-sphere surface
     for (const auto& [cat, points] : category_points) {
         if (points.size() < 2) continue;
-        
+
         int on_surface = 0;
         for (const auto& p : points) {
-            if (p.is_on_surface()) on_surface++;
+            double r_sq = p.dot(p);
+            if (std::abs(r_sq - 1.0) < 1e-10) on_surface++;
         }
-        
+
         double surface_pct = static_cast<double>(on_surface) / points.size() * 100.0;
-        
+
         std::cout << "  Category " << static_cast<int>(cat) << " ("
                   << category_to_string(cat) << "): "
                   << points.size() << " points, "
                   << static_cast<int>(surface_pct) << "% on S^3 surface" << std::endl;
     }
-    
+
     ASSERT_TRUE(true, "Category clustering analysis complete");
 }
 
@@ -174,36 +175,37 @@ void test_category_clustering() {
 // ===========================================================================
 void test_digit_clustering() {
     std::cout << "\n=== Test: Digit Clustering ===" << std::endl;
-    
-    std::vector<Point4D> digit_coords;
+
+    std::vector<Point4F> digit_coords;
     for (uint32_t cp = '0'; cp <= '9'; ++cp) {
         AtomCategory cat = CoordinateMapper::categorize(cp);
-        ASSERT_TRUE(cat == AtomCategory::Digit, 
+        ASSERT_TRUE(cat == AtomCategory::Digit,
                     std::string("'") + static_cast<char>(cp) + "' is categorized as Digit");
-        digit_coords.push_back(CoordinateMapper::map_codepoint(cp));
+        digit_coords.push_back(CoordinateMapper::map_codepoint_float(cp));
     }
-    
+
     // All digits should be on the 3-sphere surface
     int on_surface = 0;
     for (const auto& p : digit_coords) {
-        if (p.is_on_surface()) on_surface++;
+        double r_sq = p.dot(p);
+        if (std::abs(r_sq - 1.0) < 1e-10) on_surface++;
     }
     ASSERT_TRUE(on_surface == 10, "All 10 digits are on 3-sphere surface");
-    
+
     // Compute centroid and verify digits are clustered (low variance)
-    Point4D centroid = CoordinateMapper::centroid(digit_coords);
-    std::cout << "  Digit centroid: (" << centroid.x << ", " << centroid.y 
+    Point4F centroid = CoordinateMapper::centroid_float(digit_coords);
+    std::cout << "  Digit centroid: (" << centroid.x << ", " << centroid.y
               << ", " << centroid.z << ", " << centroid.m << ")" << std::endl;
-    
+
     // Check that consecutive digits are close to each other
     // Distance from 0 to 1 should be small compared to 0 to random letter
-    double dist_0_1 = CoordinateMapper::euclidean_distance(digit_coords[0], digit_coords[1]);
-    Point4D A_coords = CoordinateMapper::map_codepoint('A');
-    double dist_0_A = CoordinateMapper::euclidean_distance(digit_coords[0], A_coords);
-    
+    double dist_0_1 = digit_coords[0].distance(digit_coords[1]);
+    Point4F A_coords = CoordinateMapper::map_codepoint_float('A');
+    double dist_0_A = digit_coords[0].distance(A_coords);
+
     std::cout << "  Distance 0-1: " << dist_0_1 << std::endl;
     std::cout << "  Distance 0-A: " << dist_0_A << std::endl;
-    
+
     // Digits should be closer to each other than to letters
     ASSERT_LESS(dist_0_1, dist_0_A, "Digit 0 is closer to digit 1 than to letter A");
 }

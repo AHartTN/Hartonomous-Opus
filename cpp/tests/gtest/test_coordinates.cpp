@@ -43,35 +43,53 @@ TEST_F(CoordinatesTest, Uniqueness) {
     }
 }
 
-// Test centroid calculation
+// Test centroid calculation (sphere-normalized for compositions)
 TEST_F(CoordinatesTest, CentroidCalculation) {
     std::vector<Point4D> points = {
         Point4D(100, 200, 300, 400),
         Point4D(200, 300, 400, 500),
         Point4D(300, 400, 500, 600),
     };
-    
+
     Point4D centroid = CoordinateMapper::centroid(points);
-    
-    // Centroid should be average
-    EXPECT_EQ(centroid.x, 200u);
-    EXPECT_EQ(centroid.y, 300u);
-    EXPECT_EQ(centroid.z, 400u);
-    EXPECT_EQ(centroid.m, 500u);
+
+    // Centroid should be normalized to sphere surface (not simple arithmetic mean)
+    // Arithmetic mean would be (200,300,400,500), but we normalize to unit sphere
+    // The normalized vector should have unit length when converted to float coordinates
+
+    Point4F centroid_float(centroid);
+    double norm_sq = centroid_float.dot(centroid_float);
+    EXPECT_NEAR(norm_sq, 1.0, 1e-6);  // Should be on unit sphere (allow quantization tolerance)
+
+    // Verify it's not the simple arithmetic mean
+    EXPECT_NE(centroid.x, 200u);
+    EXPECT_NE(centroid.y, 300u);
+    EXPECT_NE(centroid.z, 400u);
+    EXPECT_NE(centroid.m, 500u);
 }
 
-// Test weighted centroid
+// Test weighted centroid (sphere-normalized)
 TEST_F(CoordinatesTest, WeightedCentroid) {
     std::vector<Point4D> points = {
         Point4D(0, 0, 0, 0),
         Point4D(100, 100, 100, 100),
     };
     std::vector<double> weights = {1.0, 3.0};  // 25%/75% weighting
-    
+
     Point4D wc = CoordinateMapper::weighted_centroid(points, weights);
-    
-    // Should be closer to second point
-    EXPECT_EQ(wc.x, 75u);  // (0*1 + 100*3) / 4 = 75
+
+    // Should be sphere-normalized (not simple weighted arithmetic mean)
+    // The weighted mean would be (75,75,75,75), but we normalize to unit sphere
+
+    Point4F wc_float(wc);
+    double norm_sq = wc_float.dot(wc_float);
+    EXPECT_NEAR(norm_sq, 1.0, 1e-6);  // Should be on unit sphere (allow quantization tolerance)
+
+    // Verify it's not the simple weighted mean
+    EXPECT_NE(wc.x, 75u);
+    EXPECT_NE(wc.y, 75u);
+    EXPECT_NE(wc.z, 75u);
+    EXPECT_NE(wc.m, 75u);
 }
 
 // Test category detection

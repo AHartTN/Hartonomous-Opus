@@ -28,7 +28,12 @@
       "Bash(make cpe_ingest:*)",
       "Bash(PGPASSWORD=hartonomous ./cpe_ingest:*)",
       "Bash(make:*)",
-      "Bash(bash scripts/linux/setup-db.sh:*)"
+      "Bash(bash scripts/linux/setup-db.sh:*)",
+      "mcp__MCP_DOCKER__sequentialthinking",
+      "WebFetch(domain:openaccess.thecvf.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(git submodule add:*)",
+      "Bash(powershell:*)"
     ]
   },
   "outputStyle": "default"

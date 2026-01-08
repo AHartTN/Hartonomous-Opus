@@ -20,23 +20,23 @@ namespace {
 
 void HilbertCurve::transpose_to_axes(uint32_t* x, uint32_t n, uint32_t bits) noexcept {
     // Skilling's algorithm: convert from transpose (Hilbert) to axes (Cartesian)
-    
+
     // Gray decode
     uint32_t t = x[n - 1] >> 1;
     for (uint32_t i = n - 1; i > 0; --i) {
         x[i] ^= x[i - 1];
     }
     x[0] ^= t;
-    
-    // Undo rotations - use bit counter to avoid UB with 1<<32
+
+    // Undo rotations - use unsigned arithmetic, consistent with axes_to_transpose
     for (uint32_t b = 1; b < bits; ++b) {
-        uint32_t Q = 1U << b;
-        uint32_t P = Q - 1;
+        uint64_t Q = 1ULL << b;
+        uint64_t P = Q - 1ULL;
         for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
-            if (x[i] & Q) {
-                x[0] ^= P;
+            if (x[i] & static_cast<uint32_t>(Q)) {
+                x[0] ^= static_cast<uint32_t>(P);
             } else {
-                t = (x[0] ^ x[i]) & P;
+                t = (x[0] ^ x[i]) & static_cast<uint32_t>(P);
                 x[0] ^= t;
                 x[i] ^= t;
             }

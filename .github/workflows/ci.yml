@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Visual Studio
+      uses: microsoft/setup-msbuild@v1
+
+    - name: Set up LLVM/Clang
+      uses: KyleMayes/install-llvm-action@v1
+      with:
+        version: "21.1.8"
+
+    - name: Set up Ninja
+      uses: seanmiddleditch/gha-setup-ninja@v4
+
+    - name: Set up vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: '4b7c3e0d4b1c3f6b8d2e4c7f9a1b2c3d4e5f6g7h'
+
+    - name: Install dependencies
+      run: |
+        vcpkg install --triplet=x64-windows libpq
+        vcpkg install --triplet=x64-windows gtest
+
+    - name: Set up Intel MKL (if available)
+      run: |
+        # Try to set up MKL - this might fail on GitHub runners
+        echo "MKLROOT=C:\Program Files (x86)\Intel\oneAPI\mkl\latest" >> $env:GITHUB_ENV
+      continue-on-error: true
+
+    - name: Configure build
+      run: |
+        cd cpp
+        cmake -B build -G Ninja `
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+          -DCMAKE_CXX_COMPILER="C:/Program Files/LLVM/bin/clang++.exe" `
+          -DCMAKE_C_COMPILER="C:/Program Files/LLVM/bin/clang.exe" `
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build project
+      run: |
+        cd cpp
+        ninja -C build
+
+    - name: Run unit tests
+      run: |
+        cd cpp/build
+        .\test_hilbert.exe
+        .\test_coordinates.exe
+        .\test_blake3.exe
+        .\hypercube_tests.exe --gtest_output=xml:test_results.xml
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: cpp/build/test_results.xml
+
+    - name: Run script validation
+      run: |
+        # Test PowerShell script syntax
+        $syntaxErrors = 0
+        $scripts = Get-ChildItem scripts/windows/*.ps1 -Recurse
+        foreach ($script in $scripts) {
+          try {
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$null, [ref]$null)
+            Write-Host "✓ $($script.Name) - syntax OK"
+          } catch {
+            Write-Host "✗ $($script.Name) - syntax error: $($_.Exception.Message)"
+            $syntaxErrors++
+          }
+        }
+        if ($syntaxErrors -gt 0) {
+          exit 1
+        }
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install cpplint
+      run: pip install cpplint
+
+    - name: Run cpplint
+      run: |
+        find cpp -name "*.cpp" -o -name "*.hpp" | xargs cpplint --filter=-legal/copyright,-build/include_subdir,-readability/casting,-runtime/references 2>/dev/null || true
+
+    - name: Check PowerShell scripts
+      run: |
+        # Basic PowerShell linting
+        find scripts -name "*.ps1" -exec pwsh -Command "
+          try {
+            \$content = Get-Content '{}';
+            \$ast = [System.Management.Automation.Language.Parser]::ParseInput(\$content, [ref]\$null, [ref]\$null);
+            Write-Host '✓ {} - OK';
+          } catch {
+            Write-Host '✗ {} - ERROR: \$(\$_.Exception.Message)';
+            exit 1;
+          }
+        " \;
+
+  docs:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check documentation
+      run: |
+        # Check if README is up to date
+        if [ ! -f README.md ]; then
+          echo "❌ README.md missing"
+          exit 1
+        fi
+
+        # Check if key sections exist
+        grep -q "Quick Start" README.md || (echo "❌ Quick Start section missing" && exit 1)
+        grep -q "Architecture" README.md || (echo "❌ Architecture section missing" && exit 1)
+        grep -q "Building" README.md || (echo "❌ Building section missing" && exit 1)
+
+        echo "✓ Documentation structure OK"

@@ -31,8 +31,8 @@ CREATE TABLE atom (
     codepoint       INTEGER NOT NULL UNIQUE,        -- Unicode codepoint (0-0x10FFFF)
     value           BYTEA NOT NULL,                 -- UTF-8 bytes of the character
     geom            GEOMETRY(POINTZM, 0) NOT NULL,  -- YOUR 4D coordinate mapping
-    hilbert_lo      BIGINT NOT NULL,                -- Hilbert index (low 64 bits)
-    hilbert_hi      BIGINT NOT NULL,                -- Hilbert index (high 64 bits)
+    hilbert_lo      NUMERIC(20,0) NOT NULL,         -- Hilbert index (low 64 bits)
+    hilbert_hi      NUMERIC(20,0) NOT NULL,         -- Hilbert index (high 64 bits)
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -55,12 +55,13 @@ CREATE TABLE composition (
     atom_count      BIGINT NOT NULL,                -- Total leaf atoms in subtree
     geom            GEOMETRY(LINESTRINGZM, 0),      -- Path through child centroids
     centroid        GEOMETRY(POINTZM, 0),           -- 4D centroid for similarity
-    hilbert_index   BYTEA,                          -- Hilbert index (128-bit as 16 bytes)
+    hilbert_lo      NUMERIC(20,0),                  -- Hilbert index (low 64 bits)
+    hilbert_hi      NUMERIC(20,0),                  -- Hilbert index (high 64 bits)
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_comp_centroid ON composition USING GIST(centroid);
-CREATE INDEX idx_comp_hilbert ON composition(hilbert_index);
+CREATE INDEX idx_comp_hilbert ON composition(hilbert_hi, hilbert_lo);
 CREATE INDEX idx_comp_label ON composition(label);
 CREATE INDEX idx_comp_depth ON composition(depth);
 

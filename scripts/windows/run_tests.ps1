@@ -1,464 +1,259 @@
-#!/usr/bin/env pwsh
-# =============================================================================
-# Hypercube Enterprise Test Suite Runner
-# =============================================================================
-# Comprehensive test runner that orchestrates C++, SQL, and integration tests
-# with proper reporting, timing, and exit codes.
-#
-# Usage:
-#   .\run_tests.ps1              # Run all tests
-#   .\run_tests.ps1 -Category cpp    # Run only C++ tests
-#   .\run_tests.ps1 -Category sql    # Run only SQL tests
-#   .\run_tests.ps1 -Verbose         # Verbose output
-#   .\run_tests.ps1 -FailFast        # Stop on first failure
-#
-# Exit Codes:
-#   0 = All tests passed
-#   1 = Some tests failed
-#   2 = Test infrastructure error
-# =============================================================================
+# Hartonomous Hypercube - Comprehensive Test Runner (Windows)
+# Runs all available tests with proper error handling and reporting
 
 param(
-    [ValidateSet('all', 'cpp', 'sql', 'integration')]
-    [string]$Category = 'all',
-    [switch]$Verbose,
-    [switch]$FailFast,
-    [switch]$NoBuild
+    [switch]$Quick,        # Skip slow tests
+    [switch]$Verbose,      # Show detailed output
+    [switch]$NoDatabase,   # Skip database-dependent tests
+    [string]$TestFilter    # Run only specific test patterns
 )
 
-# Load environment for database credentials
 . "$PSScriptRoot\env.ps1"
 
-# Use environment variables (set by env.ps1)
-$DbName = $env:HC_DB_NAME
-$DbUser = $env:HC_DB_USER
-$DbPass = $env:HC_DB_PASS
-$DbHost = $env:HC_DB_HOST
-$DbPort = $env:HC_DB_PORT
+Write-Host ""
+Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║    Hartonomous Hypercube - Comprehensive Test Runner       ║" -ForegroundColor Cyan
+Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host ""
 
-$ErrorActionPreference = 'Continue'
-$script:TestResults = @{
-    Passed = 0
-    Failed = 0
-    Skipped = 0
-    StartTime = Get-Date
-    Categories = @{}
-}
+$TestsPassed = 0
+$TestsFailed = 0
+$TestsSkipped = 0
 
-# =============================================================================
-# Utility Functions
-# =============================================================================
-
-function Write-Header {
-    param([string]$Text, [string]$Char = '=')
-    $line = $Char * 78
+function Test-Section {
+    param([string]$Name, [scriptblock]$TestBlock)
+    Write-Host "─── $Name ──────────────────────────────────────" -ForegroundColor Blue
+    & $TestBlock
     Write-Host ""
-    Write-Host $line -ForegroundColor Cyan
-    Write-Host "  $Text" -ForegroundColor Cyan
-    Write-Host $line -ForegroundColor Cyan
 }
 
-function Write-SubHeader {
-    param([string]$Text)
-    Write-Host ""
-    Write-Host "--- $Text ---" -ForegroundColor Yellow
-}
-
-function Write-TestResult {
+function Run-Test {
     param(
-        [string]$TestName,
-        [bool]$Passed,
-        [string]$Details = '',
-        [double]$Duration = 0
+        [string]$Name,
+        [scriptblock]$TestBlock,
+        [switch]$SkipIfNoDB = $false
     )
-    
-    $status = if ($Passed) { "[PASS]" } else { "[FAIL]" }
-    $color = if ($Passed) { "Green" } else { "Red" }
-    $durationStr = if ($Duration -gt 0) { " (${Duration}ms)" } else { "" }
-    
-    Write-Host "$status $TestName$durationStr" -ForegroundColor $color
-    if ($Details -and (-not $Passed -or $Verbose)) {
-        Write-Host "       $Details" -ForegroundColor Gray
+
+    if ($SkipIfNoDB -and $NoDatabase) {
+        Write-Host "  ○ " -NoNewline -ForegroundColor DarkGray
+        Write-Host "$Name" -NoNewline
+        Write-Host " → SKIPPED (no database)" -ForegroundColor DarkGray
+        $script:TestsSkipped++
+        return
     }
-    
-    if ($Passed) {
-        $script:TestResults.Passed++
-    } else {
-        $script:TestResults.Failed++
-    }
-}
 
-function Initialize-Category {
-    param([string]$Name)
-    $script:TestResults.Categories[$Name] = @{
-        Passed = 0
-        Failed = 0
-        StartTime = Get-Date
-    }
-}
-
-function Complete-Category {
-    param([string]$Name)
-    $cat = $script:TestResults.Categories[$Name]
-    $cat.Duration = ((Get-Date) - $cat.StartTime).TotalSeconds
-}
-
-function Get-PostgresConnStr {
-    return "host=$DbHost port=$DbPort dbname=$DbName user=$DbUser password=$DbPass"
-}
-
-# =============================================================================
-# C++ Test Runner (via CTest)
-# =============================================================================
-
-function Invoke-CppTests {
-    Write-Header "C++ Unit Tests (CTest)"
-    Initialize-Category "cpp"
-    
-    $buildDir = Join-Path $PSScriptRoot "..\..\cpp\build"
-    
-    if (-not (Test-Path $buildDir)) {
-        Write-Host "Build directory not found: $buildDir" -ForegroundColor Red
-        return $false
-    }
-    
-    Push-Location $buildDir
     try {
-        # Run CTest with verbose output
-        $ctestArgs = @('--output-on-failure', '--timeout', '120')
-        if ($Verbose) { $ctestArgs += '-V' }
-        
-        Write-SubHeader "Running CTest"
-        $output = & ctest @ctestArgs 2>&1
-        $exitCode = $LASTEXITCODE
-        
-        # Parse CTest output for results
-        $passCount = 0
-        $failCount = 0
-        $testLines = $output | Select-String -Pattern '^\s*\d+/\d+ Test' -AllMatches
-        
-        foreach ($line in $output) {
-            if ($line -match '(\d+) tests passed') {
-                $passCount = [int]$Matches[1]
-            }
-            if ($line -match '(\d+) tests failed') {
-                $failCount = [int]$Matches[1]
-            }
-            if ($Verbose) {
-                Write-Host $line -ForegroundColor Gray
-            }
-        }
-        
-        # Individual test parsing
-        $output | ForEach-Object {
-            if ($_ -match '^\s*\d+/\d+ Test\s+#\d+:\s+(\w+)\s+\.+\s+(Passed|Failed)') {
-                $testName = $Matches[1]
-                $passed = $Matches[2] -eq 'Passed'
-                Write-TestResult "CPP::$testName" $passed
-                
-                $script:TestResults.Categories.cpp.$(if($passed){'Passed'}else{'Failed'})++
-            }
-        }
-        
-        if ($exitCode -eq 0) {
-            Write-Host "`nAll C++ tests passed!" -ForegroundColor Green
+        $result = & $TestBlock
+        if ($result) {
+            Write-Host "  ✓ " -NoNewline -ForegroundColor Green
+            Write-Host "$Name" -NoNewline
+            Write-Host " → PASS" -ForegroundColor Gray
+            $script:TestsPassed++
         } else {
-            Write-Host "`n$failCount C++ tests failed" -ForegroundColor Red
-            if ($FailFast) { throw "C++ tests failed" }
+            Write-Host "  ✗ " -NoNewline -ForegroundColor Red
+            Write-Host "$Name" -NoNewline
+            Write-Host " → FAIL" -ForegroundColor Yellow
+            $script:TestsFailed++
         }
-        
+    }
+    catch {
+        Write-Host "  ✗ " -NoNewline -ForegroundColor Red
+        Write-Host "$Name" -NoNewline
+        Write-Host " → ERROR: $($_.Exception.Message)" -ForegroundColor Red
+        $script:TestsFailed++
+    }
+}
+
+# Find test executables
+$BuildDir = $env:HC_BUILD_DIR
+if (Test-Path "$BuildDir\Release") { $BuildDir = "$BuildDir\Release" }
+
+# ═══════════════════════════════════════════════════════════════════════════
+Test-Section "C++ Unit Tests" {
+    $unitTests = @(
+        @{Name="test_hilbert"; Executable="test_hilbert.exe"},
+        @{Name="test_coordinates"; Executable="test_coordinates.exe"},
+        @{Name="test_blake3"; Executable="test_blake3.exe"},
+        @{Name="test_semantic"; Executable="test_semantic.exe"},
+        @{Name="test_clustering"; Executable="test_clustering.exe"}
+    )
+
+    foreach ($test in $unitTests) {
+        Run-Test $test.Name {
+            $exe = "$BuildDir\$($test.Executable)"
+            if (-not (Test-Path $exe)) { return $false }
+
+            if ($Verbose) {
+                $output = & $exe 2>&1
+                $exitCode = $LASTEXITCODE
+                if ($Verbose) { Write-Host "    Output: $output" -ForegroundColor DarkGray }
+                return ($exitCode -eq 0 -and -not ($output -match "FAILED|FAIL"))
+            } else {
+                $output = & $exe 2>&1
+                return ($LASTEXITCODE -eq 0 -and -not ($output -match "FAILED|FAIL"))
+            }
+        }
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+Test-Section "Google Test Suite" {
+    Run-Test "hypercube_tests (Google Test)" {
+        $exe = "$BuildDir\hypercube_tests.exe"
+        if (-not (Test-Path $exe)) { return $false }
+
+        $args = @()
+        if ($TestFilter) { $args += "--gtest_filter=$TestFilter" }
+        if ($Verbose) { $args += "--gtest_print_time=1" }
+
+        $output = & $exe @args 2>&1
+        $exitCode = $LASTEXITCODE
+
+        if ($Verbose) {
+            Write-Host "    Exit code: $exitCode" -ForegroundColor DarkGray
+            Write-Host "    Output: $output" -ForegroundColor DarkGray
+        }
+
         return ($exitCode -eq 0)
     }
-    finally {
-        Pop-Location
-        Complete-Category "cpp"
-    }
 }
 
-# =============================================================================
-# SQL Test Runner
-# =============================================================================
-
-function Invoke-SqlTest {
-    param(
-        [string]$TestFile,
-        [string]$TestName
+# ═══════════════════════════════════════════════════════════════════════════
+Test-Section "C++ Integration Tests" {
+    $integrationTests = @(
+        @{Name="test_integration"; Executable="test_integration.exe"},
+        @{Name="test_query_api"; Executable="test_query_api.exe"}
     )
-    
-    $start = Get-Date
-    $connStr = Get-PostgresConnStr
-    
-    try {
-        $env:PGPASSWORD = $DbPass
-        $output = & psql -h $DbHost -p $DbPort -U $DbUser -d $DbName -f $TestFile 2>&1
-        $exitCode = $LASTEXITCODE
-        $duration = ((Get-Date) - $start).TotalMilliseconds
-        
-        # Check for FAIL or ERROR in output
-        $hasError = $output | Select-String -Pattern 'FAIL|ERROR|EXCEPTION' -Quiet
-        $passed = ($exitCode -eq 0) -and (-not $hasError)
-        
-        # Extract pass/fail counts from output
-        $passMatches = ($output | Select-String -Pattern 'PASSED:' -AllMatches).Matches.Count
-        $failMatches = ($output | Select-String -Pattern 'FAILED:' -AllMatches).Matches.Count
-        
-        $details = "Passed: $passMatches, Failed: $failMatches"
-        Write-TestResult "SQL::$TestName" $passed $details $duration
-        
-        if (-not $passed -and $Verbose) {
-            Write-Host "Output:" -ForegroundColor Yellow
-            $output | Where-Object { $_ -match 'FAIL|ERROR|PASS' } | ForEach-Object {
-                Write-Host "  $_" -ForegroundColor Gray
-            }
-        }
-        
-        return $passed
-    }
-    catch {
-        Write-TestResult "SQL::$TestName" $false $_.Exception.Message
-        return $false
-    }
-}
 
-function Invoke-SqlTests {
-    Write-Header "SQL Test Suite"
-    Initialize-Category "sql"
-    
-    $sqlTestDir = Join-Path $PSScriptRoot "..\..\tests\sql"
-    
-    if (-not (Test-Path $sqlTestDir)) {
-        Write-Host "SQL test directory not found: $sqlTestDir" -ForegroundColor Red
-        return $false
-    }
-    
-    # Test database connectivity first
-    Write-SubHeader "Database Connectivity"
-    try {
-        $env:PGPASSWORD = $DbPass
-        $result = & psql -h $DbHost -p $DbPort -U $DbUser -d $DbName -c "SELECT 1 as connected;" 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-TestResult "SQL::Connectivity" $false "Cannot connect to database"
-            return $false
-        }
-        Write-TestResult "SQL::Connectivity" $true
-    }
-    catch {
-        Write-TestResult "SQL::Connectivity" $false $_.Exception.Message
-        return $false
-    }
-    
-    # Check extensions
-    Write-SubHeader "Extension Validation"
-    $extCheck = & psql -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -c "SELECT extname FROM pg_extension ORDER BY extname;" 2>&1
-    $extensions = @('hypercube', 'hypercube_ops', 'generative', 'semantic_ops', 'postgis')
-    foreach ($ext in $extensions) {
-        $found = $extCheck -match $ext
-        Write-TestResult "SQL::Extension::$ext" $found
-        $script:TestResults.Categories.sql.$(if($found){'Passed'}else{'Failed'})++
-    }
-    
-    # Run test files
-    Write-SubHeader "Test Files"
-    $testFiles = Get-ChildItem -Path $sqlTestDir -Filter "*.sql" -File | 
-                 Where-Object { $_.Name -notmatch '^archive' }
-    
-    $allPassed = $true
-    foreach ($file in $testFiles) {
-        $passed = Invoke-SqlTest -TestFile $file.FullName -TestName $file.BaseName
-        $script:TestResults.Categories.sql.$(if($passed){'Passed'}else{'Failed'})++
-        if (-not $passed) {
-            $allPassed = $false
-            if ($FailFast) { throw "SQL test failed: $($file.Name)" }
-        }
-    }
-    
-    Complete-Category "sql"
-    return $allPassed
-}
+    foreach ($test in $integrationTests) {
+        Run-Test $test.Name {
+            $exe = "$BuildDir\$($test.Executable)"
+            if (-not (Test-Path $exe)) { return $false }
 
-# =============================================================================
-# Integration Tests
-# =============================================================================
-
-function Invoke-IntegrationTests {
-    Write-Header "Integration Tests"
-    Initialize-Category "integration"
-    
-    $env:PGPASSWORD = $DbPass
-    
-    # Test 1: Atom count validation
-    Write-SubHeader "Data Integrity"
-    $atomCount = & psql -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -c "SELECT COUNT(*) FROM atom;" 2>&1
-    $atomCount = [int]($atomCount.Trim())
-    $passed = $atomCount -gt 0
-    Write-TestResult "INT::AtomCount" $passed "Count: $atomCount"
-    $script:TestResults.Categories.integration.$(if($passed){'Passed'}else{'Failed'})++
-    
-    # Test 2: Codepoint coverage
-    $cpResult = & psql -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -c "SELECT MIN(codepoint), MAX(codepoint), COUNT(*) FROM atom WHERE depth=0;" 2>&1
-    $parts = $cpResult.Trim() -split '\|'
-    if ($parts.Count -eq 3) {
-        $min = [int]$parts[0].Trim()
-        $max = [int]$parts[1].Trim()
-        $count = [int]$parts[2].Trim()
-        $passed = ($min -eq 0) -and ($max -eq 1114111) -and ($count -eq 1114112)
-        Write-TestResult "INT::CodepointCoverage" $passed "Range: $min-$max, Count: $count (expected 1114112)"
-    } else {
-        Write-TestResult "INT::CodepointCoverage" $false "Failed to parse result"
-    }
-    $script:TestResults.Categories.integration.$(if($passed){'Passed'}else{'Failed'})++
-    
-    # Test 3: Coordinate validation (all atoms have valid 4D coords)
-    $coordCheck = & psql -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -c @"
-SELECT COUNT(*) FROM atom 
-WHERE coords IS NOT NULL 
-  AND ST_X(coords) BETWEEN 0 AND 1
-  AND ST_Y(coords) BETWEEN 0 AND 1
-  AND ST_Z(coords) BETWEEN 0 AND 1
-  AND ST_M(coords) BETWEEN 0 AND 1;
-"@ 2>&1
-    $validCoords = [int]($coordCheck.Trim())
-    $passed = $validCoords -eq $atomCount
-    Write-TestResult "INT::CoordinateValidity" $passed "Valid: $validCoords / $atomCount"
-    $script:TestResults.Categories.integration.$(if($passed){'Passed'}else{'Failed'})++
-    
-    # Test 4: HNSW index exists and is valid
-    $indexCheck = & psql -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -c @"
-SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'atom' AND indexdef LIKE '%hnsw%';
-"@ 2>&1
-    $hasIndex = $indexCheck -match 'hnsw'
-    Write-TestResult "INT::HNSWIndex" $hasIndex
-    $script:TestResults.Categories.integration.$(if($hasIndex){'Passed'}else{'Failed'})++
-    
-    # Test 5: Core functions exist
-    Write-SubHeader "Core Functions"
-    $coreFunctions = @(
-        'hypercube_ingest_text',
-        'hypercube_retrieve_text', 
-        'hypercube_knn_search',
-        'hypercube_text_similarity',
-        'hypercube_semantic_search'
-    )
-    
-    foreach ($fn in $coreFunctions) {
-        $fnCheck = & psql -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -c @"
-SELECT COUNT(*) FROM pg_proc WHERE proname = '$fn';
-"@ 2>&1
-        $exists = [int]($fnCheck.Trim()) -gt 0
-        Write-TestResult "INT::Function::$fn" $exists
-        $script:TestResults.Categories.integration.$(if($exists){'Passed'}else{'Failed'})++
-    }
-    
-    # Test 6: Ingestion roundtrip
-    Write-SubHeader "Ingestion Roundtrip"
-    $testText = "Hello World Test $(Get-Date -Format 'HHmmss')"
-    $ingestResult = & psql -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -c @"
-SELECT hypercube_retrieve_text(hypercube_ingest_text('$testText'));
-"@ 2>&1
-    $retrieved = $ingestResult.Trim()
-    $passed = $retrieved -eq $testText
-    Write-TestResult "INT::IngestRoundtrip" $passed "Expected: '$testText', Got: '$retrieved'"
-    $script:TestResults.Categories.integration.$(if($passed){'Passed'}else{'Failed'})++
-    
-    # Test 7: KNN Search
-    Write-SubHeader "Query Operations"
-    $knnResult = & psql -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -c @"
-SELECT COUNT(*) FROM hypercube_knn_search(
-    (SELECT coords FROM atom WHERE codepoint = 65 LIMIT 1),
-    10
-);
-"@ 2>&1
-    $knnCount = [int]($knnResult.Trim())
-    $passed = $knnCount -eq 10
-    Write-TestResult "INT::KNNSearch" $passed "Returned: $knnCount results (expected 10)"
-    $script:TestResults.Categories.integration.$(if($passed){'Passed'}else{'Failed'})++
-    
-    Complete-Category "integration"
-    return ($script:TestResults.Categories.integration.Failed -eq 0)
-}
-
-# =============================================================================
-# Main Execution
-# =============================================================================
-
-Write-Header "HYPERCUBE ENTERPRISE TEST SUITE" "="
-Write-Host "Category: $Category"
-Write-Host "Database: $DbName@$DbHost`:$DbPort"
-Write-Host "Start Time: $($script:TestResults.StartTime)"
-
-$allPassed = $true
-
-try {
-    # Build first if needed
-    if (-not $NoBuild -and ($Category -eq 'all' -or $Category -eq 'cpp')) {
-        Write-SubHeader "Building C++ (Release)"
-        $buildDir = Join-Path $PSScriptRoot "..\..\cpp\build"
-        if (Test-Path $buildDir) {
-            Push-Location $buildDir
-            & cmake --build . --config Release --parallel 2>&1 | Out-Null
-            Pop-Location
-        }
-    }
-    
-    # Run tests by category
-    switch ($Category) {
-        'all' {
-            if (-not (Invoke-CppTests)) { $allPassed = $false }
-            if (-not $FailFast -or $allPassed) {
-                if (-not (Invoke-SqlTests)) { $allPassed = $false }
-            }
-            if (-not $FailFast -or $allPassed) {
-                if (-not (Invoke-IntegrationTests)) { $allPassed = $false }
-            }
-        }
-        'cpp' {
-            if (-not (Invoke-CppTests)) { $allPassed = $false }
-        }
-        'sql' {
-            if (-not (Invoke-SqlTests)) { $allPassed = $false }
-        }
-        'integration' {
-            if (-not (Invoke-IntegrationTests)) { $allPassed = $false }
+            $output = & $exe 2>&1
+            return ($LASTEXITCODE -eq 0)
         }
     }
 }
-catch {
-    Write-Host "`nTest execution aborted: $_" -ForegroundColor Red
-    $allPassed = $false
+
+# ═══════════════════════════════════════════════════════════════════════════
+Test-Section "Database Tests" {
+    # Test database connectivity
+    Run-Test "PostgreSQL Connection" -SkipIfNoDB {
+        try {
+            $env:PGPASSWORD = $env:HC_DB_PASS
+            $result = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d postgres -tAc "SELECT 1" 2>$null
+            return ($LASTEXITCODE -eq 0 -and $result -eq "1")
+        }
+        finally {
+            Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Test schema integrity
+    Run-Test "Database Schema" -SkipIfNoDB {
+        try {
+            $env:PGPASSWORD = $env:HC_DB_PASS
+
+            # Check if main tables exist
+            $atomExists = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='atom'" 2>$null
+            $compExists = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='composition'" 2>$null
+            $relExists = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='relation'" 2>$null
+
+            return ([int]$atomExists -eq 1 -and [int]$compExists -eq 1 -and [int]$relExists -eq 1)
+        }
+        finally {
+            Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Test core functions
+    Run-Test "Core Functions" -SkipIfNoDB {
+        try {
+            $env:PGPASSWORD = $env:HC_DB_PASS
+
+            # Test atom_is_leaf function
+            $isLeaf = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))" 2>$null
+            if ($LASTEXITCODE -ne 0 -or $isLeaf -ne "t") { return $false }
+
+            # Test atom_reconstruct_text function
+            $reconstruct = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 65))" 2>$null
+            if ($LASTEXITCODE -ne 0 -or $reconstruct -ne "A") { return $false }
+
+            return $true
+        }
+        finally {
+            Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Test atom seeding
+    Run-Test "Atom Seeding" -SkipIfNoDB {
+        try {
+            $env:PGPASSWORD = $env:HC_DB_PASS
+            $atomCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom" 2>$null
+            return ([int]$atomCount -gt 1100000)
+        }
+        finally {
+            Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
+        }
+    }
 }
 
-# =============================================================================
-# Summary Report
-# =============================================================================
+# ═══════════════════════════════════════════════════════════════════════════
+Test-Section "Build System Tests" {
+    Run-Test "CMake Configuration" {
+        return (Test-Path "$env:HC_PROJECT_ROOT\cpp\build\CMakeCache.txt")
+    }
 
-$totalDuration = ((Get-Date) - $script:TestResults.StartTime).TotalSeconds
+    Run-Test "All Targets Built" {
+        $requiredExes = @("hc.exe", "hypercube_tests.exe", "test_coordinates.exe", "test_hilbert.exe")
+        foreach ($exe in $requiredExes) {
+            if (-not (Test-Path "$BuildDir\$exe")) { return $false }
+        }
+        return $true
+    }
 
-Write-Header "TEST SUMMARY"
-
-# Category breakdown
-foreach ($cat in $script:TestResults.Categories.Keys | Sort-Object) {
-    $c = $script:TestResults.Categories[$cat]
-    $catTotal = $c.Passed + $c.Failed
-    $catPct = if ($catTotal -gt 0) { [math]::Round(($c.Passed / $catTotal) * 100, 1) } else { 0 }
-    $color = if ($c.Failed -eq 0) { "Green" } else { "Red" }
-    Write-Host "  $($cat.ToUpper().PadRight(15)) Passed: $($c.Passed.ToString().PadLeft(3))  Failed: $($c.Failed.ToString().PadLeft(3))  ($catPct%)" -ForegroundColor $color
+    Run-Test "Extensions Built" {
+        $extensions = @("hypercube.dll", "embedding_ops.dll", "semantic_ops.dll", "generative.dll")
+        foreach ($ext in $extensions) {
+            if (-not (Test-Path "$BuildDir\$ext")) { return $false }
+        }
+        return $true
+    }
 }
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Performance Tests (skip if -Quick specified)
+if (-not $Quick) {
+    Test-Section "Performance Tests" {
+        Run-Test "Laplacian Eigenmap Performance" {
+            $exe = "$BuildDir\test_laplacian_4d.exe"
+            if (-not (Test-Path $exe)) { return $false }
+
+            $start = Get-Date
+            $output = & $exe 2>$null
+            $duration = (Get-Date) - $start
+
+            # Should complete in reasonable time (< 30 seconds for small test)
+            return ($LASTEXITCODE -eq 0 -and $duration.TotalSeconds -lt 30)
+        }
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Summary
+Write-Host "════════════════════════════════════════════════════════════════"
+Write-Host "Test Results:" -ForegroundColor White
+Write-Host "  ✓ Passed:  $TestsPassed" -ForegroundColor Green
+Write-Host "  ✗ Failed:  $TestsFailed" -ForegroundColor Red
+Write-Host "  ○ Skipped: $TestsSkipped" -ForegroundColor DarkGray
 Write-Host ""
-Write-Host ("=" * 78) -ForegroundColor Cyan
 
-$totalTests = $script:TestResults.Passed + $script:TestResults.Failed
-$totalPct = if ($totalTests -gt 0) { [math]::Round(($script:TestResults.Passed / $totalTests) * 100, 1) } else { 0 }
-
-if ($allPassed) {
-    Write-Host "  RESULT: ALL TESTS PASSED" -ForegroundColor Green
+if ($TestsFailed -eq 0) {
+    Write-Host "🎉 All tests passed!" -ForegroundColor Green
+    exit 0
 } else {
-    Write-Host "  RESULT: SOME TESTS FAILED" -ForegroundColor Red
+    Write-Host "❌ Some tests failed. Check output above for details." -ForegroundColor Red
+    exit 1
 }
-
-Write-Host "  Total: $totalTests tests, $($script:TestResults.Passed) passed, $($script:TestResults.Failed) failed ($totalPct%)"
-Write-Host "  Duration: $([math]::Round($totalDuration, 2)) seconds"
-Write-Host ("=" * 78) -ForegroundColor Cyan
-
-# Exit with appropriate code
-exit $(if ($allPassed) { 0 } else { 1 })

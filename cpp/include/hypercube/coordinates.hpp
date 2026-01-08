@@ -12,7 +12,8 @@ namespace hypercube {
  * Avoids redundant Hilbert encode/decode roundtrip
  */
 struct CodepointMapping {
-    Point4D coords;
+    Point4F coords_float;  // Canonical floating-point coordinates on S³
+    Point4D coords;        // Quantized coordinates for indexing
     HilbertIndex hilbert;
 };
 
@@ -71,6 +72,13 @@ public:
      * @return Centroid point (interior for surface points)
      */
     static Point4D centroid(const std::vector<Point4D>& points) noexcept;
+
+    /**
+     * Calculate centroid of multiple float points (canonical for geometry)
+     * @param points Vector of 4F points
+     * @return Centroid point (normalized to S³ surface)
+     */
+    static Point4F centroid_float(const std::vector<Point4F>& points) noexcept;
     
     /**
      * Calculate weighted centroid

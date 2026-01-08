@@ -1,0 +1,3 @@
+[submodule "external/superfibonacci"]
+	path = external/superfibonacci
+	url = https://github.com/marcalexa/superfibonacci.git

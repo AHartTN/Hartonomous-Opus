@@ -1,0 +1,224 @@
+[1/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/hilbert.cpp.obj
+[2/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/geometry.cpp.obj
+[3/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.obj
+[4/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/atom_calculator.cpp.obj
+[5/86] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.obj
+[6/86] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.obj
+[7/86] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.obj
+[8/86] Building C object CMakeFiles/semantic_ops.dir/src/pg/semantic_ops_pg.c.obj
+[9/86] Building CXX object CMakeFiles/hypercube_core.dir/src/util/utf8.cpp.obj
+[10/86] Building CXX object CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.obj
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:138:18: warning: unused variable 'dist1' [-Wunused-variable]
+  138 |     HilbertIndex dist1 = HilbertIndex::abs_distance(a, b);
+      |                  ^~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:139:18: warning: unused variable 'dist2' [-Wunused-variable]
+  139 |     HilbertIndex dist2 = HilbertIndex::abs_distance(b, a);
+      |                  ^~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:146:18: warning: unused variable 'zero' [-Wunused-variable]
+  146 |     HilbertIndex zero(0, 0);
+      |                  ^~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:147:18: warning: unused variable 'dist_zero' [-Wunused-variable]
+  147 |     HilbertIndex dist_zero = HilbertIndex::abs_distance(a, a);
+      |                  ^~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:184:13: warning: unused variable 'raw_coords' [-Wunused-variable]
+  184 |     Point4D raw_coords = HilbertCurve::index_to_raw_coords(idx);
+      |             ^~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:208:18: warning: unused variable 'i1' [-Wunused-variable]
+  208 |     HilbertIndex i1 = HilbertCurve::coords_to_index(p1);
+      |                  ^~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:209:18: warning: unused variable 'i2' [-Wunused-variable]
+  209 |     HilbertIndex i2 = HilbertCurve::coords_to_index(p2);
+      |                  ^~
+7 warnings generated.
+[11/86] Building C object CMakeFiles/hypercube_ops.dir/src/pg/hypercube_ops_pg.c.obj
+[12/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
+[13/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
+[14/86] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
+[15/86] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
+[16/86] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.obj
+[17/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.obj
+[18/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.obj
+[19/86] Building CXX object CMakeFiles/test_coordinates.dir/tests/test_coordinates.cpp.obj
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:249:13: warning: unused variable 'coords1' [-Wunused-variable]
+  249 |     Point4D coords1 = CoordinateMapper::map_codepoint(test_cp);
+      |             ^~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:250:13: warning: unused variable 'coords2' [-Wunused-variable]
+  250 |     Point4D coords2 = CoordinateMapper::map_codepoint(test_cp);
+      |             ^~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:263:17: warning: unused variable 'coords' [-Wunused-variable]
+  263 |         Point4D coords = CoordinateMapper::map_codepoint(cp);
+      |                 ^~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:406:18: warning: unused variable 'q1' [-Wunused-variable]
+  406 |         uint32_t q1 = quantize_unit_to_u32(v);
+      |                  ^~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:407:18: warning: unused variable 'q2' [-Wunused-variable]
+  407 |         uint32_t q2 = quantize_unit_to_u32(v + 0.001);
+      |                  ^~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:536:22: warning: unused variable 'hilbert2' [-Wunused-variable]
+  536 |         HilbertIndex hilbert2 = HilbertCurve::coords_to_index(coords);
+      |                      ^~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:782:17: warning: unused variable 'coords' [-Wunused-variable]
+  782 |         Point4D coords = mapping.coords;
+      |                 ^~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:785:18: warning: unused variable 'expected_x' [-Wunused-variable]
+  785 |         uint32_t expected_x = 0x80000000U ^ 0x7FFFFFFFU;
+      |                  ^~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:804:14: warning: unused variable 'normal_key' [-Wunused-variable]
+  804 |     uint64_t normal_key = (static_cast<uint64_t>(normal.x) << 32) | normal.y;
+      |              ^~~~~~~~~~
+9 warnings generated.
+[20/86] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj
+[21/86] Building CXX object CMakeFiles/test_clustering.dir/tests/test_clustering.cpp.obj
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_clustering.cpp:77:12: warning: unused variable 'avg_case_distance' [-Wunused-variable]
+   77 |     double avg_case_distance = total_case_distance / case_pairs.size();
+      |            ^~~~~~~~~~~~~~~~~
+1 warning generated.
+[22/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
+[23/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
+[24/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.obj
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:663:24: warning: unused variable 'CENTER' [-Wunused-variable]
+  663 |     constexpr uint32_t CENTER = 0x80000000U;
+      |                        ^~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:1082:10: warning: unused variable 'tangent_basis' [-Wunused-variable]
+ 1082 |     auto tangent_basis = [](const Point4F& p) -> std::array<Point4F, 3> {
+      |          ^~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:1226:12: warning: variable 'prev_energy' set but not used [-Wunused-but-set-variable]
+ 1226 |     double prev_energy = 0.0;
+      |            ^
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:84:17: warning: unused function 'quantize_unit_to_u32' [-Wunused-function]
+   84 | static uint32_t quantize_unit_to_u32(double v) noexcept {
+      |                 ^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:168:10: warning: unused function 'get_script_id' [-Wunused-function]
+  168 | uint32_t get_script_id(uint32_t cp) {
+      |          ^~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:201:10: warning: unused function 'case_fold' [-Wunused-function]
+  201 | uint32_t case_fold(uint32_t cp) {
+      |          ^~~~~~~~~
+6 warnings generated.
+[25/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/projection_db.cpp.obj
+[26/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/parallel_cpe.cpp.obj
+[27/86] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.obj
+[28/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.obj
+[29/86] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.obj
+[30/86] Building CXX object CMakeFiles/test_integration.dir/tests/test_integration.cpp.obj
+[31/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_io.cpp:9:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[32/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.obj
+[33/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_main.cpp.obj
+[34/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/compositions.cpp:9:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[35/86] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.obj
+[36/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_blake3.cpp.obj
+[37/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
+[38/86] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
+[39/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_coordinates.cpp.obj
+[40/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
+[41/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.obj
+[42/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
+[43/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_hierarchy.cpp:9:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[44/86] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
+[45/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_schema.cpp.obj
+[46/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.obj
+[47/86] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
+[48/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_query_api.cpp.obj
+[49/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.obj
+[50/86] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.obj
+[51/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[52/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/embedding_relations.cpp:9:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[53/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/multimodal_extraction.cpp:15:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[54/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
+[55/86] Linking CXX executable vocab_extract.exe
+[56/86] Linking CXX executable vocab_ingest.exe
+[57/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.obj
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:752:15: warning: unused variable 'sim' [-Wunused-variable]
+  752 |         float sim = embedding::cosine_similarity(
+      |               ^~~
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:59:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:836:41: warning: unused function 'feast_sparse_eigensolver' [-Wunused-function]
+  836 | static std::vector<std::vector<double>> feast_sparse_eigensolver(
+      |                                         ^~~~~~~~~~~~~~~~~~~~~~~~
+3 warnings generated.
+[58/86] Linking CXX static library hypercube_core.lib
+[59/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/semantic_extraction.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/semantic_extraction.cpp:14:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[60/86] Linking CXX executable model_discovery.exe
+[61/86] Linking CXX static library hypercube_ingest.lib
+[62/86] Linking CXX shared library hypercube_c.dll
+[63/86] Linking CXX shared library generative_c.dll
+[64/86] Linking CXX executable test_hilbert.exe
+[65/86] Linking CXX shared library embedding_c.dll
+[66/86] Linking CXX executable test_semantic.exe
+[67/86] Linking CXX executable test_coordinates.exe
+[68/86] Linking CXX executable test_clustering.exe
+[69/86] Linking CXX executable test_laplacian_4d.exe
+[70/86] Linking CXX executable test_blake3.exe
+[71/86] Linking CXX executable test_integration.exe
+[72/86] Linking CXX executable test_query_api.exe
+[73/86] Linking CXX executable hypercube_tests.exe
+[74/86] Linking CXX executable seed_atoms_parallel.exe
+[75/86] Linking CXX executable extract_embeddings.exe
+[76/86] Linking CXX executable ingest.exe
+[77/86] Linking CXX executable hypercube_sql_tests.exe
+[78/86] Linking C shared library semantic_ops.dll
+[79/86] Linking C shared library hypercube.dll
+[80/86] Linking C shared library hypercube_ops.dll
+[81/86] Linking C shared library generative.dll
+[82/86] Linking C shared library embedding_ops.dll
+[83/86] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:39:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[84/86] Building CXX object CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/tools/ingest_safetensor_modular.cpp:66:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[85/86] Linking CXX executable hc.exe
+[86/86] Linking CXX executable ingest_safetensor.exe

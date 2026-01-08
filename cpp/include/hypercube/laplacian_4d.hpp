@@ -103,6 +103,12 @@ public:
     // Get row degree (sum of off-diagonal weights)
     double get_degree(size_t i) const;
     
+    // Validate CSR structure (for debugging)
+    bool validate_csr() const;
+
+    // Check if matrix is symmetric
+    bool is_symmetric() const;
+
     // Direct access to CSR structure for MKL/external solvers
     const std::vector<size_t>& row_ptr() const { return row_ptr_; }
     const std::vector<size_t>& col_idx() const { return col_idx_; }

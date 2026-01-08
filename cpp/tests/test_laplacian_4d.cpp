@@ -103,7 +103,7 @@ TEST(sparse_matrix_basic) {
 
 TEST(sparse_matrix_multiply) {
     SparseSymmetricMatrix M(3);
-    
+
     // Adjacency matrix:
     // [0, 1, 0]
     // [1, 0, 1]
@@ -111,22 +111,26 @@ TEST(sparse_matrix_multiply) {
     M.add_edge(0, 1, 1.0);
     M.add_edge(1, 2, 1.0);
     M.finalize();
-    
+
     // Set diagonal
     M.set_diagonal(0, 1.0);
     M.set_diagonal(1, 2.0);
     M.set_diagonal(2, 1.0);
-    
+
     // Matrix is now:
     // [1, 1, 0]
     // [1, 2, 1]
     // [0, 1, 1]
-    
+
     std::vector<double> x = {1.0, 1.0, 1.0};
     std::vector<double> y(3);
-    
+
     M.multiply(x, y);
-    
+
+    // Debug logs
+    std::cerr << "[DEBUG] x = [" << x[0] << ", " << x[1] << ", " << x[2] << "]\n";
+    std::cerr << "[DEBUG] y = [" << y[0] << ", " << y[1] << ", " << y[2] << "]\n";
+
     ASSERT_NEAR(y[0], 2.0, 1e-10);  // 1*1 + 1*1 + 0*1 = 2
     ASSERT_NEAR(y[1], 4.0, 1e-10);  // 1*1 + 2*1 + 1*1 = 4
     ASSERT_NEAR(y[2], 2.0, 1e-10);  // 0*1 + 1*1 + 1*1 = 2
