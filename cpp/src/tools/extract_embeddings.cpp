@@ -44,147 +44,60 @@
 #include "hypercube/embedding_ops.hpp"  // Centralized SIMD operations
 #include "hypercube/db/helpers.hpp"     // DB accessor helpers
 
+// Shared safetensor parsing includes
+#include "hypercube/ingest/safetensor.hpp"
+#include "hypercube/ingest/parsing.hpp"
+
 using namespace hypercube;
+using namespace hypercube::safetensor;
 
-// Safetensor header structures (JSON parsed manually)
-struct TensorInfo {
-    std::string name;
-    std::string dtype;
-    std::vector<int64_t> shape;
-    size_t offset_start;
-    size_t offset_end;
-};
+// Parse safetensor header using shared parsing library
+std::vector<TensorMeta> parse_safetensor_header(const std::string& filepath) {
+    std::vector<TensorMeta> tensors;
 
-// Parse safetensor header (JSON)
-std::vector<TensorInfo> parse_safetensor_header(const std::string& filepath) {
-    std::vector<TensorInfo> tensors;
+    // Create a temporary context for parsing
+    hypercube::ingest::IngestContext ctx;
 
-    std::ifstream file(filepath, std::ios::binary);
-    if (!file.is_open()) {
-        std::cerr << "Error: Cannot open " << filepath << std::endl;
+    // Use shared parsing function
+    if (!hypercube::ingest::parse_safetensor_header(ctx, filepath)) {
         return tensors;
     }
 
-    // Read header size (8 bytes, little-endian uint64)
-    uint64_t header_size;
-    file.read(reinterpret_cast<char*>(&header_size), 8);
-
-    // Read header JSON
-    std::string header(header_size, '\0');
-    file.read(&header[0], header_size);
-
-    // Simple JSON parsing (no external library)
-    // Format: {"tensor_name": {"dtype": "F32", "shape": [30522, 384], "data_offsets": [0, 46881408]}, ...}
-
-    size_t pos = 0;
-    while ((pos = header.find("\"dtype\"", pos)) != std::string::npos) {
-        TensorInfo info;
-
-        // Find tensor name (go back to find the key)
-        size_t key_end = header.rfind("\":", pos);
-        size_t key_start = header.rfind("\"", key_end - 1);
-        if (key_start != std::string::npos && key_end != std::string::npos) {
-            info.name = header.substr(key_start + 1, key_end - key_start - 1);
-        }
-
-        // Parse dtype
-        size_t dtype_start = header.find("\"", pos + 7);
-        size_t dtype_end = header.find("\"", dtype_start + 1);
-        info.dtype = header.substr(dtype_start + 1, dtype_end - dtype_start - 1);
-
-        // Parse shape
-        size_t shape_start = header.find("[", dtype_end);
-        size_t shape_end = header.find("]", shape_start);
-        std::string shape_str = header.substr(shape_start + 1, shape_end - shape_start - 1);
-
-        // Extract shape values
-        size_t s = 0;
-        while (s < shape_str.size()) {
-            while (s < shape_str.size() && !isdigit(shape_str[s])) s++;
-            if (s >= shape_str.size()) break;
-            size_t e = s;
-            while (e < shape_str.size() && isdigit(shape_str[e])) e++;
-            info.shape.push_back(std::stoll(shape_str.substr(s, e - s)));
-            s = e;
-        }
-
-        // Parse data_offsets
-        size_t offsets_start = header.find("data_offsets", shape_end);
-        if (offsets_start != std::string::npos) {
-            size_t arr_start = header.find("[", offsets_start);
-            size_t arr_end = header.find("]", arr_start);
-            std::string off_str = header.substr(arr_start + 1, arr_end - arr_start - 1);
-
-            size_t comma = off_str.find(",");
-            info.offset_start = std::stoull(off_str.substr(0, comma));
-            info.offset_end = std::stoull(off_str.substr(comma + 1));
-        }
-
-        if (!info.name.empty() && info.name != "__metadata__") {
-            tensors.push_back(info);
-        }
-
-        pos = shape_end;
+    // Extract tensors from context
+    for (const auto& [name, meta] : ctx.tensors) {
+        tensors.push_back(meta);
     }
 
     return tensors;
 }
 
-// Load embedding tensor as float array
-std::vector<float> load_embedding_tensor(const std::string& filepath, const TensorInfo& info) {
+// Load embedding tensor as float array using shared safetensor library
+std::vector<float> load_embedding_tensor(const std::string& filepath, const TensorMeta& meta) {
     std::vector<float> data;
 
     // Calculate expected size
-    size_t num_elements = 1;
-    for (auto dim : info.shape) {
-        num_elements *= dim;
-    }
+    size_t num_elements = meta.element_count();
 
-    // Verify dtype
-    if (info.dtype != "F32" && info.dtype != "F16") {
-        std::cerr << "Warning: Unsupported dtype " << info.dtype << " for " << info.name << std::endl;
+    // Verify dtype and shape
+    if ((meta.dtype != "F32" && meta.dtype != "F16") || meta.shape.size() != 2) {
+        std::cerr << "Warning: Unsupported dtype " << meta.dtype << " or shape for " << meta.name << std::endl;
         return data;
     }
 
-    std::ifstream file(filepath, std::ios::binary);
-    if (!file.is_open()) return data;
+    // Use shared MappedFile for efficient loading
+    MappedFile mf;
+    if (!mf.map(filepath)) {
+        std::cerr << "Error: Cannot map file " << filepath << std::endl;
+        return data;
+    }
 
-    // Read header size
-    uint64_t header_size;
-    file.read(reinterpret_cast<char*>(&header_size), 8);
+    data.reserve(num_elements);
 
-    // Seek to tensor data
-    size_t data_start = 8 + header_size + info.offset_start;
-    file.seekg(data_start);
+    // Load data using shared functions
+    const uint8_t* data_ptr = mf.data() + 8 + meta.data_offset_start; // Skip header
 
-    if (info.dtype == "F32") {
-        data.resize(num_elements);
-        file.read(reinterpret_cast<char*>(data.data()), num_elements * sizeof(float));
-    } else if (info.dtype == "F16") {
-        // Convert F16 to F32
-        std::vector<uint16_t> f16_data(num_elements);
-        file.read(reinterpret_cast<char*>(f16_data.data()), num_elements * 2);
-
-        data.resize(num_elements);
-        for (size_t i = 0; i < num_elements; i++) {
-            // Simple F16 to F32 conversion
-            uint16_t h = f16_data[i];
-            uint32_t sign = (h & 0x8000) << 16;
-            uint32_t exp = (h & 0x7C00) >> 10;
-            uint32_t mant = (h & 0x03FF) << 13;
-
-            if (exp == 0) {
-                // Subnormal or zero
-                data[i] = 0.0f;
-            } else if (exp == 31) {
-                // Inf or NaN
-                uint32_t f32 = sign | 0x7F800000 | mant;
-                memcpy(&data[i], &f32, 4);
-            } else {
-                uint32_t f32 = sign | ((exp + 112) << 23) | mant;
-                memcpy(&data[i], &f32, 4);
-            }
-        }
+    for (size_t i = 0; i < num_elements; ++i) {
+        data.push_back(read_element(data_ptr, i, meta.dtype));
     }
 
     return data;
@@ -504,7 +417,7 @@ int main(int argc, char* argv[]) {
             if (i > 0) std::cerr << ", ";
             std::cerr << t.shape[i];
         }
-        std::cerr << "] (" << (t.offset_end - t.offset_start) << " bytes)\n";
+        std::cerr << "] (" << t.byte_size() << " bytes)\n";
     }
 
     if (list_only) {
@@ -512,7 +425,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Find embedding tensor
-    TensorInfo* embedding_tensor = nullptr;
+    TensorMeta* embedding_tensor = nullptr;
     for (auto& t : tensors) {
         if (!tensor_name.empty() && t.name == tensor_name) {
             embedding_tensor = &t;

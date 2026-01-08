@@ -5,7 +5,7 @@
  * high-dimensional model embeddings into the 4D hypercube coordinate space.
  * 
  * Key differences from manifold_4d.cpp:
- * - Uses UNNORMALIZED Laplacian (L = D - W) per spec
+ * - Uses NORMALIZED Laplacian (L_sym = I - D^(-1/2) * W * D^(-1/2)) per spec
  * - Applies Gram-Schmidt to COLUMNS of eigenvector matrix
  * - Direct integration with safetensor ingestion (no shape table)
  * - Outputs directly to atom/composition tables
@@ -766,41 +766,33 @@ void LaplacianProjector::ensure_connectivity(
 SparseSymmetricMatrix LaplacianProjector::build_laplacian(const SparseSymmetricMatrix& W) {
     const size_t n = W.size();
     SparseSymmetricMatrix L(n);
-
-    // Set diagonal to degree: D_ii = sum_j W_ij
-    std::vector<size_t> degree_zero_vertices;
+    
+    // 1. Compute Degrees
+    std::vector<double> inv_sqrt_degree(n, 0.0);
     for (size_t i = 0; i < n; ++i) {
-        double degree = W.get_degree(i);
-        L.set_diagonal(i, degree);
-        if (degree == 0.0) {
-            degree_zero_vertices.push_back(i);
+        double deg = W.get_degree(i);
+        if (deg > 1e-12) {
+            inv_sqrt_degree[i] = 1.0 / std::sqrt(deg);
         }
     }
 
-    // Report degree-0 vertices (these cause eigenmap failure)
-    if (!degree_zero_vertices.empty()) {
-        std::cerr << "[ERROR] Laplacian has " << degree_zero_vertices.size()
-                  << " degree-0 vertices - eigenmap will fail!\n";
+    // 2. Build Normalized Laplacian: L_sym = I - D^(-1/2) * W * D^(-1/2)
+    // Diagonal is 1.0 (unless degree is 0)
+    for (size_t i = 0; i < n; ++i) {
+        if (W.get_degree(i) > 1e-12) {
+            L.set_diagonal(i, 1.0);
+        } else {
+            L.set_diagonal(i, 0.0); // Disconnected node handling
+        }
     }
 
-    // Copy structure from W but negate values for off-diagonal
-    // L = D - W, so off-diagonal entries are -W_ij
+    // Off-diagonals: -W_ij / sqrt(d_i * d_j)
     W.for_each_edge([&](size_t i, size_t j, double w) {
-        L.add_edge(i, j, -w);
+        double val = -w * inv_sqrt_degree[i] * inv_sqrt_degree[j];
+        L.add_edge(i, j, val);
     });
 
     L.finalize();
-    
-    // Validate Laplacian (silent unless error)
-    std::vector<double> ones(n, 1.0), Lones(n);
-    L.matvec(ones.data(), Lones.data());
-    double norm_L1 = 0.0;
-    for (size_t i = 0; i < n; ++i) norm_L1 += Lones[i] * Lones[i];
-    norm_L1 = std::sqrt(norm_L1);
-    if (norm_L1 > 1e-1 || std::isnan(norm_L1) || std::isinf(norm_L1)) {
-        std::cerr << "[ERROR] Laplacian validation failed: ||L*1|| = " << norm_L1 << "\n";
-    }
-    
     return L;
 }
 
@@ -1317,38 +1309,65 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
 }
 
 void LaplacianProjector::gram_schmidt_columns(std::vector<std::vector<double>>& Y) {
-    // Y is a list of column vectors, each of length n
-    // We orthonormalize them in-place
-    
     const int k = static_cast<int>(Y.size());
     if (k == 0) return;
     
     const size_t n = Y[0].size();
-    
-    std::cerr << "[GS] Gram-Schmidt orthonormalization on " << k << " columns of length " << n << "\n";
-    
-    for (int j = 0; j < k; ++j) {
-        // Subtract projections onto previous columns
-        for (int i = 0; i < j; ++i) {
-            double proj = simd::dot_product_d(Y[j].data(), Y[i].data(), n);
-            simd::subtract_scaled(Y[j].data(), Y[i].data(), proj, n);
+    std::cerr << "[GS] Robust Double-Pass Gram-Schmidt on " << k << " columns\n";
+
+    // Random generator for recovering collapsed dimensions
+    std::mt19937 rng(1337);
+    std::normal_distribution<double> dist(0.0, 1.0);
+
+    // "Twice is enough" - Kahan/Parlett
+    // We run the orthonormalization twice to correct round-off errors
+    for (int pass = 0; pass < 2; ++pass) {
+        for (int j = 0; j < k; ++j) {
+            // Modified Gram-Schmidt: Project onto current j against all previous i
+            for (int i = 0; i < j; ++i) {
+                double dot = simd::dot_product_d(Y[j].data(), Y[i].data(), n);
+                simd::subtract_scaled(Y[j].data(), Y[i].data(), dot, n);
+            }
+
+            // Normalize
+            double nrm = simd::norm(Y[j].data(), n);
+
+            // Handle collapsed dimensions (linear dependence)
+            if (nrm < 1e-10) {
+                if (pass == 0) {
+                    std::cerr << "[GS] Warning: Vector " << j << " collapsed (norm=" << nrm 
+                              << "). Regenerating random vector.\n";
+                    // Regenerate as random vector
+                    for (size_t x = 0; x < n; ++x) Y[j][x] = dist(rng);
+                    
+                    // Re-orthogonalize against previous immediately
+                    for (int i = 0; i < j; ++i) {
+                        double dot = simd::dot_product_d(Y[j].data(), Y[i].data(), n);
+                        simd::subtract_scaled(Y[j].data(), Y[i].data(), dot, n);
+                    }
+                    nrm = simd::norm(Y[j].data(), n);
+                }
+            }
+
+            // Safe normalize
+            if (nrm > 1e-12) {
+                simd::scale_inplace(Y[j].data(), 1.0 / nrm, n);
+            } else {
+                // Should not happen after regeneration logic, but as failsafe:
+                std::fill(Y[j].begin(), Y[j].end(), 0.0);
+            }
         }
-        
-        // Normalize
-        simd::normalize(Y[j].data(), n);
-        
-        report_progress("Gram-Schmidt", j + 1, k);
     }
-    
-    // Verify orthonormality
+
+    // Verification
     double max_off_diag = 0.0;
     for (int i = 0; i < k; ++i) {
         for (int j = i + 1; j < k; ++j) {
-            double dot = simd::dot_product_d(Y[i].data(), Y[j].data(), n);
-            max_off_diag = std::max(max_off_diag, std::abs(dot));
+            double dot = std::abs(simd::dot_product_d(Y[i].data(), Y[j].data(), n));
+            if (dot > max_off_diag) max_off_diag = dot;
         }
     }
-    std::cerr << "[GS] Max off-diagonal dot product: " << max_off_diag << "\n";
+    std::cerr << "[GS] Max off-diagonal dot product after correction: " << max_off_diag << "\n";
 }
 
 std::vector<std::array<uint32_t, 4>> LaplacianProjector::normalize_to_hypercube(
@@ -1528,8 +1547,8 @@ ProjectionResult LaplacianProjector::project(
         std::cerr << "[ERROR] This means connectivity enforcement FAILED!\n";
     }
 
-    // Step 2: Build unnormalized Laplacian
-    std::cerr << "\n[2] Building unnormalized Laplacian...\n";
+    // Step 2: Build normalized Laplacian
+    std::cerr << "\n[2] Building normalized Laplacian...\n";
     auto L = build_laplacian(W);
     
     // Step 3: Find 4 smallest non-zero eigenvectors

@@ -50,7 +50,7 @@ inline bool parse_safetensor_header(
     file.read(buf.data(), header_size);
     std::string json(buf.begin(), buf.end());
     std::cerr << "[DEBUG] JSON header length: " << json.size() << "\n";
-    std::cerr << "[DEBUG] JSON start: " << json.substr(0, std::min(size_t(200), json.size())) << "\n";
+    std::cerr << "[DEBUG] JSON start: " << json.substr(0, std::min<size_t>(200, json.size())) << "\n";
     
     // Simple parser: find each tensor entry
     size_t pos = 0;

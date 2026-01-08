@@ -56,15 +56,19 @@
 -- HNSWLIB: ON
 -- Tests: ON (Google Test)
 -- 
--- Configuring done (16.6s)
--- Generating done (0.3s)
+-- Configuring done (8.3s)
+-- Generating done (0.2s)
 -- Build files have been written to: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
 [1/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/hilbert.cpp.obj
-[2/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.obj
-[3/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/geometry.cpp.obj
+[2/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/geometry.cpp.obj
+[3/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.obj
 [4/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/atom_calculator.cpp.obj
 [5/86] Building CXX object CMakeFiles/hypercube_core.dir/src/util/utf8.cpp.obj
-[6/86] Building CXX object CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.obj
+[6/86] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.obj
+[7/86] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.obj
+[8/86] Building C object CMakeFiles/semantic_ops.dir/src/pg/semantic_ops_pg.c.obj
+[9/86] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.obj
+[10/86] Building CXX object CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:138:18: warning: unused variable 'dist1' [-Wunused-variable]
   138 |     HilbertIndex dist1 = HilbertIndex::abs_distance(a, b);
       |                  ^~~~~
@@ -87,18 +91,15 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:209:1
   209 |     HilbertIndex i2 = HilbertCurve::coords_to_index(p2);
       |                  ^~
 7 warnings generated.
-[7/86] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.obj
-[8/86] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.obj
-[9/86] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.obj
-[10/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
-[11/86] Building C object CMakeFiles/semantic_ops.dir/src/pg/semantic_ops_pg.c.obj
-[12/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
-[13/86] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
-[14/86] Building C object CMakeFiles/hypercube_ops.dir/src/pg/hypercube_ops_pg.c.obj
-[15/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.obj
-[16/86] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
+[11/86] Building C object CMakeFiles/hypercube_ops.dir/src/pg/hypercube_ops_pg.c.obj
+[12/86] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
+[13/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
+[14/86] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
+[15/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
+[16/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.obj
 [17/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.obj
-[18/86] Building CXX object CMakeFiles/test_coordinates.dir/tests/test_coordinates.cpp.obj
+[18/86] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.obj
+[19/86] Building CXX object CMakeFiles/test_coordinates.dir/tests/test_coordinates.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:249:13: warning: unused variable 'coords1' [-Wunused-variable]
   249 |     Point4D coords1 = CoordinateMapper::map_codepoint(test_cp);
       |             ^~~~~~~
@@ -127,15 +128,15 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:8
   804 |     uint64_t normal_key = (static_cast<uint64_t>(normal.x) << 32) | normal.y;
       |              ^~~~~~~~~~
 9 warnings generated.
-[19/86] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj
-[20/86] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.obj
-[21/86] Building CXX object CMakeFiles/test_clustering.dir/tests/test_clustering.cpp.obj
+[20/86] Building CXX object CMakeFiles/test_clustering.dir/tests/test_clustering.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_clustering.cpp:77:12: warning: unused variable 'avg_case_distance' [-Wunused-variable]
    77 |     double avg_case_distance = total_case_distance / case_pairs.size();
       |            ^~~~~~~~~~~~~~~~~
 1 warning generated.
-[22/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
-[23/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.obj
+[21/86] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj
+[22/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
+[23/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
+[24/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:1166:10: warning: unused variable 'tangent_basis' [-Wunused-variable]
  1166 |     auto tangent_basis = [](const Point4F& p) -> std::array<Point4F, 3> {
       |          ^~~~~~~~~~~~~
@@ -158,20 +159,19 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:290
   290 | uint64_t get_semantic_order(uint32_t cp) noexcept {
       |          ^~~~~~~~~~~~~~~~~~
 7 warnings generated.
-[24/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
 [25/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/parallel_cpe.cpp.obj
-[26/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/projection_db.cpp.obj
-[27/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.obj
-[28/86] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.obj
-[29/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
+[26/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.obj
+[27/86] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.obj
+[28/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/projection_db.cpp.obj
+[29/86] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.obj
+[30/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_io.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[30/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.obj
-[31/86] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.obj
+[31/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.obj
 [32/86] Building CXX object CMakeFiles/test_integration.dir/tests/test_integration.cpp.obj
 [33/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_main.cpp.obj
 [34/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
@@ -182,49 +182,49 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnsw
       |             ^~~~~~~~~~~~~
 1 warning generated.
 [35/86] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.obj
-[36/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_blake3.cpp.obj
-[37/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.obj
+[36/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
+[37/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_blake3.cpp.obj
 [38/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_coordinates.cpp.obj
-[39/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.obj
+[39/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.obj
+[40/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
+[41/86] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
+[42/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_hierarchy.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[40/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
-[41/86] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
-[42/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
-[43/86] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
-[44/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_schema.cpp.obj
-[45/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
+[43/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_schema.cpp.obj
+[44/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.obj
+[45/86] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
 [46/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.obj
-[47/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.obj
+[47/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
+[48/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_query_api.cpp.obj
+[49/86] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.obj
+[50/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/multimodal_extraction.cpp:15:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[48/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.obj
-[49/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_query_api.cpp.obj
-[50/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
-In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
-In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
-D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
-   89 | static bool AVX512Capable() {
-      |             ^~~~~~~~~~~~~
-1 warning generated.
-[51/86] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
-[52/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.obj
+[51/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/embedding_relations.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[53/86] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.obj
-[54/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
+[52/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
+[53/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[54/86] Linking CXX executable vocab_extract.exe
 [55/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:751:15: warning: unused variable 'sim' [-Wunused-variable]
   751 |         float sim = embedding::cosine_similarity(
@@ -233,52 +233,52 @@ In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/co
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
-D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:819:41: warning: unused function 'feast_sparse_eigensolver' [-Wunused-function]
-  819 | static std::vector<std::vector<double>> feast_sparse_eigensolver(
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:811:41: warning: unused function 'feast_sparse_eigensolver' [-Wunused-function]
+  811 | static std::vector<std::vector<double>> feast_sparse_eigensolver(
       |                                         ^~~~~~~~~~~~~~~~~~~~~~~~
 3 warnings generated.
-[56/86] Linking CXX static library hypercube_core.lib
-[57/86] Linking CXX executable vocab_extract.exe
-[58/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/semantic_extraction.cpp.obj
+[56/86] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
+[57/86] Linking CXX static library hypercube_core.lib
+[58/86] Linking CXX executable vocab_ingest.exe
+[59/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/semantic_extraction.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/semantic_extraction.cpp:14:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[59/86] Linking CXX executable vocab_ingest.exe
-[60/86] Linking CXX static library hypercube_ingest.lib
-[61/86] Linking CXX executable model_discovery.exe
-[62/86] Linking CXX executable test_hilbert.exe
-[63/86] Linking CXX shared library embedding_c.dll
+[60/86] Linking CXX executable model_discovery.exe
+[61/86] Linking CXX static library hypercube_ingest.lib
+[62/86] Linking CXX shared library embedding_c.dll
+[63/86] Linking CXX shared library hypercube_c.dll
 [64/86] Linking CXX executable test_coordinates.exe
-[65/86] Linking CXX executable test_laplacian_4d.exe
-[66/86] Linking CXX executable test_semantic.exe
-[67/86] Linking CXX executable test_blake3.exe
-[68/86] Linking CXX shared library generative_c.dll
-[69/86] Linking CXX shared library hypercube_c.dll
-[70/86] Linking CXX executable test_clustering.exe
-[71/86] Linking CXX executable extract_embeddings.exe
-[72/86] Linking CXX executable test_integration.exe
-[73/86] Linking CXX executable test_query_api.exe
+[65/86] Linking CXX executable test_blake3.exe
+[66/86] Linking CXX executable test_hilbert.exe
+[67/86] Linking CXX shared library generative_c.dll
+[68/86] Linking CXX executable test_clustering.exe
+[69/86] Linking CXX executable test_semantic.exe
+[70/86] Linking CXX executable test_laplacian_4d.exe
+[71/86] Linking CXX executable test_integration.exe
+[72/86] Linking CXX executable test_query_api.exe
+[73/86] Linking CXX executable extract_embeddings.exe
 [74/86] Linking CXX executable seed_atoms_parallel.exe
 [75/86] Linking CXX executable hypercube_tests.exe
-[76/86] Linking CXX executable hypercube_sql_tests.exe
-[77/86] Linking CXX executable ingest.exe
+[76/86] Linking CXX executable ingest.exe
+[77/86] Linking CXX executable hypercube_sql_tests.exe
 [78/86] Linking C shared library hypercube.dll
-[79/86] Linking C shared library generative.dll
+[79/86] Linking C shared library hypercube_ops.dll
 [80/86] Linking C shared library semantic_ops.dll
-[81/86] Linking C shared library hypercube_ops.dll
-[82/86] Linking C shared library embedding_ops.dll
-[83/86] Building CXX object CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.obj
-In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/tools/ingest_safetensor_modular.cpp:66:
+[81/86] Linking C shared library embedding_ops.dll
+[82/86] Linking C shared library generative.dll
+[83/86] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:39:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[84/86] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj
-In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:39:
+[84/86] Building CXX object CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/tools/ingest_safetensor_modular.cpp:66:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
@@ -317,45 +317,45 @@ Generators: 12
 Connection Pool: 12 connections
 
 [1/5] Generating atoms (12 threads)...
-      Generated 1112064 atoms in 858 ms
+      Generated 1112064 atoms in 898 ms
 [2/5] Partitioning by hash...
 Partition sizes: 95707 95147 95707 95561 90842 90986 91118 91042 91690 91508 91178 91578 
-      Partitioned in 49 ms
+      Partitioned in 28 ms
 [3/5] Preparing database...
-      Setup in 118 ms
+      Setup in 139 ms
 [4/5] Parallel COPY to atom table (12 connections)...
-Partition 0 build time: 403 ms
-Partition 11 build time: 432 ms
-Partition 5 build time: 506 ms
-Partition 6 build time: 553 ms
-Partition 0 total time: 774 ms, I/O: 371 ms, atoms: 95707, rate: 123652 atoms/sec
-Partition 11 total time: 866 ms, I/O: 434 ms, atoms: 91578, rate: 105748 atoms/sec
-Partition 2 build time: 647 ms
-Partition 8 build time: 651 ms
-Partition 5 total time: 971 ms, I/O: 465 ms, atoms: 90986, rate: 93703 atoms/sec
-Partition 9 build time: 623 ms
-Partition 6 total time: 1018 ms, I/O: 465 ms, atoms: 91118, rate: 89506 atoms/sec
-Partition 1 build time: 713 ms
-Partition 10 build time: 693 ms
-Partition 3 build time: 646 ms
-Partition 2 total time: 1186 ms, I/O: 539 ms, atoms: 95707, rate: 80697 atoms/sec
-Partition 8 total time: 1198 ms, I/O: 547 ms, atoms: 91690, rate: 76535 atoms/sec
-Partition 9 total time: 1223 ms, I/O: 600 ms, atoms: 91508, rate: 74822 atoms/sec
-Partition 7 build time: 648 ms
-Partition 4 build time: 615 ms
-Partition 1 total time: 1363 ms, I/O: 650 ms, atoms: 95147, rate: 69807 atoms/sec
-Partition 10 total time: 1373 ms, I/O: 680 ms, atoms: 91178, rate: 66407 atoms/sec
-Partition 7 total time: 1398 ms, I/O: 750 ms, atoms: 91042, rate: 65123 atoms/sec
-Partition 3 total time: 1404 ms, I/O: 758 ms, atoms: 95561, rate: 68063 atoms/sec
-Partition 4 total time: 1426 ms, I/O: 811 ms, atoms: 90842, rate: 63704 atoms/sec
-      Parallel COPY in 1428 ms
+Partition 0 build time: 302 ms
+Partition 1 build time: 381 ms
+Partition 0 total time: 640 ms, I/O: 338 ms, atoms: 95707, rate: 149542 atoms/sec
+Partition 9 build time: 548 ms
+Partition 3 build time: 502 ms
+Partition 1 total time: 819 ms, I/O: 438 ms, atoms: 95147, rate: 116174 atoms/sec
+Partition 4 build time: 596 ms
+Partition 5 build time: 618 ms
+Partition 6 build time: 672 ms
+Partition 9 total time: 1006 ms, I/O: 458 ms, atoms: 91508, rate: 90962 atoms/sec
+Partition 3 total time: 1070 ms, I/O: 568 ms, atoms: 95561, rate: 89309 atoms/sec
+Partition 7 build time: 711 ms
+Partition 4 total time: 1134 ms, I/O: 538 ms, atoms: 90842, rate: 80107 atoms/sec
+Partition 5 total time: 1175 ms, I/O: 557 ms, atoms: 90986, rate: 77434 atoms/sec
+Partition 2 build time: 765 ms
+Partition 10 build time: 727 ms
+Partition 11 build time: 692 ms
+Partition 6 total time: 1229 ms, I/O: 557 ms, atoms: 91118, rate: 74139 atoms/sec
+Partition 8 build time: 654 ms
+Partition 7 total time: 1298 ms, I/O: 587 ms, atoms: 91042, rate: 70140 atoms/sec
+Partition 10 total time: 1379 ms, I/O: 652 ms, atoms: 91178, rate: 66118 atoms/sec
+Partition 11 total time: 1379 ms, I/O: 687 ms, atoms: 91578, rate: 66408 atoms/sec
+Partition 2 total time: 1381 ms, I/O: 616 ms, atoms: 95707, rate: 69302 atoms/sec
+Partition 8 total time: 1405 ms, I/O: 751 ms, atoms: 91690, rate: 65259 atoms/sec
+      Parallel COPY in 1406 ms
 [5/5] Building indexes...
-      Index build in 1968 ms
+      Index build in 1803 ms
 
 === Complete ===
 Total atoms: 1112064
-Total time: 4423 ms (4.423 s)
-Rate: 251427 atoms/sec
+Total time: 4276 ms (4.276 s)
+Rate: 260071 atoms/sec
 [THREADING] OpenMP threads: 32
 [THREADING] MKL threads: 1 (dynamic=0)
 === Universal Safetensor Ingester (Modular) ===
@@ -402,7 +402,7 @@ Threshold: 0.5
 [TOKENIZER] Loaded 0 BPE merges, 30522 vocab entries
 [2] Parsing vocab: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\vocab.txt"
 
-[VOCAB] Loaded 30522 tokens in 530ms
+[VOCAB] Loaded 30522 tokens in 516ms
 
 [2.5] Parsing model metadata (config, tokenizer, special tokens)...
 
@@ -871,54 +871,54 @@ Threshold: 0.5
 [COMP] Inserting 30522 token compositions...
 [COMP] 29525 multi-char compositions to insert
 [COMP] Building batch strings with 16 threads...
-  [BUILD] 30522/30522 tokens (60680/s)
+  [BUILD] 30522/30522 tokens (60201/s)
 
-[COMP] Built 19001KB compositions + 26895KB children in 504ms
+[COMP] Built 19001KB compositions + 26895KB children in 507ms
 [COMP] Streaming to database...
 [COMP] Dropping idx_comp_label to prevent corruption...
 [COMP] Creating temp tables...
 [COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (1279KB)
-  [COPY] Batch 2/16 (1500KB)
-  [COPY] Batch 3/16 (1522KB)
-  [COPY] Batch 4/16 (1325KB)
-  [COPY] Batch 5/16 (1529KB)
-  [COPY] Batch 6/16 (1233KB)
-  [COPY] Batch 7/16 (1113KB)
-  [COPY] Batch 8/16 (1125KB)
-  [COPY] Batch 9/16 (1344KB)
-  [COPY] Batch 10/16 (960KB)
-  [COPY] Batch 11/16 (1286KB)
-  [COPY] Batch 12/16 (1043KB)
-  [COPY] Batch 13/16 (939KB)
-  [COPY] Batch 14/16 (852KB)
-  [COPY] Batch 15/16 (1081KB)
-  [COPY] Batch 16/16 (865KB)
+  [COPY] Batch 1/16 (1400KB)
+  [COPY] Batch 2/16 (1764KB)
+  [COPY] Batch 3/16 (1934KB)
+  [COPY] Batch 4/16 (1067KB)
+  [COPY] Batch 5/16 (1790KB)
+  [COPY] Batch 6/16 (1330KB)
+  [COPY] Batch 7/16 (1773KB)
+  [COPY] Batch 8/16 (725KB)
+  [COPY] Batch 9/16 (1275KB)
+  [COPY] Batch 10/16 (835KB)
+  [COPY] Batch 11/16 (1155KB)
+  [COPY] Batch 12/16 (1085KB)
+  [COPY] Batch 13/16 (819KB)
+  [COPY] Batch 14/16 (1145KB)
+  [COPY] Batch 15/16 (424KB)
+  [COPY] Batch 16/16 (472KB)
 
 [COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (1825KB)
-  [COPY] Batch 2/16 (2134KB)
-  [COPY] Batch 3/16 (2172KB)
-  [COPY] Batch 4/16 (1880KB)
-  [COPY] Batch 5/16 (2181KB)
-  [COPY] Batch 6/16 (1734KB)
-  [COPY] Batch 7/16 (1570KB)
-  [COPY] Batch 8/16 (1576KB)
-  [COPY] Batch 9/16 (1893KB)
-  [COPY] Batch 10/16 (1360KB)
-  [COPY] Batch 11/16 (1811KB)
-  [COPY] Batch 12/16 (1474KB)
-  [COPY] Batch 13/16 (1324KB)
-  [COPY] Batch 14/16 (1199KB)
-  [COPY] Batch 15/16 (1535KB)
-  [COPY] Batch 16/16 (1219KB)
+  [COPY] Batch 1/16 (1985KB)
+  [COPY] Batch 2/16 (2504KB)
+  [COPY] Batch 3/16 (2760KB)
+  [COPY] Batch 4/16 (1536KB)
+  [COPY] Batch 5/16 (2546KB)
+  [COPY] Batch 6/16 (1887KB)
+  [COPY] Batch 7/16 (2496KB)
+  [COPY] Batch 8/16 (1024KB)
+  [COPY] Batch 9/16 (1790KB)
+  [COPY] Batch 10/16 (1175KB)
+  [COPY] Batch 11/16 (1632KB)
+  [COPY] Batch 12/16 (1536KB)
+  [COPY] Batch 13/16 (1151KB)
+  [COPY] Batch 14/16 (1617KB)
+  [COPY] Batch 15/16 (592KB)
+  [COPY] Batch 16/16 (659KB)
 
 [COMP] Inserting into composition table...
 [COMP] Inserted 29525 compositions
 [COMP] Inserting into composition_child table...
 [COMP] Inserted 0 children
 [COMP] Recreating idx_comp_label...
-[COMP] Inserted 29525 compositions, 0 children in 1563ms
+[COMP] Inserted 29525 compositions, 0 children in 1619ms
 
 [5.5] Projecting token embeddings to 4D semantic coordinates...
 ============================================================
@@ -935,8 +935,8 @@ Tokens: 30522, Embedding dim: 384
 
 [1] Building k-NN similarity graph (k=15)...
 [HNSWLIB] Building HNSW index for 30522 points, dim=384
-[HNSWLIB] Index built in 18930 ms
-[HNSWLIB] k-NN queries completed in 6636 ms
+[HNSWLIB] Index built in 7682 ms
+[HNSWLIB] k-NN queries completed in 2821 ms
 [HNSWLIB] Built k-NN graph with 219345 edges
 
 [1.5] Ensuring graph connectivity...
@@ -944,7 +944,7 @@ Tokens: 30522, Embedding dim: 384
 [CONNECT] Added 16 inter-component edges
 [MKL] Created sparse matrix handle: 30522x30522, 438722 non-zeros
 
-[2] Building unnormalized Laplacian...
+[2] Building normalized Laplacian...
 [MKL] Created sparse matrix handle: 30522x30522, 438722 non-zeros
 
 [3] Finding 4 smallest non-zero eigenvectors...
@@ -952,817 +952,155 @@ Tokens: 30522, Embedding dim: 384
 [LANCZOS] config_.convergence_tol = 0
 [LANCZOS] lanczos_config.convergence_tol = 0
 [LANCZOS] Config: tol=0, max_iter=300, num_eigenpairs=5
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
 
-  Direct Lanczos 1/30
-  Direct Lanczos 2/30
-  Direct Lanczos 3/30
-  Direct Lanczos 4/30
-  Direct Lanczos 5/30
-  Direct Lanczos 6/30
-  Direct Lanczos 7/30
-  Direct Lanczos 8/30
-  Direct Lanczos 9/30
-  Direct Lanczos 10/30
-  Direct Lanczos 11/30
-  Direct Lanczos 12/30
-  Direct Lanczos 13/30
-  Direct Lanczos 14/30
-  Direct Lanczos 15/30
-  Direct Lanczos 16/30
-  Direct Lanczos 17/30
-  Direct Lanczos 18/30
-  Direct Lanczos 19/30
-  Direct Lanczos 20/30
-  Direct Lanczos 21/30
-  Direct Lanczos 22/30
-  Direct Lanczos 23/30
-  Direct Lanczos 24/30
-  Direct Lanczos 25/30
-  Direct Lanczos 26/30
-  Direct Lanczos 27/30
-  Direct Lanczos 28/30
-  Direct Lanczos 29/30
-  Direct Lanczos 30/30[RITZ] Raw eigenvalues from tridiagonal solver: 0 1 2 4 6 8 11 15 20 25 ...
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+
+[CONV] Residual[0] = 0 > tol=0 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -0 0 0 0 0 0 0 0 0 0 ...
 
 [CONV] Residual[0] = 0 > tol=0 - not converged
 
-  Direct Lanczos 1/50
-  Direct Lanczos 2/50
-  Direct Lanczos 3/50
-  Direct Lanczos 4/50
-  Direct Lanczos 5/50
-  Direct Lanczos 6/50
-  Direct Lanczos 7/50
-  Direct Lanczos 8/50
-  Direct Lanczos 9/50
-  Direct Lanczos 10/50
-  Direct Lanczos 11/50
-  Direct Lanczos 12/50
-  Direct Lanczos 13/50
-  Direct Lanczos 14/50
-  Direct Lanczos 15/50
-  Direct Lanczos 16/50
-  Direct Lanczos 17/50
-  Direct Lanczos 18/50
-  Direct Lanczos 19/50
-  Direct Lanczos 20/50
-  Direct Lanczos 21/50
-  Direct Lanczos 22/50
-  Direct Lanczos 23/50
-  Direct Lanczos 24/50
-  Direct Lanczos 25/50
-  Direct Lanczos 26/50
-  Direct Lanczos 27/50
-  Direct Lanczos 28/50
-  Direct Lanczos 29/50
-  Direct Lanczos 30/50
-  Direct Lanczos 31/50
-  Direct Lanczos 32/50
-  Direct Lanczos 33/50
-  Direct Lanczos 34/50
-  Direct Lanczos 35/50
-  Direct Lanczos 36/50
-  Direct Lanczos 37/50
-  Direct Lanczos 38/50
-  Direct Lanczos 39/50
-  Direct Lanczos 40/50
-  Direct Lanczos 41/50
-  Direct Lanczos 42/50
-  Direct Lanczos 43/50
-  Direct Lanczos 44/50
-  Direct Lanczos 45/50
-  Direct Lanczos 46/50
-  Direct Lanczos 47/50
-  Direct Lanczos 48/50
-  Direct Lanczos 49/50
-  Direct Lanczos 50/50[RITZ] Raw eigenvalues from tridiagonal solver: 0 1 1 2 2 3 4 5 6 8 ...
+[LANCZOS] Subspace exhausted at m=300, returning best approximation (residuals may be high)
+[LANCZOS] Did not fully converge in 300 iterations
+[LANCZOS] Warning: residuals = [0, 0, 0, 0]
+[LANCZOS] All eigenvalues (raw): 0 0 0 0 0 
+[LANCZOS] Semantic eigenvalues (skipped ╬╗_0): 0 0 0 0 
+[LANCZOS] Returning 4 eigenvectors (skipped null space)
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
+[4] Gram-Schmidt orthonormalization...
+[GS] Robust Double-Pass Gram-Schmidt on 4 columns
+[GS] Max off-diagonal dot product after correction: 0
 
-  Direct Lanczos 1/70
-  Direct Lanczos 2/70
-  Direct Lanczos 3/70
-  Direct Lanczos 4/70
-  Direct Lanczos 5/70
-  Direct Lanczos 6/70
-  Direct Lanczos 7/70
-  Direct Lanczos 8/70
-  Direct Lanczos 9/70
-  Direct Lanczos 10/70
-  Direct Lanczos 11/70
-  Direct Lanczos 12/70
-  Direct Lanczos 13/70
-  Direct Lanczos 14/70
-  Direct Lanczos 15/70
-  Direct Lanczos 16/70
-  Direct Lanczos 17/70
-  Direct Lanczos 18/70
-  Direct Lanczos 19/70
-  Direct Lanczos 20/70
-  Direct Lanczos 21/70
-  Direct Lanczos 22/70
-  Direct Lanczos 23/70
-  Direct Lanczos 24/70
-  Direct Lanczos 25/70
-  Direct Lanczos 26/70
-  Direct Lanczos 27/70
-  Direct Lanczos 28/70
-  Direct Lanczos 29/70
-  Direct Lanczos 30/70
-  Direct Lanczos 31/70
-  Direct Lanczos 32/70
-  Direct Lanczos 33/70
-  Direct Lanczos 34/70
-  Direct Lanczos 35/70
-  Direct Lanczos 36/70
-  Direct Lanczos 37/70
-  Direct Lanczos 38/70
-  Direct Lanczos 39/70
-  Direct Lanczos 40/70
-  Direct Lanczos 41/70
-  Direct Lanczos 42/70
-  Direct Lanczos 43/70
-  Direct Lanczos 44/70
-  Direct Lanczos 45/70
-  Direct Lanczos 46/70
-  Direct Lanczos 47/70
-  Direct Lanczos 48/70
-  Direct Lanczos 49/70
-  Direct Lanczos 50/70
-  Direct Lanczos 51/70
-  Direct Lanczos 52/70
-  Direct Lanczos 53/70
-  Direct Lanczos 54/70
-  Direct Lanczos 55/70
-  Direct Lanczos 56/70
-  Direct Lanczos 57/70
-  Direct Lanczos 58/70
-  Direct Lanczos 59/70
-  Direct Lanczos 60/70
-  Direct Lanczos 61/70
-  Direct Lanczos 62/70
-  Direct Lanczos 63/70
-  Direct Lanczos 64/70
-  Direct Lanczos 65/70
-  Direct Lanczos 66/70
-  Direct Lanczos 67/70
-  Direct Lanczos 68/70
-  Direct Lanczos 69/70
-  Direct Lanczos 70/70[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 1 1 1 2 2 3 3 4 ...
+[5] Normalizing to [0, 2^32-1]^4...
+[NORM] Coordinate ranges before normalization:
+  dim 0: [-0, 0]
+  dim 1: [-0, 0]
+  dim 2: [-0, 0]
+  dim 3: [-0, 0]
+[NORM] Normalized 30522 points to [0, 2^32-1]^4
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
+[6] Projecting to hypersphere...
+[SPHERE] Projecting 30522 points onto hypersphere (parallel)...
+[SPHERE] Projection complete
 
-  Direct Lanczos 1/90
-  Direct Lanczos 2/90
-  Direct Lanczos 3/90
-  Direct Lanczos 4/90
-  Direct Lanczos 5/90
-  Direct Lanczos 6/90
-  Direct Lanczos 7/90
-  Direct Lanczos 8/90
-  Direct Lanczos 9/90
-  Direct Lanczos 10/90
-  Direct Lanczos 11/90
-  Direct Lanczos 12/90
-  Direct Lanczos 13/90
-  Direct Lanczos 14/90
-  Direct Lanczos 15/90
-  Direct Lanczos 16/90
-  Direct Lanczos 17/90
-  Direct Lanczos 18/90
-  Direct Lanczos 19/90
-  Direct Lanczos 20/90
-  Direct Lanczos 21/90
-  Direct Lanczos 22/90
-  Direct Lanczos 23/90
-  Direct Lanczos 24/90
-  Direct Lanczos 25/90
-  Direct Lanczos 26/90
-  Direct Lanczos 27/90
-  Direct Lanczos 28/90
-  Direct Lanczos 29/90
-  Direct Lanczos 30/90
-  Direct Lanczos 31/90
-  Direct Lanczos 32/90
-  Direct Lanczos 33/90
-  Direct Lanczos 34/90
-  Direct Lanczos 35/90
-  Direct Lanczos 36/90
-  Direct Lanczos 37/90
-  Direct Lanczos 38/90
-  Direct Lanczos 39/90
-  Direct Lanczos 40/90
-  Direct Lanczos 41/90
-  Direct Lanczos 42/90
-  Direct Lanczos 43/90
-  Direct Lanczos 44/90
-  Direct Lanczos 45/90
-  Direct Lanczos 46/90
-  Direct Lanczos 47/90
-  Direct Lanczos 48/90
-  Direct Lanczos 49/90
-  Direct Lanczos 50/90
-  Direct Lanczos 51/90
-  Direct Lanczos 52/90
-  Direct Lanczos 53/90
-  Direct Lanczos 54/90
-  Direct Lanczos 55/90
-  Direct Lanczos 56/90
-  Direct Lanczos 57/90
-  Direct Lanczos 58/90
-  Direct Lanczos 59/90
-  Direct Lanczos 60/90
-  Direct Lanczos 61/90
-  Direct Lanczos 62/90
-  Direct Lanczos 63/90
-  Direct Lanczos 64/90
-  Direct Lanczos 65/90
-  Direct Lanczos 66/90
-  Direct Lanczos 67/90
-  Direct Lanczos 68/90
-  Direct Lanczos 69/90
-  Direct Lanczos 70/90
-  Direct Lanczos 71/90
-  Direct Lanczos 72/90
-  Direct Lanczos 73/90
-  Direct Lanczos 74/90
-  Direct Lanczos 75/90
-  Direct Lanczos 76/90
-  Direct Lanczos 77/90
-  Direct Lanczos 78/90
-  Direct Lanczos 79/90
-  Direct Lanczos 80/90
-  Direct Lanczos 81/90
-  Direct Lanczos 82/90
-  Direct Lanczos 83/90
-  Direct Lanczos 84/90
-  Direct Lanczos 85/90
-  Direct Lanczos 86/90
-  Direct Lanczos 87/90
-  Direct Lanczos 88/90
-  Direct Lanczos 89/90
-  Direct Lanczos 90/90[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 1 1 1 2 2 2 ...
+[7] Computing Hilbert indices (parallel)...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
+=== Projection Complete in 17 seconds ===
+Projected 30522 tokens to 4D hypercube
+Similarity graph edges: 219345
+[PROJECTION] Projection completed in 17206ms
+[PROJECTION] 4D coordinates range computed
+[PROJECTION] Variance explained: 0%
+[PROJECTION] Variance explained too low, skipping database update
 
-  Direct Lanczos 1/110
-  Direct Lanczos 2/110
-  Direct Lanczos 3/110
-  Direct Lanczos 4/110
-  Direct Lanczos 5/110
-  Direct Lanczos 6/110
-  Direct Lanczos 7/110
-  Direct Lanczos 8/110
-  Direct Lanczos 9/110
-  Direct Lanczos 10/110
-  Direct Lanczos 11/110
-  Direct Lanczos 12/110
-  Direct Lanczos 13/110
-  Direct Lanczos 14/110
-  Direct Lanczos 15/110
-  Direct Lanczos 16/110
-  Direct Lanczos 17/110
-  Direct Lanczos 18/110
-  Direct Lanczos 19/110
-  Direct Lanczos 20/110
-  Direct Lanczos 21/110
-  Direct Lanczos 22/110
-  Direct Lanczos 23/110
-  Direct Lanczos 24/110
-  Direct Lanczos 25/110
-  Direct Lanczos 26/110
-  Direct Lanczos 27/110
-  Direct Lanczos 28/110
-  Direct Lanczos 29/110
-  Direct Lanczos 30/110
-  Direct Lanczos 31/110
-  Direct Lanczos 32/110
-  Direct Lanczos 33/110
-  Direct Lanczos 34/110
-  Direct Lanczos 35/110
-  Direct Lanczos 36/110
-  Direct Lanczos 37/110
-  Direct Lanczos 38/110
-  Direct Lanczos 39/110
-  Direct Lanczos 40/110
-  Direct Lanczos 41/110
-  Direct Lanczos 42/110
-  Direct Lanczos 43/110
-  Direct Lanczos 44/110
-  Direct Lanczos 45/110
-  Direct Lanczos 46/110
-  Direct Lanczos 47/110
-  Direct Lanczos 48/110
-  Direct Lanczos 49/110
-  Direct Lanczos 50/110
-  Direct Lanczos 51/110
-  Direct Lanczos 52/110
-  Direct Lanczos 53/110
-  Direct Lanczos 54/110
-  Direct Lanczos 55/110
-  Direct Lanczos 56/110
-  Direct Lanczos 57/110
-  Direct Lanczos 58/110
-  Direct Lanczos 59/110
-  Direct Lanczos 60/110
-  Direct Lanczos 61/110
-  Direct Lanczos 62/110
-  Direct Lanczos 63/110
-  Direct Lanczos 64/110
-  Direct Lanczos 65/110
-  Direct Lanczos 66/110
-  Direct Lanczos 67/110
-  Direct Lanczos 68/110
-  Direct Lanczos 69/110
-  Direct Lanczos 70/110
-  Direct Lanczos 71/110
-  Direct Lanczos 72/110
-  Direct Lanczos 73/110
-  Direct Lanczos 74/110
-  Direct Lanczos 75/110
-  Direct Lanczos 76/110
-  Direct Lanczos 77/110
-  Direct Lanczos 78/110
-  Direct Lanczos 79/110
-  Direct Lanczos 80/110
-  Direct Lanczos 81/110
-  Direct Lanczos 82/110
-  Direct Lanczos 83/110
-  Direct Lanczos 84/110
-  Direct Lanczos 85/110
-  Direct Lanczos 86/110
-  Direct Lanczos 87/110
-  Direct Lanczos 88/110
-  Direct Lanczos 89/110
-  Direct Lanczos 90/110
-  Direct Lanczos 91/110
-  Direct Lanczos 92/110
-  Direct Lanczos 93/110
-  Direct Lanczos 94/110
-  Direct Lanczos 95/110
-  Direct Lanczos 96/110
-  Direct Lanczos 97/110
-  Direct Lanczos 98/110
-  Direct Lanczos 99/110
-  Direct Lanczos 100/110
-  Direct Lanczos 101/110
-  Direct Lanczos 102/110
-  Direct Lanczos 103/110
-  Direct Lanczos 104/110
-  Direct Lanczos 105/110
-  Direct Lanczos 106/110
-  Direct Lanczos 107/110
-  Direct Lanczos 108/110
-  Direct Lanczos 109/110
-  Direct Lanczos 110/110[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 1 1 1 1 2 ...
+[6] Computing composition centroids hierarchically...
+[CENTROID] Updated 56844 composition centroids from atoms
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
+[7] Extracting complete semantic relations (all projections)...
+============================================================
+[SEMANTIC] PARALLEL EXTRACTION starting
+[SEMANTIC] Hardware threads: 32
+[SEMANTIC] OpenMP threads: 32
+[SEMANTIC] MKL threads: 1 (dynamic=0)
+[SEMANTIC] HNSWLIB: available
+============================================================
+[SEMANTIC] Using config-driven tensor lookup (architecture: BERT)
+[SEMANTIC] Found TOKEN_EMBEDDING via manifest: embeddings.word_embeddings.weight [30522 x 384]
+[SEMANTIC] Loading 30522 x 384 embeddings...
+[SEMANTIC] Loaded in 36ms
+[SEMANTIC] Normalizing (parallel)...
+[SEMANTIC] 30522/30522 valid embeddings in 3ms
+[SEMANTIC] 0 projections
+[SEMANTIC] Total: 0 sparse relations
 
-  Direct Lanczos 1/130
-  Direct Lanczos 2/130
-  Direct Lanczos 3/130
-  Direct Lanczos 4/130
-  Direct Lanczos 5/130
-  Direct Lanczos 6/130
-  Direct Lanczos 7/130
-  Direct Lanczos 8/130
-  Direct Lanczos 9/130
-  Direct Lanczos 10/130
-  Direct Lanczos 11/130
-  Direct Lanczos 12/130
-  Direct Lanczos 13/130
-  Direct Lanczos 14/130
-  Direct Lanczos 15/130
-  Direct Lanczos 16/130
-  Direct Lanczos 17/130
-  Direct Lanczos 18/130
-  Direct Lanczos 19/130
-  Direct Lanczos 20/130
-  Direct Lanczos 21/130
-  Direct Lanczos 22/130
-  Direct Lanczos 23/130
-  Direct Lanczos 24/130
-  Direct Lanczos 25/130
-  Direct Lanczos 26/130
-  Direct Lanczos 27/130
-  Direct Lanczos 28/130
-  Direct Lanczos 29/130
-  Direct Lanczos 30/130
-  Direct Lanczos 31/130
-  Direct Lanczos 32/130
-  Direct Lanczos 33/130
-  Direct Lanczos 34/130
-  Direct Lanczos 35/130
-  Direct Lanczos 36/130
-  Direct Lanczos 37/130
-  Direct Lanczos 38/130
-  Direct Lanczos 39/130
-  Direct Lanczos 40/130
-  Direct Lanczos 41/130
-  Direct Lanczos 42/130
-  Direct Lanczos 43/130
-  Direct Lanczos 44/130
-  Direct Lanczos 45/130
-  Direct Lanczos 46/130
-  Direct Lanczos 47/130
-  Direct Lanczos 48/130
-  Direct Lanczos 49/130
-  Direct Lanczos 50/130
-  Direct Lanczos 51/130
-  Direct Lanczos 52/130
-  Direct Lanczos 53/130
-  Direct Lanczos 54/130
-  Direct Lanczos 55/130
-  Direct Lanczos 56/130
-  Direct Lanczos 57/130
-  Direct Lanczos 58/130
-  Direct Lanczos 59/130
-  Direct Lanczos 60/130
-  Direct Lanczos 61/130
-  Direct Lanczos 62/130
-  Direct Lanczos 63/130
-  Direct Lanczos 64/130
-  Direct Lanczos 65/130
-  Direct Lanczos 66/130
-  Direct Lanczos 67/130
-  Direct Lanczos 68/130
-  Direct Lanczos 69/130
-  Direct Lanczos 70/130
-  Direct Lanczos 71/130
-  Direct Lanczos 72/130
-  Direct Lanczos 73/130
-  Direct Lanczos 74/130
-  Direct Lanczos 75/130
-  Direct Lanczos 76/130
-  Direct Lanczos 77/130
-  Direct Lanczos 78/130
-  Direct Lanczos 79/130
-  Direct Lanczos 80/130
-  Direct Lanczos 81/130
-  Direct Lanczos 82/130
-  Direct Lanczos 83/130
-  Direct Lanczos 84/130
-  Direct Lanczos 85/130
-  Direct Lanczos 86/130
-  Direct Lanczos 87/130
-  Direct Lanczos 88/130
-  Direct Lanczos 89/130
-  Direct Lanczos 90/130
-  Direct Lanczos 91/130
-  Direct Lanczos 92/130
-  Direct Lanczos 93/130
-  Direct Lanczos 94/130
-  Direct Lanczos 95/130
-  Direct Lanczos 96/130
-  Direct Lanczos 97/130
-  Direct Lanczos 98/130
-  Direct Lanczos 99/130
-  Direct Lanczos 100/130
-  Direct Lanczos 101/130
-  Direct Lanczos 102/130
-  Direct Lanczos 103/130
-  Direct Lanczos 104/130
-  Direct Lanczos 105/130
-  Direct Lanczos 106/130
-  Direct Lanczos 107/130
-  Direct Lanczos 108/130
-  Direct Lanczos 109/130
-  Direct Lanczos 110/130
-  Direct Lanczos 111/130
-  Direct Lanczos 112/130
-  Direct Lanczos 113/130
-  Direct Lanczos 114/130
-  Direct Lanczos 115/130
-  Direct Lanczos 116/130
-  Direct Lanczos 117/130
-  Direct Lanczos 118/130
-  Direct Lanczos 119/130
-  Direct Lanczos 120/130
-  Direct Lanczos 121/130
-  Direct Lanczos 122/130
-  Direct Lanczos 123/130
-  Direct Lanczos 124/130
-  Direct Lanczos 125/130
-  Direct Lanczos 126/130
-  Direct Lanczos 127/130
-  Direct Lanczos 128/130
-  Direct Lanczos 129/130
-  Direct Lanczos 130/130[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 1 1 1 1 ...
+[8] Extracting weight-based relations (router, attention, MLP)...
+[SEMANTIC] Using config-driven lookup (arch: BERT)
+[SEMANTIC] Found TOKEN_EMBEDDING via manifest: embeddings.word_embeddings.weight
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
+[SEMANTIC] Extracting tokenΓåötoken similarity from embeddings.word_embeddings.weight
+[SEMANTIC] Vocab: 30522 tokens, Embedding dim: 384
+[SEMANTIC] Using 32 threads
+[SEMANTIC] Loaded 30522 token embeddings in 28ms
+[SEMANTIC] Loading cached HNSW index from C:\Users\ahart\AppData\Local\Temp\hypercube_hnsw_cache\3648419960641565176.hnsw...
+[SEMANTIC] Loaded cached index in 64ms
+[SEMANTIC] HNSW index loaded in 64ms
+[SEMANTIC] Querying k-NN (PARALLEL, 32 threads)...
+  [QUERY] 3052/30522 (9%)
+  [QUERY] 6104/30522 (19%)
+  [QUERY] 9156/30522 (29%)
+  [QUERY] 12208/30522 (39%)
+  [QUERY] 15260/30522 (49%)
+  [QUERY] 18312/30522 (59%)
+  [QUERY] 21364/30522 (69%)
+  [QUERY] 24416/30522 (79%)
+  [QUERY] 27468/30522 (89%)
+  [QUERY] 30520/30522 (99%)
+[SEMANTIC] k-NN queries completed in 777ms
+[SEMANTIC] Found 178376 semantic similarity edges
+[SEMANTIC] Inserted 178376 tokenΓåötoken semantic relations
+[SEMANTIC] These relations give tokens MEANING through semantic proximity
 
-  Direct Lanczos 1/150
-  Direct Lanczos 2/150
-  Direct Lanczos 3/150
-  Direct Lanczos 4/150
-  Direct Lanczos 5/150
-  Direct Lanczos 6/150
-  Direct Lanczos 7/150
-  Direct Lanczos 8/150
-  Direct Lanczos 9/150
-  Direct Lanczos 10/150
-  Direct Lanczos 11/150
-  Direct Lanczos 12/150
-  Direct Lanczos 13/150
-  Direct Lanczos 14/150
-  Direct Lanczos 15/150
-  Direct Lanczos 16/150
-  Direct Lanczos 17/150
-  Direct Lanczos 18/150
-  Direct Lanczos 19/150
-  Direct Lanczos 20/150
-  Direct Lanczos 21/150
-  Direct Lanczos 22/150
-  Direct Lanczos 23/150
-  Direct Lanczos 24/150
-  Direct Lanczos 25/150
-  Direct Lanczos 26/150
-  Direct Lanczos 27/150
-  Direct Lanczos 28/150
-  Direct Lanczos 29/150
-  Direct Lanczos 30/150
-  Direct Lanczos 31/150
-  Direct Lanczos 32/150
-  Direct Lanczos 33/150
-  Direct Lanczos 34/150
-  Direct Lanczos 35/150
-  Direct Lanczos 36/150
-  Direct Lanczos 37/150
-  Direct Lanczos 38/150
-  Direct Lanczos 39/150
-  Direct Lanczos 40/150
-  Direct Lanczos 41/150
-  Direct Lanczos 42/150
-  Direct Lanczos 43/150
-  Direct Lanczos 44/150
-  Direct Lanczos 45/150
-  Direct Lanczos 46/150
-  Direct Lanczos 47/150
-  Direct Lanczos 48/150
-  Direct Lanczos 49/150
-  Direct Lanczos 50/150
-  Direct Lanczos 51/150
-  Direct Lanczos 52/150
-  Direct Lanczos 53/150
-  Direct Lanczos 54/150
-  Direct Lanczos 55/150
-  Direct Lanczos 56/150
-  Direct Lanczos 57/150
-  Direct Lanczos 58/150
-  Direct Lanczos 59/150
-  Direct Lanczos 60/150
-  Direct Lanczos 61/150
-  Direct Lanczos 62/150
-  Direct Lanczos 63/150
-  Direct Lanczos 64/150
-  Direct Lanczos 65/150
-  Direct Lanczos 66/150
-  Direct Lanczos 67/150
-  Direct Lanczos 68/150
-  Direct Lanczos 69/150
-  Direct Lanczos 70/150
-  Direct Lanczos 71/150
-  Direct Lanczos 72/150
-  Direct Lanczos 73/150
-  Direct Lanczos 74/150
-  Direct Lanczos 75/150
-  Direct Lanczos 76/150
-  Direct Lanczos 77/150
-  Direct Lanczos 78/150
-  Direct Lanczos 79/150
-  Direct Lanczos 80/150
-  Direct Lanczos 81/150
-  Direct Lanczos 82/150
-  Direct Lanczos 83/150
-  Direct Lanczos 84/150
-  Direct Lanczos 85/150
-  Direct Lanczos 86/150
-  Direct Lanczos 87/150
-  Direct Lanczos 88/150
-  Direct Lanczos 89/150
-  Direct Lanczos 90/150
-  Direct Lanczos 91/150
-  Direct Lanczos 92/150
-  Direct Lanczos 93/150
-  Direct Lanczos 94/150
-  Direct Lanczos 95/150
-  Direct Lanczos 96/150
-  Direct Lanczos 97/150
-  Direct Lanczos 98/150
-  Direct Lanczos 99/150
-  Direct Lanczos 100/150
-  Direct Lanczos 101/150
-  Direct Lanczos 102/150
-  Direct Lanczos 103/150
-  Direct Lanczos 104/150
-  Direct Lanczos 105/150
-  Direct Lanczos 106/150
-  Direct Lanczos 107/150
-  Direct Lanczos 108/150
-  Direct Lanczos 109/150
-  Direct Lanczos 110/150
-  Direct Lanczos 111/150
-  Direct Lanczos 112/150
-  Direct Lanczos 113/150
-  Direct Lanczos 114/150
-  Direct Lanczos 115/150
-  Direct Lanczos 116/150
-  Direct Lanczos 117/150
-  Direct Lanczos 118/150
-  Direct Lanczos 119/150
-  Direct Lanczos 120/150
-  Direct Lanczos 121/150
-  Direct Lanczos 122/150
-  Direct Lanczos 123/150
-  Direct Lanczos 124/150
-  Direct Lanczos 125/150
-  Direct Lanczos 126/150
-  Direct Lanczos 127/150
-  Direct Lanczos 128/150
-  Direct Lanczos 129/150
-  Direct Lanczos 130/150
-  Direct Lanczos 131/150
-  Direct Lanczos 132/150
-  Direct Lanczos 133/150
-  Direct Lanczos 134/150
-  Direct Lanczos 135/150
-  Direct Lanczos 136/150
-  Direct Lanczos 137/150
-  Direct Lanczos 138/150
-  Direct Lanczos 139/150
-  Direct Lanczos 140/150
-  Direct Lanczos 141/150
-  Direct Lanczos 142/150
-  Direct Lanczos 143/150
-  Direct Lanczos 144/150
-  Direct Lanczos 145/150
-  Direct Lanczos 146/150
-  Direct Lanczos 147/150
-  Direct Lanczos 148/150
-  Direct Lanczos 149/150
-  Direct Lanczos 150/150[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 1 1 1 ...
+[9] Extracting multimodal semantic structures...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
++--------------------------------------------------------------+
+|          MULTIMODAL RELATION EXTRACTION                     |
++--------------------------------------------------------------+
+[MULTIMODAL] Processing 2 positional encoding tensors
+[MULTIMODAL] Extracting 1 position_1d (unknown) relations from embeddings.position_ids
+[MULTIMODAL] Extracting 512 position_1d (unknown) relations from embeddings.position_embeddings.weight
+[MULTIMODAL] Deduplicated 8082 -> 8050 unique edges
+[MULTIMODAL] Inserted 8050 multimodal relations
++--------------------------------------------------------------+
+|  MULTIMODAL TOTAL:   8082 relations extracted                  |
++--------------------------------------------------------------+
 
-  Direct Lanczos 1/170
-  Direct Lanczos 2/170
-  Direct Lanczos 3/170
-  Direct Lanczos 4/170
-  Direct Lanczos 5/170
-  Direct Lanczos 6/170
-  Direct Lanczos 7/170
-  Direct Lanczos 8/170
-  Direct Lanczos 9/170
-  Direct Lanczos 10/170
-  Direct Lanczos 11/170
-  Direct Lanczos 12/170
-  Direct Lanczos 13/170
-  Direct Lanczos 14/170
-  Direct Lanczos 15/170
-  Direct Lanczos 16/170
-  Direct Lanczos 17/170
-  Direct Lanczos 18/170
-  Direct Lanczos 19/170
-  Direct Lanczos 20/170
-  Direct Lanczos 21/170
-  Direct Lanczos 22/170
-  Direct Lanczos 23/170
-  Direct Lanczos 24/170
-  Direct Lanczos 25/170
-  Direct Lanczos 26/170
-  Direct Lanczos 27/170
-  Direct Lanczos 28/170
-  Direct Lanczos 29/170
-  Direct Lanczos 30/170
-  Direct Lanczos 31/170
-  Direct Lanczos 32/170
-  Direct Lanczos 33/170
-  Direct Lanczos 34/170
-  Direct Lanczos 35/170
-  Direct Lanczos 36/170
-  Direct Lanczos 37/170
-  Direct Lanczos 38/170
-  Direct Lanczos 39/170
-  Direct Lanczos 40/170
-  Direct Lanczos 41/170
-  Direct Lanczos 42/170
-  Direct Lanczos 43/170
-  Direct Lanczos 44/170
-  Direct Lanczos 45/170
-  Direct Lanczos 46/170
-  Direct Lanczos 47/170
-  Direct Lanczos 48/170
-  Direct Lanczos 49/170
-  Direct Lanczos 50/170
-  Direct Lanczos 51/170
-  Direct Lanczos 52/170
-  Direct Lanczos 53/170
-  Direct Lanczos 54/170
-  Direct Lanczos 55/170
-  Direct Lanczos 56/170
-  Direct Lanczos 57/170
-  Direct Lanczos 58/170
-  Direct Lanczos 59/170
-  Direct Lanczos 60/170
-  Direct Lanczos 61/170
-  Direct Lanczos 62/170
-  Direct Lanczos 63/170
-  Direct Lanczos 64/170
-  Direct Lanczos 65/170
-  Direct Lanczos 66/170
-  Direct Lanczos 67/170
-  Direct Lanczos 68/170
-  Direct Lanczos 69/170
-  Direct Lanczos 70/170
-  Direct Lanczos 71/170
-  Direct Lanczos 72/170
-  Direct Lanczos 73/170
-  Direct Lanczos 74/170
-  Direct Lanczos 75/170
-  Direct Lanczos 76/170
-  Direct Lanczos 77/170
-  Direct Lanczos 78/170
-  Direct Lanczos 79/170
-  Direct Lanczos 80/170
-  Direct Lanczos 81/170
-  Direct Lanczos 82/170
-  Direct Lanczos 83/170
-  Direct Lanczos 84/170
-  Direct Lanczos 85/170
-  Direct Lanczos 86/170
-  Direct Lanczos 87/170
-  Direct Lanczos 88/170
-  Direct Lanczos 89/170
-  Direct Lanczos 90/170
-  Direct Lanczos 91/170
-  Direct Lanczos 92/170
-  Direct Lanczos 93/170
-  Direct Lanczos 94/170
-  Direct Lanczos 95/170
-  Direct Lanczos 96/170
-  Direct Lanczos 97/170
-  Direct Lanczos 98/170
-  Direct Lanczos 99/170
-  Direct Lanczos 100/170
-  Direct Lanczos 101/170
-  Direct Lanczos 102/170
-  Direct Lanczos 103/170
-  Direct Lanczos 104/170
-  Direct Lanczos 105/170
-  Direct Lanczos 106/170
-  Direct Lanczos 107/170
-  Direct Lanczos 108/170
-  Direct Lanczos 109/170
-  Direct Lanczos 110/170
-  Direct Lanczos 111/170
-  Direct Lanczos 112/170
-  Direct Lanczos 113/170
-  Direct Lanczos 114/170
-  Direct Lanczos 115/170
-  Direct Lanczos 116/170
-  Direct Lanczos 117/170
-  Direct Lanczos 118/170
-  Direct Lanczos 119/170
-  Direct Lanczos 120/170
-  Direct Lanczos 121/170
-  Direct Lanczos 122/170
-  Direct Lanczos 123/170
-  Direct Lanczos 124/170
-  Direct Lanczos 125/170
-  Direct Lanczos 126/170
-  Direct Lanczos 127/170
-  Direct Lanczos 128/170
-  Direct Lanczos 129/170
-  Direct Lanczos 130/170
-  Direct Lanczos 131/170
-  Direct Lanczos 132/170
-  Direct Lanczos 133/170
-  Direct Lanczos 134/170
-  Direct Lanczos 135/170
-  Direct Lanczos 136/170
-  Direct Lanczos 137/170
-  Direct Lanczos 138/170
-  Direct Lanczos 139/170
-  Direct Lanczos 140/170
-  Direct Lanczos 141/170
-  Direct Lanczos 142/170
-  Direct Lanczos 143/170
-  Direct Lanczos 144/170
-  Direct Lanczos 145/170
-  Direct Lanczos 146/170
-  Direct Lanczos 147/170
-  Direct Lanczos 148/170
-  Direct Lanczos 149/170
-  Direct Lanczos 150/170
-  Direct Lanczos 151/170
-  Direct Lanczos 152/170
-  Direct Lanczos 153/170
-  Direct Lanczos 154/170
-  Direct Lanczos 155/170
-  Direct Lanczos 156/170
-  Direct Lanczos 157/170
-  Direct Lanczos 158/170
-  Direct Lanczos 159/170
-  Direct Lanczos 160/170
-  Direct Lanczos 161/170
-  Direct Lanczos 162/170
+[MULTIMODAL] Extracted 8082 semantic relations
+
+=== Complete ===
+Total time: 35 seconds
+Tensors: 104
+BPE merges: 0
+Vocab: 30522 tokens
+  Atoms  | Compositions | With Labels | Relations | Max Depth | Total Size 
+---------+--------------+-------------+-----------+-----------+------------
+ 1112064 |        61157 |       31703 |    186453 |        24 | 543 MB
+(1 row)
+

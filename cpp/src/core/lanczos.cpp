@@ -646,7 +646,7 @@ void LanczosSolver::lanczos_iteration(
     
     for (int j = 0; j < m; ++j) {
         report_progress("Lanczos iteration", j + 1, m);
-        std::cerr << "\r  Direct Lanczos " << (j+1) << "/" << m << std::flush;
+        //std::cerr << "\r  Direct Lanczos " << (j+1) << "/" << m << std::flush;
         
         // w = L * q_j
         L.matvec(Q[j].data(), w.data());

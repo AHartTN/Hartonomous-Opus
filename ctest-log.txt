@@ -98,7 +98,7 @@ test 2
 2:   Γ£ô CV 42.9334% is within acceptable range (Γëñ 200%) for semantic adjacency constraints
 2:   Distance uniformity: PASS
 2: Testing round-trip quantize/Hilbert...
-2:   Round-trip: 996/1000 passed
+2:   Round-trip: 998/1000 passed
 2:   Round-trip quantize/Hilbert: PASS
 2: Testing adjacency check...
 2:   Mean adjacency distance: 1.97458e+09
@@ -152,7 +152,7 @@ test 2
 2:   Optimization pipeline: PASS
 2: 
 2: All tests passed!
- 2/10 Test  #2: CoordinatesTest ..................   Passed   12.76 sec
+ 2/10 Test  #2: CoordinatesTest ..................   Passed    6.60 sec
 test 3
       Start  3: Blake3Test
 
@@ -316,8 +316,8 @@ test 4
 4: PASSED: BLAKE3 hash is deterministic (same input = same output)
 4: 
 4: === Test: Generation Performance ===
-4:   Generated 1112064 atoms in 1156 ms
-4: PASSED: Generation completes in under 2 seconds (1156 < 2000)
+4:   Generated 1112064 atoms in 632 ms
+4: PASSED: Generation completes in under 2 seconds (632 < 2000)
 4: 
 4: === Test: Atom Count ===
 4:   Total valid codepoints: 1112064
@@ -326,7 +326,7 @@ test 4
 4: ============================================
 4:   Results: 73 passed, 1 failed
 4: ============================================
- 4/10 Test  #4: SemanticTest .....................***Failed    4.24 sec
+ 4/10 Test  #4: SemanticTest .....................***Failed    2.69 sec
 test 5
       Start  5: ClusteringTest
 
@@ -397,7 +397,7 @@ test 5
 5: ===============================================================
 5:   All 7 tests passed!
 5: ===============================================================
- 5/10 Test  #5: ClusteringTest ...................   Passed    0.09 sec
+ 5/10 Test  #5: ClusteringTest ...................   Passed    0.08 sec
 test 6
       Start  6: Laplacian4DTest
 
@@ -421,8 +421,8 @@ test 6
 6: 
 6: [1] Building k-NN similarity graph (k=10)...
 6: [HNSWLIB] Building HNSW index for 50 points, dim=32
-6: [HNSWLIB] Index built in 3 ms
-6: [HNSWLIB] k-NN queries completed in 101 ms
+6: [HNSWLIB] Index built in 1 ms
+6: [HNSWLIB] k-NN queries completed in 106 ms
 6: [HNSWLIB] Built k-NN graph with 248 edges
 6: 
 6: [1.5] Ensuring graph connectivity...
@@ -430,7 +430,7 @@ test 6
 6: [CONNECT] Added 3 inter-component edges
 6: [MKL] Created sparse matrix handle: 50x50, 502 non-zeros
 6: 
-6: [2] Building unnormalized Laplacian...
+6: [2] Building normalized Laplacian...
 6: [MKL] Created sparse matrix handle: 50x50, 502 non-zeros
 6: 
 6: [3] Finding 4 smallest non-zero eigenvectors...
@@ -438,18 +438,18 @@ test 6
 6: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
 6: [MKL] Eigendecomposition completed in 0 ms
 6: [MKL] Found 5 eigenvalues
-6: [MKL] Eigenvalues: -3.13617e-16 0.0724939 0.0765225 0.228241 5.57887 ...
+6: [MKL] Eigenvalues: 1.65905e-16 0.00754304 0.00794267 0.0237777 0.817086 ...
 6: 
 6: [4] Gram-Schmidt orthonormalization...
-6: [GS] Gram-Schmidt orthonormalization on 4 columns of length 50
-6: [GS] Max off-diagonal dot product: 4.34009e-17
+6: [GS] Robust Double-Pass Gram-Schmidt on 4 columns
+6: [GS] Max off-diagonal dot product after correction: 2.56928e-17
 6: 
 6: [5] Normalizing to [0, 2^32-1]^4...
 6: [NORM] Coordinate ranges before normalization:
-6:   dim 0: [-0.121298, 0.229794]
-6:   dim 1: [-0.207051, 0.207749]
-6:   dim 2: [-0.248687, 0.0914737]
-6:   dim 3: [-0.230534, 0.88727]
+6:   dim 0: [-0.155752, 0.247138]
+6:   dim 1: [-0.191591, 0.234314]
+6:   dim 2: [-0.266375, 0.0953781]
+6:   dim 3: [-0.346722, 0.621373]
 6: [NORM] Normalized 50 points to [0, 2^32-1]^4
 6: 
 6: [7] Computing Hilbert indices (parallel)...
@@ -465,7 +465,7 @@ test 6
 6: === Summary ===
 6: Passed: 8
 6: Failed: 0
- 6/10 Test  #6: Laplacian4DTest ..................   Passed    0.26 sec
+ 6/10 Test  #6: Laplacian4DTest ..................   Passed    0.22 sec
 test 7
       Start  7: IntegrationTest
 
@@ -508,15 +508,15 @@ test 7
 7:   SQL: SELECT ST_Y(geom) FROM atom WHERE codepoint = 65
 7:   SQL: SELECT ST_Z(geom) FROM atom WHERE codepoint = 65
 7:   SQL: SELECT ST_M(geom) FROM atom WHERE codepoint = 65
-7:   4D coordinates: (-2147483648, 2145285253, 82460456, 1558132284)
+7:   4D coordinates: (-2147483648, 2147483647, -2147483648, 2147483647)
 7:   PASS: Atom has valid 4D geometry (POINTZM)
 7: > Verify Hilbert index values
 7:   SQL: SELECT hilbert_lo FROM atom WHERE codepoint = 65
-7:   Hilbert curve: lo=5538808769254409532, hi=12020717486945261018
+7:   Hilbert curve: lo=6148920537844716950, hi=7614085770007455141
 7:   PASS: Hilbert index populated for spatial locality
 7: > Case pair proximity: 'A' vs 'a' should be neighbors
 7:   SQL: SELECT ST_3DDistance((SELECT geom FROM atom WHERE codepoint = 65),(SELECT geom FROM atom WHERE codepoint = 97))
-7:   Distance A<->a: 1155152454
+7:   Distance A<->a: -2147483648
 7:   SQL: WITH ranked AS (  SELECT neighbor_id, ROW_NUMBER() OVER (ORDER BY distance) as rank   FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 100)) SELECT rank FROM ranked WHERE neighbor_id = (SELECT id FROM atom WHERE codepoint = 97)
 7:   Rank of 'a' among A's neighbors: -1
 7:   SKIP: Case pair not in top 100 - may need projection tuning
@@ -538,7 +538,7 @@ test 7
 7:   PASS: Correctly identifies leaf atoms
 7: > atom_centroid() - Get geometry for any entity
 7:   SQL: SELECT ST_AsText(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))
-7:   Geometry: POINT ZM (2147483648 2145285253 82460456 155813228...
+7:   Geometry: POINT ZM (4294966812 2147483647 2148923606 2147483...
 7:   PASS: Returns valid POINT geometry
 7: > atom_reconstruct_text() - Rebuild text from ID
 7:   SQL: SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 72)) || atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 105))
@@ -550,30 +550,21 @@ test 7
 7:   PASS: Returns exactly k neighbors
 7: > atom_distance() - Euclidean distance
 7:   SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 66))
-7:   Distance A<->B: 2065024362.190055
+7:   Distance A<->B: 4269457171.121440
 7:   PASS: Computes positive distance
 7: 
 7: === SEMANTIC RELATIONS ===
 7: 
 7: > Count edges from embedding model
 7:   SQL: SELECT COUNT(*) FROM relation
-7:   Total edges: 802231
-7:   PASS: Found 802231 semantic edges
-7: > Edge source types
-7:   SQL: SELECT string_agg(source_type || ':' || cnt::text, ', ') FROM (SELECT source_type, COUNT(*) as cnt FROM relation GROUP BY source_type) sub
-7:   Distribution: A:4298, C:797933
-7: > Top weight edges
-7:   SQL: SELECT MAX(weight) FROM relation
-7:   Max similarity: 1.000000
+7:   Total edges: 0
+7:   SKIP: No relations - run extract_embeddings first
 7: 
 7: === COMPOSITIONS (BPE Tokens) ===
 7: 
 7:   SQL: SELECT COUNT(*) FROM composition
-7:   Total compositions: 110360
-7: > Depth distribution
-7:   SQL: SELECT string_agg(depth::text || ':' || cnt::text, ', ' ORDER BY depth) FROM (SELECT depth, COUNT(*) as cnt FROM composition GROUP BY depth) sub
-7:   Depth counts: 1:77602, 2:4327, 3:6363, 4:6285, 5:5213, 6:3832, 7:2839, 8:2128, 9:916, 10:458, 11:205, 12:99, 13:40, 14:24, 15:14, 16:6, 17:2, 18:1, 19:1, 20:1, 21:1, 22:1, 23:1, 24:1
-7:   PASS: Found 110360 compositions
+7:   Total compositions: 0
+7:   SKIP: No compositions yet - run ingest_safetensor
 7: 
 7: === BLAKE3 DETERMINISM ===
 7: 
@@ -586,12 +577,12 @@ test 7
 7: ================================================================
 7:                          RESULTS
 7: ================================================================
-7:   Passed:  18
+7:   Passed:  16
 7:   Failed:  0
-7:   Skipped: 1
+7:   Skipped: 3
 7: ================================================================
 7: 
- 7/10 Test  #7: IntegrationTest ..................   Passed    0.62 sec
+ 7/10 Test  #7: IntegrationTest ..................   Passed    0.25 sec
 test 8
       Start  8: QueryAPITest
 
@@ -630,22 +621,22 @@ test 8
 8: > Looking up atom for 'A' (codepoint 65)
 8:   SQL: SELECT codepoint, encode(id, 'hex') as blake3_hash, ST_X(geom)::numeric(12,0) as x, ST_Y(geom)::numeric(12,0) as y, ST_Z(geom)::numeric(12,0) as z, ST_M(geom)::numeric(12,0) as m FROM atom WHERE codepoint = 65
 8:   codepoint, blake3_hash, x, y, z, m
-8:   65, 32684bfa28c0..., 2147483648, 2145285253, 82460456, 1558132284
+8:   65, 32684bfa28c0..., 4294966812, 2147483647, 2148923606, 2147483647
 8:   Total: 1 rows
 8:   PASS: Atom 'A' found with 4D coordinates
 8: > Sample of printable ASCII characters
 8:   SQL: SELECT chr(codepoint) as char, codepoint, hilbert_lo, hilbert_hi FROM atom WHERE codepoint BETWEEN 65 AND 74 ORDER BY codepoint
 8:   char, codepoint, hilbert_lo, hilbert_hi
-8:   A, 65, 553880876925..., 120207174869...
-8:   B, 66, 122977168245..., 929143151340...
-8:   C, 67, 129445653933..., 130664437209...
-8:   D, 68, 430169931950..., 125507813424...
-8:   E, 69, 135276123205..., 980009428079...
-8:   F, 70, 657647517818..., 376740922747...
-8:   G, 71, 160679764517..., 585998061606...
-8:   H, 72, 610369067982..., 730198631582...
-8:   I, 73, 542803963806..., 378542553350...
-8:   J, 74, 163665718887..., 670667112525...
+8:   A, 65, 614892053784..., 761408577000...
+8:   B, 66, -78492234096..., 876551199442...
+8:   C, 67, -80635027286..., 758528065459...
+8:   D, 68, -75211408143..., 847257882547...
+8:   E, 69, -61302452266..., 746056995615...
+8:   F, 70, 579597985786..., 888237256655...
+8:   G, 71, 178134026358..., 774409779555...
+8:   H, 72, 399569120429..., 891592785040...
+8:   I, 73, -83494716772..., 660809650591...
+8:   J, 74, 821308757167..., 542355187368...
 8:   Total: 10 rows
 8: 
 8: === CORE SQL FUNCTIONS ===
@@ -657,7 +648,7 @@ test 8
 8: > atom_centroid() - Get 4D geometry of an atom
 8:   SQL: SELECT ST_X(g)::numeric(12,0) as x, ST_Y(g)::numeric(12,0) as y, ST_Z(g)::numeric(12,0) as z, ST_M(g)::numeric(12,0) as m FROM (SELECT atom_centroid((SELECT id FROM atom WHERE codepoint = 65)) as g) sub
 8:   x, y, z, m
-8:   2147483648, 2145285253, 82460456, 1558132284
+8:   4294966812, 2147483647, 2148923606, 2147483647
 8:   Total: 1 rows
 8:   PASS: atom_centroid returns POINTZM geometry
 8: > atom_reconstruct_text() - Reconstruct text from atom ID
@@ -669,7 +660,7 @@ test 8
 8:   Distance A to A: 0.000000
 8:   PASS: Self-distance is 0
 8:   SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 66))
-8:   Distance A to B: 2065024362.190055
+8:   Distance A to B: 4269457171.121440
 8:   PASS: Different atoms have non-zero distance
 8: 
 8: === K-NEAREST NEIGHBOR QUERIES ===
@@ -688,89 +679,22 @@ test 8
 8: 
 8: > How many semantic edges exist?
 8:   SQL: SELECT COUNT(*) FROM relation
-8:   Total edges: 802231
-8:   PASS: Found 802231 semantic relationships
-8: > Relation types in the database
-8:   SQL: SELECT relation_type, COUNT(*) as count FROM relation GROUP BY relation_type ORDER BY count DESC
-8:   relation_type, count
-8:   S, 593478
-8:   M, 199512
-8:   A, 8050
-8:   V, 639
-8:   H, 537
-8:   T, 15
-8:   Total: 6 rows
-8: > Top 10 strongest semantic relationships
-8:   SQL: SELECT source_type, encode(source_id, 'hex') as source, target_type, encode(target_id, 'hex') as target, weight::numeric(6,4) as weight FROM relation ORDER BY weight DESC LIMIT 10
-8:   source_type, source, target_type, target, weight
-8:   C, 04b179f6a7f9..., C, 405c314149d1..., 1.0000
-8:   C, 0ec77a790d00..., C, cfb844fc627c..., 1.0000
-8:   C, 20288fb744ec..., C, b3a06b7b1825..., 1.0000
-8:   C, 21a6dcbed12c..., C, af7bac2632aa..., 1.0000
-8:   C, 28a656c4f527..., C, 8633c3f7bbce..., 1.0000
-8:   C, 30982b2440b3..., C, 3907f8d36376..., 1.0000
-8:   C, 4330a0ca306b..., C, be243fe15dd4..., 1.0000
-8:   C, 4b841ce4644e..., C, 6905e4250947..., 1.0000
-8:   C, 4c8ff35852fc..., C, 426b5c066f43..., 1.0000
-8:   C, 0248bcee240c..., C, d54d35446ad4..., 1.0000
-8:   Total: 10 rows
-8: > semantic_neighbors() - Find semantically related atoms
+8:   Total edges: 0
+8:   SKIP: No semantic relations yet - run extract_embeddings
 8: 
 8: === COMPOSITIONS (BPE Tokens) ===
 8: 
 8: > How many compositions exist?
 8:   SQL: SELECT COUNT(*) FROM composition
-8:   Total compositions: 110360
-8: > Composition depth distribution
-8:   SQL: SELECT depth, COUNT(*) as count FROM composition GROUP BY depth ORDER BY depth
-8:   depth, count
-8:   1, 77602
-8:   2, 4327
-8:   3, 6363
-8:   4, 6285
-8:   5, 5213
-8:   6, 3832
-8:   7, 2839
-8:   8, 2128
-8:   9, 916
-8:   10, 458
-8:   ... and 14 more rows
-8:   Total: 24 rows
-8: > Sample compositions
-8:   SQL: SELECT encode(id, 'hex') as id, label, depth, child_count, atom_count FROM composition ORDER BY depth, label LIMIT 10
-8:   id, label, depth, child_count, atom_count
-8:   db38506124f2..., ┘Ç, 1, 1, 1
-8:   56fb948757f0..., ', 1, 1, 1
-8:   3c71c7c9fe57..., '', 1, 2, 2
-8:   9bfb117bc1f3..., '''', 1, 4, 4
-8:   bcbfe5dfe9b1..., '';, 1, 3, 3
-8:   2615c2d3313b..., '-, 1, 2, 2
-8:   ff0d0f3847a6..., -, 1, 1, 1
-8:   5afe1b9eb460..., ΓÇÉ, 1, 1, 1
-8:   f9956c901a50..., ΓÇæ, 1, 1, 1
-8:   45dcb3774b50..., ΓÇô, 1, 1, 1
-8:   Total: 10 rows
-8: > Composition children
-8:   SQL: SELECT encode(cc.composition_id, 'hex') as parent, cc.ordinal, cc.child_type, encode(cc.child_id, 'hex') as child FROM composition_child cc LIMIT 10
-8:   parent, ordinal, child_type, child
-8:   55799e30ac98..., 0, C, 43180f15c64b...
-8:   55799e30ac98..., 1, A, 3d1d92230feb...
-8:   55b9ac640e19..., 0, A, 4d067153ac72...
-8:   55b9ac640e19..., 1, A, 4d067153ac72...
-8:   55397fab99cd..., 0, C, bc1fdf38efad...
-8:   55397fab99cd..., 1, A, 00263ca9f57f...
-8:   555970a1ef00..., 0, A, ea7aa1fc9efd...
-8:   555970a1ef00..., 1, C, f054bd0b89b2...
-8:   55d9b9b4973c..., 0, C, f64968f97370...
-8:   55d9b9b4973c..., 1, A, 00263ca9f57f...
-8:   Total: 10 rows
+8:   Total compositions: 0
+8:   SKIP: No compositions yet - run ingest_safetensor to create BPE tokens
 8: 
 8: === SYSTEM STATISTICS ===
 8: 
 8: > atom_stats() - Overall system statistics
 8:   SQL: SELECT * FROM atom_stats()
 8:   atoms, compositions, compositions_with_centroid, relations, max_depth
-8:   1112064, 110360, 110360, 802231, 24
+8:   1112064, 0, 0, 0, 0
 8:   Total: 1 rows
 8: > Index status
 8:   SQL: SELECT indexname, tablename FROM pg_indexes WHERE schemaname = 'public' AND tablename IN ('atom', 'composition', 'relation')
@@ -783,8 +707,8 @@ test 8
 8:   composition_..., composition
 8:   idx_comp_cen..., composition
 8:   idx_comp_hil..., composition
-8:   idx_comp_depth, composition
 8:   idx_comp_label, composition
+8:   idx_comp_depth, composition
 8:   ... and 6 more rows
 8:   Total: 16 rows
 8: 
@@ -798,22 +722,22 @@ test 8
 8: > Q: Show the 4D neighborhood of letter 'M' (middle of alphabet)
 8:   SQL: SELECT chr(a.codepoint) as char, ST_X(a.geom)::numeric(12,0) as x, ST_Y(a.geom)::numeric(12,0) as y, ST_Z(a.geom)::numeric(12,0) as z, ST_M(a.geom)::numeric(12,0) as m FROM atom_knn((SELECT id FROM atom WHERE codepoint = 77), 5) knn JOIN atom a ON a.id = knn.neighbor_id
 8:   char, x, y, z, m
-8:   ≥íÿ╗, 2141806562, 2147483648, 2147483648, 2147483648
-8:   ≤¡╜ï, 2141805877, 2147483648, 1537207284, 200752354
-8:   ≡ƒÜ╝, 2141808350, 2147483648, 2147483648, 2147483648
-8:   ±¡║ö, 2141805028, 2147483648, 2147483648, 267603319
-8:   ≡░«è, 2141804785, 2147483648, 2147483648, 2147483648
+8:   ß┐ù, 298964669, 1074224299, 1947997256, 2202101920
+8:   ╨⌐, 312127775, 1055154994, 2366041361, 2194446174
+8:   α½á, 306522435, 1073144853, 2253107058, 1908344178
+8:   α┤╢, 314968115, 1059941018, 2412212553, 2120235168
+8:   πäÄ, 316872088, 1063129992, 2086365933, 2432069506
 8:   Total: 5 rows
 8: 
 8: ================================================================
 8:                          TEST SUMMARY
 8: ================================================================
-8:   Passed:  14
+8:   Passed:  13
 8:   Failed:  0
-8:   Skipped: 0
+8:   Skipped: 2
 8: ================================================================
 8: 
- 8/10 Test  #8: QueryAPITest .....................   Passed    0.92 sec
+ 8/10 Test  #8: QueryAPITest .....................   Passed    0.26 sec
 test 9
       Start  9: HypercubeTests
 
@@ -845,12 +769,12 @@ test 9
 9: [ RUN      ] HilbertTest.LocalityPreservation
 9: [       OK ] HilbertTest.LocalityPreservation (0 ms)
 9: [ RUN      ] HilbertTest.Uniqueness
-9: [       OK ] HilbertTest.Uniqueness (1 ms)
+9: [       OK ] HilbertTest.Uniqueness (0 ms)
 9: [ RUN      ] HilbertTest.AxisCoverage
 9: [       OK ] HilbertTest.AxisCoverage (0 ms)
 9: [ RUN      ] HilbertTest.MaxCoordinates
 9: [       OK ] HilbertTest.MaxCoordinates (0 ms)
-9: [----------] 6 tests from HilbertTest (1 ms total)
+9: [----------] 6 tests from HilbertTest (0 ms total)
 9: 
 9: [----------] 6 tests from CoordinatesTest
 9: [ RUN      ] CoordinatesTest.ASCIIMapping
@@ -903,14 +827,14 @@ test 9
 9: 
 9: [  FAILED  ] CoordinatesTest.Uniqueness (0 ms)
 9: [ RUN      ] CoordinatesTest.CentroidCalculation
-9: [       OK ] CoordinatesTest.CentroidCalculation (8 ms)
+9: [       OK ] CoordinatesTest.CentroidCalculation (2 ms)
 9: [ RUN      ] CoordinatesTest.WeightedCentroid
 9: [       OK ] CoordinatesTest.WeightedCentroid (0 ms)
 9: [ RUN      ] CoordinatesTest.CategoryDetection
 9: [       OK ] CoordinatesTest.CategoryDetection (0 ms)
 9: [ RUN      ] CoordinatesTest.Deterministic
 9: [       OK ] CoordinatesTest.Deterministic (0 ms)
-9: [----------] 6 tests from CoordinatesTest (9 ms total)
+9: [----------] 6 tests from CoordinatesTest (3 ms total)
 9: 
 9: [----------] 5 tests from LaplacianTest
 9: [ RUN      ] LaplacianTest.ProjectionOutput
@@ -920,14 +844,14 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=5)...
 9: [HNSWLIB] Building HNSW index for 50 points, dim=32
-9: [HNSWLIB] Index built in 3 ms
-9: [HNSWLIB] k-NN queries completed in 105 ms
+9: [HNSWLIB] Index built in 1 ms
+9: [HNSWLIB] k-NN queries completed in 100 ms
 9: [HNSWLIB] Built k-NN graph with 124 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
 9: [MKL] Created sparse matrix handle: 50x50, 248 non-zeros
 9: 
-9: [2] Building unnormalized Laplacian...
+9: [2] Building normalized Laplacian...
 9: [MKL] Created sparse matrix handle: 50x50, 248 non-zeros
 9: 
 9: [3] Finding 4 smallest non-zero eigenvectors...
@@ -935,18 +859,18 @@ test 9
 9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
 9: [MKL] Eigendecomposition completed in 0 ms
 9: [MKL] Found 5 eigenvalues
-9: [MKL] Eigenvalues: 7.41624e-17 0.272987 0.349816 0.368139 0.41439 ...
+9: [MKL] Eigenvalues: -3.21161e-17 0.192617 0.247129 0.275906 0.299626 ...
 9: 
 9: [4] Gram-Schmidt orthonormalization...
-9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 50
-9: [GS] Max off-diagonal dot product: 2.91965e-17
+9: [GS] Robust Double-Pass Gram-Schmidt on 4 columns
+9: [GS] Max off-diagonal dot product after correction: 1.20854e-17
 9: 
 9: [5] Normalizing to [0, 2^32-1]^4...
 9: [NORM] Coordinate ranges before normalization:
-9:   dim 0: [-0.400187, 0.22846]
-9:   dim 1: [-0.335249, 0.243171]
-9:   dim 2: [-0.365631, 0.402283]
-9:   dim 3: [-0.229546, 0.353603]
+9:   dim 0: [-0.276476, 0.214423]
+9:   dim 1: [-0.353192, 0.264491]
+9:   dim 2: [-0.285174, 0.263567]
+9:   dim 3: [-0.228269, 0.395398]
 9: [NORM] Normalized 50 points to [0, 2^32-1]^4
 9: 
 9: [6] Projecting to hypersphere...
@@ -958,7 +882,7 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 50 tokens to 4D hypercube
 9: Similarity graph edges: 124
-9: [       OK ] LaplacianTest.ProjectionOutput (111 ms)
+9: [       OK ] LaplacianTest.ProjectionOutput (104 ms)
 9: [ RUN      ] LaplacianTest.LocalityPreservation
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -967,7 +891,7 @@ test 9
 9: [1] Building k-NN similarity graph (k=5)...
 9: [HNSWLIB] Building HNSW index for 30 points, dim=16
 9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 104 ms
+9: [HNSWLIB] k-NN queries completed in 107 ms
 9: [HNSWLIB] Built k-NN graph with 75 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -975,7 +899,7 @@ test 9
 9: [CONNECT] Added 1 inter-component edges
 9: [MKL] Created sparse matrix handle: 30x30, 152 non-zeros
 9: 
-9: [2] Building unnormalized Laplacian...
+9: [2] Building normalized Laplacian...
 9: [MKL] Created sparse matrix handle: 30x30, 152 non-zeros
 9: 
 9: [3] Finding 4 smallest non-zero eigenvectors...
@@ -983,18 +907,18 @@ test 9
 9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
 9: [MKL] Eigendecomposition completed in 0 ms
 9: [MKL] Found 5 eigenvalues
-9: [MKL] Eigenvalues: 1.32346e-15 0.0978511 0.778532 1.31527 1.98991 ...
+9: [MKL] Eigenvalues: 8.09583e-17 0.0197972 0.208313 0.442032 0.523066 ...
 9: 
 9: [4] Gram-Schmidt orthonormalization...
-9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 30
-9: [GS] Max off-diagonal dot product: 3.92253e-17
+9: [GS] Robust Double-Pass Gram-Schmidt on 4 columns
+9: [GS] Max off-diagonal dot product after correction: 3.87647e-17
 9: 
 9: [5] Normalizing to [0, 2^32-1]^4...
 9: [NORM] Coordinate ranges before normalization:
-9:   dim 0: [-0.162286, 0.251264]
-9:   dim 1: [-0.30331, 0.419367]
-9:   dim 2: [-0.592638, 0.647011]
-9:   dim 3: [-0.424136, 0.612769]
+9:   dim 0: [-0.197367, 0.286041]
+9:   dim 1: [-0.371076, 0.271421]
+9:   dim 2: [-0.401376, 0.414671]
+9:   dim 3: [-0.459126, 0.342705]
 9: [NORM] Normalized 30 points to [0, 2^32-1]^4
 9: 
 9: [6] Projecting to hypersphere...
@@ -1006,7 +930,7 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 30 tokens to 4D hypercube
 9: Similarity graph edges: 75
-9: [       OK ] LaplacianTest.LocalityPreservation (108 ms)
+9: [       OK ] LaplacianTest.LocalityPreservation (109 ms)
 9: [ RUN      ] LaplacianTest.Deterministic
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -1014,14 +938,14 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=3)...
 9: [HNSWLIB] Building HNSW index for 20 points, dim=16
-9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 104 ms
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] k-NN queries completed in 106 ms
 9: [HNSWLIB] Built k-NN graph with 28 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
 9: [MKL] Created sparse matrix handle: 20x20, 56 non-zeros
 9: 
-9: [2] Building unnormalized Laplacian...
+9: [2] Building normalized Laplacian...
 9: [MKL] Created sparse matrix handle: 20x20, 56 non-zeros
 9: 
 9: [3] Finding 4 smallest non-zero eigenvectors...
@@ -1029,18 +953,18 @@ test 9
 9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
 9: [MKL] Eigendecomposition completed in 0 ms
 9: [MKL] Found 5 eigenvalues
-9: [MKL] Eigenvalues: -1.03826e-16 0.0692284 0.0967504 0.158985 0.167093 ...
+9: [MKL] Eigenvalues: 4.08889e-17 0.0816895 0.124395 0.305602 0.373672 ...
 9: 
 9: [4] Gram-Schmidt orthonormalization...
-9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 20
-9: [GS] Max off-diagonal dot product: 6.93889e-17
+9: [GS] Robust Double-Pass Gram-Schmidt on 4 columns
+9: [GS] Max off-diagonal dot product after correction: 2.77556e-17
 9: 
 9: [5] Normalizing to [0, 2^32-1]^4...
 9: [NORM] Coordinate ranges before normalization:
-9:   dim 0: [-0.385489, 0.329274]
-9:   dim 1: [-0.281973, 0.437597]
-9:   dim 2: [-0.3061, 0.8032]
-9:   dim 3: [-0.639839, 0.299062]
+9:   dim 0: [-0.309101, 0.364654]
+9:   dim 1: [-0.256275, 0.472065]
+9:   dim 2: [-0.325374, 0.501136]
+9:   dim 3: [-0.411005, 0.362807]
 9: [NORM] Normalized 20 points to [0, 2^32-1]^4
 9: 
 9: [6] Projecting to hypersphere...
@@ -1058,14 +982,14 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=3)...
 9: [HNSWLIB] Building HNSW index for 20 points, dim=16
-9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 107 ms
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] k-NN queries completed in 106 ms
 9: [HNSWLIB] Built k-NN graph with 28 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
 9: [MKL] Created sparse matrix handle: 20x20, 56 non-zeros
 9: 
-9: [2] Building unnormalized Laplacian...
+9: [2] Building normalized Laplacian...
 9: [MKL] Created sparse matrix handle: 20x20, 56 non-zeros
 9: 
 9: [3] Finding 4 smallest non-zero eigenvectors...
@@ -1073,18 +997,18 @@ test 9
 9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
 9: [MKL] Eigendecomposition completed in 0 ms
 9: [MKL] Found 5 eigenvalues
-9: [MKL] Eigenvalues: -1.03826e-16 0.0692284 0.0967504 0.158985 0.167093 ...
+9: [MKL] Eigenvalues: 4.08889e-17 0.0816895 0.124395 0.305602 0.373672 ...
 9: 
 9: [4] Gram-Schmidt orthonormalization...
-9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 20
-9: [GS] Max off-diagonal dot product: 6.93889e-17
+9: [GS] Robust Double-Pass Gram-Schmidt on 4 columns
+9: [GS] Max off-diagonal dot product after correction: 2.77556e-17
 9: 
 9: [5] Normalizing to [0, 2^32-1]^4...
 9: [NORM] Coordinate ranges before normalization:
-9:   dim 0: [-0.385489, 0.329274]
-9:   dim 1: [-0.281973, 0.437597]
-9:   dim 2: [-0.3061, 0.8032]
-9:   dim 3: [-0.639839, 0.299062]
+9:   dim 0: [-0.309101, 0.364654]
+9:   dim 1: [-0.256275, 0.472065]
+9:   dim 2: [-0.325374, 0.501136]
+9:   dim 3: [-0.411005, 0.362807]
 9: [NORM] Normalized 20 points to [0, 2^32-1]^4
 9: 
 9: [6] Projecting to hypersphere...
@@ -1104,8 +1028,8 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=2)...
 9: [HNSWLIB] Building HNSW index for 5 points, dim=4
-9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 104 ms
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] k-NN queries completed in 106 ms
 9: [HNSWLIB] Built k-NN graph with 2 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -1113,7 +1037,7 @@ test 9
 9: [CONNECT] Added 2 inter-component edges
 9: [MKL] Created sparse matrix handle: 5x5, 8 non-zeros
 9: 
-9: [2] Building unnormalized Laplacian...
+9: [2] Building normalized Laplacian...
 9: [MKL] Created sparse matrix handle: 5x5, 8 non-zeros
 9: 
 9: [3] Finding 4 smallest non-zero eigenvectors...
@@ -1121,18 +1045,18 @@ test 9
 9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
 9: [MKL] Eigendecomposition completed in 0 ms
 9: [MKL] Found 5 eigenvalues
-9: [MKL] Eigenvalues: -5.55112e-16 0.386546 1 1.75348 3.68841 ...
+9: [MKL] Eigenvalues: 1.77636e-15 0.392219 1 1.60778 2 ...
 9: 
 9: [4] Gram-Schmidt orthonormalization...
-9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 5
-9: [GS] Max off-diagonal dot product: 6.68774e-17
+9: [GS] Robust Double-Pass Gram-Schmidt on 4 columns
+9: [GS] Max off-diagonal dot product after correction: 6.46178e-17
 9: 
 9: [5] Normalizing to [0, 2^32-1]^4...
 9: [NORM] Coordinate ranges before normalization:
-9:   dim 0: [-0.717886, 0.399216]
+9:   dim 0: [-0.321797, 0.62964]
 9:   dim 1: [-0.707107, 0.707107]
-9:   dim 2: [-0.529243, 0.783167]
-9:   dim 3: [-0.314849, 0.846443]
+9:   dim 2: [-0.62964, 0.541196]
+9:   dim 3: [-0.62964, 0.45509]
 9: [NORM] Normalized 5 points to [0, 2^32-1]^4
 9: 
 9: [6] Projecting to hypersphere...
@@ -1152,14 +1076,14 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=5)...
 9: [HNSWLIB] Building HNSW index for 30 points, dim=16
-9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 104 ms
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] k-NN queries completed in 107 ms
 9: [HNSWLIB] Built k-NN graph with 80 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
 9: [MKL] Created sparse matrix handle: 30x30, 160 non-zeros
 9: 
-9: [2] Building unnormalized Laplacian...
+9: [2] Building normalized Laplacian...
 9: [MKL] Created sparse matrix handle: 30x30, 160 non-zeros
 9: 
 9: [3] Finding 4 smallest non-zero eigenvectors...
@@ -1167,18 +1091,18 @@ test 9
 9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
 9: [MKL] Eigendecomposition completed in 0 ms
 9: [MKL] Found 5 eigenvalues
-9: [MKL] Eigenvalues: 4.62748e-16 0.25113 0.455202 0.564349 0.708118 ...
+9: [MKL] Eigenvalues: 8.30735e-17 0.131351 0.272152 0.408188 0.521873 ...
 9: 
 9: [4] Gram-Schmidt orthonormalization...
-9: [GS] Gram-Schmidt orthonormalization on 4 columns of length 30
-9: [GS] Max off-diagonal dot product: 3.11032e-17
+9: [GS] Robust Double-Pass Gram-Schmidt on 4 columns
+9: [GS] Max off-diagonal dot product after correction: 1.46326e-17
 9: 
 9: [5] Normalizing to [0, 2^32-1]^4...
 9: [NORM] Coordinate ranges before normalization:
-9:   dim 0: [-0.213844, 0.331653]
-9:   dim 1: [-0.250091, 0.367443]
-9:   dim 2: [-0.191876, 0.737478]
-9:   dim 3: [-0.362829, 0.416411]
+9:   dim 0: [-0.168996, 0.382448]
+9:   dim 1: [-0.395204, 0.274529]
+9:   dim 2: [-0.381999, 0.383913]
+9:   dim 3: [-0.262693, 0.360029]
 9: [NORM] Normalized 30 points to [0, 2^32-1]^4
 9: 
 9: [6] Projecting to hypersphere...
@@ -1190,8 +1114,8 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 30 tokens to 4D hypercube
 9: Similarity graph edges: 80
-9: [       OK ] LaplacianTest.SphericalProjection (107 ms)
-9: [----------] 5 tests from LaplacianTest (653 ms total)
+9: [       OK ] LaplacianTest.SphericalProjection (109 ms)
+9: [----------] 5 tests from LaplacianTest (649 ms total)
 9: 
 9: [----------] 9 tests from BackendTest
 9: [ RUN      ] BackendTest.CPUDetection
@@ -1215,7 +1139,7 @@ test 9
 9: [----------] 9 tests from BackendTest (0 ms total)
 9: 
 9: [----------] Global test environment tear-down
-9: [==========] 32 tests from 5 test suites ran. (666 ms total)
+9: [==========] 32 tests from 5 test suites ran. (654 ms total)
 9: [  PASSED  ] 31 tests.
 9: [  FAILED  ] 1 test, listed below:
 9: [  FAILED  ] CoordinatesTest.Uniqueness
@@ -1242,7 +1166,7 @@ test 10
 10: Database connection failed: invalid integer value "hartonomous" for connection option "port"
 10: 
 10: 
-10: [  SKIPPED ] SQLSchemaTest.CoreTablesExist (2 ms)
+10: [  SKIPPED ] SQLSchemaTest.CoreTablesExist (0 ms)
 10: [ RUN      ] SQLSchemaTest.ModelRegistryExists
 10: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_sql_schema.cpp(44): Skipped
 10: Database connection failed: invalid integer value "hartonomous" for connection option "port"
@@ -1279,7 +1203,7 @@ test 10
 10: 
 10: 
 10: [  SKIPPED ] SQLSchemaTest.GeometryColumns (0 ms)
-10: [----------] 7 tests from SQLSchemaTest (3 ms total)
+10: [----------] 7 tests from SQLSchemaTest (1 ms total)
 10: 
 10: [----------] 6 tests from SQLFunctionTest
 10: [ RUN      ] SQLFunctionTest.GetOrCreateAtom
@@ -1366,7 +1290,7 @@ test 10
 10: [----------] 7 tests from SQLQueryAPITest (1 ms total)
 10: 
 10: [----------] Global test environment tear-down
-10: [==========] 20 tests from 3 test suites ran. (7 ms total)
+10: [==========] 20 tests from 3 test suites ran. (4 ms total)
 10: [  PASSED  ] 0 tests.
 10: [  SKIPPED ] 20 tests, listed below:
 10: [  SKIPPED ] SQLSchemaTest.CoreTablesExist
@@ -1389,11 +1313,11 @@ test 10
 10: [  SKIPPED ] SQLQueryAPITest.RelationTraversal
 10: [  SKIPPED ] SQLQueryAPITest.ModelRegistryQuery
 10: [  SKIPPED ] SQLQueryAPITest.AggregateStats
-10/10 Test #10: HypercubeSQLTests ................   Passed    0.10 sec
+10/10 Test #10: HypercubeSQLTests ................   Passed    0.11 sec
 
 80% tests passed, 2 tests failed out of 10
 
-Total Test time (real) =  20.15 sec
+Total Test time (real) =  11.31 sec
 
 The following tests FAILED:
 	  4 - SemanticTest (Failed)
