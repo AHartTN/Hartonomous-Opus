@@ -647,12 +647,13 @@ CodepointMapping CoordinateMapper::map_codepoint_full(uint32_t codepoint) noexce
         std::lock_guard<std::mutex> lock(collision_mutex);
         auto it = collision_table.find(coords);
         if (it != collision_table.end() && it->second != codepoint) {
-            // Collision detected - apply tiny deterministic jitter
+            // Collision detected - apply deterministic jitter
             Blake3Hash hash = Blake3Hasher::hash_codepoint(codepoint);
             uint64_t v0 = *reinterpret_cast<const uint64_t*>(hash.data());
 
-            // Tiny perturbation in float space (won't affect geometry much)
-            double eps = 1e-10;  // Very small change
+            // Jitter large enough to change quantization (quantum = 2.0/2^32 ≈ 4.66e-10)
+            // Use 1e-8 = ~21 quanta, ensuring collision resolution without geometry distortion
+            double eps = 1e-8;
             double jitter[4] = {
                 (static_cast<double>((v0 >> 0) & 0xFF) / 255.0 - 0.5) * eps,
                 (static_cast<double>((v0 >> 8) & 0xFF) / 255.0 - 0.5) * eps,
@@ -699,13 +700,13 @@ Point4F CoordinateMapper::map_codepoint_float(uint32_t codepoint) noexcept {
     //            https://github.com/marcalexa/superfibonacci
     //
     // This produces UNIFORM distribution on S³ with low discrepancy (CV ~10-20%)
-    // unlike the previous semantic-rank Hopf mapping which clustered semantically
-    // related characters (CV ~80%).
+    // for spatial indexing. Semantic relationships are captured via Relation edges
+    // (attention patterns, embedding similarity, etc.), not sphere proximity.
     //
     // Key properties:
     // - DETERMINISTIC: Same codepoint → same S³ position, always
     // - LOSSLESS: Bijective mapping (can invert to recover codepoint)
-    // - UNIFORM: Evenly distributed like geodesic dome, not population clusters
+    // - UNIFORM: Evenly distributed like geodesic dome for indexing efficiency
     // - FAST: Pure trigonometry, no table lookups
     //
     // Formula maps index i ∈ [0,n) to unit quaternion q on S³:

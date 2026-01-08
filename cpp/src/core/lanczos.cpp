@@ -23,6 +23,7 @@
 
 #ifdef HAS_MKL
 #include <mkl.h>
+#include <mkl_lapacke.h>
 #endif
 
 #ifdef HAS_EIGEN
@@ -412,33 +413,131 @@ std::vector<TridiagonalEigensolver::EigenPair> TridiagonalEigensolver::solve(
     if (n == 0) {
         return {};
     }
-    
-    // Copy diagonal and off-diagonal
+
+#ifdef HAS_MKL
+    // Use LAPACKE_dsyev (simpler interface) for dense symmetric matrices
     std::vector<double> diag = T.alpha;
     std::vector<double> offdiag = T.beta;
     offdiag.resize(n - 1);
-    
+
+    // Build dense symmetric matrix from tridiagonal
+    std::vector<double> mat(n * n, 0.0);
+    for (size_t i = 0; i < n; ++i) {
+        mat[i * n + i] = diag[i];
+        if (i < n - 1) {
+            mat[i * n + i + 1] = offdiag[i];
+            mat[(i + 1) * n + i] = offdiag[i];
+        }
+    }
+
+    // LAPACKE_dsyev parameters
+    char jobz = 'V';  // Compute eigenvalues and eigenvectors
+    char uplo = 'U';  // Upper triangle stored
+    lapack_int mkl_n = static_cast<lapack_int>(n);
+    lapack_int lda = mkl_n;
+
+    std::vector<double> eigenvalues(n);
+
+    // Workspace query
+    lapack_int lwork = -1;
+    double work_query;
+    LAPACKE_dsyev_work(LAPACK_COL_MAJOR, jobz, uplo, mkl_n, mat.data(), lda,
+                      eigenvalues.data(), &work_query, lwork);
+
+    lwork = static_cast<lapack_int>(work_query);
+    std::vector<double> work(lwork);
+
+    // Compute eigenvalues and eigenvectors
+    lapack_int info = LAPACKE_dsyev_work(LAPACK_COL_MAJOR, jobz, uplo, mkl_n,
+                                        mat.data(), lda, eigenvalues.data(),
+                                        work.data(), lwork);
+
+    if (info != 0) {
+        std::cerr << "[TRIDIAGONAL] LAPACKE_dsyev failed with info=" << info << ", falling back\n";
+    } else {
+        // Build result
+        std::vector<EigenPair> result(n);
+        for (size_t i = 0; i < n; ++i) {
+            result[i].eigenvalue = eigenvalues[i];
+            result[i].eigenvector.resize(n);
+            for (size_t j = 0; j < n; ++j) {
+                result[i].eigenvector[j] = mat[j * n + i];
+            }
+        }
+
+        // dsyev returns unsorted eigenvalues - sort them
+        std::sort(result.begin(), result.end(),
+            [](const EigenPair& a, const EigenPair& b) {
+                return a.eigenvalue < b.eigenvalue;
+            });
+
+        return result;
+    }
+
+#elif defined(HAS_EIGEN)
+    // Use Eigen's reliable SelfAdjointEigenSolver for tridiagonal matrices
+    std::vector<double> diag = T.alpha;
+    std::vector<double> offdiag = T.beta;
+    offdiag.resize(n - 1);
+
+    // Build dense matrix (tridiagonal, so efficient)
+    Eigen::MatrixXd mat = Eigen::MatrixXd::Zero(n, n);
+    for (size_t i = 0; i < n; ++i) {
+        mat(i, i) = diag[i];
+        if (i < n - 1) {
+            mat(i, i + 1) = offdiag[i];
+            mat(i + 1, i) = offdiag[i];  // Symmetric
+        }
+    }
+
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(mat);
+    if (solver.info() != Eigen::Success) {
+        std::cerr << "[TRIDIAGONAL] Eigen solver failed, falling back to custom implementation\n";
+    } else {
+        // Build result
+        std::vector<EigenPair> result(n);
+        const auto& eigenvalues = solver.eigenvalues();
+        const auto& eigenvectors = solver.eigenvectors();
+
+        for (size_t i = 0; i < n; ++i) {
+            result[i].eigenvalue = eigenvalues(i);
+            result[i].eigenvector.resize(n);
+            for (size_t j = 0; j < n; ++j) {
+                result[i].eigenvector[j] = eigenvectors(j, i);
+            }
+        }
+
+        // Already sorted by Eigen
+        return result;
+    }
+#endif
+
+    // Fallback: original implicit QR implementation
+    std::vector<double> diag_fb = T.alpha;
+    std::vector<double> offdiag_fb = T.beta;
+    offdiag_fb.resize(n - 1);
+
     // Initialize Q = I (eigenvector accumulator)
     std::vector<std::vector<double>> Q(n, std::vector<double>(n, 0.0));
     for (size_t i = 0; i < n; ++i) {
         Q[i][i] = 1.0;
     }
-    
+
     // Implicit QR iteration
-    const double tol = std::numeric_limits<double>::epsilon() * 
-                       *std::max_element(diag.begin(), diag.end());
+    const double tol = std::numeric_limits<double>::epsilon() *
+                       *std::max_element(diag_fb.begin(), diag_fb.end());
     const int max_iter = 30 * static_cast<int>(n);
-    
+
     size_t hi = n - 1;
     int iter = 0;
-    
+
     while (hi > 0 && iter < max_iter) {
         // Find largest unreduced submatrix
         size_t lo = hi;
-        while (lo > 0 && std::abs(offdiag[lo - 1]) > tol) {
+        while (lo > 0 && std::abs(offdiag_fb[lo - 1]) > tol) {
             --lo;
         }
-        
+
         if (lo == hi) {
             // Eigenvalue converged
             --hi;
@@ -446,8 +545,8 @@ std::vector<TridiagonalEigensolver::EigenPair> TridiagonalEigensolver::solve(
             // Check for splits
             bool found_split = false;
             for (size_t k = hi; k > lo; --k) {
-                if (std::abs(offdiag[k - 1]) <= tol * (std::abs(diag[k - 1]) + std::abs(diag[k]))) {
-                    offdiag[k - 1] = 0.0;
+                if (std::abs(offdiag_fb[k - 1]) <= tol * (std::abs(diag_fb[k - 1]) + std::abs(diag_fb[k]))) {
+                    offdiag_fb[k - 1] = 0.0;
                     if (k == hi) {
                         --hi;
                         found_split = true;
@@ -455,31 +554,31 @@ std::vector<TridiagonalEigensolver::EigenPair> TridiagonalEigensolver::solve(
                     }
                 }
             }
-            
+
             if (!found_split) {
                 // Perform QR step
-                implicit_qr_step(diag, offdiag, Q, lo, hi);
+                implicit_qr_step(diag_fb, offdiag_fb, Q, lo, hi);
             }
         }
         ++iter;
     }
-    
+
     // Build result
     std::vector<EigenPair> result(n);
     for (size_t i = 0; i < n; ++i) {
-        result[i].eigenvalue = diag[i];
+        result[i].eigenvalue = diag_fb[i];
         result[i].eigenvector.resize(n);
         for (size_t j = 0; j < n; ++j) {
             result[i].eigenvector[j] = Q[j][i];
         }
     }
-    
+
     // Sort by eigenvalue ascending
     std::sort(result.begin(), result.end(),
         [](const EigenPair& a, const EigenPair& b) {
             return a.eigenvalue < b.eigenvalue;
         });
-    
+
     return result;
 }
 
@@ -526,17 +625,22 @@ void LanczosSolver::lanczos_iteration(
     T.alpha.resize(m);
     T.beta.resize(m);
     
-    // CRITICAL: For graph Laplacian, the null space is the constant vector.
-    // We MUST start with a vector ORTHOGONAL to the null space.
-    // Use deterministic alternating pattern: (+1, -1, +1, -1, ...) / sqrt(n)
-    // This has zero mean, so it's orthogonal to the constant eigenvector.
+    // CRITICAL: For graph Laplacian, the null space includes the constant vector.
+    // We MUST start with a vector ORTHOGONAL to the constant eigenvector.
+    // Use a deterministic random vector orthogonalized against the constant.
     Q[0].resize(n);
-    double init_val = 1.0 / std::sqrt(static_cast<double>(n));
+    std::mt19937 rng(42);  // Fixed seed for determinism
+    std::normal_distribution<double> dist(0.0, 1.0);
     for (size_t i = 0; i < n; ++i) {
-        Q[0][i] = (i % 2 == 0) ? init_val : -init_val;
+        Q[0][i] = dist(rng);
+    }
+    // Orthogonalize against constant vector (subtract mean)
+    double mean = std::accumulate(Q[0].begin(), Q[0].end(), 0.0) / n;
+    for (auto& x : Q[0]) {
+        x -= mean;
     }
     vec::normalize(Q[0]);
-    
+
     std::vector<double> w(n);
     double beta_prev = 0.0;
     
@@ -546,26 +650,10 @@ void LanczosSolver::lanczos_iteration(
         
         // w = L * q_j
         L.matvec(Q[j].data(), w.data());
-        
-        // DEBUG: Check first iteration
-        if (j == 0) {
-            double w_norm = vec::norm(w);
-            std::cerr << "\n[DEBUG] First Lanczos iter: ||L*q0|| = " << w_norm << "\n";
-            std::cerr << "[DEBUG] First 5 elements of q0: ";
-            for (int i = 0; i < 5 && i < static_cast<int>(n); ++i) std::cerr << Q[0][i] << " ";
-            std::cerr << "\n[DEBUG] First 5 elements of L*q0: ";
-            for (int i = 0; i < 5 && i < static_cast<int>(n); ++i) std::cerr << w[i] << " ";
-            std::cerr << "\n";
-        }
-        
+
         // α_j = q_j^T * w
         double alpha = vec::dot(Q[j], w);
         T.alpha[j] = alpha;
-        
-        // DEBUG: Print alpha for first few iterations
-        if (j < 5) {
-            std::cerr << "\n[DEBUG] iter " << j << ": alpha=" << alpha;
-        }
         
         // w = w - α_j * q_j
         vec::axpy(-alpha, Q[j], w);
@@ -577,16 +665,11 @@ void LanczosSolver::lanczos_iteration(
         
         // Full reorthogonalization
         reorthogonalize(w, Q, j + 1);
-        
+
         // β_j = ||w||
         double beta = vec::norm(w);
         T.beta[j] = beta;
-        
-        // DEBUG: Print beta for first few iterations
-        if (j < 5) {
-            std::cerr << ", beta=" << beta << "\n";
-        }
-        
+
         // Check for breakdown (lucky breakdown = invariant subspace found)
         if (beta < config_.reorth_tol) {
             T.alpha.resize(j + 1);
@@ -620,17 +703,22 @@ void LanczosSolver::shift_invert_lanczos(
     T.alpha.resize(m);
     T.beta.resize(m);
     
-    // CRITICAL: For graph Laplacian, the null space is the constant vector.
-    // We MUST start with a vector ORTHOGONAL to the null space.
-    // Use deterministic alternating pattern: (+1, -1, +1, -1, ...) / sqrt(n)
-    // This has zero mean, so it's orthogonal to the constant eigenvector.
+    // CRITICAL: For graph Laplacian, the null space includes the constant vector.
+    // We MUST start with a vector ORTHOGONAL to the constant eigenvector.
+    // Use a deterministic random vector orthogonalized against the constant.
     Q[0].resize(n);
-    double init_val = 1.0 / std::sqrt(static_cast<double>(n));
+    std::mt19937 rng(42);  // Fixed seed for determinism
+    std::normal_distribution<double> dist(0.0, 1.0);
     for (size_t i = 0; i < n; ++i) {
-        Q[0][i] = (i % 2 == 0) ? init_val : -init_val;
+        Q[0][i] = dist(rng);
+    }
+    // Orthogonalize against constant vector (subtract mean)
+    double mean = std::accumulate(Q[0].begin(), Q[0].end(), 0.0) / n;
+    for (auto& x : Q[0]) {
+        x -= mean;
     }
     vec::normalize(Q[0]);
-    
+
     std::vector<double> w(n);
     std::vector<double> cg_x(n);
     double beta_prev = 0.0;

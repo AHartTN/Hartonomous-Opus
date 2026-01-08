@@ -109,24 +109,26 @@ ensure_database() {
 }
 
 ensure_schema() {
-    # Check if unified atom table exists with new schema (has 'children' column)
-    if psql -tAc "SELECT 1 FROM information_schema.columns WHERE table_name='atom' AND column_name='children'" | grep -q 1; then
-        return 0  # Already using unified schema
+    # Check if new three-table schema exists (atom, composition, relation tables)
+    if psql -tAc "SELECT 1 FROM information_schema.tables WHERE table_name='composition'" | grep -q 1; then
+        return 0  # Already using new schema
     fi
 
-    # Drop old tables if they exist (migration to unified schema)
+    # Drop old tables if they exist (migration to new schema)
     if psql -tAc "SELECT 1 FROM pg_tables WHERE tablename='relation_edge'" | grep -q 1; then
-        log_info "Migrating from old schema to unified schema..."
+        log_info "Migrating from old schema to new three-table schema..."
         psql -q -c "DROP TABLE IF EXISTS relation_edge CASCADE;"
         psql -q -c "DROP TABLE IF EXISTS relation CASCADE;"
+        psql -q -c "DROP TABLE IF EXISTS composition CASCADE;"
         psql -q -c "DROP TABLE IF EXISTS atom CASCADE;"
         psql -q -c "DROP TYPE IF EXISTS atom_category CASCADE;"
         psql -q -c "DROP DOMAIN IF EXISTS blake3_hash CASCADE;"
     fi
 
-    log_info "Applying unified schema..."
-    psql -q -f sql/011_unified_atom.sql
-    log_ok "Unified schema applied"
+    log_info "Applying new three-table schema..."
+    psql -q -f sql/001_schema.sql
+    psql -q -f sql/002_core_functions.sql
+    log_ok "New schema applied"
 }
 
 ensure_atoms() {
@@ -152,18 +154,18 @@ ensure_atoms() {
 }
 
 ensure_functions() {
-    # Check if all functions exist
-    if psql -tAc "SELECT 1 FROM pg_proc WHERE proname='atom_reconstruct'" | grep -q 1 && \
-       psql -tAc "SELECT 1 FROM pg_proc WHERE proname='semantic_neighbors'" | grep -q 1; then
+    # Check if all core functions exist
+    if psql -tAc "SELECT 1 FROM pg_proc WHERE proname='get_atoms_by_codepoints'" | grep -q 1 && \
+       psql -tAc "SELECT 1 FROM pg_proc WHERE proname='recompute_composition_centroids'" | grep -q 1; then
         return 0
     fi
 
-    log_info "Applying SQL schema and functions..."
-    for sqlfile in sql/01*.sql sql/016*.sql; do
+    log_info "Applying additional SQL functions..."
+    for sqlfile in sql/003_*.sql sql/004_*.sql sql/005_*.sql sql/006_*.sql sql/007_*.sql; do
         [ -f "$sqlfile" ] || continue
         psql -q -f "$sqlfile" 2>/dev/null || true
     done
-    log_ok "Functions applied"
+    log_ok "Additional functions applied"
 }
 
 ensure_extension() {

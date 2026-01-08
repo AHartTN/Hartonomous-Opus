@@ -622,8 +622,8 @@ size_t extract_multimodal_structures(
 
         std::cerr << "[MULTIMODAL] Deduplicated " << all_edges.size() << " -> " << deduped_edges.size() << " unique edges\n";
 
-        // Binary COPY directly to relation table (no conflicts since deduplicated)
-        std::string copy_cmd = "COPY relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) FROM STDIN WITH (FORMAT binary)";
+        // Text COPY directly to relation table (no conflicts since deduplicated)
+        std::string copy_cmd = "COPY relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) FROM STDIN WITH (FORMAT text)";
 
         hypercube::db::CopyStream copy(conn, copy_cmd.c_str());
         if (!copy.ok()) {

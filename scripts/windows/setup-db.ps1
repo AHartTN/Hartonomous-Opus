@@ -123,18 +123,27 @@ try {
 
         # ====================================================================
         # SCHEMA APPLICATION (idempotent - uses CREATE IF NOT EXISTS)
+        # Priority order: schema first, then functions, then features
         # ====================================================================
         Write-Host "[4/6] Applying schema..." -ForegroundColor Cyan
-        $sqlFiles = Get-ChildItem -Path "$env:HC_PROJECT_ROOT\sql\*.sql" | 
-                    Where-Object { $_.Name -notmatch "archive" } | 
-                    Sort-Object Name
+
+        # Priority files first
+        $priorityFiles = @("001_schema.sql", "002_core_functions.sql")
+        $otherFiles = Get-ChildItem -Path "$env:HC_PROJECT_ROOT\sql\*.sql" |
+                      Where-Object { $_.Name -notmatch "archive" -and $_.Name -notmatch "^001_|^002_" } |
+                      Sort-Object Name |
+                      Select-Object -ExpandProperty Name
+
+        $sqlFiles = $priorityFiles + $otherFiles
         
         foreach ($sqlFile in $sqlFiles) {
-            Write-Host "      $($sqlFile.Name)..." -NoNewline
-            $output = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -v ON_ERROR_STOP=1 -f $sqlFile.FullName 2>&1
-            if ($LASTEXITCODE -ne 0 -or ($output -and ($output -match "^ERROR:" -or $output -match "^psql:"))) {
+            Write-Host "      $sqlFile..." -NoNewline
+            $sqlPath = Join-Path $env:HC_PROJECT_ROOT "sql\$sqlFile"
+            # Run psql with ON_ERROR_STOP - it will exit non-zero on actual errors, but notices go to stderr
+            $null = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -v ON_ERROR_STOP=1 -f $sqlPath
+            if ($LASTEXITCODE -ne 0) {
                 Write-Host " FAILED" -ForegroundColor Red
-                Write-Host "      Error: $output" -ForegroundColor Red
+                Write-Host "      psql exited with code $LASTEXITCODE" -ForegroundColor Red
                 exit 1
             }
             Write-Host " OK" -ForegroundColor Green

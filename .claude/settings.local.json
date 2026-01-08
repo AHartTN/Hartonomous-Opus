@@ -33,7 +33,12 @@
       "WebFetch(domain:openaccess.thecvf.com)",
       "WebFetch(domain:github.com)",
       "Bash(git submodule add:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(ctest:*)",
+      "Bash(./hypercube_tests.exe:*)",
+      "Bash(tee:*)",
+      "Bash(cpp/build/model_discovery.exe:*)",
+      "Bash(cpp/build/test_laplacian_4d.exe:*)"
     ]
   },
   "outputStyle": "default"

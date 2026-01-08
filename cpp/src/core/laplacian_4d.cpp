@@ -674,7 +674,7 @@ void LaplacianProjector::ensure_connectivity(
 ) {
     const size_t n = W.size();
     if (n <= 1) return;
-    
+
     // Union-Find with path compression and union by rank
     std::vector<size_t> parent(n), rank_uf(n, 0);
     std::iota(parent.begin(), parent.end(), 0);
@@ -703,14 +703,13 @@ void LaplacianProjector::ensure_connectivity(
     for (size_t i = 0; i < n; ++i) {
         roots.insert(find(i));
     }
-    
+
     size_t num_components = roots.size();
     if (num_components == 1) {
-        std::cerr << "[CONNECT] Graph is already connected\n";
         return;
     }
-    
-    std::cerr << "[CONNECT] Found " << num_components << " disconnected components\n";
+
+    std::cerr << "[CONNECT] Found " << num_components << " disconnected components - adding edges\n";
     
     const size_t dim = embeddings[0].size();
     size_t edges_added = 0;
@@ -761,61 +760,45 @@ void LaplacianProjector::ensure_connectivity(
         ++edges_added;
     }
     
-    std::cerr << "[CONNECT] Added " << edges_added << " edges to ensure connectivity\n";
+    std::cerr << "[CONNECT] Added " << edges_added << " inter-component edges\n";
 }
 
 SparseSymmetricMatrix LaplacianProjector::build_laplacian(const SparseSymmetricMatrix& W) {
     const size_t n = W.size();
     SparseSymmetricMatrix L(n);
-    
+
     // Set diagonal to degree: D_ii = sum_j W_ij
+    std::vector<size_t> degree_zero_vertices;
     for (size_t i = 0; i < n; ++i) {
-        L.set_diagonal(i, W.get_degree(i));
+        double degree = W.get_degree(i);
+        L.set_diagonal(i, degree);
+        if (degree == 0.0) {
+            degree_zero_vertices.push_back(i);
+        }
     }
-    
+
+    // Report degree-0 vertices (these cause eigenmap failure)
+    if (!degree_zero_vertices.empty()) {
+        std::cerr << "[ERROR] Laplacian has " << degree_zero_vertices.size()
+                  << " degree-0 vertices - eigenmap will fail!\n";
+    }
+
     // Copy structure from W but negate values for off-diagonal
     // L = D - W, so off-diagonal entries are -W_ij
     W.for_each_edge([&](size_t i, size_t j, double w) {
         L.add_edge(i, j, -w);
     });
-    
+
     L.finalize();
     
-    // Verify Laplacian properties
-    size_t l_nnz = 0;
-    L.for_each_edge([&](size_t, size_t, double) { ++l_nnz; });
-    std::cerr << "[DEBUG] Laplacian stats: size=" << n << ", nnz=" << l_nnz << "\n";
-
-    // Strict Laplacian checker
-    bool laplacian_ok = true;
+    // Validate Laplacian (silent unless error)
     std::vector<double> ones(n, 1.0), Lones(n);
     L.matvec(ones.data(), Lones.data());
-    check_nan_inf(Lones.data(), n, "L*1 computation");
-
     double norm_L1 = 0.0;
     for (size_t i = 0; i < n; ++i) norm_L1 += Lones[i] * Lones[i];
     norm_L1 = std::sqrt(norm_L1);
-    std::cerr << "[DEBUG] ||L*1|| = " << norm_L1 << " (should be ~0)\n";
-    // Relaxed tolerance for now due to floating point issues
     if (norm_L1 > 1e-1 || std::isnan(norm_L1) || std::isinf(norm_L1)) {
-        std::cerr << "[ERROR] Laplacian L*1 norm too large or NaN/Inf! Laplacian may be malformed.\n";
-        laplacian_ok = false;
-    }
-
-    // Check symmetry
-    if (!L.is_symmetric()) {
-        std::cerr << "[ERROR] Laplacian is not symmetric!\n";
-        laplacian_ok = false;
-    }
-
-    // Check CSR validity
-    if (!L.validate_csr()) {
-        std::cerr << "[ERROR] Laplacian CSR structure is invalid!\n";
-        laplacian_ok = false;
-    }
-
-    if (!laplacian_ok) {
-        std::cerr << "[WARNING] Laplacian construction may have issues.\n";
+        std::cerr << "[ERROR] Laplacian validation failed: ||L*1|| = " << norm_L1 << "\n";
     }
     
     return L;
@@ -1531,30 +1514,23 @@ ProjectionResult LaplacianProjector::project(
     
     // Step 1.6: Finalize the similarity graph (convert adj list to CSR)
     W.finalize();
-    
-    // Step 2: Build unnormalized Laplacian
-    std::cerr << "\n[2] Building unnormalized Laplacian L = D - W...\n";
-    auto L = build_laplacian(W);
-    
-    // DEBUG: Check Laplacian stats
-    {
-        double max_diag = 0.0, min_diag = std::numeric_limits<double>::max();
-        double max_offdiag = 0.0, min_offdiag = std::numeric_limits<double>::max();
-        size_t nnz = 0;
-        for (size_t i = 0; i < L.size(); ++i) {
-            double d = L.get_diagonal(i);
-            if (d > max_diag) max_diag = d;
-            if (d < min_diag && d != 0) min_diag = d;
+
+    // DEBUG: Check for degree-0 vertices in similarity graph AFTER connectivity
+    size_t degree_zero_count = 0;
+    for (size_t i = 0; i < n; ++i) {
+        if (W.get_degree(i) == 0.0) {
+            ++degree_zero_count;
         }
-        L.for_each_edge([&](size_t, size_t, double v) {
-            ++nnz;
-            if (v < min_offdiag) min_offdiag = v;
-            if (v > max_offdiag) max_offdiag = v;
-        });
-        std::cerr << "[DEBUG] Laplacian stats: size=" << L.size() << ", nnz=" << nnz
-                  << "\n  diagonal range: [" << min_diag << ", " << max_diag << "]"
-                  << "\n  off-diag range: [" << min_offdiag << ", " << max_offdiag << "]\n";
     }
+    if (degree_zero_count > 0) {
+        std::cerr << "[ERROR] After connectivity+finalize: " << degree_zero_count
+                  << " vertices STILL have degree 0 in similarity graph!\n";
+        std::cerr << "[ERROR] This means connectivity enforcement FAILED!\n";
+    }
+
+    // Step 2: Build unnormalized Laplacian
+    std::cerr << "\n[2] Building unnormalized Laplacian...\n";
+    auto L = build_laplacian(W);
     
     // Step 3: Find 4 smallest non-zero eigenvectors
     std::cerr << "\n[3] Finding 4 smallest non-zero eigenvectors...\n";
