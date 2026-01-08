@@ -483,8 +483,13 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
     // 6. EMBEDDINGS
     // =========================================================================
     if (lower_name.find("embed") != std::string::npos) {
+        // Temporal embeddings (Florence-2, video models)
+        if (lower_name.find("temporal") != std::string::npos ||
+            lower_name.find("pos_idx_to_embed") != std::string::npos) {
+            return TensorCategory::POSITION_EMBEDDING_2D;
+        }
         // 1D positional
-        if (lower_name.find("position") != std::string::npos || 
+        if (lower_name.find("position") != std::string::npos ||
             lower_name.find("pos_embed") != std::string::npos) {
             return TensorCategory::POSITION_EMBEDDING;
         }
@@ -505,6 +510,13 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
             return TensorCategory::TOKEN_EMBEDDING;
         }
     }
+
+    // CRITICAL: Check for large 2D matrices that might be embeddings even without "embed" in name
+    // This catches tensors like "language_model.model.shared.weight" [51289, 768]
+    if (shape.size() == 2 && shape[0] > 10000) {
+        // Likely a token embedding table
+        return TensorCategory::TOKEN_EMBEDDING;
+    }
     
     // =========================================================================
     // 7. LOGIT HEAD
@@ -518,7 +530,7 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
     // =========================================================================
     // 8. ATTENTION
     // =========================================================================
-    if (lower_name.find("attn") != std::string::npos || 
+    if (lower_name.find("attn") != std::string::npos ||
         lower_name.find("attention") != std::string::npos) {
         // Cross-attention
         if (lower_name.find("encoder_attn") != std::string::npos ||
@@ -526,25 +538,62 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
             return TensorCategory::CROSS_ATTENTION;
         }
         // QKV projections
-        if (lower_name.find("q_proj") != std::string::npos || 
+        if (lower_name.find("q_proj") != std::string::npos ||
             (lower_name.find("query") != std::string::npos && lower_name.find("weight") != std::string::npos)) {
             return TensorCategory::ATTENTION_QUERY;
         }
-        if (lower_name.find("k_proj") != std::string::npos || 
+        if (lower_name.find("k_proj") != std::string::npos ||
             lower_name.find("key") != std::string::npos) {
             return TensorCategory::ATTENTION_KEY;
         }
-        if (lower_name.find("v_proj") != std::string::npos || 
+        if (lower_name.find("v_proj") != std::string::npos ||
             lower_name.find("value") != std::string::npos) {
             return TensorCategory::ATTENTION_VALUE;
         }
-        if (lower_name.find("out_proj") != std::string::npos || 
+        if (lower_name.find("out_proj") != std::string::npos ||
             lower_name.find("o_proj") != std::string::npos) {
             return TensorCategory::ATTENTION_OUTPUT;
         }
         // QKV combined
         if (lower_name.find("qkv") != std::string::npos) {
             return TensorCategory::ATTENTION_QUERY;  // Will need special handling
+        }
+    }
+
+    // =========================================================================
+    // Conditional-DETR: Decomposed Content-Position Attention
+    // =========================================================================
+    // These projections separate content and positional information for attention
+    // Pattern: {ca|sa}_{q|k|v}{content|pos}_proj where ca=cross-attn, sa=self-attn
+    if (lower_name.find("_proj") != std::string::npos) {
+        // Cross-attention decomposed components
+        if (lower_name.find("ca_") != std::string::npos) {
+            if (lower_name.find("qcontent_proj") != std::string::npos ||
+                lower_name.find("qpos_proj") != std::string::npos ||
+                lower_name.find("qpos_sine_proj") != std::string::npos) {
+                return TensorCategory::ATTENTION_QUERY;
+            }
+            if (lower_name.find("kcontent_proj") != std::string::npos ||
+                lower_name.find("kpos_proj") != std::string::npos) {
+                return TensorCategory::ATTENTION_KEY;
+            }
+            if (lower_name.find("v_proj") != std::string::npos) {
+                return TensorCategory::ATTENTION_VALUE;
+            }
+        }
+        // Self-attention decomposed components
+        if (lower_name.find("sa_") != std::string::npos) {
+            if (lower_name.find("qcontent_proj") != std::string::npos ||
+                lower_name.find("qpos_proj") != std::string::npos) {
+                return TensorCategory::ATTENTION_QUERY;
+            }
+            if (lower_name.find("kcontent_proj") != std::string::npos ||
+                lower_name.find("kpos_proj") != std::string::npos) {
+                return TensorCategory::ATTENTION_KEY;
+            }
+            if (lower_name.find("v_proj") != std::string::npos) {
+                return TensorCategory::ATTENTION_VALUE;
+            }
         }
     }
     

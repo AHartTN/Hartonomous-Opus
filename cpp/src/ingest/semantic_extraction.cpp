@@ -728,7 +728,8 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
     lap_config.num_threads = g_num_threads;
     lap_config.project_to_sphere = true;
     lap_config.verbose = true;
-    lap_config.convergence_tol = 1e-8;
+    // Relax tolerance for large sparse matrices - residuals ~1e-3 are acceptable
+    lap_config.convergence_tol = 1e-4;
 
     std::cerr << "[PROJECTION] Projecting " << V << " embeddings to 4D using Laplacian eigenmaps...\n";
     auto proj_start = std::chrono::steady_clock::now();

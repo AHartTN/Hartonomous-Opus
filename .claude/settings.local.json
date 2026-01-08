@@ -40,7 +40,9 @@
       "Bash(cpp/build/model_discovery.exe:*)",
       "Bash(cpp/build/test_laplacian_4d.exe:*)",
       "Bash(ninja -C build:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(./ingest_safetensor \"D:\\\\Models\\\\detection_models\\\\Conditional-DETR-R50\")",
+      "Bash(python analyze_uncategorized.py:*)"
     ]
   },
   "outputStyle": "default"
