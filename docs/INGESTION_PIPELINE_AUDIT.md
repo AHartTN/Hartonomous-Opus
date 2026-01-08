@@ -113,10 +113,17 @@ if (lower_name.find("temporal") != std::string::npos ||
 ---
 
 ### Fix 5: Relaxed Convergence Tolerance
-**File**: `cpp/src/ingest/semantic_extraction.cpp:731-732`
+**Files**:
+- `cpp/src/ingest/semantic_extraction.cpp:731-732`
+- `cpp/src/core/laplacian_4d.cpp:1308`
+
 ```cpp
+// In semantic_extraction.cpp:
 // Relax tolerance for large sparse matrices - residuals ~1e-3 are acceptable
 lap_config.convergence_tol = 1e-4;
+
+// In laplacian_4d.cpp (CRITICAL - was hardcoded to 1e-8):
+lanczos_config.convergence_tol = config_.convergence_tol;  // Use tolerance from LaplacianConfig
 ```
 
 **Result**: Large models (50K+ tokens) now converge successfully

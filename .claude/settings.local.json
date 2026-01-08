@@ -42,7 +42,14 @@
       "Bash(ninja -C build:*)",
       "Bash(taskkill:*)",
       "Bash(./ingest_safetensor \"D:\\\\Models\\\\detection_models\\\\Conditional-DETR-R50\")",
-      "Bash(python analyze_uncategorized.py:*)"
+      "Bash(python analyze_uncategorized.py:*)",
+      "Bash(done)",
+      "Bash(for dir in detection_models embedding_models generation_models)",
+      "Bash(do echo \"=== D:\\\\Models\\\\$dir ===\")",
+      "Bash(while true)",
+      "Bash(do tail -3 \"d:\\\\Repositories\\\\Github\\\\AHartTN\\\\Hartonomous-Opus\\\\ingest-models-log.txt\")",
+      "Bash(break)",
+      "Bash(timeout:*)"
     ]
   },
   "outputStyle": "default"

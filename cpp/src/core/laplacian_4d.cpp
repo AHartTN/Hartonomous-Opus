@@ -1305,7 +1305,7 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     lanczos::LanczosConfig lanczos_config;
     lanczos_config.num_eigenpairs = k + 1;  // k+1 to skip null space
     lanczos_config.max_iterations = 500;
-    lanczos_config.convergence_tol = 1e-8;
+    lanczos_config.convergence_tol = config_.convergence_tol;  // Use tolerance from LaplacianConfig
     lanczos_config.use_shift_invert = false;  // Use direct Lanczos
     lanczos_config.num_threads = config_.num_threads;
 

@@ -36,11 +36,11 @@ Threshold: 0.5
 +--------------------------------------------------------------+
   TENSORS BY CATEGORY:
     Embeddings:    9 (eigenmap extraction)
-    Attention:     84 (relation extraction)
+    Attention:     206 (relation extraction)
     FFN:           48 (eigenmap extraction)
     Normalization: 50 (eigenmap extraction)
     Convolution:   269 (eigenmap extraction)
-    Other:         130
+    Other:         8
     TOTAL:         592
 +--------------------------------------------------------------+
   METADATA FOR INGESTION:
@@ -60,7 +60,7 @@ Threshold: 0.5
 [METADATA] Special tokens: 0
 [METADATA] Vocab tokens: 0
 [METADATA] Loading 55 atoms (max codepoint: 125 / 0x7d)...
-[CACHE] Loaded 55 atoms for 55 unique codepoints in 8 ms
+[CACHE] Loaded 55 atoms for 55 unique codepoints in 7 ms
 [METADATA] Loaded 55 atoms
 [CONFIG-AST] Built 424 nodes, 385 relations
 [METADATA] Total: 231 compositions, 385 relations
@@ -175,7 +175,7 @@ Threshold: 0.5
 [METADATA] Special tokens: 0
 [METADATA] Vocab tokens: 0
 [METADATA] Loading 51 atoms (max codepoint: 125 / 0x7d)...
-[CACHE] Loaded 51 atoms for 51 unique codepoints in 7 ms
+[CACHE] Loaded 51 atoms for 51 unique codepoints in 8 ms
 [METADATA] Loaded 51 atoms
 [CONFIG-AST] Built 422 nodes, 384 relations
 [METADATA] Total: 228 compositions, 384 relations
@@ -224,7 +224,7 @@ Threshold: 0.5
 [MULTIMODAL] Extracted 0 semantic relations
 
 === Complete ===
-Total time: 3 seconds
+Total time: 2 seconds
 Tensors: 789
 BPE merges: 0
 Vocab: 0 tokens
@@ -270,12 +270,12 @@ Threshold: 0.5
     FFN Dim: 3072
 +--------------------------------------------------------------+
   TENSORS BY CATEGORY:
-    Embeddings:    409 (eigenmap extraction)
+    Embeddings:    410 (eigenmap extraction)
     Attention:     156 (relation extraction)
     FFN:           48 (eigenmap extraction)
     Normalization: 52 (eigenmap extraction)
     Convolution:   0 (skipped)
-    Other:         1
+    Other:         0
     TOTAL:         666
 +--------------------------------------------------------------+
   METADATA FOR INGESTION:
@@ -321,54 +321,54 @@ Threshold: 0.5
 [COMP] Inserting 50265 token compositions...
 [COMP] 50009 multi-char compositions to insert
 [COMP] Building batch strings with 16 threads...
-  [BUILD] 50265/50265 tokens (98366/s)
+  [BUILD] 50265/50265 tokens (99732/s)
 
-[COMP] Built 31429KB compositions + 43846KB children in 511ms
+[COMP] Built 31429KB compositions + 43846KB children in 504ms
 [COMP] Streaming to database...
 [COMP] Dropping idx_comp_label to prevent corruption...
 [COMP] Creating temp tables...
 [COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (3181KB)
-  [COPY] Batch 2/16 (2824KB)
-  [COPY] Batch 3/16 (645KB)
-  [COPY] Batch 4/16 (770KB)
-  [COPY] Batch 5/16 (697KB)
-  [COPY] Batch 6/16 (806KB)
-  [COPY] Batch 7/16 (1073KB)
-  [COPY] Batch 8/16 (1323KB)
-  [COPY] Batch 9/16 (3224KB)
-  [COPY] Batch 10/16 (2858KB)
-  [COPY] Batch 11/16 (1789KB)
-  [COPY] Batch 12/16 (2561KB)
-  [COPY] Batch 13/16 (2471KB)
-  [COPY] Batch 14/16 (2735KB)
-  [COPY] Batch 15/16 (2769KB)
-  [COPY] Batch 16/16 (1697KB)
+  [COPY] Batch 1/16 (2820KB)
+  [COPY] Batch 2/16 (2484KB)
+  [COPY] Batch 3/16 (1253KB)
+  [COPY] Batch 4/16 (1134KB)
+  [COPY] Batch 5/16 (2612KB)
+  [COPY] Batch 6/16 (1230KB)
+  [COPY] Batch 7/16 (1171KB)
+  [COPY] Batch 8/16 (2790KB)
+  [COPY] Batch 9/16 (2242KB)
+  [COPY] Batch 10/16 (1788KB)
+  [COPY] Batch 11/16 (1766KB)
+  [COPY] Batch 12/16 (2567KB)
+  [COPY] Batch 13/16 (1791KB)
+  [COPY] Batch 14/16 (2008KB)
+  [COPY] Batch 15/16 (1356KB)
+  [COPY] Batch 16/16 (2410KB)
 
 [COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (4437KB)
-  [COPY] Batch 2/16 (3936KB)
-  [COPY] Batch 3/16 (892KB)
-  [COPY] Batch 4/16 (1069KB)
-  [COPY] Batch 5/16 (982KB)
-  [COPY] Batch 6/16 (1122KB)
-  [COPY] Batch 7/16 (1509KB)
-  [COPY] Batch 8/16 (1846KB)
-  [COPY] Batch 9/16 (4485KB)
-  [COPY] Batch 10/16 (3984KB)
-  [COPY] Batch 11/16 (2491KB)
-  [COPY] Batch 12/16 (3568KB)
-  [COPY] Batch 13/16 (3456KB)
-  [COPY] Batch 14/16 (3832KB)
-  [COPY] Batch 15/16 (3866KB)
-  [COPY] Batch 16/16 (2363KB)
+  [COPY] Batch 1/16 (3924KB)
+  [COPY] Batch 2/16 (3456KB)
+  [COPY] Batch 3/16 (1743KB)
+  [COPY] Batch 4/16 (1578KB)
+  [COPY] Batch 5/16 (3628KB)
+  [COPY] Batch 6/16 (1714KB)
+  [COPY] Batch 7/16 (1639KB)
+  [COPY] Batch 8/16 (3895KB)
+  [COPY] Batch 9/16 (3121KB)
+  [COPY] Batch 10/16 (2492KB)
+  [COPY] Batch 11/16 (2460KB)
+  [COPY] Batch 12/16 (3576KB)
+  [COPY] Batch 13/16 (2516KB)
+  [COPY] Batch 14/16 (2817KB)
+  [COPY] Batch 15/16 (1889KB)
+  [COPY] Batch 16/16 (3388KB)
 
 [COMP] Inserting into composition table...
 [COMP] Inserted 45796 compositions
 [COMP] Inserting into composition_child table...
 [COMP] Inserted 0 children
 [COMP] Recreating idx_comp_label...
-[COMP] Inserted 45796 compositions, 0 children in 2541ms
+[COMP] Inserted 45796 compositions, 0 children in 2350ms
 
 [5.5] Projecting token embeddings to 4D semantic coordinates...
 ============================================================
@@ -376,16 +376,15 @@ Threshold: 0.5
 ============================================================
 [PROJECTION] Using config-driven tensor lookup
 [PROJECTION] Scanning 666 extraction plans...
-[PROJECTION] WARNING: No TOKEN_EMBEDDING plans found in manifest!
-[PROJECTION] WARNING: Manifest lookup failed, falling back to tensor scan
-[PROJECTION] Found embedding: language_model.model.shared.weight [51289 x 768]
+[PROJECTION]   Candidate 1: language_model.model.shared.weight [51289 x 768] - AVAILABLE
+[PROJECTION] >>> SELECTED: language_model.model.shared.weight
 [PROJECTION] Loading 50265 x 768 embeddings...
 [LOAD_TENSOR] Opening file: D:\Models\detection_models\Florence-2-base\model.safetensors
 [LOAD_TENSOR] Seeking to offset: 203414706
 [LOAD_TENSOR] Reading 39389952 elements as F16
 [LOAD_TENSOR] Successfully read 78779904 bytes (expected 78779904)
 [LOAD_TENSOR] Non-zero values in first 100 elements: 99/100
-[PROJECTION] Loaded in 109ms
+[PROJECTION] Loaded in 104ms
 [PROJECTION] Embedding statistics (raw from safetensor):
   Tensor: language_model.model.shared.weight [50265 x 768]
   Dtype: F16, File offset: 203414706
@@ -403,8 +402,8 @@ Tokens: 50265, Embedding dim: 768
 
 [1] Building k-NN similarity graph (k=15)...
 [HNSWLIB] Building HNSW index for 50265 points, dim=768
-[HNSWLIB] Index built in 18383 ms
-[HNSWLIB] k-NN queries completed in 5006 ms
+[HNSWLIB] Index built in 17692 ms
+[HNSWLIB] k-NN queries completed in 4877 ms
 [HNSWLIB] Built k-NN graph with 650403 edges
 
 [1.5] Ensuring graph connectivity...
@@ -423,54 +422,66 @@ Tokens: 50265, Embedding dim: 768
 [DEBUG] Laplacian is symmetric: YES
 [DEBUG] Graph connectivity: 50265/50265 nodes reachable from node 0
 [LANCZOS] Finding 4 smallest non-zero eigenvectors using Lanczos on -L
-[LANCZOS] config_.convergence_tol = 1e-08
+[LANCZOS] config_.convergence_tol = 0.0001
 [MKL] Created sparse matrix handle: 50265x50265, 1300836 non-zeros
-[LANCZOS] Config: tol=1e-08, max_iter=500, num_eigenpairs=5
+[LANCZOS] Config: tol=0.0001, max_iter=500, num_eigenpairs=5
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.56578 -1.53079 -1.48724 -1.40956 -1.3563 -1.3023 -1.24397 ...
 
-[CONV] Residual[0] = 0.000649828 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000649828 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55135 -1.53381 -1.52964 -1.50517 -1.46489 -1.43429 ...
 
-[CONV] Residual[0] = 0.000590845 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000590845 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.53105 -1.52925 -1.50585 -1.50091 ...
 
-[CONV] Residual[0] = 0.000576072 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000576072 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000552409 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000552409 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000551741 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000551741 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000551614 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000551614 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000516389 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000516389 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000515219 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000515219 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000522663 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000522663 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000494463 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000494463 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000507136 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000507136 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000496835 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000496835 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000488919 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000488919 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000508302 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000508302 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000477611 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000477611 > tol=0.0001 - not converged
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
-[CONV] Residual[0] = 0.000480312 > tol=1e-08 - not converged
+[CONV] Residual[0] = 0.000480312 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
+
+[CONV] Residual[0] = 0.000465377 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
+
+[CONV] Residual[0] = 0.000475475 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
+
+[CONV] Residual[0] = 0.000467424 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
+
+[CONV] Residual[0] = 0.000456443 > tol=0.0001 - not converged
