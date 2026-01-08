@@ -171,6 +171,33 @@ struct Point4F {
 };
 
 // 128-bit Hilbert curve index (two 64-bit parts)
+//
+// SPATIAL INDEXING ONLY - NOT IDENTIFICATION!
+//
+// PURPOSE: Enables O(log N) nearest neighbor queries via B-tree/R-tree ordering
+//
+// PROPERTIES:
+// - LOSSLESS: Deterministically computed from coordinates
+// - DETERMINISTIC: Same coordinates → same Hilbert index (before collision resolution)
+// - SPATIALLY ORDERED: Preserves locality for efficient range queries
+// - NOT UNIQUE: Multiple coordinates can map to same index due to quantization
+//
+// COLLISION CAUSES:
+// 1. Quantization: Float coordinates rounded to 32-bit integers
+// 2. Jitter: Deterministic perturbations to resolve spatial conflicts
+// 3. Finite precision: 32 bits per dimension limits uniqueness
+//
+// CORRECT USAGE:
+// ✅ Spatial indexing: ORDER BY hilbert_hi, hilbert_lo
+// ✅ Nearest neighbors: Range queries on Hilbert ordering
+// ✅ B-tree/R-tree: Efficient spatial query acceleration
+// ❌ Unique identifiers: Use Blake3Hash instead
+// ❌ Primary keys: Use Blake3Hash instead
+// ❌ Equality for identity: Use Blake3Hash instead
+//
+// Hilbert indices provide spatial locality for fast queries,
+// but Blake3Hash provides the unique content-derived identifier.
+//
 struct HilbertIndex {
     uint64_t lo;  // Lower 64 bits
     uint64_t hi;  // Upper 64 bits
@@ -226,6 +253,9 @@ struct HilbertIndex {
 };
 
 // BLAKE3 hash (32 bytes)
+// NOTE: 256 bits is overkill for 4D coordinate space (~128 bits max needed).
+// Full hash maintained for cryptographic content addressing (Merkle DAG).
+// Spatial operations can use truncated_64() for performance.
 struct Blake3Hash {
     std::array<uint8_t, 32> bytes;
 
@@ -304,15 +334,33 @@ struct Blake3Hash {
         for (uint8_t b : bytes) if (b != 0) return false;
         return true;
     }
+
+    // Truncated hash for performance-critical operations (spatial indexing)
+    // 64-bit hash sufficient for ~1.1M Unicode codepoints with low collision risk
+    uint64_t truncated_64() const noexcept {
+        uint64_t result;
+        std::memcpy(&result, bytes.data(), 8);
+        return result;
+    }
+
+    // 128-bit hash for higher collision resistance
+    __int128 truncated_128() const noexcept {
+        __int128 result;
+        std::memcpy(&result, bytes.data(), 16);
+        return result;
+    }
+
+    // CORRECTION: Hilbert indices CANNOT be used as unique identifiers
+    // Multiple coordinates quantize to same Hilbert index due to finite precision
+    // Blake3 hash provides the unique content-derived identifier
+    // Hilbert index is for SPATIAL INDEXING only, not identification
 };
 
 // Hash functor for Blake3Hash (for use in std::unordered_map)
 struct Blake3HashHasher {
     size_t operator()(const Blake3Hash& h) const noexcept {
-        // Use first 8 bytes as hash (already well-distributed)
-        uint64_t result;
-        std::memcpy(&result, h.bytes.data(), 8);
-        return static_cast<size_t>(result);
+        // Use truncated 64-bit hash for fast lookups
+        return static_cast<size_t>(h.truncated_64());
     }
 };
 

@@ -72,7 +72,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION compute_pmi_scores()
 RETURNS INTEGER
-LANGUAGE PLPGSQL AS $$
+LANGUAGE plpgsql AS $
 DECLARE
     v_total_bigrams BIGINT;
     v_total_tokens BIGINT;
@@ -167,7 +167,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION extract_bigrams_from_compositions()
 RETURNS INTEGER
-LANGUAGE PLPGSQL AS $
+LANGUAGE plpgsql AS $
 DECLARE
     inserted_count INTEGER := 0;
 BEGIN

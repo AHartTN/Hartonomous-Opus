@@ -57,7 +57,7 @@
 -- HNSWLIB: ON
 -- Tests: ON (Google Test)
 -- 
--- Configuring done (8.2s)
+-- Configuring done (8.4s)
 -- Generating done (0.2s)
 -- Build files have been written to: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
 [1/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/hilbert.cpp.obj
@@ -65,11 +65,10 @@
 [3/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.obj
 [4/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/atom_calculator.cpp.obj
 [5/86] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.obj
-[6/86] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.obj
-[7/86] Building C object CMakeFiles/semantic_ops.dir/src/pg/semantic_ops_pg.c.obj
-[8/86] Building CXX object CMakeFiles/hypercube_core.dir/src/util/utf8.cpp.obj
-[9/86] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.obj
-[10/86] Building CXX object CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.obj
+[6/86] Building CXX object CMakeFiles/hypercube_core.dir/src/util/utf8.cpp.obj
+[7/86] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.obj
+[8/86] Building C object CMakeFiles/semantic_ops.dir/src/pg/semantic_ops_pg.c.obj
+[9/86] Building CXX object CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:138:18: warning: unused variable 'dist1' [-Wunused-variable]
   138 |     HilbertIndex dist1 = HilbertIndex::abs_distance(a, b);
       |                  ^~~~~
@@ -92,11 +91,12 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:209:1
   209 |     HilbertIndex i2 = HilbertCurve::coords_to_index(p2);
       |                  ^~
 7 warnings generated.
+[10/86] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.obj
 [11/86] Building C object CMakeFiles/hypercube_ops.dir/src/pg/hypercube_ops_pg.c.obj
-[12/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
-[13/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
-[14/86] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
-[15/86] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
+[12/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
+[13/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
+[14/86] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
+[15/86] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
 [16/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.obj
 [17/86] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.obj
 [18/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.obj
@@ -135,8 +135,8 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_clustering.cpp:77
       |            ^~~~~~~~~~~~~~~~~
 1 warning generated.
 [21/86] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj
-[22/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
-[23/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
+[22/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
+[23/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
 [24/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:1166:10: warning: unused variable 'tangent_basis' [-Wunused-variable]
  1166 |     auto tangent_basis = [](const Point4F& p) -> std::array<Point4F, 3> {
@@ -164,6 +164,10 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:290
 [26/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.obj
 [27/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/parallel_cpe.cpp.obj
 [28/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/projection_db.cpp.obj
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/projection_db.cpp:181:13: warning: unused function 'sql_escape' [-Wunused-function]
+  181 | std::string sql_escape(const std::string& s) {
+      |             ^~~~~~~~~~
+1 warning generated.
 [29/86] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.obj
 [30/86] Building CXX object CMakeFiles/test_integration.dir/tests/test_integration.cpp.obj
 [31/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
@@ -175,32 +179,32 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnsw
 1 warning generated.
 [32/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.obj
 [33/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_main.cpp.obj
-[34/86] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.obj
-[35/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
+[34/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/compositions.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
+[35/86] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.obj
 [36/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_blake3.cpp.obj
 [37/86] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
 [38/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_coordinates.cpp.obj
-[39/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
-[40/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
+[39/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
+[40/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
 [41/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.obj
-[42/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.obj
+[42/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
+[43/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_hierarchy.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[43/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_schema.cpp.obj
-[44/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
-[45/86] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
+[44/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_schema.cpp.obj
+[45/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.obj
 [46/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.obj
-[47/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.obj
+[47/86] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
 [48/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_query_api.cpp.obj
 [49/86] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.obj
 [50/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.obj
@@ -210,22 +214,22 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnsw
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[51/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
-[52/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
+[51/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[53/86] Linking CXX executable vocab_extract.exe
-[54/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.obj
+[52/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/embedding_relations.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
+[53/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
+[54/86] Linking CXX executable vocab_extract.exe
 [55/86] Linking CXX executable vocab_ingest.exe
 [56/86] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
 [57/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.obj
@@ -248,29 +252,29 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnsw
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[60/86] Linking CXX executable model_discovery.exe
-[61/86] Linking CXX static library hypercube_ingest.lib
-[62/86] Linking CXX shared library embedding_c.dll
-[63/86] Linking CXX executable test_hilbert.exe
-[64/86] Linking CXX shared library generative_c.dll
+[60/86] Linking CXX static library hypercube_ingest.lib
+[61/86] Linking CXX executable model_discovery.exe
+[62/86] Linking CXX shared library generative_c.dll
+[63/86] Linking CXX shared library hypercube_c.dll
+[64/86] Linking CXX executable test_hilbert.exe
 [65/86] Linking CXX executable test_blake3.exe
-[66/86] Linking CXX executable test_semantic.exe
-[67/86] Linking CXX shared library hypercube_c.dll
-[68/86] Linking CXX executable test_coordinates.exe
+[66/86] Linking CXX shared library embedding_c.dll
+[67/86] Linking CXX executable test_coordinates.exe
+[68/86] Linking CXX executable test_semantic.exe
 [69/86] Linking CXX executable test_laplacian_4d.exe
 [70/86] Linking CXX executable test_clustering.exe
 [71/86] Linking CXX executable hypercube_tests.exe
-[72/86] Linking CXX executable test_query_api.exe
+[72/86] Linking CXX executable test_integration.exe
 [73/86] Linking CXX executable extract_embeddings.exe
 [74/86] Linking CXX executable seed_atoms_parallel.exe
-[75/86] Linking CXX executable test_integration.exe
+[75/86] Linking CXX executable test_query_api.exe
 [76/86] Linking CXX executable ingest.exe
 [77/86] Linking CXX executable hypercube_sql_tests.exe
-[78/86] Linking C shared library generative.dll
-[79/86] Linking C shared library embedding_ops.dll
-[80/86] Linking C shared library hypercube_ops.dll
-[81/86] Linking C shared library semantic_ops.dll
-[82/86] Linking C shared library hypercube.dll
+[78/86] Linking C shared library hypercube_ops.dll
+[79/86] Linking C shared library generative.dll
+[80/86] Linking C shared library embedding_ops.dll
+[81/86] Linking C shared library hypercube.dll
+[82/86] Linking C shared library semantic_ops.dll
 [83/86] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:39:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
@@ -302,8 +306,8 @@ psql:D:/Repositories/Github/AHartTN/Hartonomous-Opus/sql/005_bigram_stats.sql:15
 psql:D:/Repositories/Github/AHartTN/Hartonomous-Opus/sql/005_bigram_stats.sql:16: NOTICE:  relation "idx_bigram_right" already exists, skipping
 psql:D:/Repositories/Github/AHartTN/Hartonomous-Opus/sql/005_bigram_stats.sql:22: NOTICE:  relation "unigram_stats" already exists, skipping
 psql:D:/Repositories/Github/AHartTN/Hartonomous-Opus/sql/005_bigram_stats.sql:29: NOTICE:  relation "token_corpus_stats" already exists, skipping
-psql:D:/Repositories/Github/AHartTN/Hartonomous-Opus/sql/005_bigram_stats.sql:172: ERROR:  syntax error at or near "$"
-LINE 3: LANGUAGE PLPGSQL AS $
+psql:D:/Repositories/Github/AHartTN/Hartonomous-Opus/sql/005_bigram_stats.sql:77: ERROR:  syntax error at or near "$"
+LINE 3: LANGUAGE plpgsql AS $
                             ^
 psql:D:/Repositories/Github/AHartTN/Hartonomous-Opus/sql/006_qa_search.sql:6: NOTICE:  function qa_search(text,pg_catalog.int4) does not exist, skipping
 psql:D:/Repositories/Github/AHartTN/Hartonomous-Opus/sql/006_qa_search.sql:7: NOTICE:  function qa_answer(text) does not exist, skipping
@@ -318,37 +322,37 @@ Generators: 8
 Connection Pool: 8 connections
 
 [1/5] Generating atoms (8 threads)...
-      Generated 1112064 atoms in 559 ms
+      Generated 1112064 atoms in 565 ms
 [2/5] Partitioning by hash...
 Partition sizes: 139251 139578 138615 139019 138988 138063 139388 139162 
-      Partitioned in 29 ms
+      Partitioned in 26 ms
 [3/5] Preparing database...
-      Setup in 104 ms
+      Setup in 103 ms
 [4/5] Parallel COPY to atom table (8 connections)...
-Partition 0 build time: 692 ms
-Partition 1 build time: 723 ms
-Partition 3 build time: 784 ms
-Partition 0 total time: 940 ms, I/O: 248 ms, atoms: 139251, rate: 148139 atoms/sec
-Partition 4 build time: 788 ms
-Partition 5 build time: 792 ms
-Partition 1 total time: 1037 ms, I/O: 314 ms, atoms: 139578, rate: 134597 atoms/sec
-Partition 6 build time: 795 ms
-Partition 7 build time: 780 ms
-Partition 3 total time: 1128 ms, I/O: 344 ms, atoms: 139019, rate: 123243 atoms/sec
-Partition 4 total time: 1217 ms, I/O: 429 ms, atoms: 138988, rate: 114205 atoms/sec
-Partition 2 build time: 887 ms
-Partition 5 total time: 1262 ms, I/O: 470 ms, atoms: 138063, rate: 109400 atoms/sec
-Partition 6 total time: 1345 ms, I/O: 550 ms, atoms: 139388, rate: 103634 atoms/sec
-Partition 7 total time: 1369 ms, I/O: 589 ms, atoms: 139162, rate: 101652 atoms/sec
-Partition 2 total time: 1442 ms, I/O: 555 ms, atoms: 138615, rate: 96126 atoms/sec
-      Parallel COPY in 1443 ms
+Partition 0 build time: 551 ms
+Partition 2 build time: 662 ms
+Partition 1 build time: 694 ms
+Partition 4 build time: 684 ms
+Partition 0 total time: 1104 ms, I/O: 553 ms, atoms: 139251, rate: 126133 atoms/sec
+Partition 5 build time: 1074 ms
+Partition 6 build time: 1029 ms
+Partition 2 total time: 1319 ms, I/O: 657 ms, atoms: 138615, rate: 105090 atoms/sec
+Partition 7 build time: 1122 ms
+Partition 4 total time: 1466 ms, I/O: 782 ms, atoms: 138988, rate: 94807 atoms/sec
+Partition 1 total time: 1468 ms, I/O: 774 ms, atoms: 139578, rate: 95080 atoms/sec
+Partition 3 build time: 1150 ms
+Partition 5 total time: 1555 ms, I/O: 481 ms, atoms: 138063, rate: 88786 atoms/sec
+Partition 6 total time: 1559 ms, I/O: 530 ms, atoms: 139388, rate: 89408 atoms/sec
+Partition 7 total time: 1605 ms, I/O: 483 ms, atoms: 139162, rate: 86705 atoms/sec
+Partition 3 total time: 1679 ms, I/O: 529 ms, atoms: 139019, rate: 82798 atoms/sec
+      Parallel COPY in 1680 ms
 [5/5] Building indexes...
-      Index build in 2228 ms
+      Index build in 1783 ms
 
 === Complete ===
 Total atoms: 1112064
-Total time: 4365 ms (4.365 s)
-Rate: 254768 atoms/sec
+Total time: 4159 ms (4.159 s)
+Rate: 267387 atoms/sec
 [THREADING] OpenMP threads: 8
 [THREADING] MKL threads: 8 (dynamic=0)
 === Universal Safetensor Ingester (Modular) ===
@@ -364,7 +368,7 @@ Threshold: 0.5
 [TOKENIZER] Loaded 0 BPE merges, 30522 vocab entries
 [2] Parsing vocab: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\vocab.txt"
 
-[VOCAB] Loaded 30522 tokens in 518ms
+[VOCAB] Loaded 30522 tokens in 516ms
 
 [2.5] Parsing model metadata (config, tokenizer, special tokens)...
 
@@ -444,52 +448,52 @@ Threshold: 0.5
 [COMP] Inserting 30522 token compositions...
 [COMP] 29525 multi-char compositions to insert
 [COMP] Building batch strings with 16 threads...
-  [BUILD] 30522/30522 tokens (59847/s)
+  [BUILD] 30522/30522 tokens (59266/s)
 
-[COMP] Built 19001KB compositions + 26895KB children in 510ms
+[COMP] Built 19001KB compositions + 26895KB children in 515ms
 [COMP] Streaming to database...
 [COMP] Dropping idx_comp_label to prevent corruption...
 [COMP] Creating temp tables...
 [COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (2263KB)
-  [COPY] Batch 2/16 (2328KB)
-  [COPY] Batch 3/16 (1018KB)
-  [COPY] Batch 4/16 (2155KB)
-  [COPY] Batch 6/16 (2304KB)
-  [COPY] Batch 7/16 (1536KB)
-  [COPY] Batch 8/16 (1231KB)
-  [COPY] Batch 9/16 (1631KB)
-  [COPY] Batch 10/16 (272KB)
-  [COPY] Batch 11/16 (149KB)
-  [COPY] Batch 12/16 (228KB)
-  [COPY] Batch 13/16 (844KB)
-  [COPY] Batch 14/16 (133KB)
-  [COPY] Batch 15/16 (2315KB)
-  [COPY] Batch 16/16 (587KB)
+  [COPY] Batch 1/16 (221KB)
+  [COPY] Batch 2/16 (1086KB)
+  [COPY] Batch 3/16 (2008KB)
+  [COPY] Batch 4/16 (1452KB)
+  [COPY] Batch 5/16 (1184KB)
+  [COPY] Batch 6/16 (2023KB)
+  [COPY] Batch 7/16 (1912KB)
+  [COPY] Batch 8/16 (1783KB)
+  [COPY] Batch 9/16 (1832KB)
+  [COPY] Batch 10/16 (1170KB)
+  [COPY] Batch 11/16 (1006KB)
+  [COPY] Batch 12/16 (720KB)
+  [COPY] Batch 13/16 (979KB)
+  [COPY] Batch 14/16 (1525KB)
+  [COPY] Batch 15/16 (92KB)
 
 [COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (3212KB)
-  [COPY] Batch 2/16 (3311KB)
-  [COPY] Batch 3/16 (1448KB)
-  [COPY] Batch 4/16 (3039KB)
-  [COPY] Batch 6/16 (3272KB)
-  [COPY] Batch 7/16 (2174KB)
-  [COPY] Batch 8/16 (1729KB)
-  [COPY] Batch 9/16 (2298KB)
-  [COPY] Batch 10/16 (374KB)
-  [COPY] Batch 11/16 (209KB)
-  [COPY] Batch 12/16 (325KB)
-  [COPY] Batch 13/16 (1185KB)
-  [COPY] Batch 14/16 (191KB)
-  [COPY] Batch 15/16 (3301KB)
-  [COPY] Batch 16/16 (819KB)
+  [COPY] Batch 1/16 (316KB)
+  [COPY] Batch 2/16 (1536KB)
+  [COPY] Batch 3/16 (2850KB)
+  [COPY] Batch 4/16 (2084KB)
+  [COPY] Batch 5/16 (1694KB)
+  [COPY] Batch 6/16 (2880KB)
+  [COPY] Batch 7/16 (2701KB)
+  [COPY] Batch 8/16 (2512KB)
+  [COPY] Batch 9/16 (2569KB)
+  [COPY] Batch 10/16 (1640KB)
+  [COPY] Batch 11/16 (1409KB)
+  [COPY] Batch 12/16 (1024KB)
+  [COPY] Batch 13/16 (1380KB)
+  [COPY] Batch 14/16 (2178KB)
+  [COPY] Batch 15/16 (116KB)
 
 [COMP] Inserting into composition table...
 [COMP] Inserted 29525 compositions
 [COMP] Inserting into composition_child table...
 [COMP] Inserted 0 children
 [COMP] Recreating idx_comp_label...
-[COMP] Inserted 29525 compositions, 0 children in 1618ms
+[COMP] Inserted 29525 compositions, 0 children in 1492ms
 
 [5.5] Projecting token embeddings to 4D semantic coordinates...
 ============================================================
@@ -506,7 +510,7 @@ Threshold: 0.5
 [LOAD_TENSOR] Reading 11720448 elements as F32
 [LOAD_TENSOR] Successfully read 46881792 bytes (expected 46881792)
 [LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
-[PROJECTION] Loaded in 39ms
+[PROJECTION] Loaded in 37ms
 [PROJECTION] Embedding statistics (raw from safetensor):
   Tensor: embeddings.word_embeddings.weight [30522 x 384]
   Dtype: F32, File offset: 796672
@@ -524,8 +528,8 @@ Tokens: 30522, Embedding dim: 384
 
 [1] Building k-NN similarity graph (k=15)...
 [HNSWLIB] Building HNSW index for 30522 points, dim=384
-[HNSWLIB] Index built in 7452 ms
-[HNSWLIB] k-NN queries completed in 2719 ms
+[HNSWLIB] Index built in 7567 ms
+[HNSWLIB] k-NN queries completed in 3146 ms
 [HNSWLIB] Built k-NN graph with 219345 edges
 
 [1.5] Ensuring graph connectivity...
@@ -651,480 +655,20 @@ Tokens: 30522, Embedding dim: 384
 === Projection Complete in 34 seconds ===
 Projected 30522 tokens to 4D hypercube
 Similarity graph edges: 219345
-[PROJECTION] Projection completed in 34938ms
+[PROJECTION] Projection completed in 34500ms
 [PROJECTION] 4D coordinates range computed
 [PROJECTION] Variance explained: 82.0378%
 [PROJECTION] Updating database with projected 4D coordinates...
 [DB] Persisting 0 atoms, 30522 compositions...
 [DB] Computed 30522 composition centroids from atoms
-[DB] Batch composition insert failed: ERROR:  trailing junk after numeric literal at or near "01010000e000000000000000dc21f9df41000000000000e0410000000000988740000000000000e041"
-LINE 1: ...c103fa414', ''', 1, 1, 1, ST_GeomFromEWKB(decode('01010000e0...
-                                                             ^
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition insert failed: ERROR:  trailing junk after numeric literal at or near "01010000e0000000000000a023813be941000000d07c3de941000060360000e041000000d07c3de941"
-LINE 1: ...a9a59af', '##'', 1, 3, 3, ST_GeomFromEWKB(decode('01010000e0...
-                                                             ^
-
-[DB] Batch composition insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Inserted 1000 compositions
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Batch composition_child insert failed: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-
-[DB] Inserted 0 composition_child entries
-[DB] Persisted 1000 compositions with physical-first centroids
-[DB] Updated 0 atoms, 1000 compositions
-[PROJECTION] Updated 1000 token compositions with Laplacian-projected coordinates
+[DB] Inserted 30522 compositions
+[DB] Inserted 997 composition_child entries
+[DB] Persisted 30522 compositions with physical-first centroids
+[DB] Updated 0 atoms, 30522 compositions
+[PROJECTION] Updated 30522 token compositions with Laplacian-projected coordinates
 
 [6] Computing composition centroids hierarchically...
-[CENTROID] Updated 56844 composition centroids from atoms
+[CENTROID] Updated 57841 composition centroids from atoms
 
 [7] Extracting complete semantic relations (all projections)...
 ============================================================
@@ -1142,9 +686,9 @@ LINE 1: ...a9a59af', '##'', 1, 3, 3, ST_GeomFromEWKB(decode('01010000e0...
 [LOAD_TENSOR] Reading 11720448 elements as F32
 [LOAD_TENSOR] Successfully read 46881792 bytes (expected 46881792)
 [LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
-[SEMANTIC] Loaded in 36ms
+[SEMANTIC] Loaded in 35ms
 [SEMANTIC] Normalizing (parallel)...
-[SEMANTIC] 30522/30522 valid embeddings in 3ms
+[SEMANTIC] 30522/30522 valid embeddings in 2ms
 [SEMANTIC] 0 projections
 [SEMANTIC] Total: 0 sparse relations
 
@@ -1153,7 +697,7 @@ LINE 1: ...a9a59af', '##'', 1, 3, 3, ST_GeomFromEWKB(decode('01010000e0...
 [SEMANTIC] Found ATTENTION_KEY via manifest: encoder.layer.1.attention.self.key.bias
 
 [SEMANTIC] Extracting tokenΓåötoken similarity from encoder.layer.1.attention.self.key.bias
-[SEMANTIC] Vocab: 384 tokens, Embedding dim: -8646888192149528593
+[SEMANTIC] Vocab: 384 tokens, Embedding dim: -8646898086692976964
 [SEMANTIC] Using 32 threads
 [SEMANTIC] Loaded 0 token embeddings in 0ms
 [SEMANTIC] Not enough valid embeddings
@@ -1175,12 +719,12 @@ LINE 1: ...a9a59af', '##'', 1, 3, 3, ST_GeomFromEWKB(decode('01010000e0...
 [MULTIMODAL] Extracted 8082 semantic relations
 
 === Complete ===
-Total time: 50 seconds
+Total time: 54 seconds
 Tensors: 104
 BPE merges: 0
 Vocab: 30522 tokens
   Atoms  | Compositions | With Labels | Relations | Max Depth | Total Size 
 ---------+--------------+-------------+-----------+-----------+------------
- 1112064 |        61157 |       31703 |      8077 |        24 | 463 MB
+ 1112064 |        62154 |       32700 |      8077 |        24 | 478 MB
 (1 row)
 

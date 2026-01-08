@@ -125,16 +125,16 @@ void test_incremental_hashing() {
 
 void test_hex_conversion() {
     std::cout << "Testing hex conversion..." << std::endl;
-    
+
     Blake3Hash original = Blake3Hasher::hash("test");
     std::string hex = original.to_hex();
-    
+
     assert(hex.length() == 64);
-    
+
     Blake3Hash recovered = Blake3Hash::from_hex(hex);
     assert(original == recovered);
     (void)recovered;  // Mark as used
-    
+
     std::cout << "  Hex conversion: PASS" << std::endl;
 }
 

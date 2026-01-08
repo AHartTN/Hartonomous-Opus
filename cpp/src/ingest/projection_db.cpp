@@ -27,6 +27,7 @@
 #include <cstring>
 #include <codecvt>
 #include <locale>
+#include <algorithm>
 
 namespace hypercube {
 namespace db {
@@ -176,6 +177,16 @@ void write_double_hex(std::string& out, double d) {
 
 // NOTE: escape_for_copy removed - use copy_escape() from db/operations.hpp
 
+// Escape single quotes for SQL string literals
+std::string sql_escape(const std::string& s) {
+    std::string result;
+    for (char c : s) {
+        if (c == '\'') result += "''";
+        else result += c;
+    }
+    return result;
+}
+
 } // anonymous namespace
 
 // =============================================================================
@@ -208,36 +219,45 @@ size_t ProjectionPersister::persist_atoms(const std::vector<TokenData>& atoms) {
 
     Transaction tx(conn_);
 
-    // Direct bulk INSERT without temp table
-    std::string insert_sql = "INSERT INTO atom (id, geom, hilbert_lo, hilbert_hi) VALUES ";
-    std::vector<std::string> values;
+    // Prepare statement for binary bytea insert
+    const char* stmt_name = "insert_atom_binary";
+    const char* stmt_sql = "INSERT INTO atom (id, geom, hilbert_lo, hilbert_hi) VALUES ($1, ST_GeomFromEWKB(decode($2, 'hex')), $3, $4) "
+                          "ON CONFLICT (id) DO UPDATE SET geom = EXCLUDED.geom, hilbert_lo = EXCLUDED.hilbert_lo, hilbert_hi = EXCLUDED.hilbert_hi";
 
+    Result prep_res = exec(conn_, std::string("PREPARE ") + stmt_name + " AS " + stmt_sql);
+    if (!prep_res.ok()) {
+        std::cerr << "[DB] Failed to prepare atom insert statement: " << prep_res.error_message() << "\n";
+        return 0;
+    }
+
+    size_t updated = 0;
     for (const auto& token : atoms) {
         std::string geom_ewkb = build_pointzm_ewkb(token.coords);
-        std::string id_hex = "\\x" + token.hash.to_hex();
-        std::string val = "('" + id_hex + "', ST_GeomFromEWKB(decode('" + geom_ewkb + "', 'hex')), " +
-                          std::to_string(token.hilbert_lo) + ", " + std::to_string(token.hilbert_hi) + ")";
-        values.push_back(val);
-    }
+        std::string hilbert_lo_str = std::to_string(token.hilbert_lo);
+        std::string hilbert_hi_str = std::to_string(token.hilbert_hi);
 
-    // Batch in chunks to avoid query size limits
-    const size_t batch_size = 1000;
-    size_t updated = 0;
-    for (size_t i = 0; i < values.size(); i += batch_size) {
-        std::string batch_sql = insert_sql;
-        for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
-            if (j > i) batch_sql += ", ";
-            batch_sql += values[j];
-        }
-        batch_sql += " ON CONFLICT (id) DO UPDATE SET geom = EXCLUDED.geom, hilbert_lo = EXCLUDED.hilbert_lo, hilbert_hi = EXCLUDED.hilbert_hi";
+        // Execute with binary bytea parameter
+        const char* params[4] = {
+            reinterpret_cast<const char*>(token.hash.data()),
+            geom_ewkb.c_str(),
+            hilbert_lo_str.c_str(),
+            hilbert_hi_str.c_str()
+        };
+        int param_lengths[4] = {32, static_cast<int>(geom_ewkb.size()), static_cast<int>(hilbert_lo_str.size()), static_cast<int>(hilbert_hi_str.size())};
+        int param_formats[4] = {1, 0, 0, 0};  // 1 = binary, 0 = text
 
-        Result res = exec(conn_, batch_sql);
-        if (res.ok()) {
-            updated += static_cast<size_t>(cmd_tuples(res));
+        PGresult* res = PQexecPrepared(conn_, stmt_name, 4, params, param_lengths, param_formats, 0);
+        Result result(res);
+
+        if (result.ok()) {
+            updated += static_cast<size_t>(cmd_tuples(result));
         } else {
-            std::cerr << "[DB] Batch atom insert failed: " << res.error_message() << "\n";
+            std::cerr << "[DB] Atom insert failed: " << result.error_message() << "\n";
         }
     }
+
+    // Deallocate prepared statement
+    exec(conn_, std::string("DEALLOCATE ") + stmt_name);
 
     tx.commit();
     return updated;
@@ -375,77 +395,101 @@ size_t ProjectionPersister::persist_compositions(const std::vector<TokenData>& c
     
     Transaction tx(conn_);
 
-    // Direct bulk INSERT for compositions
-    std::string insert_comp_sql = "INSERT INTO composition (id, label, depth, child_count, atom_count, centroid, hilbert_lo, hilbert_hi) VALUES ";
-    std::vector<std::string> comp_values;
+    // Prepare statement for composition insert with binary bytea
+    const char* comp_stmt_name = "insert_composition_binary";
+    const char* comp_stmt_sql = "INSERT INTO composition (id, label, depth, child_count, atom_count, centroid, hilbert_lo, hilbert_hi) "
+                               "VALUES ($1, $2, 1, $3, $4, ST_GeomFromEWKB(decode($5, 'hex')), $6, $7) "
+                               "ON CONFLICT (id) DO UPDATE SET label = COALESCE(EXCLUDED.label, composition.label), "
+                               "child_count = EXCLUDED.child_count, atom_count = EXCLUDED.atom_count, "
+                               "centroid = EXCLUDED.centroid, hilbert_lo = EXCLUDED.hilbert_lo, hilbert_hi = EXCLUDED.hilbert_hi";
 
+    Result comp_prep_res = exec(conn_, std::string("PREPARE ") + comp_stmt_name + " AS " + comp_stmt_sql);
+    if (!comp_prep_res.ok()) {
+        std::cerr << "[DB] Failed to prepare composition insert statement: " << comp_prep_res.error_message() << "\n";
+        return 0;
+    }
+
+    size_t updated = 0;
     for (const auto& comp : computed) {
         std::array<uint32_t, 4> coords = {comp.centroid.x, comp.centroid.y, comp.centroid.z, comp.centroid.m};
         std::string centroid_ewkb = build_pointzm_ewkb(coords);
-        std::string id_hex = "\\x" + comp.hash.to_hex();
         int64_t h_lo = static_cast<int64_t>(comp.hilbert.lo);
         int64_t h_hi = static_cast<int64_t>(comp.hilbert.hi);
         size_t atom_count = comp.atoms.size();
 
-        std::string val = "('" + id_hex + "', '" + comp.label + "', 1, " + std::to_string(atom_count) +
-                          ", " + std::to_string(atom_count) + ", ST_GeomFromEWKB(decode('" + centroid_ewkb + "', 'hex')), " +
-                          std::to_string(h_lo) + ", " + std::to_string(h_hi) + ")";
-        comp_values.push_back(val);
-    }
+        std::string child_count_str = std::to_string(atom_count);
+        std::string atom_count_str = std::to_string(atom_count);
+        std::string h_lo_str = std::to_string(h_lo);
+        std::string h_hi_str = std::to_string(h_hi);
 
-    // Batch compositions insert
-    const size_t batch_size = 1000;
-    size_t updated = 0;
-    for (size_t i = 0; i < comp_values.size(); i += batch_size) {
-        std::string batch_sql = insert_comp_sql;
-        for (size_t j = i; j < std::min(i + batch_size, comp_values.size()); ++j) {
-            if (j > i) batch_sql += ", ";
-            batch_sql += comp_values[j];
-        }
-        batch_sql += " ON CONFLICT (id) DO UPDATE SET label = COALESCE(EXCLUDED.label, composition.label), child_count = EXCLUDED.child_count, atom_count = EXCLUDED.atom_count, centroid = EXCLUDED.centroid, hilbert_lo = EXCLUDED.hilbert_lo, hilbert_hi = EXCLUDED.hilbert_hi";
+        const char* params[7] = {
+            reinterpret_cast<const char*>(comp.hash.data()),
+            comp.label.c_str(),
+            child_count_str.c_str(),
+            atom_count_str.c_str(),
+            centroid_ewkb.c_str(),
+            h_lo_str.c_str(),
+            h_hi_str.c_str()
+        };
+        int param_lengths[7] = {32, static_cast<int>(comp.label.size()), static_cast<int>(child_count_str.size()),
+                               static_cast<int>(atom_count_str.size()), static_cast<int>(centroid_ewkb.size()),
+                               static_cast<int>(h_lo_str.size()), static_cast<int>(h_hi_str.size())};
+        int param_formats[7] = {1, 0, 0, 0, 0, 0, 0};  // 1 = binary for hash, 0 = text for others
 
-        Result res = exec(conn_, batch_sql);
-        if (res.ok()) {
-            updated += static_cast<size_t>(cmd_tuples(res));
+        PGresult* res = PQexecPrepared(conn_, comp_stmt_name, 7, params, param_lengths, param_formats, 0);
+        Result result(res);
+
+        if (result.ok()) {
+            updated += static_cast<size_t>(cmd_tuples(result));
         } else {
-            std::cerr << "[DB] Batch composition insert failed: " << res.error_message() << "\n";
+            std::cerr << "[DB] Composition insert failed: " << result.error_message() << "\n";
         }
     }
+
+    // Deallocate prepared statement
+    exec(conn_, std::string("DEALLOCATE ") + comp_stmt_name);
 
     std::cerr << "[DB] Inserted " << updated << " compositions\n";
 
-    // Direct bulk INSERT for composition_child
-    std::string insert_child_sql = "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) VALUES ";
-    std::vector<std::string> child_values;
+    // Prepare statement for composition_child insert with binary bytea
+    const char* child_stmt_name = "insert_composition_child_binary";
+    const char* child_stmt_sql = "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
+                                "VALUES ($1, $2, 'A', $3) ON CONFLICT (composition_id, ordinal) DO NOTHING";
 
+    Result child_prep_res = exec(conn_, std::string("PREPARE ") + child_stmt_name + " AS " + child_stmt_sql);
+    if (!child_prep_res.ok()) {
+        std::cerr << "[DB] Failed to prepare composition_child insert statement: " << child_prep_res.error_message() << "\n";
+        return 0;
+    }
+
+    size_t child_count = 0;
     for (const auto& comp : computed) {
         int ordinal = 0;
         for (const auto& [atom_hash, codepoint] : comp.atoms) {
-            std::string comp_id_hex = "\\x" + comp.hash.to_hex();
-            std::string atom_id_hex = "\\x" + atom_hash.to_hex();
-            std::string val = "('" + comp_id_hex + "', " + std::to_string(ordinal) + ", 'A', '" + atom_id_hex + "')";
-            child_values.push_back(val);
+            std::string ordinal_str = std::to_string(ordinal);
+
+            const char* params[3] = {
+                reinterpret_cast<const char*>(comp.hash.data()),
+                ordinal_str.c_str(),
+                reinterpret_cast<const char*>(atom_hash.data())
+            };
+            int param_lengths[3] = {32, static_cast<int>(ordinal_str.size()), 32};
+            int param_formats[3] = {1, 0, 1};  // 1 = binary for bytea, 0 = text for ordinal
+
+            PGresult* res = PQexecPrepared(conn_, child_stmt_name, 3, params, param_lengths, param_formats, 0);
+            Result result(res);
+
+            if (result.ok()) {
+                child_count += static_cast<size_t>(cmd_tuples(result));
+            } else {
+                std::cerr << "[DB] Composition_child insert failed: " << result.error_message() << "\n";
+            }
             ++ordinal;
         }
     }
 
-    // Batch composition_child insert
-    size_t child_count = 0;
-    for (size_t i = 0; i < child_values.size(); i += batch_size) {
-        std::string batch_sql = insert_child_sql;
-        for (size_t j = i; j < std::min(i + batch_size, child_values.size()); ++j) {
-            if (j > i) batch_sql += ", ";
-            batch_sql += child_values[j];
-        }
-        batch_sql += " ON CONFLICT (composition_id, ordinal) DO NOTHING";
-
-        Result res = exec(conn_, batch_sql);
-        if (res.ok()) {
-            child_count += static_cast<size_t>(cmd_tuples(res));
-        } else {
-            std::cerr << "[DB] Batch composition_child insert failed: " << res.error_message() << "\n";
-        }
-    }
+    // Deallocate prepared statement
+    exec(conn_, std::string("DEALLOCATE ") + child_stmt_name);
 
     std::cerr << "[DB] Inserted " << child_count << " composition_child entries\n";
 

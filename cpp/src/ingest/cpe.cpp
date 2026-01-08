@@ -1,7 +1,7 @@
 #include "hypercube/ingest/cpe.hpp"
 #include "hypercube/hilbert.hpp"
 #include "hypercube/blake3.hpp"
-#include <span>
+#include <unordered_map>
 #include <vector>
 #include <algorithm>
 #include <cctype>
@@ -146,7 +146,7 @@ std::pair<CompositionRecord, bool> create_composition(
     const std::vector<ChildInfo>& children,
     uint32_t max_child_depth,
     uint64_t total_atoms,
-    std::unordered_map<std::string, CompositionRecord>& cache
+    std::unordered_map<Blake3Hash, CompositionRecord, Blake3HashHasher>& cache
 ) {
     if (children.empty()) {
         return {CompositionRecord{}, false};
@@ -169,11 +169,10 @@ std::pair<CompositionRecord, bool> create_composition(
             children[i].hash.bytes.begin(), children[i].hash.bytes.end());
     }
 
-    Blake3Hash hash = Blake3Hasher::hash(std::span<const uint8_t>(hash_input));
-    
+    Blake3Hash hash = Blake3Hasher::hash(hash_input);
+
     // Check cache first
-    std::string hash_key = hash.to_hex();
-    auto it = cache.find(hash_key);
+    auto it = cache.find(hash);
     if (it != cache.end()) {
         return {it->second, false};  // Already exists
     }
@@ -237,8 +236,8 @@ std::pair<CompositionRecord, bool> create_composition(
     rec.depth = max_child_depth + 1;
     rec.atom_count = total_atoms;
     rec.children = children;  // Store all N children
-    
-    cache[hash_key] = rec;
+
+    cache[hash] = rec;
     return {rec, true};
 }
 
@@ -247,7 +246,7 @@ Blake3Hash create_token_composition(
     const std::vector<uint32_t>& token_codepoints,
     const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache,
     std::vector<CompositionRecord>& new_compositions,
-    std::unordered_map<std::string, CompositionRecord>& comp_cache
+    std::unordered_map<Blake3Hash, CompositionRecord, Blake3HashHasher>& comp_cache
 ) {
     if (token_codepoints.empty()) return Blake3Hash();
     
@@ -294,7 +293,7 @@ Blake3Hash ingest_text(
     const std::vector<uint32_t>& codepoints,
     const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache,
     std::vector<CompositionRecord>& new_compositions,
-    std::unordered_map<std::string, CompositionRecord>& comp_cache,
+    std::unordered_map<Blake3Hash, CompositionRecord, Blake3HashHasher>& comp_cache,
     const TokenizerConfig& config
 ) {
     if (codepoints.empty()) return Blake3Hash();
@@ -375,8 +374,7 @@ Blake3Hash ingest_text(
         wi.ends_paragraph = token.ends_paragraph;
         
         // Look up the composition we just created to get its centroid
-        std::string hash_key = token_hash.to_hex();
-        auto it = comp_cache.find(hash_key);
+        auto it = comp_cache.find(token_hash);
         if (it != comp_cache.end()) {
             wi.child.hash = it->second.hash;
             wi.child.x = it->second.coord_x;
@@ -532,7 +530,7 @@ Blake3Hash ingest_text(
     const std::vector<uint32_t>& codepoints,
     const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache,
     std::vector<CompositionRecord>& new_compositions,
-    std::unordered_map<std::string, CompositionRecord>& comp_cache
+    std::unordered_map<Blake3Hash, CompositionRecord, Blake3HashHasher>& comp_cache
 ) {
     return ingest_text(codepoints, atom_cache, new_compositions, comp_cache,
                        TokenizerConfig::unicode_default());
@@ -563,9 +561,9 @@ std::pair<CompositionRecordBinaryDeprecated, bool> create_pair_deprecated(
         reinterpret_cast<uint8_t*>(&ord1), 
         reinterpret_cast<uint8_t*>(&ord1) + 4);
     hash_input.insert(hash_input.end(), right_hash.bytes.begin(), right_hash.bytes.end());
-    
-    Blake3Hash hash = Blake3Hasher::hash(std::span<const uint8_t>(hash_input));
-    
+
+    Blake3Hash hash = Blake3Hasher::hash(hash_input);
+
     std::string hash_key = hash.to_hex();
     auto it = cache.find(hash_key);
     if (it != cache.end()) {

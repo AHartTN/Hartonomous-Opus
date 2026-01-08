@@ -60,7 +60,7 @@ Threshold: 0.5
 [METADATA] Special tokens: 0
 [METADATA] Vocab tokens: 0
 [METADATA] Loading 55 atoms (max codepoint: 125 / 0x7d)...
-[CACHE] Loaded 55 atoms for 55 unique codepoints in 7 ms
+[CACHE] Loaded 55 atoms for 55 unique codepoints in 9 ms
 [METADATA] Loaded 55 atoms
 [CONFIG-AST] Built 424 nodes, 385 relations
 [METADATA] Total: 231 compositions, 385 relations
@@ -83,7 +83,7 @@ Threshold: 0.5
 [PROJECTION] No vocab tokens loaded, skipping Laplacian projection
 
 [6] Computing composition centroids hierarchically...
-[CENTROID] Updated 56917 composition centroids from atoms
+[CENTROID] Updated 57914 composition centroids from atoms
 
 [7] Extracting complete semantic relations (all projections)...
 ============================================================
@@ -175,7 +175,7 @@ Threshold: 0.5
 [METADATA] Special tokens: 0
 [METADATA] Vocab tokens: 0
 [METADATA] Loading 51 atoms (max codepoint: 125 / 0x7d)...
-[CACHE] Loaded 51 atoms for 51 unique codepoints in 8 ms
+[CACHE] Loaded 51 atoms for 51 unique codepoints in 7 ms
 [METADATA] Loaded 51 atoms
 [CONFIG-AST] Built 422 nodes, 384 relations
 [METADATA] Total: 228 compositions, 384 relations
@@ -198,7 +198,7 @@ Threshold: 0.5
 [PROJECTION] No vocab tokens loaded, skipping Laplacian projection
 
 [6] Computing composition centroids hierarchically...
-[CENTROID] Updated 56924 composition centroids from atoms
+[CENTROID] Updated 57921 composition centroids from atoms
 
 [7] Extracting complete semantic relations (all projections)...
 ============================================================
@@ -295,7 +295,7 @@ Threshold: 0.5
 [METADATA] Special tokens: 5
 [METADATA] Vocab tokens: 50265
 [METADATA] Loading 258 atoms (max codepoint: 323 / 0x143)...
-[CACHE] Loaded 258 atoms for 258 unique codepoints in 8 ms
+[CACHE] Loaded 258 atoms for 258 unique codepoints in 7 ms
 [METADATA] Loaded 258 atoms
 [CONFIG-AST] Built 220 nodes, 246 relations
 [BPE-TREE] Built 50265 token compositions
@@ -321,54 +321,54 @@ Threshold: 0.5
 [COMP] Inserting 50265 token compositions...
 [COMP] 50009 multi-char compositions to insert
 [COMP] Building batch strings with 16 threads...
-  [BUILD] 50265/50265 tokens (99732/s)
+  [BUILD] 50265/50265 tokens (97037/s)
 
-[COMP] Built 31429KB compositions + 43846KB children in 504ms
+[COMP] Built 31429KB compositions + 43846KB children in 518ms
 [COMP] Streaming to database...
 [COMP] Dropping idx_comp_label to prevent corruption...
 [COMP] Creating temp tables...
 [COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (2820KB)
-  [COPY] Batch 2/16 (2484KB)
-  [COPY] Batch 3/16 (1253KB)
-  [COPY] Batch 4/16 (1134KB)
-  [COPY] Batch 5/16 (2612KB)
-  [COPY] Batch 6/16 (1230KB)
-  [COPY] Batch 7/16 (1171KB)
-  [COPY] Batch 8/16 (2790KB)
-  [COPY] Batch 9/16 (2242KB)
-  [COPY] Batch 10/16 (1788KB)
-  [COPY] Batch 11/16 (1766KB)
-  [COPY] Batch 12/16 (2567KB)
-  [COPY] Batch 13/16 (1791KB)
-  [COPY] Batch 14/16 (2008KB)
-  [COPY] Batch 15/16 (1356KB)
-  [COPY] Batch 16/16 (2410KB)
+  [COPY] Batch 1/16 (1719KB)
+  [COPY] Batch 2/16 (2392KB)
+  [COPY] Batch 3/16 (2439KB)
+  [COPY] Batch 4/16 (1839KB)
+  [COPY] Batch 5/16 (2342KB)
+  [COPY] Batch 6/16 (1963KB)
+  [COPY] Batch 7/16 (2153KB)
+  [COPY] Batch 8/16 (1740KB)
+  [COPY] Batch 9/16 (1764KB)
+  [COPY] Batch 10/16 (1822KB)
+  [COPY] Batch 11/16 (1820KB)
+  [COPY] Batch 12/16 (2031KB)
+  [COPY] Batch 13/16 (1974KB)
+  [COPY] Batch 14/16 (1651KB)
+  [COPY] Batch 15/16 (2116KB)
+  [COPY] Batch 16/16 (1656KB)
 
 [COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (3924KB)
-  [COPY] Batch 2/16 (3456KB)
-  [COPY] Batch 3/16 (1743KB)
-  [COPY] Batch 4/16 (1578KB)
-  [COPY] Batch 5/16 (3628KB)
-  [COPY] Batch 6/16 (1714KB)
-  [COPY] Batch 7/16 (1639KB)
-  [COPY] Batch 8/16 (3895KB)
-  [COPY] Batch 9/16 (3121KB)
-  [COPY] Batch 10/16 (2492KB)
-  [COPY] Batch 11/16 (2460KB)
-  [COPY] Batch 12/16 (3576KB)
-  [COPY] Batch 13/16 (2516KB)
-  [COPY] Batch 14/16 (2817KB)
-  [COPY] Batch 15/16 (1889KB)
-  [COPY] Batch 16/16 (3388KB)
+  [COPY] Batch 1/16 (2383KB)
+  [COPY] Batch 2/16 (3334KB)
+  [COPY] Batch 3/16 (3415KB)
+  [COPY] Batch 4/16 (2569KB)
+  [COPY] Batch 5/16 (3279KB)
+  [COPY] Batch 6/16 (2743KB)
+  [COPY] Batch 7/16 (3005KB)
+  [COPY] Batch 8/16 (2425KB)
+  [COPY] Batch 9/16 (2437KB)
+  [COPY] Batch 10/16 (2549KB)
+  [COPY] Batch 11/16 (2525KB)
+  [COPY] Batch 12/16 (2833KB)
+  [COPY] Batch 13/16 (2757KB)
+  [COPY] Batch 14/16 (2304KB)
+  [COPY] Batch 15/16 (2951KB)
+  [COPY] Batch 16/16 (2328KB)
 
 [COMP] Inserting into composition table...
 [COMP] Inserted 45796 compositions
 [COMP] Inserting into composition_child table...
 [COMP] Inserted 0 children
 [COMP] Recreating idx_comp_label...
-[COMP] Inserted 45796 compositions, 0 children in 2350ms
+[COMP] Inserted 45796 compositions, 0 children in 2355ms
 
 [5.5] Projecting token embeddings to 4D semantic coordinates...
 ============================================================
@@ -384,7 +384,7 @@ Threshold: 0.5
 [LOAD_TENSOR] Reading 39389952 elements as F16
 [LOAD_TENSOR] Successfully read 78779904 bytes (expected 78779904)
 [LOAD_TENSOR] Non-zero values in first 100 elements: 99/100
-[PROJECTION] Loaded in 104ms
+[PROJECTION] Loaded in 99ms
 [PROJECTION] Embedding statistics (raw from safetensor):
   Tensor: language_model.model.shared.weight [50265 x 768]
   Dtype: F16, File offset: 203414706
@@ -402,8 +402,8 @@ Tokens: 50265, Embedding dim: 768
 
 [1] Building k-NN similarity graph (k=15)...
 [HNSWLIB] Building HNSW index for 50265 points, dim=768
-[HNSWLIB] Index built in 17692 ms
-[HNSWLIB] k-NN queries completed in 4877 ms
+[HNSWLIB] Index built in 15916 ms
+[HNSWLIB] k-NN queries completed in 4585 ms
 [HNSWLIB] Built k-NN graph with 650403 edges
 
 [1.5] Ensuring graph connectivity...
@@ -485,3 +485,1176 @@ Tokens: 50265, Embedding dim: 768
 [RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
 
 [CONV] Residual[0] = 0.000456443 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
+
+[CONV] Residual[0] = 0.000458111 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
+
+[CONV] Residual[0] = 0.000458972 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
+
+[CONV] Residual[0] = 0.00045338 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
+
+[CONV] Residual[0] = 0.000451567 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 -1.5348 -1.5311 -1.52942 -1.50595 -1.50241 ...
+
+[CONV] Residual[0] = 0.000453727 > tol=0.0001 - not converged
+
+[LANCZOS] Subspace exhausted at m=500, returning best approximation (residuals may be high)
+[LANCZOS] Did not fully converge in 500 iterations
+[LANCZOS] Warning: residuals = [0.000453727, 0.00271778, 0.00759848, 0.0160141]
+[LANCZOS] All eigenvalues (raw): -1.84036 -1.70036 -1.65592 -1.57984 -1.55166 
+[LANCZOS] Semantic eigenvalues (skipped ╬╗_0): 1.70036 1.65592 1.57984 1.55166 
+[LANCZOS] Returning 4 eigenvectors (skipped null space)
+
+[4] Gram-Schmidt orthonormalization...
+[GS] Robust Double-Pass Gram-Schmidt on 4 columns
+[GS] Max off-diagonal dot product after correction: 1.4982e-17
+
+[5] Normalizing to [0, 2^32-1]^4...
+[NORM] Coordinate ranges before normalization:
+  dim 0: [-0.0657667, 0.0701965]
+  dim 1: [-0.0584069, 0.0553479]
+  dim 2: [-0.0710468, 0.0397634]
+  dim 3: [-0.0411257, 0.151837]
+[NORM] Normalized 50265 points to [0, 2^32-1]^4
+
+[6] Projecting to hypersphere...
+[SPHERE] Projecting 50265 points onto hypersphere (parallel)...
+[SPHERE] Projection complete
+
+[7] Computing Hilbert indices (parallel)...
+
+=== Projection Complete in 89 seconds ===
+Projected 50265 tokens to 4D hypercube
+Similarity graph edges: 650403
+[PROJECTION] Projection completed in 89947ms
+[PROJECTION] 4D coordinates range computed
+[PROJECTION] Variance explained: 81.0972%
+[PROJECTION] Updating database with projected 4D coordinates...
+[DB] Persisting 0 atoms, 50265 compositions...
+[DB] Computed 50265 composition centroids from atoms
+[DB] Inserted 50265 compositions
+[DB] Inserted 149 composition_child entries
+[DB] Persisted 50265 compositions with physical-first centroids
+[DB] Updated 0 atoms, 50265 compositions
+[PROJECTION] Updated 50265 token compositions with Laplacian-projected coordinates
+
+[6] Computing composition centroids hierarchically...
+[CENTROID] Updated 104071 composition centroids from atoms
+
+[7] Extracting complete semantic relations (all projections)...
+============================================================
+[SEMANTIC] PARALLEL EXTRACTION starting
+[SEMANTIC] Hardware threads: 32
+[SEMANTIC] OpenMP threads: 32
+[SEMANTIC] MKL threads: 32 (dynamic=0)
+[SEMANTIC] HNSWLIB: available
+============================================================
+[SEMANTIC] Using config-driven tensor lookup (architecture: FLORENCE)
+[SEMANTIC] Found TOKEN_EMBEDDING via manifest: language_model.model.shared.weight [51289 x 768]
+[SEMANTIC] Loading 50265 x 768 embeddings...
+[LOAD_TENSOR] Opening file: D:\Models\detection_models\Florence-2-base\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 203414706
+[LOAD_TENSOR] Reading 39389952 elements as F16
+[LOAD_TENSOR] Successfully read 78779904 bytes (expected 78779904)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 99/100
+[SEMANTIC] Loaded in 122ms
+[SEMANTIC] Normalizing (parallel)...
+[SEMANTIC] 50265/50265 valid embeddings in 33ms
+[SEMANTIC] 24 projections
+[SEMANTIC] Limiting to first 2 projections
+[LOAD_TENSOR] Opening file: D:\Models\detection_models\Florence-2-base\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 6905010
+[LOAD_TENSOR] Reading 589824 elements as F16
+[LOAD_TENSOR] Successfully read 1179648 bytes (expected 1179648)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 7129.1 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 5562.8 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 4911.4 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 4585.8 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 4517.3 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 4442.5 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 4427.6 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 4408.3 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 4403.2 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 4438.4 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 4438.4 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 17417 unique edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L0/v: 17417 edges (gemm=106ms, knn=13100ms)
+[INSERT] Inserted 17417 semantic relations
+[LOAD_TENSOR] Opening file: D:\Models\detection_models\Florence-2-base\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 201050802
+[LOAD_TENSOR] Reading 589824 elements as F16
+[LOAD_TENSOR] Successfully read 1179648 bytes (expected 1179648)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 11021.9 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 9835.6 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 8969.7 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 8321.2 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 7587.6 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 7176.6 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 6709.0 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 6274.7 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 5897.5 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 5694.5 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 5694.5 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Query: 0/50265 - 1000.0 queries/sec
+[KNN] Found 72260 unique edges above threshold 0.7
+[SEMANTIC] Florence-2-base/L5/q: 72260 edges (gemm=67ms, knn=10233ms)
+[INSERT] Inserted 72260 semantic relations
+[SEMANTIC] Total: 89677 sparse relations
+
+[8] Extracting weight-based relations (router, attention, MLP)...
+[SEMANTIC] Using config-driven lookup (arch: FLORENCE)
+[SEMANTIC] Found LAYER_NORM via manifest: language_model.model.encoder.layers.3.self_attn_layer_norm.weight
+
+[SEMANTIC] Extracting tokenΓåötoken similarity from language_model.model.encoder.layers.3.self_attn_layer_norm.weight
+[SEMANTIC] Vocab: 768 tokens, Embedding dim: -8645718312133749446
+[SEMANTIC] Using 32 threads
+[SEMANTIC] Loaded 0 token embeddings in 0ms
+[SEMANTIC] Not enough valid embeddings
+
+[9] Extracting multimodal semantic structures...
+
++--------------------------------------------------------------+
+|          MULTIMODAL RELATION EXTRACTION                     |
++--------------------------------------------------------------+
+[MULTIMODAL] No token embedding tensor found, skipping relation extraction
+[MULTIMODAL] Extracted 0 semantic relations
+
+=== Complete ===
+Total time: 138 seconds
+Tensors: 666
+BPE merges: 50000
+Vocab: 50265 tokens
+[THREADING] OpenMP threads: 8
+[THREADING] MKL threads: 8 (dynamic=0)
+=== Universal Safetensor Ingester (Modular) ===
+Directory: D:\Models\detection_models\Florence-2-large
+Model: Florence-2-large
+Threshold: 0.5
+
+[0] Parsing model manifest (config.json, architecture detection)...
+[MANIFEST] Parsed config for Florence-2-large (FLORENCE)
+[MANIFEST] Found 33 config atoms
+
+[1] Parsing tokenizer: "D:\\Models\\detection_models\\Florence-2-large\\tokenizer.json"
+[TOKENIZER] Loaded 50000 BPE merges, 50265 vocab entries
+
+[2.5] Parsing model metadata (config, tokenizer, special tokens)...
+
+=== Parsing Model Metadata: Florence-2-large ===
+[CONFIG] Parsed 110 config atoms, model_type=florence2, vocab_size=51289
+[TOKENIZER] Loaded 5 special tokens, 50000 BPE merges, 50265 vocab entries
+[METADATA] Total: 110 config atoms, 50265 vocab tokens, 50000 merges, 5 special tokens
+[VOCAB] Transferred 50265 token compositions to context
+[3] Parsing 1 safetensor files...
+  Parsing: "D:\\Models\\detection_models\\Florence-2-large\\model.safetensors"
+[INFO] Found 918 tensors
+[3.1] Categorizing tensors for extraction...
+[INFO] Created 918 extraction plans
+
++--------------------------------------------------------------+
+|              MODEL MANIFEST SUMMARY                          |
++--------------------------------------------------------------+
+  Model: Florence-2-large
+  Architecture: FLORENCE
+  Path: D:\Models\detection_models\Florence-2-large
++--------------------------------------------------------------+
+  DIMENSIONS:
+    Vocab Size: 51289
+    Model Dim (d_model): 1024
+    Layers: 12
+    Attention Heads: 16
+    FFN Dim: 4096
++--------------------------------------------------------------+
+  TENSORS BY CATEGORY:
+    Embeddings:    410 (eigenmap extraction)
+    Attention:     312 (relation extraction)
+    FFN:           96 (eigenmap extraction)
+    Normalization: 100 (eigenmap extraction)
+    Convolution:   0 (skipped)
+    Other:         0
+    TOTAL:         918
++--------------------------------------------------------------+
+  METADATA FOR INGESTION:
+    Config atoms:    33
+    Tokenizer atoms: 0
+    BPE merges:      0 (composition edges)
+    Vocab entries:   0
++--------------------------------------------------------------+
+
+
+[3.5] Inserting model metadata as content...
+
+=== Inserting Model Metadata: Florence-2-large ===
+[METADATA] Type: florence2
+[METADATA] Config atoms: 110
+[METADATA] BPE merges: 50000
+[METADATA] Special tokens: 5
+[METADATA] Vocab tokens: 50265
+[METADATA] Loading 258 atoms (max codepoint: 323 / 0x143)...
+[CACHE] Loaded 258 atoms for 258 unique codepoints in 7 ms
+[METADATA] Loaded 258 atoms
+[CONFIG-AST] Built 220 nodes, 246 relations
+[BPE-TREE] Built 50265 token compositions
+[BPE-TREE] Built 100000 merge relations
+[SPECIAL] Built 5 special token nodes
+[METADATA] Total: 50361 compositions, 100251 relations
+[STREAM] Dropping idx_comp_label to prevent corruption...
+[STREAM] Buffers: comp=8421KB, child=44072KB, rel=17329KB
+[STREAM] Merging into main tables...
+[STREAM] Inserted: 50361 compositions, 41 children, 99954 relations
+[STREAM] Recreating idx_comp_label...
+
+[4] Building tensor name hierarchy...
+[HIER] Building tensor hierarchy from 918 tensors
+[HIER] Found 1709 unique hierarchy nodes
+[HIER] Built 1709 compositions with atom children
+[HIER] Built 1703 composition->composition edges
+[HIER] Inserted/updated 1709 hierarchy compositions
+[HIER] Inserted 23026 atom children
+[HIER] Inserted 408 composition->composition edges
+
+[5] Inserting token compositions...
+[COMP] Inserting 50265 token compositions...
+[COMP] 50009 multi-char compositions to insert
+[COMP] Building batch strings with 16 threads...
+  [BUILD] 50265/50265 tokens (99930/s)
+
+[COMP] Built 31429KB compositions + 43846KB children in 503ms
+[COMP] Streaming to database...
+[COMP] Dropping idx_comp_label to prevent corruption...
+[COMP] Creating temp tables...
+[COMP] Copying compositions to temp table...
+  [COPY] Batch 1/16 (3207KB)
+  [COPY] Batch 2/16 (2719KB)
+  [COPY] Batch 3/16 (1080KB)
+  [COPY] Batch 4/16 (1519KB)
+  [COPY] Batch 5/16 (686KB)
+  [COPY] Batch 6/16 (841KB)
+  [COPY] Batch 7/16 (2484KB)
+  [COPY] Batch 8/16 (2486KB)
+  [COPY] Batch 9/16 (3012KB)
+  [COPY] Batch 10/16 (3165KB)
+  [COPY] Batch 11/16 (2860KB)
+  [COPY] Batch 12/16 (1420KB)
+  [COPY] Batch 13/16 (1560KB)
+  [COPY] Batch 14/16 (1420KB)
+  [COPY] Batch 15/16 (991KB)
+  [COPY] Batch 16/16 (1972KB)
+
+[COMP] Copying composition children to temp table...
+  [COPY] Batch 1/16 (4468KB)
+  [COPY] Batch 2/16 (3815KB)
+  [COPY] Batch 3/16 (1509KB)
+  [COPY] Batch 4/16 (2116KB)
+  [COPY] Batch 5/16 (949KB)
+  [COPY] Batch 6/16 (1182KB)
+  [COPY] Batch 7/16 (3456KB)
+  [COPY] Batch 8/16 (3459KB)
+  [COPY] Batch 9/16 (4177KB)
+  [COPY] Batch 10/16 (4409KB)
+  [COPY] Batch 11/16 (4006KB)
+  [COPY] Batch 12/16 (1988KB)
+  [COPY] Batch 13/16 (2188KB)
+  [COPY] Batch 14/16 (1985KB)
+  [COPY] Batch 15/16 (1389KB)
+  [COPY] Batch 16/16 (2742KB)
+
+[COMP] Inserting into composition table...
+[COMP] Inserted 0 compositions
+[COMP] Inserting into composition_child table...
+[COMP] Inserted 0 children
+[COMP] Recreating idx_comp_label...
+[COMP] Inserted 0 compositions, 0 children in 2133ms
+
+[5.5] Projecting token embeddings to 4D semantic coordinates...
+============================================================
+[PROJECTION] LAPLACIAN EIGENMAP PROJECTION starting
+============================================================
+[PROJECTION] Using config-driven tensor lookup
+[PROJECTION] Scanning 918 extraction plans...
+[PROJECTION]   Candidate 1: language_model.model.shared.weight [51289 x 1024] - AVAILABLE
+[PROJECTION] >>> SELECTED: language_model.model.shared.weight
+[PROJECTION] Loading 50265 x 1024 embeddings...
+[LOAD_TENSOR] Opening file: D:\Models\detection_models\Florence-2-large\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 726728882
+[LOAD_TENSOR] Reading 52519936 elements as F16
+[LOAD_TENSOR] Successfully read 105039872 bytes (expected 105039872)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 98/100
+[PROJECTION] Loaded in 140ms
+[PROJECTION] Embedding statistics (raw from safetensor):
+  Tensor: language_model.model.shared.weight [50265 x 1024]
+  Dtype: F16, File offset: 726728882
+  Min: -2.607422e+00, Max: 2.169922e+00
+  Mean: 2.056119e-03, StdDev: 1.616298e-02
+  Zeros: 161035 (0.31%)
+  NaNs: 0
+  First embedding (token 0): [1.1612e-02, 1.3672e-02, -4.5128e-03, -2.4155e-02, -6.2370e-03, 0.0000e+00, 6.4659e-03, 1.2756e-02, 6.3286e-03, 1.0925e-02, ...]
+  Second embedding (token 1): [-1.1864e-02, -1.6113e-02, 1.2413e-02, 9.2392e-03, -1.1490e-02, -4.0169e-03, 7.4959e-03, 1.0048e-02, -7.6370e-03, -1.3222e-02, ...]
+  First two rows identical: NO (good)
+[PROJECTION] Projecting 50265 embeddings to 4D using Laplacian eigenmaps...
+
+=== Laplacian Eigenmap Projection to 4D ===
+Tokens: 50265, Embedding dim: 1024
+
+[1] Building k-NN similarity graph (k=15)...
+[HNSWLIB] Building HNSW index for 50265 points, dim=1024
+[HNSWLIB] Index built in 36323 ms
+[HNSWLIB] k-NN queries completed in 11309 ms
+[HNSWLIB] Built k-NN graph with 520005 edges
+
+[1.5] Ensuring graph connectivity...
+[MKL] Created sparse matrix handle: 50265x50265, 1040010 non-zeros
+
+[2] Building normalized Laplacian...
+[MKL] Created sparse matrix handle: 50265x50265, 1040010 non-zeros
+
+[3] Finding 4 smallest non-zero eigenvectors...
+[DEBUG] Laplacian matrix size: 50265x50265
+[DEBUG] Degrees: min=0.232061, max=1028.96, zero_count=0
+[DEBUG] Laplacian diagonal: min=1.001, max=1.001
+[DEBUG] Laplacian is symmetric: YES
+[DEBUG] Graph connectivity: 50265/50265 nodes reachable from node 0
+[LANCZOS] Finding 4 smallest non-zero eigenvectors using Lanczos on -L
+[LANCZOS] config_.convergence_tol = 0.0001
+[MKL] Created sparse matrix handle: 50265x50265, 1040010 non-zeros
+[LANCZOS] Config: tol=0.0001, max_iter=500, num_eigenpairs=5
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48552 -1.44792 -1.41215 -1.3762 -1.33532 -1.28815 -1.2352 -1.17726 ...
+
+[CONV] Residual[0] = 0.0012913 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.46835 -1.45416 -1.43854 -1.4203 -1.40061 -1.37949 -1.35611 ...
+
+[CONV] Residual[0] = 0.000125064 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46014 -1.45526 -1.44265 -1.43641 -1.42298 -1.4087 ...
+
+[CONV] Residual[0] = 0.00011796 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46158 -1.45836 -1.45554 -1.44518 -1.439 -1.43075 ...
+
+[CONV] Residual[0] = 0.000118217 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.4407 -1.43779 ...
+
+[CONV] Residual[0] = 0.000120321 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44081 -1.43843 ...
+
+[CONV] Residual[0] = 0.000114986 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.4409 -1.4403 ...
+
+[CONV] Residual[0] = 0.000112642 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44093 -1.44047 ...
+
+[CONV] Residual[0] = 0.000111577 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44093 -1.44051 ...
+
+[CONV] Residual[0] = 0.000113121 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000114238 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000107815 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000108532 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000107718 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000107321 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000107814 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000107263 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000106485 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000106872 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000104545 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000106478 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000106498 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000104824 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.00010436 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.00010364 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 -1.46036 -1.45558 -1.44569 -1.44094 -1.44052 ...
+
+[CONV] Residual[0] = 0.000104014 > tol=0.0001 - not converged
+
+[LANCZOS] Subspace exhausted at m=500, returning best approximation (residuals may be high)
+[LANCZOS] Did not fully converge in 500 iterations
+[LANCZOS] Warning: residuals = [0.000104014, 0.000451105, 0.0011285, 0.00232423]
+[LANCZOS] All eigenvalues (raw): -1.74627 -1.58573 -1.48698 -1.4684 -1.46181 
+[LANCZOS] Semantic eigenvalues (skipped ╬╗_0): 1.58573 1.48698 1.4684 1.46181 
+[LANCZOS] Returning 4 eigenvectors (skipped null space)
+
+[4] Gram-Schmidt orthonormalization...
+[GS] Robust Double-Pass Gram-Schmidt on 4 columns
+[GS] Max off-diagonal dot product after correction: 1.26036e-17
+
+[5] Normalizing to [0, 2^32-1]^4...
+[NORM] Coordinate ranges before normalization:
+  dim 0: [-0.0449367, 0.0451477]
+  dim 1: [-0.0434367, 0.0400659]
+  dim 2: [-0.048938, 0.0450969]
+  dim 3: [-0.0359176, 0.0360742]
+[NORM] Normalized 50265 points to [0, 2^32-1]^4
+
+[6] Projecting to hypersphere...
+[SPHERE] Projecting 50265 points onto hypersphere (parallel)...
+[SPHERE] Projection complete
+
+[7] Computing Hilbert indices (parallel)...
+
+=== Projection Complete in 119 seconds ===
+Projected 50265 tokens to 4D hypercube
+Similarity graph edges: 520005
+[PROJECTION] Projection completed in 119659ms
+[PROJECTION] 4D coordinates range computed
+[PROJECTION] Variance explained: 75.0366%
+[PROJECTION] Updating database with projected 4D coordinates...
+[DB] Persisting 0 atoms, 50265 compositions...
+[DB] Computed 50265 composition centroids from atoms
+[DB] Inserted 50265 compositions
+[DB] Inserted 0 composition_child entries
+[DB] Persisted 50265 compositions with physical-first centroids
+[DB] Updated 0 atoms, 50265 compositions
+[PROJECTION] Updated 50265 token compositions with Laplacian-projected coordinates
+
+[6] Computing composition centroids hierarchically...
+[CENTROID] Updated 104074 composition centroids from atoms
+
+[7] Extracting complete semantic relations (all projections)...
+============================================================
+[SEMANTIC] PARALLEL EXTRACTION starting
+[SEMANTIC] Hardware threads: 32
+[SEMANTIC] OpenMP threads: 32
+[SEMANTIC] MKL threads: 32 (dynamic=0)
+[SEMANTIC] HNSWLIB: available
+============================================================
+[SEMANTIC] Using config-driven tensor lookup (architecture: FLORENCE)
+[SEMANTIC] Found TOKEN_EMBEDDING via manifest: language_model.model.shared.weight [51289 x 1024]
+[SEMANTIC] Loading 50265 x 1024 embeddings...
+[LOAD_TENSOR] Opening file: D:\Models\detection_models\Florence-2-large\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 726728882
+[LOAD_TENSOR] Reading 52519936 elements as F16
+[LOAD_TENSOR] Successfully read 105039872 bytes (expected 105039872)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 98/100
+[SEMANTIC] Loaded in 138ms
+[SEMANTIC] Normalizing (parallel)...
+[SEMANTIC] 50265/50265 valid embeddings in 18ms
+[SEMANTIC] 49 projections
+[SEMANTIC] Limiting to first 2 projections
+[LOAD_TENSOR] Opening file: D:\Models\detection_models\Florence-2-large\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 109482162
+[LOAD_TENSOR] Reading 1048576 elements as F16
+[LOAD_TENSOR] Successfully read 2097152 bytes (expected 2097152)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 7210.9 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 5753.9 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 4771.5 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 4157.2 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 3739.6 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 3346.6 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 3126.2 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 2989.9 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 2770.8 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 2716.9 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 2717.2 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 2101 unique edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L10/q: 2101 edges (gemm=114ms, knn=23094ms)
+[INSERT] Inserted 2101 semantic relations
+[LOAD_TENSOR] Opening file: D:\Models\detection_models\Florence-2-large\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 718330034
+[LOAD_TENSOR] Reading 1048576 elements as F16
+[LOAD_TENSOR] Successfully read 2097152 bytes (expected 2097152)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
+[KNN] Building index for 50265 vectors (single-threaded)...
+[KNN] Build: 5026/50265 (10.0%) - 10341.6 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 10072.1 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 8261.9 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 7699.7 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 7256.7 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 6788.8 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 6208.2 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 5690.3 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 5406.2 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 5208.3 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 5208.3 vecs/sec
+[KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
+[KNN] Found 164277 unique edges above threshold 0.7
+[SEMANTIC] Florence-2-large/L9/k: 164277 edges (gemm=384ms, knn=11884ms)
+[INSERT] Inserted 164277 semantic relations
+[SEMANTIC] Total: 166378 sparse relations
+
+[8] Extracting weight-based relations (router, attention, MLP)...
+[SEMANTIC] Using config-driven lookup (arch: FLORENCE)
+[SEMANTIC] Found ATTENTION_QUERY via manifest: language_model.model.decoder.layers.10.self_attn.q_proj.weight
+
+[SEMANTIC] Extracting tokenΓåötoken similarity from language_model.model.decoder.layers.10.self_attn.q_proj.weight
+[SEMANTIC] Vocab: 1024 tokens, Embedding dim: 1024
+[SEMANTIC] Using 32 threads
+[SEMANTIC] Loaded 1024 token embeddings in 2ms
+[SEMANTIC] Loading cached HNSW index from C:\Users\ahart\AppData\Local\Temp\hypercube_hnsw_cache\10505063712042123976.hnsw...
+[SEMANTIC] Loaded cached index in 7ms
+[SEMANTIC] HNSW index loaded in 7ms
+[SEMANTIC] Querying k-NN (PARALLEL, 32 threads)...
+  [QUERY] 102/1024 (9%)
+  [QUERY] 204/1024 (19%)
+  [QUERY] 306/1024 (29%)
+  [QUERY] 408/1024 (39%)
+  [QUERY] 510/1024 (49%)
+  [QUERY] 612/1024 (59%)
+  [QUERY] 714/1024 (69%)
+  [QUERY] 816/1024 (79%)
+  [QUERY] 918/1024 (89%)
+  [QUERY] 1020/1024 (99%)
+[SEMANTIC] k-NN queries completed in 83ms
+[SEMANTIC] Found 7603 semantic similarity edges
+[SEMANTIC] Inserted 7603 tokenΓåötoken semantic relations
+[SEMANTIC] These relations give tokens MEANING through semantic proximity
+
+[9] Extracting multimodal semantic structures...
+
++--------------------------------------------------------------+
+|          MULTIMODAL RELATION EXTRACTION                     |
++--------------------------------------------------------------+
+[MULTIMODAL] No token embedding tensor found, skipping relation extraction
+[MULTIMODAL] Extracted 0 semantic relations
+
+=== Complete ===
+Total time: 178 seconds
+Tensors: 918
+BPE merges: 50000
+Vocab: 50265 tokens
+[THREADING] OpenMP threads: 8
+[THREADING] MKL threads: 8 (dynamic=0)
+=== Universal Safetensor Ingester (Modular) ===
+Directory: D:\Models\detection_models\Grounding-DINO-Base
+Model: Grounding-DINO-Base
+Threshold: 0.5
+
+[0] Parsing model manifest (config.json, architecture detection)...
+[MANIFEST] Parsed config for Grounding-DINO-Base (UNKNOWN)
+[MANIFEST] Found 33 config atoms
+
+[1] Parsing tokenizer: "D:\\Models\\detection_models\\Grounding-DINO-Base\\tokenizer.json"
+[TOKENIZER] Loaded 0 BPE merges, 30522 vocab entries
+[2] Parsing vocab: "D:\\Models\\detection_models\\Grounding-DINO-Base\\vocab.txt"
+
+[VOCAB] Loaded 30522 tokens in 510ms
+
+[2.5] Parsing model metadata (config, tokenizer, special tokens)...
+
+=== Parsing Model Metadata: Grounding-DINO-Base ===
+[CONFIG] Parsed 72 config atoms, model_type=swin, vocab_size=0
+[TOKENIZER] Loaded 5 special tokens, 0 BPE merges, 30522 vocab entries
+[METADATA] Total: 72 config atoms, 30522 vocab tokens, 0 merges, 5 special tokens
+[3] Parsing 1 safetensor files...
+  Parsing: "D:\\Models\\detection_models\\Grounding-DINO-Base\\model.safetensors"
+[INFO] Found 1206 tensors
+[3.1] Categorizing tensors for extraction...
+[INFO] Created 1206 extraction plans
+
++--------------------------------------------------------------+
+|              MODEL MANIFEST SUMMARY                          |
++--------------------------------------------------------------+
+  Model: Grounding-DINO-Base
+  Architecture: UNKNOWN
+  Path: D:\Models\detection_models\Grounding-DINO-Base
++--------------------------------------------------------------+
+  DIMENSIONS:
+    Model Dim (d_model): 256
+    Layers: 6
+    Attention Heads: 8
+    FFN Dim: 2048
++--------------------------------------------------------------+
+  TENSORS BY CATEGORY:
+    Embeddings:    42 (eigenmap extraction)
+    Attention:     300 (relation extraction)
+    FFN:           72 (eigenmap extraction)
+    Normalization: 150 (eigenmap extraction)
+    Convolution:   451 (eigenmap extraction)
+    Other:         191
+    TOTAL:         1206
++--------------------------------------------------------------+
+  METADATA FOR INGESTION:
+    Config atoms:    33
+    Tokenizer atoms: 0
+    BPE merges:      0 (composition edges)
+    Vocab entries:   0
++--------------------------------------------------------------+
+
+
+[3.5] Inserting model metadata as content...
+
+=== Inserting Model Metadata: Grounding-DINO-Base ===
+[METADATA] Type: swin
+[METADATA] Config atoms: 72
+[METADATA] BPE merges: 0
+[METADATA] Special tokens: 5
+[METADATA] Vocab tokens: 30522
+[METADATA] Loading 1013 atoms (max codepoint: 65374 / 0xff5e)...
+[CACHE] Loaded 1013 atoms for 1013 unique codepoints in 11 ms
+[METADATA] Loaded 1013 atoms
+[CONFIG-AST] Built 144 nodes, 111 relations
+[BPE-TREE] Built 30522 token compositions
+[BPE-TREE] Built 0 merge relations
+[SPECIAL] Built 5 special token nodes
+[METADATA] Total: 30605 compositions, 116 relations
+[STREAM] Dropping idx_comp_label to prevent corruption...
+[STREAM] Buffers: comp=5101KB, child=27191KB, rel=20KB
+[STREAM] Merging into main tables...
+[STREAM] Inserted: 30605 compositions, 673 children, 101 relations
+[STREAM] Recreating idx_comp_label...
+
+[4] Building tensor name hierarchy...
+[HIER] Building tensor hierarchy from 1206 tensors
+[HIER] Found 2104 unique hierarchy nodes
+[HIER] Built 2104 compositions with atom children
+[HIER] Built 2103 composition->composition edges
+[HIER] Inserted/updated 2104 hierarchy compositions
+[HIER] Inserted 127036 atom children
+[HIER] Inserted 1883 composition->composition edges
+
+[5] Inserting token compositions...
+[COMP] Inserting 30522 token compositions...
+[COMP] 29525 multi-char compositions to insert
+[COMP] Building batch strings with 16 threads...
+  [BUILD] 30522/30522 tokens (60560/s)
+
+[COMP] Built 19001KB compositions + 26895KB children in 505ms
+[COMP] Streaming to database...
+[COMP] Dropping idx_comp_label to prevent corruption...
+[COMP] Creating temp tables...
+[COMP] Copying compositions to temp table...
+  [COPY] Batch 1/16 (1519KB)
+  [COPY] Batch 2/16 (1300KB)
+  [COPY] Batch 3/16 (1325KB)
+  [COPY] Batch 4/16 (812KB)
+  [COPY] Batch 5/16 (1218KB)
+  [COPY] Batch 6/16 (1192KB)
+  [COPY] Batch 7/16 (1142KB)
+  [COPY] Batch 8/16 (782KB)
+  [COPY] Batch 9/16 (1024KB)
+  [COPY] Batch 10/16 (1397KB)
+  [COPY] Batch 11/16 (1464KB)
+  [COPY] Batch 12/16 (1604KB)
+  [COPY] Batch 13/16 (1188KB)
+  [COPY] Batch 14/16 (1221KB)
+  [COPY] Batch 15/16 (1078KB)
+  [COPY] Batch 16/16 (726KB)
+
+[COMP] Copying composition children to temp table...
+  [COPY] Batch 1/16 (2176KB)
+  [COPY] Batch 2/16 (1843KB)
+  [COPY] Batch 3/16 (1879KB)
+  [COPY] Batch 4/16 (1154KB)
+  [COPY] Batch 5/16 (1736KB)
+  [COPY] Batch 6/16 (1671KB)
+  [COPY] Batch 7/16 (1627KB)
+  [COPY] Batch 8/16 (1102KB)
+  [COPY] Batch 9/16 (1447KB)
+  [COPY] Batch 10/16 (1961KB)
+  [COPY] Batch 11/16 (2042KB)
+  [COPY] Batch 12/16 (2304KB)
+  [COPY] Batch 13/16 (1665KB)
+  [COPY] Batch 14/16 (1717KB)
+  [COPY] Batch 15/16 (1536KB)
+  [COPY] Batch 16/16 (1027KB)
+
+[COMP] Inserting into composition table...
+[COMP] Inserted 0 compositions
+[COMP] Inserting into composition_child table...
+[COMP] Inserted 0 children
+[COMP] Recreating idx_comp_label...
+[COMP] Inserted 0 compositions, 0 children in 1795ms
+
+[5.5] Projecting token embeddings to 4D semantic coordinates...
+============================================================
+[PROJECTION] LAPLACIAN EIGENMAP PROJECTION starting
+============================================================
+[PROJECTION] Using config-driven tensor lookup
+[PROJECTION] Scanning 1206 extraction plans...
+[PROJECTION]   Candidate 1: model.text_backbone.embeddings.word_embeddings.weight [30522 x 768] - AVAILABLE
+[PROJECTION] >>> SELECTED: model.text_backbone.embeddings.word_embeddings.weight
+[PROJECTION]   Candidate 2: model.text_backbone.embeddings.token_type_embeddings.weight [2 x 768] - AVAILABLE
+[PROJECTION] Loading 30522 x 768 embeddings...
+[LOAD_TENSOR] Opening file: D:\Models\detection_models\Grounding-DINO-Base\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 498465280
+[LOAD_TENSOR] Reading 23440896 elements as F32
+[LOAD_TENSOR] Successfully read 93763584 bytes (expected 93763584)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
+[PROJECTION] Loaded in 76ms
+[PROJECTION] Embedding statistics (raw from safetensor):
+  Tensor: model.text_backbone.embeddings.word_embeddings.weight [30522 x 768]
+  Dtype: F32, File offset: 498465280
+  Min: -3.249119e-01, Max: 3.658586e-01
+  Mean: 2.224042e-05, StdDev: 1.277620e-02
+  Zeros: 0 (0%)
+  NaNs: 0
+  First embedding (token 0): [3.7646e-02, -6.0917e-02, 1.7805e-02, 1.7131e-02, 2.8833e-02, 4.9680e-02, -2.6951e-02, 2.4159e-02, 5.2470e-02, -5.1510e-02, ...]
+  Second embedding (token 1): [2.2303e-02, 1.0977e-02, 1.0929e-02, 1.2009e-02, 2.0971e-02, -2.2583e-02, 4.3065e-02, 1.3786e-02, -6.6474e-02, -2.1720e-02, ...]
+  First two rows identical: NO (good)
+[PROJECTION] Projecting 30522 embeddings to 4D using Laplacian eigenmaps...
+
+=== Laplacian Eigenmap Projection to 4D ===
+Tokens: 30522, Embedding dim: 768
+
+[1] Building k-NN similarity graph (k=15)...
+[HNSWLIB] Building HNSW index for 30522 points, dim=768
+[HNSWLIB] Index built in 15076 ms
+[HNSWLIB] k-NN queries completed in 5873 ms
+[HNSWLIB] Built k-NN graph with 160710 edges
+
+[1.5] Ensuring graph connectivity...
+[CONNECT] Found 1131 disconnected components - adding edges
+[CONNECT] Graph is now connected (1 component)
+[CONNECT] Added 1130 inter-component edges
+[MKL] Created sparse matrix handle: 30522x30522, 323680 non-zeros
+
+[2] Building normalized Laplacian...
+[MKL] Created sparse matrix handle: 30522x30522, 323680 non-zeros
+
+[3] Finding 4 smallest non-zero eigenvectors...
+[DEBUG] Laplacian matrix size: 30522x30522
+[DEBUG] Degrees: min=0.0737979, max=114.664, zero_count=0
+[DEBUG] Laplacian diagonal: min=1.001, max=1.001
+[DEBUG] Laplacian is symmetric: YES
+[DEBUG] Graph connectivity: 30522/30522 nodes reachable from node 0
+[LANCZOS] Finding 4 smallest non-zero eigenvectors using Lanczos on -L
+[LANCZOS] config_.convergence_tol = 0.0001
+[MKL] Created sparse matrix handle: 30522x30522, 323680 non-zeros
+[LANCZOS] Config: tol=0.0001, max_iter=500, num_eigenpairs=5
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.92017 -1.89603 -1.85155 -1.80837 -1.75493 -1.69591 -1.6233 -1.55033 -1.47106 ...
+
+[CONV] Residual[0] = 0.00300051 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93288 -1.92007 -1.90628 -1.8944 -1.86402 -1.84067 -1.81642 -1.79007 -1.75487 ...
+
+[CONV] Residual[0] = 0.00286139 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93303 -1.92525 -1.92006 -1.90835 -1.89655 -1.89179 -1.87331 -1.85752 -1.83651 ...
+
+[CONV] Residual[0] = 0.00287759 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89573 -1.8901 -1.88072 -1.86377 ...
+
+[CONV] Residual[0] = 0.0026997 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89573 -1.89124 -1.88975 -1.88083 ...
+
+[CONV] Residual[0] = 0.00275305 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89574 -1.8921 -1.89033 -1.88927 ...
+
+[CONV] Residual[0] = 0.00281022 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00265136 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00262044 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00264594 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00261834 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.0026026 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00261103 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.0025916 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00256885 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00254112 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00256528 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00258773 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.002598 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00258437 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.0025641 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00254786 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00254574 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00257195 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00251865 > tol=0.0001 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 -1.90766 -1.89577 -1.89573 -1.89185 -1.89015 ...
+
+[CONV] Residual[0] = 0.00251999 > tol=0.0001 - not converged
+
+[LANCZOS] Subspace exhausted at m=500, returning best approximation (residuals may be high)
+[LANCZOS] Did not fully converge in 500 iterations
+[LANCZOS] Warning: residuals = [0.00251999, 0.00806337, 0.018013, 0.0350884]
+[LANCZOS] All eigenvalues (raw): -1.99498 -1.93304 -1.92689 -1.92026 -1.91933 
+[LANCZOS] Semantic eigenvalues (skipped ╬╗_0): 1.93304 1.92689 1.92026 1.91933 
+[LANCZOS] Returning 4 eigenvectors (skipped null space)
+
+[4] Gram-Schmidt orthonormalization...
+[GS] Robust Double-Pass Gram-Schmidt on 4 columns
+[GS] Max off-diagonal dot product after correction: 1.88397e-17
+
+[5] Normalizing to [0, 2^32-1]^4...
+[NORM] Coordinate ranges before normalization:
+  dim 0: [-0.0803807, 0.133298]
+  dim 1: [-0.0864813, 0.118346]
+  dim 2: [-0.0764073, 0.120614]
+  dim 3: [-0.112051, 0.0855343]
+[NORM] Normalized 30522 points to [0, 2^32-1]^4
+
+[6] Projecting to hypersphere...
+[SPHERE] Projecting 30522 points onto hypersphere (parallel)...
+[SPHERE] Projection complete
+
+[7] Computing Hilbert indices (parallel)...
+
+=== Projection Complete in 47 seconds ===
+Projected 30522 tokens to 4D hypercube
+Similarity graph edges: 160710
+[PROJECTION] Projection completed in 47427ms
+[PROJECTION] 4D coordinates range computed
+[PROJECTION] Variance explained: 96.244%
+[PROJECTION] Updating database with projected 4D coordinates...
+[DB] Persisting 0 atoms, 30522 compositions...
+[DB] Computed 30522 composition centroids from atoms
+[DB] Inserted 30522 compositions
+[DB] Inserted 0 composition_child entries
+[DB] Persisted 30522 compositions with physical-first centroids
+[DB] Updated 0 atoms, 30522 compositions
+[PROJECTION] Updated 30522 token compositions with Laplacian-projected coordinates
+
+[6] Computing composition centroids hierarchically...
+[CENTROID] Updated 104111 composition centroids from atoms
+
+[7] Extracting complete semantic relations (all projections)...
+============================================================
+[SEMANTIC] PARALLEL EXTRACTION starting
+[SEMANTIC] Hardware threads: 32
+[SEMANTIC] OpenMP threads: 32
+[SEMANTIC] MKL threads: 32 (dynamic=0)
+[SEMANTIC] HNSWLIB: available
+============================================================
+[SEMANTIC] Using config-driven tensor lookup (architecture: UNKNOWN)
+[SEMANTIC] Found TOKEN_EMBEDDING via manifest: model.text_backbone.embeddings.word_embeddings.weight [30522 x 768]
+[SEMANTIC] Loading 30522 x 768 embeddings...
+[LOAD_TENSOR] Opening file: D:\Models\detection_models\Grounding-DINO-Base\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 498465280
+[LOAD_TENSOR] Reading 23440896 elements as F32
+[LOAD_TENSOR] Successfully read 93763584 bytes (expected 93763584)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
+[SEMANTIC] Loaded in 81ms
+[SEMANTIC] Normalizing (parallel)...
+[SEMANTIC] 30522/30522 valid embeddings in 9ms
+[SEMANTIC] 0 projections
+[SEMANTIC] Total: 0 sparse relations
+
+[8] Extracting weight-based relations (router, attention, MLP)...
+[SEMANTIC] Using config-driven lookup (arch: UNKNOWN)
+[SEMANTIC] Found CONV_KERNEL via manifest: model.backbone.conv_encoder.model.encoder.layers.0.blocks.1.layernorm_after.weight
+
+[SEMANTIC] Extracting tokenΓåötoken similarity from model.backbone.conv_encoder.model.encoder.layers.0.blocks.1.layernorm_after.weight
+[SEMANTIC] Vocab: 128 tokens, Embedding dim: -8646901384932034111
+[SEMANTIC] Using 32 threads
+[SEMANTIC] Loaded 0 token embeddings in 0ms
+[SEMANTIC] Not enough valid embeddings
+
+[9] Extracting multimodal semantic structures...
+
++--------------------------------------------------------------+
+|          MULTIMODAL RELATION EXTRACTION                     |
++--------------------------------------------------------------+
+[MULTIMODAL] Processing 1 object query tensors
+[MULTIMODAL] Extracting 900 object query relations from model.query_position_embeddings.weight [256d]
+[THREADING] OpenMP threads: 8
+[THREADING] MKL threads: 8 (dynamic=0)
+=== Universal Safetensor Ingester (Modular) ===
+Directory: D:\Models\detection_models\RT-DETR-v1-R101
+Model: RT-DETR-v1-R101
+Threshold: 0.5
+
+[0] Parsing model manifest (config.json, architecture detection)...
+[MANIFEST] Parsed config for RT-DETR-v1-R101 (DETR)
+[MANIFEST] Found 101 config atoms
+
+
+[2.5] Parsing model metadata (config, tokenizer, special tokens)...
+
+=== Parsing Model Metadata: RT-DETR-v1-R101 ===
+[CONFIG] Parsed 245 config atoms, model_type=rt_detr_resnet, vocab_size=0
+[METADATA] Total: 245 config atoms, 0 vocab tokens, 0 merges, 0 special tokens
+[3] Parsing 1 safetensor files...
+  Parsing: "D:\\Models\\detection_models\\RT-DETR-v1-R101\\model.safetensors"
+[INFO] Found 1019 tensors
+[3.1] Categorizing tensors for extraction...
+[INFO] Created 1019 extraction plans
+
++--------------------------------------------------------------+
+|              MODEL MANIFEST SUMMARY                          |
++--------------------------------------------------------------+
+  Model: RT-DETR-v1-R101
+  Architecture: DETR
+  Path: D:\Models\detection_models\RT-DETR-v1-R101
++--------------------------------------------------------------+
+  DIMENSIONS:
+    Model Dim (d_model): 256
+    Layers: 6
+    Attention Heads: 8
+    FFN Dim: 1024
++--------------------------------------------------------------+
+  TENSORS BY CATEGORY:
+    Embeddings:    49 (eigenmap extraction)
+    Attention:     116 (relation extraction)
+    FFN:           28 (eigenmap extraction)
+    Normalization: 632 (eigenmap extraction)
+    Convolution:   142 (eigenmap extraction)
+    Other:         52
+    TOTAL:         1019
++--------------------------------------------------------------+
+  METADATA FOR INGESTION:
+    Config atoms:    101
+    Tokenizer atoms: 0
+    BPE merges:      0 (composition edges)
+    Vocab entries:   0
++--------------------------------------------------------------+
+
+
+[3.5] Inserting model metadata as content...
+
+=== Inserting Model Metadata: RT-DETR-v1-R101 ===
+[METADATA] Type: rt_detr_resnet
+[METADATA] Config atoms: 245
+[METADATA] BPE merges: 0
+[METADATA] Special tokens: 0
+[METADATA] Vocab tokens: 0
+[METADATA] Loading 52 atoms (max codepoint: 125 / 0x7d)...
+[CACHE] Loaded 52 atoms for 52 unique codepoints in 8 ms
+[METADATA] Loaded 52 atoms
+[CONFIG-AST] Built 490 nodes, 440 relations
+[METADATA] Total: 264 compositions, 440 relations
+[STREAM] Dropping idx_comp_label to prevent corruption...
+[STREAM] Buffers: comp=44KB, child=291KB, rel=76KB
+[STREAM] Merging into main tables...
+[STREAM] Inserted: 264 compositions, 784 children, 429 relations
+[STREAM] Recreating idx_comp_label...
+
+[4] Building tensor name hierarchy...
+[HIER] Building tensor hierarchy from 1019 tensors
+[HIER] Found 1737 unique hierarchy nodes
+[HIER] Built 1737 compositions with atom children
+[HIER] Built 1736 composition->composition edges
+[HIER] Inserted/updated 1737 hierarchy compositions
+[HIER] Inserted 89130 atom children
+[HIER] Inserted 1456 composition->composition edges
+
+[5.5] Projecting token embeddings to 4D semantic coordinates...
+[PROJECTION] No vocab tokens loaded, skipping Laplacian projection
+
+[6] Computing composition centroids hierarchically...
+[CENTROID] Updated 104159 composition centroids from atoms
+
+[7] Extracting complete semantic relations (all projections)...
+============================================================
+[SEMANTIC] PARALLEL EXTRACTION starting
+[SEMANTIC] Hardware threads: 32
+[SEMANTIC] OpenMP threads: 32
+[SEMANTIC] MKL threads: 32 (dynamic=0)
+[SEMANTIC] HNSWLIB: available
+============================================================
+[SEMANTIC] Using config-driven tensor lookup (architecture: DETR)
+[SEMANTIC] WARNING: Manifest lookup failed, falling back to tensor scan
+[SEMANTIC] No embedding tensor found
+
+[8] Extracting weight-based relations (router, attention, MLP)...
+[SEMANTIC] No vocabulary tokens loaded, skipping semantic extraction
+
+[9] Extracting multimodal semantic structures...
+
++--------------------------------------------------------------+
+|          MULTIMODAL RELATION EXTRACTION                     |
++--------------------------------------------------------------+
+[MULTIMODAL] No token embedding tensor found, skipping relation extraction
+[MULTIMODAL] Extracted 0 semantic relations
+
+=== Complete ===
+Total time: 5 seconds
+Tensors: 1019
+BPE merges: 0
+Vocab: 0 tokens
+[THREADING] OpenMP threads: 8
+[THREADING] MKL threads: 8 (dynamic=0)
+=== Universal Safetensor Ingester (Modular) ===
+Directory: D:\Models\embedding_models\models--meta-llama--Llama-4-Maverick-17B-128E\snapshots\10751cb97a4d7c90f7ed89196b98eb8220cfa1c2
+Model: meta-llama/Llama-4-Maverick-17B-128E
+Threshold: 0.5
+
+[0] Parsing model manifest (config.json, architecture detection)...
+[MANIFEST] Parsed config for 10751cb97a4d7c90f7ed89196b98eb8220cfa1c2 (LLAMA)
+[MANIFEST] Found 35 config atoms
+
+[1] Parsing tokenizer: "D:\\Models\\embedding_models\\models--meta-llama--Llama-4-Maverick-17B-128E\\snapshots\\10751cb97a4d7c90f7ed89196b98eb8220cfa1c2\\tokenizer.json"
+[TOKENIZER] Loaded 0 BPE merges, 200000 vocab entries
+
+[2.5] Parsing model metadata (config, tokenizer, special tokens)...
+
+=== Parsing Model Metadata: 10751cb97a4d7c90f7ed89196b98eb8220cfa1c2 ===
+[CONFIG] Parsed 68 config atoms, model_type=llama4, vocab_size=202048
+[TOKENIZER] Loaded 1135 special tokens, 0 BPE merges, 200000 vocab entries
+[METADATA] Total: 68 config atoms, 200000 vocab tokens, 0 merges, 1135 special tokens
+[VOCAB] Transferred 200000 token compositions to context
+[3] Parsing sharded model index: "D:\\Models\\embedding_models\\models--meta-llama--Llama-4-Maverick-17B-128E\\snapshots\\10751cb97a4d7c90f7ed89196b98eb8220cfa1c2\\model.safetensors.index.json"
+[INFO] Found 1061 tensors
+[3.1] Categorizing tensors for extraction...
+[INFO] Created 1061 extraction plans
+
++--------------------------------------------------------------+
+|              MODEL MANIFEST SUMMARY                          |
++--------------------------------------------------------------+
+  Model: meta-llama/Llama-4-Maverick-17B-128E
+  Architecture: LLAMA
+  Path: D:\Models\embedding_models\models--meta-llama--Llama-4-Maverick-17B-128E\snapshots\10751cb97a4d7c90f7ed89196b98eb8220cfa1c2
++--------------------------------------------------------------+
+  DIMENSIONS:
+    Vocab Size: 202048
+    Model Dim (d_model): 5120
+    Layers: 48
+    Attention Heads: 40
+    FFN Dim: 8192
++--------------------------------------------------------------+
+  TENSORS BY CATEGORY:
+    Embeddings:    603 (eigenmap extraction)
+    Attention:     192 (relation extraction)
+    FFN:           144 (eigenmap extraction)
+    Normalization: 97 (eigenmap extraction)
+    Convolution:   0 (skipped)
+    Other:         25
+    TOTAL:         1061
++--------------------------------------------------------------+
+  METADATA FOR INGESTION:
+    Config atoms:    35
+    Tokenizer atoms: 0
+    BPE merges:      0 (composition edges)
+    Vocab entries:   0
++--------------------------------------------------------------+
+
+
+[3.5] Inserting model metadata as content...
+
+=== Inserting Model Metadata: 10751cb97a4d7c90f7ed89196b98eb8220cfa1c2 ===
+[METADATA] Type: llama4
+[METADATA] Config atoms: 68
+[METADATA] BPE merges: 0
+[METADATA] Special tokens: 1135
+[METADATA] Vocab tokens: 200000
+[METADATA] Loading 258 atoms (max codepoint: 323 / 0x143)...
+[CACHE] Loaded 258 atoms for 258 unique codepoints in 8 ms
+[METADATA] Loaded 258 atoms
+[CONFIG-AST] Built 136 nodes, 130 relations
+[BPE-TREE] Built 200000 token compositions
+[BPE-TREE] Built 0 merge relations
+[SPECIAL] Built 1135 special token nodes
+[METADATA] Total: 201222 compositions, 1265 relations
+[STREAM] Dropping idx_comp_label to prevent corruption...
+[STREAM] Buffers: comp=34327KB, child=199182KB, rel=253KB
+[STREAM] Merging into main tables...
+[STREAM] Inserted: 201222 compositions, 1189993 children, 1258 relations
+[STREAM] Recreating idx_comp_label...
+
+[4] Building tensor name hierarchy...
+[HIER] Building tensor hierarchy from 1061 tensors
+[HIER] Found 2102 unique hierarchy nodes
+[HIER] Built 2102 compositions with atom children
+[HIER] Built 2099 composition->composition edges
+[HIER] Inserted/updated 2102 hierarchy compositions
+[HIER] Inserted 104040 atom children
+[HIER] Inserted 2094 composition->composition edges
+
+[5] Inserting token compositions...
+[COMP] Inserting 200000 token compositions...
+[COMP] 199744 multi-char compositions to insert
+[COMP] Building batch strings with 16 threads...
+  [BUILD] 200000/200000 tokens (378072/s)
+
+[COMP] Built 134396KB compositions + 193218KB children in 530ms
+[COMP] Streaming to database...
+[COMP] Dropping idx_comp_label to prevent corruption...
+[COMP] Creating temp tables...
+[COMP] Copying compositions to temp table...
+  [COPY] Batch 1/16 (10071KB)
+  [COPY] Batch 2/16 (8119KB)
+  [COPY] Batch 3/16 (7986KB)
+  [COPY] Batch 4/16 (6522KB)
+  [COPY] Batch 5/16 (9995KB)
+  [COPY] Batch 6/16 (4465KB)
+  [COPY] Batch 7/16 (8017KB)
+  [COPY] Batch 8/16 (11102KB)
+  [COPY] Batch 9/16 (10961KB)
+  [COPY] Batch 10/16 (8781KB)
+  [COPY] Batch 11/16 (6894KB)
+  [COPY] Batch 12/16 (6717KB)
+  [COPY] Batch 13/16 (11078KB)
+  [COPY] Batch 14/16 (6615KB)
+  [COPY] Batch 15/16 (9294KB)
+  [COPY] Batch 16/16 (7769KB)
+
+[COMP] Copying composition children to temp table...
+  [COPY] Batch 1/16 (14360KB)
+  [COPY] Batch 2/16 (11729KB)
+  [COPY] Batch 3/16 (11664KB)
+  [COPY] Batch 4/16 (9556KB)
+  [COPY] Batch 5/16 (14114KB)
+  [COPY] Batch 6/16 (6551KB)
+  [COPY] Batch 7/16 (11316KB)
+  [COPY] Batch 8/16 (15761KB)
+  [COPY] Batch 9/16 (15510KB)
+  [COPY] Batch 10/16 (12533KB)
+  [COPY] Batch 11/16 (10075KB)
+  [COPY] Batch 12/16 (9732KB)
+  [COPY] Batch 13/16 (15928KB)
+  [COPY] Batch 14/16 (9591KB)
+  [COPY] Batch 15/16 (13504KB)
+  [COPY] Batch 16/16 (11286KB)
+
+[COMP] Inserting into composition table...

@@ -97,7 +97,7 @@ std::pair<CompositionRecord, bool> create_composition(
     const std::vector<ChildInfo>& children,
     uint32_t max_child_depth,
     uint64_t total_atoms,
-    std::unordered_map<std::string, CompositionRecord>& cache
+    std::unordered_map<Blake3Hash, CompositionRecord, Blake3HashHasher>& cache
 );
 
 // Token-aware ingestion: builds compositions at natural boundaries
@@ -109,7 +109,7 @@ Blake3Hash ingest_text(
     const std::vector<uint32_t>& codepoints,
     const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache,
     std::vector<CompositionRecord>& new_compositions,
-    std::unordered_map<std::string, CompositionRecord>& comp_cache
+    std::unordered_map<Blake3Hash, CompositionRecord, Blake3HashHasher>& comp_cache
 );
 
 // Token-aware ingestion with custom tokenizer configuration
@@ -118,7 +118,7 @@ Blake3Hash ingest_text(
     const std::vector<uint32_t>& codepoints,
     const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache,
     std::vector<CompositionRecord>& new_compositions,
-    std::unordered_map<std::string, CompositionRecord>& comp_cache,
+    std::unordered_map<Blake3Hash, CompositionRecord, Blake3HashHasher>& comp_cache,
     const TokenizerConfig& config
 );
 
@@ -128,7 +128,7 @@ Blake3Hash create_token_composition(
     const std::vector<uint32_t>& token_codepoints,
     const std::unordered_map<uint32_t, db::AtomInfo>& atom_cache,
     std::vector<CompositionRecord>& new_compositions,
-    std::unordered_map<std::string, CompositionRecord>& comp_cache
+    std::unordered_map<Blake3Hash, CompositionRecord, Blake3HashHasher>& comp_cache
 );
 
 // ============================================================================
