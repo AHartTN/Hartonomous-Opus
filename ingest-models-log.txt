@@ -2432,7 +2432,7 @@ Threshold: 0.5
 [METADATA] Special tokens: 0
 [METADATA] Vocab tokens: 0
 [METADATA] Loading 55 atoms (max codepoint: 125 / 0x7d)...
-[CACHE] Loaded 55 atoms for 55 unique codepoints in 8 ms
+[CACHE] Loaded 55 atoms for 55 unique codepoints in 9 ms
 [METADATA] Loaded 55 atoms
 [CONFIG-AST] Built 424 nodes, 385 relations
 [METADATA] Total: 231 compositions, 385 relations
@@ -8495,7 +8495,7 @@ Threshold: 0.5
 [METADATA] Special tokens: 5
 [METADATA] Vocab tokens: 50265
 [METADATA] Loading 258 atoms (max codepoint: 323 / 0x143)...
-[CACHE] Loaded 258 atoms for 258 unique codepoints in 7 ms
+[CACHE] Loaded 258 atoms for 258 unique codepoints in 8 ms
 [METADATA] Loaded 258 atoms
 [CONFIG-AST] Built 220 nodes, 246 relations
 [BPE-TREE] Built 50265 token compositions
@@ -8521,54 +8521,54 @@ Threshold: 0.5
 [COMP] Inserting 50265 token compositions...
 [COMP] 50009 multi-char compositions to insert
 [COMP] Building batch strings with 16 threads...
-  [BUILD] 50265/50265 tokens (100329/s)
+  [BUILD] 50265/50265 tokens (97602/s)
 
-[COMP] Built 31429KB compositions + 43846KB children in 501ms
+[COMP] Built 31429KB compositions + 43846KB children in 515ms
 [COMP] Streaming to database...
 [COMP] Dropping idx_comp_label to prevent corruption...
 [COMP] Creating temp tables...
 [COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (1462KB)
-  [COPY] Batch 2/16 (2607KB)
-  [COPY] Batch 3/16 (2585KB)
-  [COPY] Batch 4/16 (2816KB)
-  [COPY] Batch 5/16 (2448KB)
-  [COPY] Batch 6/16 (1232KB)
-  [COPY] Batch 7/16 (2980KB)
-  [COPY] Batch 8/16 (1616KB)
-  [COPY] Batch 9/16 (2786KB)
-  [COPY] Batch 10/16 (1308KB)
-  [COPY] Batch 11/16 (3064KB)
-  [COPY] Batch 12/16 (1177KB)
-  [COPY] Batch 13/16 (1538KB)
-  [COPY] Batch 14/16 (1164KB)
-  [COPY] Batch 15/16 (1536KB)
-  [COPY] Batch 16/16 (1102KB)
+  [COPY] Batch 1/16 (2838KB)
+  [COPY] Batch 2/16 (1768KB)
+  [COPY] Batch 3/16 (2481KB)
+  [COPY] Batch 4/16 (1620KB)
+  [COPY] Batch 5/16 (2473KB)
+  [COPY] Batch 6/16 (2321KB)
+  [COPY] Batch 7/16 (2110KB)
+  [COPY] Batch 8/16 (2172KB)
+  [COPY] Batch 9/16 (1935KB)
+  [COPY] Batch 10/16 (1668KB)
+  [COPY] Batch 11/16 (1655KB)
+  [COPY] Batch 12/16 (2058KB)
+  [COPY] Batch 13/16 (1589KB)
+  [COPY] Batch 14/16 (1475KB)
+  [COPY] Batch 15/16 (1452KB)
+  [COPY] Batch 16/16 (1806KB)
 
 [COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (2031KB)
-  [COPY] Batch 2/16 (3633KB)
-  [COPY] Batch 3/16 (3599KB)
-  [COPY] Batch 4/16 (3937KB)
-  [COPY] Batch 5/16 (3421KB)
-  [COPY] Batch 6/16 (1719KB)
-  [COPY] Batch 7/16 (4155KB)
-  [COPY] Batch 8/16 (2261KB)
-  [COPY] Batch 9/16 (3875KB)
-  [COPY] Batch 10/16 (1833KB)
-  [COPY] Batch 11/16 (4272KB)
-  [COPY] Batch 12/16 (1641KB)
-  [COPY] Batch 13/16 (2142KB)
-  [COPY] Batch 14/16 (1624KB)
-  [COPY] Batch 15/16 (2158KB)
-  [COPY] Batch 16/16 (1536KB)
+  [COPY] Batch 1/16 (3945KB)
+  [COPY] Batch 2/16 (2466KB)
+  [COPY] Batch 3/16 (3463KB)
+  [COPY] Batch 4/16 (2264KB)
+  [COPY] Batch 5/16 (3458KB)
+  [COPY] Batch 6/16 (3226KB)
+  [COPY] Batch 7/16 (2945KB)
+  [COPY] Batch 8/16 (3005KB)
+  [COPY] Batch 9/16 (2707KB)
+  [COPY] Batch 10/16 (2337KB)
+  [COPY] Batch 11/16 (2304KB)
+  [COPY] Batch 12/16 (2877KB)
+  [COPY] Batch 13/16 (2219KB)
+  [COPY] Batch 14/16 (2063KB)
+  [COPY] Batch 15/16 (2037KB)
+  [COPY] Batch 16/16 (2523KB)
 
 [COMP] Inserting into composition table...
 [COMP] Inserted 45796 compositions
 [COMP] Inserting into composition_child table...
 [COMP] Inserted 0 children
 [COMP] Recreating idx_comp_label...
-[COMP] Inserted 45796 compositions, 0 children in 2248ms
+[COMP] Inserted 45796 compositions, 0 children in 2820ms
 
 [5.5] Projecting token embeddings to 4D semantic coordinates...
 ============================================================
@@ -8578,7 +8578,7 @@ Threshold: 0.5
 [PROJECTION] WARNING: Manifest lookup failed, falling back to tensor scan
 [PROJECTION] Found embedding: language_model.model.shared.weight [51289 x 768]
 [PROJECTION] Loading 50265 x 768 embeddings...
-[PROJECTION] Loaded in 127ms
+[PROJECTION] Loaded in 115ms
 [PROJECTION] Projecting 50265 embeddings to 4D using Laplacian eigenmaps...
 
 === Laplacian Eigenmap Projection to 4D ===
@@ -8586,8 +8586,8 @@ Tokens: 50265, Embedding dim: 768
 
 [1] Building k-NN similarity graph (k=15)...
 [HNSWLIB] Building HNSW index for 50265 points, dim=768
-[HNSWLIB] Index built in 16470 ms
-[HNSWLIB] k-NN queries completed in 5003 ms
+[HNSWLIB] Index built in 19112 ms
+[HNSWLIB] k-NN queries completed in 6621 ms
 [HNSWLIB] Built k-NN graph with 650403 edges
 
 [1.5] Ensuring graph connectivity...
@@ -8674,10 +8674,10 @@ Tokens: 50265, Embedding dim: 768
 
 [7] Computing Hilbert indices (parallel)...
 
-=== Projection Complete in 34 seconds ===
+=== Projection Complete in 42 seconds ===
 Projected 50265 tokens to 4D hypercube
 Similarity graph edges: 650403
-[PROJECTION] Projection completed in 34962ms
+[PROJECTION] Projection completed in 42016ms
 [PROJECTION] 4D coordinates range computed
 [PROJECTION] Variance explained: 0%
 [PROJECTION] Variance explained too low, skipping database update
@@ -8697,42 +8697,42 @@ Similarity graph edges: 650403
 [SEMANTIC] WARNING: Manifest lookup failed, falling back to tensor scan
 [SEMANTIC] Found embedding by dimension match: language_model.model.shared.weight [51289 x 768]
 [SEMANTIC] Loading 50265 x 768 embeddings...
-[SEMANTIC] Loaded in 100ms
+[SEMANTIC] Loaded in 104ms
 [SEMANTIC] Normalizing (parallel)...
-[SEMANTIC] 50265/50265 valid embeddings in 13ms
+[SEMANTIC] 50265/50265 valid embeddings in 17ms
 [SEMANTIC] 24 projections
 [SEMANTIC] Limiting to first 2 projections
 [KNN] Building index for 50265 vectors (single-threaded)...
-[KNN] Build: 5026/50265 (10.0%) - 9412.0 vecs/sec
-[KNN] Build: 10052/50265 (20.0%) - 7484.7 vecs/sec
-[KNN] Build: 15078/50265 (30.0%) - 6465.7 vecs/sec
-[KNN] Build: 20104/50265 (40.0%) - 5992.3 vecs/sec
-[KNN] Build: 25130/50265 (50.0%) - 5545.0 vecs/sec
-[KNN] Build: 30156/50265 (60.0%) - 5334.5 vecs/sec
-[KNN] Build: 35182/50265 (70.0%) - 5179.2 vecs/sec
-[KNN] Build: 40208/50265 (80.0%) - 5023.5 vecs/sec
-[KNN] Build: 45234/50265 (90.0%) - 4905.5 vecs/sec
-[KNN] Build: 50260/50265 (100.0%) - 4892.0 vecs/sec
-[KNN] Build: 50265/50265 (100.0%) - 4892.0 vecs/sec
+[KNN] Build: 5026/50265 (10.0%) - 9273.1 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 7294.6 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 6364.7 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 5773.7 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 5494.1 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 5346.8 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 5184.5 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 5016.6 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 4910.9 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 4902.5 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 4902.9 vecs/sec
 [KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
 [KNN] Found 17417 unique edges above threshold 0.7
-[SEMANTIC] Florence-2-base/L0/v: 17417 edges (gemm=360ms, knn=12120ms)
+[SEMANTIC] Florence-2-base/L0/v: 17417 edges (gemm=369ms, knn=12103ms)
 [INSERT] Inserted 17417 semantic relations
 [KNN] Building index for 50265 vectors (single-threaded)...
-[KNN] Build: 5026/50265 (10.0%) - 14695.9 vecs/sec
-[KNN] Build: 10052/50265 (20.0%) - 10648.3 vecs/sec
-[KNN] Build: 15078/50265 (30.0%) - 9012.6 vecs/sec
-[KNN] Build: 20104/50265 (40.0%) - 7971.5 vecs/sec
-[KNN] Build: 25130/50265 (50.0%) - 7206.8 vecs/sec
-[KNN] Build: 30156/50265 (60.0%) - 6884.9 vecs/sec
-[KNN] Build: 35182/50265 (70.0%) - 6420.1 vecs/sec
-[KNN] Build: 40208/50265 (80.0%) - 6176.3 vecs/sec
-[KNN] Build: 45234/50265 (90.0%) - 5947.9 vecs/sec
-[KNN] Build: 50260/50265 (100.0%) - 5836.0 vecs/sec
-[KNN] Build: 50265/50265 (100.0%) - 5835.9 vecs/sec
+[KNN] Build: 5026/50265 (10.0%) - 15138.6 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 12038.3 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 10181.0 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 8947.0 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 8109.1 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 7321.2 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 6707.7 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 6240.6 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 5922.2 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 5742.0 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 5742.6 vecs/sec
 [KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
 [KNN] Found 72260 unique edges above threshold 0.7
-[SEMANTIC] Florence-2-base/L5/q: 72260 edges (gemm=406ms, knn=9926ms)
+[SEMANTIC] Florence-2-base/L5/q: 72260 edges (gemm=361ms, knn=10124ms)
 [INSERT] Inserted 72260 semantic relations
 [SEMANTIC] Total: 89677 sparse relations
 
@@ -8744,10 +8744,10 @@ Similarity graph edges: 650403
 [SEMANTIC] Extracting tokenΓåötoken similarity from language_model.model.shared.weight
 [SEMANTIC] Vocab: 50265 tokens, Embedding dim: 768
 [SEMANTIC] Using 32 threads
-[SEMANTIC] Loaded 50265 token embeddings in 73ms
+[SEMANTIC] Loaded 50265 token embeddings in 68ms
 [SEMANTIC] Loading cached HNSW index from C:\Users\ahart\AppData\Local\Temp\hypercube_hnsw_cache\4910793366727938211.hnsw...
-[SEMANTIC] Loaded cached index in 168ms
-[SEMANTIC] HNSW index loaded in 168ms
+[SEMANTIC] Loaded cached index in 175ms
+[SEMANTIC] HNSW index loaded in 175ms
 [SEMANTIC] Querying k-NN (PARALLEL, 32 threads)...
   [QUERY] 5026/50265 (9%)
   [QUERY] 10052/50265 (19%)
@@ -8759,7 +8759,7 @@ Similarity graph edges: 650403
   [QUERY] 40208/50265 (79%)
   [QUERY] 45234/50265 (89%)
   [QUERY] 50260/50265 (99%)
-[SEMANTIC] k-NN queries completed in 2651ms
+[SEMANTIC] k-NN queries completed in 2922ms
 [SEMANTIC] Found 323324 semantic similarity edges
 [SEMANTIC] Inserted 323324 tokenΓåötoken semantic relations
 [SEMANTIC] These relations give tokens MEANING through semantic proximity
@@ -8773,7 +8773,7 @@ Similarity graph edges: 650403
 [MULTIMODAL] Extracted 0 semantic relations
 
 === Complete ===
-Total time: 79 seconds
+Total time: 88 seconds
 Tensors: 666
 BPE merges: 50000
 Vocab: 50265 tokens
@@ -12546,52 +12546,54 @@ Threshold: 0.5
 [COMP] Inserting 50265 token compositions...
 [COMP] 50009 multi-char compositions to insert
 [COMP] Building batch strings with 16 threads...
-  [BUILD] 50265/50265 tokens (99930/s)
+  [BUILD] 50265/50265 tokens (98174/s)
 
-[COMP] Built 31429KB compositions + 43846KB children in 503ms
+[COMP] Built 31429KB compositions + 43846KB children in 513ms
 [COMP] Streaming to database...
 [COMP] Dropping idx_comp_label to prevent corruption...
 [COMP] Creating temp tables...
 [COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (3408KB)
-  [COPY] Batch 2/16 (3388KB)
-  [COPY] Batch 3/16 (3125KB)
-  [COPY] Batch 5/16 (3379KB)
-  [COPY] Batch 6/16 (2873KB)
-  [COPY] Batch 7/16 (2822KB)
-  [COPY] Batch 8/16 (2050KB)
-  [COPY] Batch 9/16 (3350KB)
-  [COPY] Batch 10/16 (2213KB)
-  [COPY] Batch 11/16 (1274KB)
-  [COPY] Batch 12/16 (731KB)
-  [COPY] Batch 13/16 (737KB)
-  [COPY] Batch 14/16 (551KB)
-  [COPY] Batch 15/16 (1142KB)
-  [COPY] Batch 16/16 (379KB)
+  [COPY] Batch 1/16 (2380KB)
+  [COPY] Batch 2/16 (2100KB)
+  [COPY] Batch 3/16 (2468KB)
+  [COPY] Batch 4/16 (1570KB)
+  [COPY] Batch 5/16 (2154KB)
+  [COPY] Batch 6/16 (1807KB)
+  [COPY] Batch 7/16 (1654KB)
+  [COPY] Batch 8/16 (2407KB)
+  [COPY] Batch 9/16 (1764KB)
+  [COPY] Batch 10/16 (2208KB)
+  [COPY] Batch 11/16 (1800KB)
+  [COPY] Batch 12/16 (1895KB)
+  [COPY] Batch 13/16 (1771KB)
+  [COPY] Batch 14/16 (1784KB)
+  [COPY] Batch 15/16 (1756KB)
+  [COPY] Batch 16/16 (1904KB)
 
 [COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (4759KB)
-  [COPY] Batch 2/16 (4733KB)
-  [COPY] Batch 3/16 (4374KB)
-  [COPY] Batch 5/16 (4698KB)
-  [COPY] Batch 6/16 (4018KB)
-  [COPY] Batch 7/16 (3946KB)
-  [COPY] Batch 8/16 (2856KB)
-  [COPY] Batch 9/16 (4668KB)
-  [COPY] Batch 10/16 (3103KB)
-  [COPY] Batch 11/16 (1777KB)
-  [COPY] Batch 12/16 (1014KB)
-  [COPY] Batch 13/16 (1025KB)
-  [COPY] Batch 14/16 (768KB)
-  [COPY] Batch 15/16 (1576KB)
-  [COPY] Batch 16/16 (522KB)
+  [COPY] Batch 1/16 (3324KB)
+  [COPY] Batch 2/16 (2942KB)
+  [COPY] Batch 3/16 (3458KB)
+  [COPY] Batch 4/16 (2187KB)
+  [COPY] Batch 5/16 (3003KB)
+  [COPY] Batch 6/16 (2506KB)
+  [COPY] Batch 7/16 (2333KB)
+  [COPY] Batch 8/16 (3362KB)
+  [COPY] Batch 9/16 (2454KB)
+  [COPY] Batch 10/16 (3071KB)
+  [COPY] Batch 11/16 (2497KB)
+  [COPY] Batch 12/16 (2648KB)
+  [COPY] Batch 13/16 (2471KB)
+  [COPY] Batch 14/16 (2490KB)
+  [COPY] Batch 15/16 (2433KB)
+  [COPY] Batch 16/16 (2658KB)
 
 [COMP] Inserting into composition table...
 [COMP] Inserted 0 compositions
 [COMP] Inserting into composition_child table...
 [COMP] Inserted 0 children
 [COMP] Recreating idx_comp_label...
-[COMP] Inserted 0 compositions, 0 children in 1762ms
+[COMP] Inserted 0 compositions, 0 children in 1993ms
 
 [5.5] Projecting token embeddings to 4D semantic coordinates...
 ============================================================
@@ -12601,7 +12603,7 @@ Threshold: 0.5
 [PROJECTION] WARNING: Manifest lookup failed, falling back to tensor scan
 [PROJECTION] Found embedding: language_model.model.shared.weight [51289 x 1024]
 [PROJECTION] Loading 50265 x 1024 embeddings...
-[PROJECTION] Loaded in 137ms
+[PROJECTION] Loaded in 144ms
 [PROJECTION] Projecting 50265 embeddings to 4D using Laplacian eigenmaps...
 
 === Laplacian Eigenmap Projection to 4D ===
@@ -12609,8 +12611,8 @@ Tokens: 50265, Embedding dim: 1024
 
 [1] Building k-NN similarity graph (k=15)...
 [HNSWLIB] Building HNSW index for 50265 points, dim=1024
-[HNSWLIB] Index built in 37182 ms
-[HNSWLIB] k-NN queries completed in 11955 ms
+[HNSWLIB] Index built in 37868 ms
+[HNSWLIB] k-NN queries completed in 12506 ms
 [HNSWLIB] Built k-NN graph with 520005 edges
 
 [1.5] Ensuring graph connectivity...
@@ -12695,10 +12697,10 @@ Tokens: 50265, Embedding dim: 1024
 
 [7] Computing Hilbert indices (parallel)...
 
-=== Projection Complete in 61 seconds ===
+=== Projection Complete in 64 seconds ===
 Projected 50265 tokens to 4D hypercube
 Similarity graph edges: 520005
-[PROJECTION] Projection completed in 61440ms
+[PROJECTION] Projection completed in 64217ms
 [PROJECTION] 4D coordinates range computed
 [PROJECTION] Variance explained: 0%
 [PROJECTION] Variance explained too low, skipping database update
@@ -12718,44 +12720,43 @@ Similarity graph edges: 520005
 [SEMANTIC] WARNING: Manifest lookup failed, falling back to tensor scan
 [SEMANTIC] Found embedding by dimension match: language_model.model.shared.weight [51289 x 1024]
 [SEMANTIC] Loading 50265 x 1024 embeddings...
-[SEMANTIC] Loaded in 134ms
+[SEMANTIC] Loaded in 133ms
 [SEMANTIC] Normalizing (parallel)...
-[SEMANTIC] 50265/50265 valid embeddings in 18ms
+[SEMANTIC] 50265/50265 valid embeddings in 19ms
 [SEMANTIC] 49 projections
 [SEMANTIC] Limiting to first 2 projections
 [KNN] Building index for 50265 vectors (single-threaded)...
-[KNN] Build: 5026/50265 (10.0%) - 9055.9 vecs/sec
-[KNN] Build: 10052/50265 (20.0%) - 6334.0 vecs/sec
-[KNN] Build: 15078/50265 (30.0%) - 5090.5 vecs/sec
-[KNN] Build: 20104/50265 (40.0%) - 4320.7 vecs/sec
-[KNN] Build: 25130/50265 (50.0%) - 3820.9 vecs/sec
-[KNN] Build: 30156/50265 (60.0%) - 3469.4 vecs/sec
-[KNN] Build: 35182/50265 (70.0%) - 3226.2 vecs/sec
-[KNN] Build: 40208/50265 (80.0%) - 3056.2 vecs/sec
-[KNN] Build: 45234/50265 (90.0%) - 2919.1 vecs/sec
-[KNN] Build: 50260/50265 (100.0%) - 2862.7 vecs/sec
-[KNN] Build: 50265/50265 (100.0%) - 2862.8 vecs/sec
+[KNN] Build: 5026/50265 (10.0%) - 8943.1 vecs/sec
+[KNN] Build: 10052/50265 (20.0%) - 6212.6 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 4852.9 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 4142.6 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 3730.7 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 3438.9 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 3159.0 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 2997.2 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 2848.5 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 2777.1 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 2777.4 vecs/sec
 [KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
-[KNN] Query: 10054/50265 - 12383.0 queries/sec
-[KNN] Query: 35189/50265 - 11533.9 queries/sec
+[KNN] Query: 5027/50265 - 11505.7 queries/sec
 [KNN] Found 2101 unique edges above threshold 0.7
-[SEMANTIC] Florence-2-large/L10/q: 2101 edges (gemm=629ms, knn=22195ms)
+[SEMANTIC] Florence-2-large/L10/q: 2101 edges (gemm=629ms, knn=22649ms)
 [INSERT] Inserted 2101 semantic relations
 [KNN] Building index for 50265 vectors (single-threaded)...
-[KNN] Build: 5026/50265 (10.0%) - 18014.3 vecs/sec
+[KNN] Build: 5026/50265 (10.0%) - 17037.3 vecs/sec
 [KNN] Build: 10052/50265 (20.0%) - 13676.2 vecs/sec
-[KNN] Build: 15078/50265 (30.0%) - 10739.3 vecs/sec
-[KNN] Build: 20104/50265 (40.0%) - 9298.8 vecs/sec
-[KNN] Build: 25130/50265 (50.0%) - 8385.1 vecs/sec
-[KNN] Build: 30156/50265 (60.0%) - 7539.0 vecs/sec
-[KNN] Build: 35182/50265 (70.0%) - 6994.4 vecs/sec
-[KNN] Build: 40208/50265 (80.0%) - 6549.6 vecs/sec
-[KNN] Build: 45234/50265 (90.0%) - 6175.3 vecs/sec
-[KNN] Build: 50260/50265 (100.0%) - 5906.7 vecs/sec
-[KNN] Build: 50265/50265 (100.0%) - 5906.6 vecs/sec
+[KNN] Build: 15078/50265 (30.0%) - 11371.0 vecs/sec
+[KNN] Build: 20104/50265 (40.0%) - 9623.7 vecs/sec
+[KNN] Build: 25130/50265 (50.0%) - 8315.7 vecs/sec
+[KNN] Build: 30156/50265 (60.0%) - 7447.8 vecs/sec
+[KNN] Build: 35182/50265 (70.0%) - 6826.2 vecs/sec
+[KNN] Build: 40208/50265 (80.0%) - 6299.2 vecs/sec
+[KNN] Build: 45234/50265 (90.0%) - 5898.3 vecs/sec
+[KNN] Build: 50260/50265 (100.0%) - 5608.1 vecs/sec
+[KNN] Build: 50265/50265 (100.0%) - 5608.1 vecs/sec
 [KNN] Querying 50265 vectors (PARALLEL, 32 threads)...
 [KNN] Found 164277 unique edges above threshold 0.7
-[SEMANTIC] Florence-2-large/L9/k: 164277 edges (gemm=657ms, knn=10661ms)
+[SEMANTIC] Florence-2-large/L9/k: 164277 edges (gemm=643ms, knn=11270ms)
 [INSERT] Inserted 164277 semantic relations
 [SEMANTIC] Total: 166378 sparse relations
 
@@ -12767,10 +12768,10 @@ Similarity graph edges: 520005
 [SEMANTIC] Extracting tokenΓåötoken similarity from language_model.model.shared.weight
 [SEMANTIC] Vocab: 50265 tokens, Embedding dim: 1024
 [SEMANTIC] Using 32 threads
-[SEMANTIC] Loaded 50265 token embeddings in 103ms
+[SEMANTIC] Loaded 50265 token embeddings in 105ms
 [SEMANTIC] Loading cached HNSW index from C:\Users\ahart\AppData\Local\Temp\hypercube_hnsw_cache\10505063712040794127.hnsw...
-[SEMANTIC] Loaded cached index in 212ms
-[SEMANTIC] HNSW index loaded in 212ms
+[SEMANTIC] Loaded cached index in 216ms
+[SEMANTIC] HNSW index loaded in 216ms
 [SEMANTIC] Querying k-NN (PARALLEL, 32 threads)...
   [QUERY] 5026/50265 (9%)
   [QUERY] 10052/50265 (19%)
@@ -12782,7 +12783,7 @@ Similarity graph edges: 520005
   [QUERY] 40208/50265 (79%)
   [QUERY] 45234/50265 (89%)
   [QUERY] 50260/50265 (99%)
-[SEMANTIC] k-NN queries completed in 8348ms
+[SEMANTIC] k-NN queries completed in 8510ms
 [SEMANTIC] Found 422551 semantic similarity edges
 [SEMANTIC] Inserted 422551 tokenΓåötoken semantic relations
 [SEMANTIC] These relations give tokens MEANING through semantic proximity
@@ -12796,7 +12797,7 @@ Similarity graph edges: 520005
 [MULTIMODAL] Extracted 0 semantic relations
 
 === Complete ===
-Total time: 123 seconds
+Total time: 129 seconds
 Tensors: 918
 BPE merges: 50000
 Vocab: 50265 tokens
@@ -12845,7 +12846,7 @@ Threshold: 0.5
 [TOKENIZER] Loaded 0 BPE merges, 30522 vocab entries
 [2] Parsing vocab: "D:\\Models\\detection_models\\Grounding-DINO-Base\\vocab.txt"
 
-[VOCAB] Loaded 30522 tokens in 518ms
+[VOCAB] Loaded 30522 tokens in 521ms
 
 [2.5] Parsing model metadata (config, tokenizer, special tokens)...
 
@@ -17722,54 +17723,54 @@ Threshold: 0.5
 [COMP] Inserting 30522 token compositions...
 [COMP] 29525 multi-char compositions to insert
 [COMP] Building batch strings with 16 threads...
-  [BUILD] 30522/30522 tokens (59381/s)
+  [BUILD] 30522/30522 tokens (60440/s)
 
-[COMP] Built 19001KB compositions + 26895KB children in 515ms
+[COMP] Built 19001KB compositions + 26895KB children in 505ms
 [COMP] Streaming to database...
 [COMP] Dropping idx_comp_label to prevent corruption...
 [COMP] Creating temp tables...
 [COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (1812KB)
-  [COPY] Batch 2/16 (1788KB)
-  [COPY] Batch 3/16 (991KB)
-  [COPY] Batch 4/16 (1643KB)
-  [COPY] Batch 5/16 (1041KB)
-  [COPY] Batch 6/16 (1249KB)
-  [COPY] Batch 7/16 (1590KB)
-  [COPY] Batch 8/16 (969KB)
-  [COPY] Batch 9/16 (1039KB)
-  [COPY] Batch 10/16 (1096KB)
-  [COPY] Batch 11/16 (1536KB)
-  [COPY] Batch 12/16 (525KB)
-  [COPY] Batch 13/16 (1429KB)
-  [COPY] Batch 14/16 (805KB)
-  [COPY] Batch 15/16 (1287KB)
-  [COPY] Batch 16/16 (194KB)
+  [COPY] Batch 1/16 (1190KB)
+  [COPY] Batch 2/16 (1678KB)
+  [COPY] Batch 3/16 (1706KB)
+  [COPY] Batch 4/16 (1173KB)
+  [COPY] Batch 5/16 (1292KB)
+  [COPY] Batch 6/16 (1667KB)
+  [COPY] Batch 7/16 (1024KB)
+  [COPY] Batch 8/16 (1060KB)
+  [COPY] Batch 9/16 (1099KB)
+  [COPY] Batch 10/16 (941KB)
+  [COPY] Batch 11/16 (912KB)
+  [COPY] Batch 12/16 (1379KB)
+  [COPY] Batch 13/16 (800KB)
+  [COPY] Batch 14/16 (1018KB)
+  [COPY] Batch 15/16 (833KB)
+  [COPY] Batch 16/16 (1221KB)
 
 [COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (2565KB)
-  [COPY] Batch 2/16 (2540KB)
-  [COPY] Batch 3/16 (1419KB)
-  [COPY] Batch 4/16 (2336KB)
-  [COPY] Batch 5/16 (1484KB)
-  [COPY] Batch 6/16 (1781KB)
-  [COPY] Batch 7/16 (2262KB)
-  [COPY] Batch 8/16 (1362KB)
-  [COPY] Batch 9/16 (1461KB)
-  [COPY] Batch 10/16 (1534KB)
-  [COPY] Batch 11/16 (2170KB)
-  [COPY] Batch 12/16 (741KB)
-  [COPY] Batch 13/16 (2013KB)
-  [COPY] Batch 14/16 (1128KB)
-  [COPY] Batch 15/16 (1816KB)
-  [COPY] Batch 16/16 (274KB)
+  [COPY] Batch 1/16 (1689KB)
+  [COPY] Batch 2/16 (2404KB)
+  [COPY] Batch 3/16 (2421KB)
+  [COPY] Batch 4/16 (1669KB)
+  [COPY] Batch 5/16 (1835KB)
+  [COPY] Batch 6/16 (2367KB)
+  [COPY] Batch 7/16 (1456KB)
+  [COPY] Batch 8/16 (1491KB)
+  [COPY] Batch 9/16 (1546KB)
+  [COPY] Batch 10/16 (1325KB)
+  [COPY] Batch 11/16 (1288KB)
+  [COPY] Batch 12/16 (1938KB)
+  [COPY] Batch 13/16 (1127KB)
+  [COPY] Batch 14/16 (1435KB)
+  [COPY] Batch 15/16 (1175KB)
+  [COPY] Batch 16/16 (1722KB)
 
 [COMP] Inserting into composition table...
 [COMP] Inserted 0 compositions
 [COMP] Inserting into composition_child table...
 [COMP] Inserted 0 children
 [COMP] Recreating idx_comp_label...
-[COMP] Inserted 0 compositions, 0 children in 1375ms
+[COMP] Inserted 0 compositions, 0 children in 1570ms
 
 [5.5] Projecting token embeddings to 4D semantic coordinates...
 ============================================================
@@ -17778,7 +17779,7 @@ Threshold: 0.5
 [PROJECTION] Using config-driven tensor lookup
 [PROJECTION] Found TOKEN_EMBEDDING: model.text_backbone.embeddings.word_embeddings.weight [30522 x 768]
 [PROJECTION] Loading 30522 x 768 embeddings...
-[PROJECTION] Loaded in 74ms
+[PROJECTION] Loaded in 78ms
 [PROJECTION] Projecting 30522 embeddings to 4D using Laplacian eigenmaps...
 
 === Laplacian Eigenmap Projection to 4D ===
@@ -17786,8 +17787,8 @@ Tokens: 30522, Embedding dim: 768
 
 [1] Building k-NN similarity graph (k=15)...
 [HNSWLIB] Building HNSW index for 30522 points, dim=768
-[HNSWLIB] Index built in 14018 ms
-[HNSWLIB] k-NN queries completed in 6289 ms
+[HNSWLIB] Index built in 14504 ms
+[HNSWLIB] k-NN queries completed in 5887 ms
 [HNSWLIB] Built k-NN graph with 160710 edges
 
 [1.5] Ensuring graph connectivity...
@@ -17874,10 +17875,10 @@ Tokens: 30522, Embedding dim: 768
 
 [7] Computing Hilbert indices (parallel)...
 
-=== Projection Complete in 27 seconds ===
+=== Projection Complete in 26 seconds ===
 Projected 30522 tokens to 4D hypercube
 Similarity graph edges: 160710
-[PROJECTION] Projection completed in 27065ms
+[PROJECTION] Projection completed in 26995ms
 [PROJECTION] 4D coordinates range computed
 [PROJECTION] Variance explained: 0%
 [PROJECTION] Variance explained too low, skipping database update
@@ -17909,10 +17910,10 @@ Similarity graph edges: 160710
 [SEMANTIC] Extracting tokenΓåötoken similarity from model.text_backbone.embeddings.word_embeddings.weight
 [SEMANTIC] Vocab: 30522 tokens, Embedding dim: 768
 [SEMANTIC] Using 32 threads
-[SEMANTIC] Loaded 30522 token embeddings in 48ms
+[SEMANTIC] Loaded 30522 token embeddings in 50ms
 [SEMANTIC] Loading cached HNSW index from C:\Users\ahart\AppData\Local\Temp\hypercube_hnsw_cache\4451419442471349195.hnsw...
-[SEMANTIC] Loaded cached index in 102ms
-[SEMANTIC] HNSW index loaded in 102ms
+[SEMANTIC] Loaded cached index in 104ms
+[SEMANTIC] HNSW index loaded in 104ms
 [SEMANTIC] Querying k-NN (PARALLEL, 32 threads)...
   [QUERY] 3052/30522 (9%)
   [QUERY] 6104/30522 (19%)
@@ -17924,7 +17925,7 @@ Similarity graph edges: 160710
   [QUERY] 24416/30522 (79%)
   [QUERY] 27468/30522 (89%)
   [QUERY] 30520/30522 (99%)
-[SEMANTIC] k-NN queries completed in 2906ms
+[SEMANTIC] k-NN queries completed in 2744ms
 [SEMANTIC] Found 157836 semantic similarity edges
 [SEMANTIC] Inserted 157836 tokenΓåötoken semantic relations
 [SEMANTIC] These relations give tokens MEANING through semantic proximity

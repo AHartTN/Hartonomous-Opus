@@ -56,18 +56,18 @@
 -- HNSWLIB: ON
 -- Tests: ON (Google Test)
 -- 
--- Configuring done (8.3s)
+-- Configuring done (8.8s)
 -- Generating done (0.2s)
 -- Build files have been written to: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
 [1/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/hilbert.cpp.obj
-[2/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/geometry.cpp.obj
-[3/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.obj
+[2/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.obj
+[3/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/geometry.cpp.obj
 [4/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/atom_calculator.cpp.obj
 [5/86] Building CXX object CMakeFiles/hypercube_core.dir/src/util/utf8.cpp.obj
-[6/86] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.obj
-[7/86] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.obj
+[6/86] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.obj
+[7/86] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.obj
 [8/86] Building C object CMakeFiles/semantic_ops.dir/src/pg/semantic_ops_pg.c.obj
-[9/86] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.obj
+[9/86] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.obj
 [10/86] Building CXX object CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:138:18: warning: unused variable 'dist1' [-Wunused-variable]
   138 |     HilbertIndex dist1 = HilbertIndex::abs_distance(a, b);
@@ -92,13 +92,13 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:209:1
       |                  ^~
 7 warnings generated.
 [11/86] Building C object CMakeFiles/hypercube_ops.dir/src/pg/hypercube_ops_pg.c.obj
-[12/86] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
-[13/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
-[14/86] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
-[15/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
-[16/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.obj
-[17/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.obj
-[18/86] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.obj
+[12/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
+[13/86] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
+[14/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
+[15/86] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
+[16/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.obj
+[17/86] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.obj
+[18/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.obj
 [19/86] Building CXX object CMakeFiles/test_coordinates.dir/tests/test_coordinates.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:249:13: warning: unused variable 'coords1' [-Wunused-variable]
   249 |     Point4D coords1 = CoordinateMapper::map_codepoint(test_cp);
@@ -134,8 +134,8 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_clustering.cpp:77
       |            ^~~~~~~~~~~~~~~~~
 1 warning generated.
 [21/86] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj
-[22/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
-[23/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
+[22/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
+[23/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
 [24/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:1166:10: warning: unused variable 'tangent_basis' [-Wunused-variable]
  1166 |     auto tangent_basis = [](const Point4F& p) -> std::array<Point4F, 3> {
@@ -163,31 +163,31 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:290
 [26/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.obj
 [27/86] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.obj
 [28/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/projection_db.cpp.obj
-[29/86] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.obj
-[30/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
+[29/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_io.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
+[30/86] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.obj
 [31/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.obj
 [32/86] Building CXX object CMakeFiles/test_integration.dir/tests/test_integration.cpp.obj
-[33/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_main.cpp.obj
-[34/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
+[33/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/compositions.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
+[34/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_main.cpp.obj
 [35/86] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.obj
-[36/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
-[37/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_blake3.cpp.obj
-[38/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_coordinates.cpp.obj
-[39/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.obj
-[40/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
-[41/86] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
+[36/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_blake3.cpp.obj
+[37/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_coordinates.cpp.obj
+[38/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
+[39/86] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
+[40/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.obj
+[41/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
 [42/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_hierarchy.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
@@ -196,10 +196,10 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnsw
       |             ^~~~~~~~~~~~~
 1 warning generated.
 [43/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_schema.cpp.obj
-[44/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.obj
-[45/86] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
-[46/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.obj
-[47/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
+[44/86] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
+[45/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.obj
+[46/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
+[47/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.obj
 [48/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_query_api.cpp.obj
 [49/86] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.obj
 [50/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.obj
@@ -216,14 +216,14 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnsw
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[52/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
-[53/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
+[52/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
+[53/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
 [54/86] Linking CXX executable vocab_extract.exe
 [55/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:751:15: warning: unused variable 'sim' [-Wunused-variable]
@@ -237,8 +237,8 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:81
   811 | static std::vector<std::vector<double>> feast_sparse_eigensolver(
       |                                         ^~~~~~~~~~~~~~~~~~~~~~~~
 3 warnings generated.
-[56/86] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
-[57/86] Linking CXX static library hypercube_core.lib
+[56/86] Linking CXX static library hypercube_core.lib
+[57/86] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
 [58/86] Linking CXX executable vocab_ingest.exe
 [59/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/semantic_extraction.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/semantic_extraction.cpp:14:
@@ -247,28 +247,28 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnsw
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[60/86] Linking CXX executable model_discovery.exe
-[61/86] Linking CXX static library hypercube_ingest.lib
+[60/86] Linking CXX static library hypercube_ingest.lib
+[61/86] Linking CXX executable model_discovery.exe
 [62/86] Linking CXX shared library embedding_c.dll
-[63/86] Linking CXX shared library hypercube_c.dll
-[64/86] Linking CXX executable test_coordinates.exe
+[63/86] Linking CXX shared library generative_c.dll
+[64/86] Linking CXX executable test_hilbert.exe
 [65/86] Linking CXX executable test_blake3.exe
-[66/86] Linking CXX executable test_hilbert.exe
-[67/86] Linking CXX shared library generative_c.dll
-[68/86] Linking CXX executable test_clustering.exe
-[69/86] Linking CXX executable test_semantic.exe
-[70/86] Linking CXX executable test_laplacian_4d.exe
-[71/86] Linking CXX executable test_integration.exe
-[72/86] Linking CXX executable test_query_api.exe
-[73/86] Linking CXX executable extract_embeddings.exe
-[74/86] Linking CXX executable seed_atoms_parallel.exe
-[75/86] Linking CXX executable hypercube_tests.exe
-[76/86] Linking CXX executable ingest.exe
-[77/86] Linking CXX executable hypercube_sql_tests.exe
-[78/86] Linking C shared library hypercube.dll
+[66/86] Linking CXX shared library hypercube_c.dll
+[67/86] Linking CXX executable test_coordinates.exe
+[68/86] Linking CXX executable test_semantic.exe
+[69/86] Linking CXX executable test_laplacian_4d.exe
+[70/86] Linking CXX executable test_clustering.exe
+[71/86] Linking CXX executable hypercube_tests.exe
+[72/86] Linking CXX executable test_integration.exe
+[73/86] Linking CXX executable seed_atoms_parallel.exe
+[74/86] Linking CXX executable extract_embeddings.exe
+[75/86] Linking CXX executable test_query_api.exe
+[76/86] Linking CXX executable hypercube_sql_tests.exe
+[77/86] Linking CXX executable ingest.exe
+[78/86] Linking C shared library embedding_ops.dll
 [79/86] Linking C shared library hypercube_ops.dll
 [80/86] Linking C shared library semantic_ops.dll
-[81/86] Linking C shared library embedding_ops.dll
+[81/86] Linking C shared library hypercube.dll
 [82/86] Linking C shared library generative.dll
 [83/86] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:39:
@@ -317,45 +317,45 @@ Generators: 12
 Connection Pool: 12 connections
 
 [1/5] Generating atoms (12 threads)...
-      Generated 1112064 atoms in 898 ms
+      Generated 1112064 atoms in 784 ms
 [2/5] Partitioning by hash...
 Partition sizes: 95707 95147 95707 95561 90842 90986 91118 91042 91690 91508 91178 91578 
-      Partitioned in 28 ms
+      Partitioned in 38 ms
 [3/5] Preparing database...
-      Setup in 139 ms
+      Setup in 114 ms
 [4/5] Parallel COPY to atom table (12 connections)...
-Partition 0 build time: 302 ms
-Partition 1 build time: 381 ms
-Partition 0 total time: 640 ms, I/O: 338 ms, atoms: 95707, rate: 149542 atoms/sec
-Partition 9 build time: 548 ms
-Partition 3 build time: 502 ms
-Partition 1 total time: 819 ms, I/O: 438 ms, atoms: 95147, rate: 116174 atoms/sec
-Partition 4 build time: 596 ms
-Partition 5 build time: 618 ms
-Partition 6 build time: 672 ms
-Partition 9 total time: 1006 ms, I/O: 458 ms, atoms: 91508, rate: 90962 atoms/sec
-Partition 3 total time: 1070 ms, I/O: 568 ms, atoms: 95561, rate: 89309 atoms/sec
-Partition 7 build time: 711 ms
-Partition 4 total time: 1134 ms, I/O: 538 ms, atoms: 90842, rate: 80107 atoms/sec
-Partition 5 total time: 1175 ms, I/O: 557 ms, atoms: 90986, rate: 77434 atoms/sec
-Partition 2 build time: 765 ms
-Partition 10 build time: 727 ms
-Partition 11 build time: 692 ms
-Partition 6 total time: 1229 ms, I/O: 557 ms, atoms: 91118, rate: 74139 atoms/sec
-Partition 8 build time: 654 ms
-Partition 7 total time: 1298 ms, I/O: 587 ms, atoms: 91042, rate: 70140 atoms/sec
-Partition 10 total time: 1379 ms, I/O: 652 ms, atoms: 91178, rate: 66118 atoms/sec
-Partition 11 total time: 1379 ms, I/O: 687 ms, atoms: 91578, rate: 66408 atoms/sec
-Partition 2 total time: 1381 ms, I/O: 616 ms, atoms: 95707, rate: 69302 atoms/sec
-Partition 8 total time: 1405 ms, I/O: 751 ms, atoms: 91690, rate: 65259 atoms/sec
-      Parallel COPY in 1406 ms
+Partition 0 build time: 347 ms
+Partition 1 build time: 461 ms
+Partition 0 total time: 680 ms, I/O: 333 ms, atoms: 95707, rate: 140745 atoms/sec
+Partition 2 build time: 547 ms
+Partition 3 build time: 576 ms
+Partition 4 build time: 580 ms
+Partition 5 build time: 556 ms
+Partition 1 total time: 910 ms, I/O: 449 ms, atoms: 95147, rate: 104557 atoms/sec
+Partition 6 build time: 642 ms
+Partition 2 total time: 1020 ms, I/O: 473 ms, atoms: 95707, rate: 93830 atoms/sec
+Partition 7 build time: 680 ms
+Partition 3 total time: 1101 ms, I/O: 525 ms, atoms: 95561, rate: 86794 atoms/sec
+Partition 4 total time: 1122 ms, I/O: 542 ms, atoms: 90842, rate: 80964 atoms/sec
+Partition 5 total time: 1140 ms, I/O: 584 ms, atoms: 90986, rate: 79812 atoms/sec
+Partition 9 build time: 670 ms
+Partition 8 build time: 726 ms
+Partition 6 total time: 1236 ms, I/O: 594 ms, atoms: 91118, rate: 73720 atoms/sec
+Partition 10 build time: 673 ms
+Partition 11 build time: 654 ms
+Partition 7 total time: 1358 ms, I/O: 678 ms, atoms: 91042, rate: 67041 atoms/sec
+Partition 8 total time: 1443 ms, I/O: 717 ms, atoms: 91690, rate: 63541 atoms/sec
+Partition 9 total time: 1443 ms, I/O: 773 ms, atoms: 91508, rate: 63415 atoms/sec
+Partition 10 total time: 1466 ms, I/O: 793 ms, atoms: 91178, rate: 62195 atoms/sec
+Partition 11 total time: 1482 ms, I/O: 828 ms, atoms: 91578, rate: 61793 atoms/sec
+      Parallel COPY in 1483 ms
 [5/5] Building indexes...
-      Index build in 1803 ms
+      Index build in 2022 ms
 
 === Complete ===
 Total atoms: 1112064
-Total time: 4276 ms (4.276 s)
-Rate: 260071 atoms/sec
+Total time: 4443 ms (4.443 s)
+Rate: 250295 atoms/sec
 [THREADING] OpenMP threads: 32
 [THREADING] MKL threads: 1 (dynamic=0)
 === Universal Safetensor Ingester (Modular) ===
@@ -402,7 +402,7 @@ Threshold: 0.5
 [TOKENIZER] Loaded 0 BPE merges, 30522 vocab entries
 [2] Parsing vocab: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\vocab.txt"
 
-[VOCAB] Loaded 30522 tokens in 516ms
+[VOCAB] Loaded 30522 tokens in 513ms
 
 [2.5] Parsing model metadata (config, tokenizer, special tokens)...
 
@@ -871,54 +871,54 @@ Threshold: 0.5
 [COMP] Inserting 30522 token compositions...
 [COMP] 29525 multi-char compositions to insert
 [COMP] Building batch strings with 16 threads...
-  [BUILD] 30522/30522 tokens (60201/s)
+  [BUILD] 30522/30522 tokens (61044/s)
 
-[COMP] Built 19001KB compositions + 26895KB children in 507ms
+[COMP] Built 19001KB compositions + 26895KB children in 500ms
 [COMP] Streaming to database...
 [COMP] Dropping idx_comp_label to prevent corruption...
 [COMP] Creating temp tables...
 [COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (1400KB)
-  [COPY] Batch 2/16 (1764KB)
-  [COPY] Batch 3/16 (1934KB)
-  [COPY] Batch 4/16 (1067KB)
-  [COPY] Batch 5/16 (1790KB)
-  [COPY] Batch 6/16 (1330KB)
-  [COPY] Batch 7/16 (1773KB)
-  [COPY] Batch 8/16 (725KB)
-  [COPY] Batch 9/16 (1275KB)
-  [COPY] Batch 10/16 (835KB)
-  [COPY] Batch 11/16 (1155KB)
-  [COPY] Batch 12/16 (1085KB)
-  [COPY] Batch 13/16 (819KB)
-  [COPY] Batch 14/16 (1145KB)
-  [COPY] Batch 15/16 (424KB)
-  [COPY] Batch 16/16 (472KB)
+  [COPY] Batch 1/16 (1511KB)
+  [COPY] Batch 2/16 (1372KB)
+  [COPY] Batch 3/16 (1173KB)
+  [COPY] Batch 4/16 (1075KB)
+  [COPY] Batch 5/16 (1359KB)
+  [COPY] Batch 6/16 (1087KB)
+  [COPY] Batch 7/16 (1293KB)
+  [COPY] Batch 8/16 (1124KB)
+  [COPY] Batch 9/16 (1077KB)
+  [COPY] Batch 10/16 (1053KB)
+  [COPY] Batch 11/16 (1153KB)
+  [COPY] Batch 12/16 (1179KB)
+  [COPY] Batch 13/16 (1135KB)
+  [COPY] Batch 14/16 (1080KB)
+  [COPY] Batch 15/16 (1236KB)
+  [COPY] Batch 16/16 (1087KB)
 
 [COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (1985KB)
-  [COPY] Batch 2/16 (2504KB)
-  [COPY] Batch 3/16 (2760KB)
-  [COPY] Batch 4/16 (1536KB)
-  [COPY] Batch 5/16 (2546KB)
-  [COPY] Batch 6/16 (1887KB)
-  [COPY] Batch 7/16 (2496KB)
-  [COPY] Batch 8/16 (1024KB)
-  [COPY] Batch 9/16 (1790KB)
-  [COPY] Batch 10/16 (1175KB)
-  [COPY] Batch 11/16 (1632KB)
-  [COPY] Batch 12/16 (1536KB)
-  [COPY] Batch 13/16 (1151KB)
-  [COPY] Batch 14/16 (1617KB)
-  [COPY] Batch 15/16 (592KB)
-  [COPY] Batch 16/16 (659KB)
+  [COPY] Batch 1/16 (2144KB)
+  [COPY] Batch 2/16 (1941KB)
+  [COPY] Batch 3/16 (1666KB)
+  [COPY] Batch 4/16 (1539KB)
+  [COPY] Batch 5/16 (1909KB)
+  [COPY] Batch 6/16 (1548KB)
+  [COPY] Batch 7/16 (1833KB)
+  [COPY] Batch 8/16 (1586KB)
+  [COPY] Batch 9/16 (1536KB)
+  [COPY] Batch 10/16 (1478KB)
+  [COPY] Batch 11/16 (1617KB)
+  [COPY] Batch 12/16 (1677KB)
+  [COPY] Batch 13/16 (1602KB)
+  [COPY] Batch 14/16 (1536KB)
+  [COPY] Batch 15/16 (1740KB)
+  [COPY] Batch 16/16 (1536KB)
 
 [COMP] Inserting into composition table...
 [COMP] Inserted 29525 compositions
 [COMP] Inserting into composition_child table...
 [COMP] Inserted 0 children
 [COMP] Recreating idx_comp_label...
-[COMP] Inserted 29525 compositions, 0 children in 1619ms
+[COMP] Inserted 29525 compositions, 0 children in 1660ms
 
 [5.5] Projecting token embeddings to 4D semantic coordinates...
 ============================================================
@@ -927,7 +927,7 @@ Threshold: 0.5
 [PROJECTION] Using config-driven tensor lookup
 [PROJECTION] Found TOKEN_EMBEDDING: embeddings.word_embeddings.weight [30522 x 384]
 [PROJECTION] Loading 30522 x 384 embeddings...
-[PROJECTION] Loaded in 38ms
+[PROJECTION] Loaded in 36ms
 [PROJECTION] Projecting 30522 embeddings to 4D using Laplacian eigenmaps...
 
 === Laplacian Eigenmap Projection to 4D ===
@@ -935,8 +935,8 @@ Tokens: 30522, Embedding dim: 384
 
 [1] Building k-NN similarity graph (k=15)...
 [HNSWLIB] Building HNSW index for 30522 points, dim=384
-[HNSWLIB] Index built in 7682 ms
-[HNSWLIB] k-NN queries completed in 2821 ms
+[HNSWLIB] Index built in 8800 ms
+[HNSWLIB] k-NN queries completed in 3158 ms
 [HNSWLIB] Built k-NN graph with 219345 edges
 
 [1.5] Ensuring graph connectivity...
@@ -1023,10 +1023,10 @@ Tokens: 30522, Embedding dim: 384
 
 [7] Computing Hilbert indices (parallel)...
 
-=== Projection Complete in 17 seconds ===
+=== Projection Complete in 19 seconds ===
 Projected 30522 tokens to 4D hypercube
 Similarity graph edges: 219345
-[PROJECTION] Projection completed in 17206ms
+[PROJECTION] Projection completed in 19976ms
 [PROJECTION] 4D coordinates range computed
 [PROJECTION] Variance explained: 0%
 [PROJECTION] Variance explained too low, skipping database update
@@ -1045,9 +1045,9 @@ Similarity graph edges: 219345
 [SEMANTIC] Using config-driven tensor lookup (architecture: BERT)
 [SEMANTIC] Found TOKEN_EMBEDDING via manifest: embeddings.word_embeddings.weight [30522 x 384]
 [SEMANTIC] Loading 30522 x 384 embeddings...
-[SEMANTIC] Loaded in 36ms
+[SEMANTIC] Loaded in 37ms
 [SEMANTIC] Normalizing (parallel)...
-[SEMANTIC] 30522/30522 valid embeddings in 3ms
+[SEMANTIC] 30522/30522 valid embeddings in 2ms
 [SEMANTIC] 0 projections
 [SEMANTIC] Total: 0 sparse relations
 
@@ -1058,10 +1058,10 @@ Similarity graph edges: 219345
 [SEMANTIC] Extracting tokenΓåötoken similarity from embeddings.word_embeddings.weight
 [SEMANTIC] Vocab: 30522 tokens, Embedding dim: 384
 [SEMANTIC] Using 32 threads
-[SEMANTIC] Loaded 30522 token embeddings in 28ms
+[SEMANTIC] Loaded 30522 token embeddings in 29ms
 [SEMANTIC] Loading cached HNSW index from C:\Users\ahart\AppData\Local\Temp\hypercube_hnsw_cache\3648419960641565176.hnsw...
-[SEMANTIC] Loaded cached index in 64ms
-[SEMANTIC] HNSW index loaded in 64ms
+[SEMANTIC] Loaded cached index in 68ms
+[SEMANTIC] HNSW index loaded in 68ms
 [SEMANTIC] Querying k-NN (PARALLEL, 32 threads)...
   [QUERY] 3052/30522 (9%)
   [QUERY] 6104/30522 (19%)
@@ -1073,7 +1073,7 @@ Similarity graph edges: 219345
   [QUERY] 24416/30522 (79%)
   [QUERY] 27468/30522 (89%)
   [QUERY] 30520/30522 (99%)
-[SEMANTIC] k-NN queries completed in 777ms
+[SEMANTIC] k-NN queries completed in 768ms
 [SEMANTIC] Found 178376 semantic similarity edges
 [SEMANTIC] Inserted 178376 tokenΓåötoken semantic relations
 [SEMANTIC] These relations give tokens MEANING through semantic proximity
@@ -1095,12 +1095,12 @@ Similarity graph edges: 219345
 [MULTIMODAL] Extracted 8082 semantic relations
 
 === Complete ===
-Total time: 35 seconds
+Total time: 39 seconds
 Tensors: 104
 BPE merges: 0
 Vocab: 30522 tokens
   Atoms  | Compositions | With Labels | Relations | Max Depth | Total Size 
 ---------+--------------+-------------+-----------+-----------+------------
- 1112064 |        61157 |       31703 |    186453 |        24 | 543 MB
+ 1112064 |        61157 |       31703 |    186453 |        24 | 544 MB
 (1 row)
 

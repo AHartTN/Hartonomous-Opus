@@ -26,6 +26,14 @@ extern "C" {
 #endif
 
 /* ==========================================================================
+ * Geometric Types
+ * ========================================================================== */
+
+typedef struct {
+    uint32_t x, y, z, m;
+} GeomPoint4D;
+
+/* ==========================================================================
  * Vocabulary Cache Management
  * ========================================================================== */
 
@@ -270,6 +278,61 @@ GENERATIVE_C_API size_t gen_score_candidates(
     const char* current_label,
     size_t top_k,
     GenTokenResult* results
+);
+
+/* ==========================================================================
+ * Geometric Operations (4D Coordinate System)
+ * ========================================================================== */
+
+/**
+ * Map a Unicode codepoint to 4D coordinates.
+ *
+ * @param codepoint Unicode codepoint (0 to 0x10FFFF)
+ * @param coords    Output: 4D point on 3-sphere surface
+ */
+GENERATIVE_C_API void geom_map_codepoint(
+    uint32_t codepoint,
+    GeomPoint4D* coords
+);
+
+/**
+ * Calculate Euclidean distance between two 4D points.
+ *
+ * @param a First point
+ * @param b Second point
+ * @return Euclidean distance (0.0 to 2.0 in normalized space)
+ */
+GENERATIVE_C_API double geom_euclidean_distance(
+    const GeomPoint4D* a,
+    const GeomPoint4D* b
+);
+
+/**
+ * Calculate centroid of multiple 4D points.
+ *
+ * @param points Input points array
+ * @param count  Number of points
+ * @param result Output: centroid point
+ */
+GENERATIVE_C_API void geom_centroid(
+    const GeomPoint4D* points,
+    size_t count,
+    GeomPoint4D* result
+);
+
+/**
+ * Calculate weighted centroid of multiple 4D points.
+ *
+ * @param points  Input points array
+ * @param weights Weights for each point
+ * @param count   Number of points
+ * @param result  Output: weighted centroid point
+ */
+GENERATIVE_C_API void geom_weighted_centroid(
+    const GeomPoint4D* points,
+    const double* weights,
+    size_t count,
+    GeomPoint4D* result
 );
 
 #ifdef __cplusplus

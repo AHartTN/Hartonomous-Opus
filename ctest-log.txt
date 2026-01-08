@@ -32,7 +32,7 @@ test 1
 1:   Bit ordering: PASS
 1: 
 1: All tests passed!
- 1/10 Test  #1: HilbertTest ......................   Passed    0.08 sec
+ 1/10 Test  #1: HilbertTest ......................   Passed    0.07 sec
 test 2
       Start  2: CoordinatesTest
 
@@ -98,7 +98,7 @@ test 2
 2:   Γ£ô CV 42.9334% is within acceptable range (Γëñ 200%) for semantic adjacency constraints
 2:   Distance uniformity: PASS
 2: Testing round-trip quantize/Hilbert...
-2:   Round-trip: 998/1000 passed
+2:   Round-trip: 997/1000 passed
 2:   Round-trip quantize/Hilbert: PASS
 2: Testing adjacency check...
 2:   Mean adjacency distance: 1.97458e+09
@@ -152,7 +152,7 @@ test 2
 2:   Optimization pipeline: PASS
 2: 
 2: All tests passed!
- 2/10 Test  #2: CoordinatesTest ..................   Passed    6.60 sec
+ 2/10 Test  #2: CoordinatesTest ..................   Passed    6.75 sec
 test 3
       Start  3: Blake3Test
 
@@ -316,8 +316,8 @@ test 4
 4: PASSED: BLAKE3 hash is deterministic (same input = same output)
 4: 
 4: === Test: Generation Performance ===
-4:   Generated 1112064 atoms in 632 ms
-4: PASSED: Generation completes in under 2 seconds (632 < 2000)
+4:   Generated 1112064 atoms in 691 ms
+4: PASSED: Generation completes in under 2 seconds (691 < 2000)
 4: 
 4: === Test: Atom Count ===
 4:   Total valid codepoints: 1112064
@@ -326,7 +326,7 @@ test 4
 4: ============================================
 4:   Results: 73 passed, 1 failed
 4: ============================================
- 4/10 Test  #4: SemanticTest .....................***Failed    2.69 sec
+ 4/10 Test  #4: SemanticTest .....................***Failed    2.96 sec
 test 5
       Start  5: ClusteringTest
 
@@ -397,7 +397,7 @@ test 5
 5: ===============================================================
 5:   All 7 tests passed!
 5: ===============================================================
- 5/10 Test  #5: ClusteringTest ...................   Passed    0.08 sec
+ 5/10 Test  #5: ClusteringTest ...................   Passed    0.09 sec
 test 6
       Start  6: Laplacian4DTest
 
@@ -421,8 +421,8 @@ test 6
 6: 
 6: [1] Building k-NN similarity graph (k=10)...
 6: [HNSWLIB] Building HNSW index for 50 points, dim=32
-6: [HNSWLIB] Index built in 1 ms
-6: [HNSWLIB] k-NN queries completed in 106 ms
+6: [HNSWLIB] Index built in 2 ms
+6: [HNSWLIB] k-NN queries completed in 111 ms
 6: [HNSWLIB] Built k-NN graph with 248 edges
 6: 
 6: [1.5] Ensuring graph connectivity...
@@ -465,7 +465,7 @@ test 6
 6: === Summary ===
 6: Passed: 8
 6: Failed: 0
- 6/10 Test  #6: Laplacian4DTest ..................   Passed    0.22 sec
+ 6/10 Test  #6: Laplacian4DTest ..................   Passed    0.27 sec
 test 7
       Start  7: IntegrationTest
 
@@ -499,24 +499,24 @@ test 7
 7: 
 7: > Count all seeded atoms
 7:   SQL: SELECT COUNT(*) FROM atom
-7:   Total atoms: 1112064
-7:   PASS: All 1,112,064 Unicode codepoints seeded
+7:   Total atoms: 0
+7:   FAIL: No atoms seeded! Run seed_atoms_parallel
 7: > Verify atom 'A' (U+0041) properties
 7:   SQL: SELECT encode(id, 'hex') FROM atom WHERE codepoint = 65
-7:   BLAKE3 hash: 32684bfa28c0c84d...
+7:   BLAKE3 hash: ...
 7:   SQL: SELECT ST_X(geom) FROM atom WHERE codepoint = 65
 7:   SQL: SELECT ST_Y(geom) FROM atom WHERE codepoint = 65
 7:   SQL: SELECT ST_Z(geom) FROM atom WHERE codepoint = 65
 7:   SQL: SELECT ST_M(geom) FROM atom WHERE codepoint = 65
-7:   4D coordinates: (-2147483648, 2147483647, -2147483648, 2147483647)
-7:   PASS: Atom has valid 4D geometry (POINTZM)
+7:   4D coordinates: (-999, -999, -999, -999)
+7:   FAIL: Invalid geometry
 7: > Verify Hilbert index values
 7:   SQL: SELECT hilbert_lo FROM atom WHERE codepoint = 65
-7:   Hilbert curve: lo=6148920537844716950, hi=7614085770007455141
-7:   PASS: Hilbert index populated for spatial locality
+7:   Hilbert curve: lo=, hi=
+7:   FAIL: Missing Hilbert index
 7: > Case pair proximity: 'A' vs 'a' should be neighbors
 7:   SQL: SELECT ST_3DDistance((SELECT geom FROM atom WHERE codepoint = 65),(SELECT geom FROM atom WHERE codepoint = 97))
-7:   Distance A<->a: -2147483648
+7:   Distance A<->a: -999
 7:   SQL: WITH ranked AS (  SELECT neighbor_id, ROW_NUMBER() OVER (ORDER BY distance) as rank   FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 100)) SELECT rank FROM ranked WHERE neighbor_id = (SELECT id FROM atom WHERE codepoint = 97)
 7:   Rank of 'a' among A's neighbors: -1
 7:   SKIP: Case pair not in top 100 - may need projection tuning
@@ -534,24 +534,24 @@ test 7
 7: 
 7: > atom_is_leaf() - Identify leaf vs composition
 7:   SQL: SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))
-7:   atom_is_leaf('A'): t
-7:   PASS: Correctly identifies leaf atoms
+7:   atom_is_leaf('A'): f
+7:   FAIL: Wrong result
 7: > atom_centroid() - Get geometry for any entity
 7:   SQL: SELECT ST_AsText(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))
-7:   Geometry: POINT ZM (4294966812 2147483647 2148923606 2147483...
-7:   PASS: Returns valid POINT geometry
+7:   Geometry: ...
+7:   FAIL: Invalid geometry return
 7: > atom_reconstruct_text() - Rebuild text from ID
 7:   SQL: SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 72)) || atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 105))
-7:   Reconstructed 'H' + 'i': 'Hi'
-7:   PASS: Text reconstruction works
+7:   Reconstructed 'H' + 'i': ''
+7:   FAIL: Wrong text
 7: > atom_knn() - K-nearest neighbors
 7:   SQL: SELECT COUNT(*) FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 10)
-7:   Neighbors returned: 10
-7:   PASS: Returns exactly k neighbors
+7:   Neighbors returned: 0
+7:   FAIL: Wrong count
 7: > atom_distance() - Euclidean distance
 7:   SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 66))
-7:   Distance A<->B: 4269457171.121440
-7:   PASS: Computes positive distance
+7:   Distance A<->B: -999.000000
+7:   FAIL: Invalid distance
 7: 
 7: === SEMANTIC RELATIONS ===
 7: 
@@ -569,20 +569,19 @@ test 7
 7: === BLAKE3 DETERMINISM ===
 7: 
 7: > Same input produces same hash
-7:   PASS: BLAKE3 hash is deterministic
-7:   Hash(A): 32684bfa28c0c84d6f210511aace0efc...
+7:   FAIL: Hash mismatch or empty
 7: > Different inputs produce different hashes
-7:   PASS: Different codepoints have different hashes
+7:   FAIL: Hash collision detected!
 7: 
 7: ================================================================
 7:                          RESULTS
 7: ================================================================
-7:   Passed:  16
-7:   Failed:  0
+7:   Passed:  6
+7:   Failed:  10
 7:   Skipped: 3
 7: ================================================================
 7: 
- 7/10 Test  #7: IntegrationTest ..................   Passed    0.25 sec
+ 7/10 Test  #7: IntegrationTest ..................***Failed    0.15 sec
 test 8
       Start  8: QueryAPITest
 
@@ -616,52 +615,41 @@ test 8
 8: 
 8: > How many Unicode codepoints are seeded?
 8:   SQL: SELECT COUNT(*) FROM atom
-8:   Total atoms: 1112064
-8:   PASS: All 1,112,064 Unicode codepoints are seeded
+8:   Total atoms: 0
+8:   FAIL: Only 0 atoms - expected 1,112,064
 8: > Looking up atom for 'A' (codepoint 65)
 8:   SQL: SELECT codepoint, encode(id, 'hex') as blake3_hash, ST_X(geom)::numeric(12,0) as x, ST_Y(geom)::numeric(12,0) as y, ST_Z(geom)::numeric(12,0) as z, ST_M(geom)::numeric(12,0) as m FROM atom WHERE codepoint = 65
 8:   codepoint, blake3_hash, x, y, z, m
-8:   65, 32684bfa28c0..., 4294966812, 2147483647, 2148923606, 2147483647
-8:   Total: 1 rows
+8:   Total: 0 rows
 8:   PASS: Atom 'A' found with 4D coordinates
 8: > Sample of printable ASCII characters
 8:   SQL: SELECT chr(codepoint) as char, codepoint, hilbert_lo, hilbert_hi FROM atom WHERE codepoint BETWEEN 65 AND 74 ORDER BY codepoint
 8:   char, codepoint, hilbert_lo, hilbert_hi
-8:   A, 65, 614892053784..., 761408577000...
-8:   B, 66, -78492234096..., 876551199442...
-8:   C, 67, -80635027286..., 758528065459...
-8:   D, 68, -75211408143..., 847257882547...
-8:   E, 69, -61302452266..., 746056995615...
-8:   F, 70, 579597985786..., 888237256655...
-8:   G, 71, 178134026358..., 774409779555...
-8:   H, 72, 399569120429..., 891592785040...
-8:   I, 73, -83494716772..., 660809650591...
-8:   J, 74, 821308757167..., 542355187368...
-8:   Total: 10 rows
+8:   Total: 0 rows
 8: 
 8: === CORE SQL FUNCTIONS ===
 8: 
 8: > atom_is_leaf() - Check if ID is a leaf atom
 8:   SQL: SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))
-8:   atom_is_leaf('A'): t
-8:   PASS: Correctly identifies 'A' as a leaf atom
+8:   atom_is_leaf('A'): f
+8:   FAIL: Should return true for leaf atom
 8: > atom_centroid() - Get 4D geometry of an atom
 8:   SQL: SELECT ST_X(g)::numeric(12,0) as x, ST_Y(g)::numeric(12,0) as y, ST_Z(g)::numeric(12,0) as z, ST_M(g)::numeric(12,0) as m FROM (SELECT atom_centroid((SELECT id FROM atom WHERE codepoint = 65)) as g) sub
 8:   x, y, z, m
-8:   4294966812, 2147483647, 2148923606, 2147483647
+8:   , , , 
 8:   Total: 1 rows
 8:   PASS: atom_centroid returns POINTZM geometry
 8: > atom_reconstruct_text() - Reconstruct text from atom ID
 8:   SQL: SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 65))
-8:   Reconstructed: 'A'
-8:   PASS: Correctly reconstructs 'A' from atom ID
+8:   Reconstructed: ''
+8:   FAIL: Should reconstruct to 'A'
 8: > atom_distance() - Euclidean distance between atoms
 8:   SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 65))
-8:   Distance A to A: 0.000000
-8:   PASS: Self-distance is 0
+8:   Distance A to A: -1.000000
+8:   FAIL: Self-distance should be 0
 8:   SQL: SELECT atom_distance((SELECT id FROM atom WHERE codepoint = 65),(SELECT id FROM atom WHERE codepoint = 66))
-8:   Distance A to B: 4269457171.121440
-8:   PASS: Different atoms have non-zero distance
+8:   Distance A to B: -1.000000
+8:   FAIL: Different atoms should have distance > 0
 8: 
 8: === K-NEAREST NEIGHBOR QUERIES ===
 8: 
@@ -694,14 +682,14 @@ test 8
 8: > atom_stats() - Overall system statistics
 8:   SQL: SELECT * FROM atom_stats()
 8:   atoms, compositions, compositions_with_centroid, relations, max_depth
-8:   1112064, 0, 0, 0, 0
+8:   0, 0, 0, 0, 0
 8:   Total: 1 rows
 8: > Index status
 8:   SQL: SELECT indexname, tablename FROM pg_indexes WHERE schemaname = 'public' AND tablename IN ('atom', 'composition', 'relation')
 8:   indexname, tablename
+8:   idx_atom_cod..., atom
 8:   atom_pkey, atom
 8:   atom_codepoi..., atom
-8:   idx_atom_cod..., atom
 8:   idx_atom_hil..., atom
 8:   idx_atom_geom, atom
 8:   composition_..., composition
@@ -722,22 +710,17 @@ test 8
 8: > Q: Show the 4D neighborhood of letter 'M' (middle of alphabet)
 8:   SQL: SELECT chr(a.codepoint) as char, ST_X(a.geom)::numeric(12,0) as x, ST_Y(a.geom)::numeric(12,0) as y, ST_Z(a.geom)::numeric(12,0) as z, ST_M(a.geom)::numeric(12,0) as m FROM atom_knn((SELECT id FROM atom WHERE codepoint = 77), 5) knn JOIN atom a ON a.id = knn.neighbor_id
 8:   char, x, y, z, m
-8:   ß┐ù, 298964669, 1074224299, 1947997256, 2202101920
-8:   ╨⌐, 312127775, 1055154994, 2366041361, 2194446174
-8:   α½á, 306522435, 1073144853, 2253107058, 1908344178
-8:   α┤╢, 314968115, 1059941018, 2412212553, 2120235168
-8:   πäÄ, 316872088, 1063129992, 2086365933, 2432069506
-8:   Total: 5 rows
+8:   Total: 0 rows
 8: 
 8: ================================================================
 8:                          TEST SUMMARY
 8: ================================================================
-8:   Passed:  13
-8:   Failed:  0
+8:   Passed:  8
+8:   Failed:  5
 8:   Skipped: 2
 8: ================================================================
 8: 
- 8/10 Test  #8: QueryAPITest .....................   Passed    0.26 sec
+ 8/10 Test  #8: QueryAPITest .....................***Failed    0.17 sec
 test 9
       Start  9: HypercubeTests
 
@@ -845,7 +828,7 @@ test 9
 9: [1] Building k-NN similarity graph (k=5)...
 9: [HNSWLIB] Building HNSW index for 50 points, dim=32
 9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 100 ms
+9: [HNSWLIB] k-NN queries completed in 114 ms
 9: [HNSWLIB] Built k-NN graph with 124 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -882,7 +865,7 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 50 tokens to 4D hypercube
 9: Similarity graph edges: 124
-9: [       OK ] LaplacianTest.ProjectionOutput (104 ms)
+9: [       OK ] LaplacianTest.ProjectionOutput (117 ms)
 9: [ RUN      ] LaplacianTest.LocalityPreservation
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -891,7 +874,7 @@ test 9
 9: [1] Building k-NN similarity graph (k=5)...
 9: [HNSWLIB] Building HNSW index for 30 points, dim=16
 9: [HNSWLIB] Index built in 1 ms
-9: [HNSWLIB] k-NN queries completed in 107 ms
+9: [HNSWLIB] k-NN queries completed in 106 ms
 9: [HNSWLIB] Built k-NN graph with 75 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -938,7 +921,7 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=3)...
 9: [HNSWLIB] Building HNSW index for 20 points, dim=16
-9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] Index built in 1 ms
 9: [HNSWLIB] k-NN queries completed in 106 ms
 9: [HNSWLIB] Built k-NN graph with 28 edges
 9: 
@@ -982,8 +965,8 @@ test 9
 9: 
 9: [1] Building k-NN similarity graph (k=3)...
 9: [HNSWLIB] Building HNSW index for 20 points, dim=16
-9: [HNSWLIB] Index built in 0 ms
-9: [HNSWLIB] k-NN queries completed in 106 ms
+9: [HNSWLIB] Index built in 1 ms
+9: [HNSWLIB] k-NN queries completed in 108 ms
 9: [HNSWLIB] Built k-NN graph with 28 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -1020,7 +1003,7 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 20 tokens to 4D hypercube
 9: Similarity graph edges: 28
-9: [       OK ] LaplacianTest.Deterministic (217 ms)
+9: [       OK ] LaplacianTest.Deterministic (219 ms)
 9: [ RUN      ] LaplacianTest.SmallDataset
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -1077,7 +1060,7 @@ test 9
 9: [1] Building k-NN similarity graph (k=5)...
 9: [HNSWLIB] Building HNSW index for 30 points, dim=16
 9: [HNSWLIB] Index built in 0 ms
-9: [HNSWLIB] k-NN queries completed in 107 ms
+9: [HNSWLIB] k-NN queries completed in 104 ms
 9: [HNSWLIB] Built k-NN graph with 80 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -1114,8 +1097,8 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 30 tokens to 4D hypercube
 9: Similarity graph edges: 80
-9: [       OK ] LaplacianTest.SphericalProjection (109 ms)
-9: [----------] 5 tests from LaplacianTest (649 ms total)
+9: [       OK ] LaplacianTest.SphericalProjection (107 ms)
+9: [----------] 5 tests from LaplacianTest (661 ms total)
 9: 
 9: [----------] 9 tests from BackendTest
 9: [ RUN      ] BackendTest.CPUDetection
@@ -1139,7 +1122,7 @@ test 9
 9: [----------] 9 tests from BackendTest (0 ms total)
 9: 
 9: [----------] Global test environment tear-down
-9: [==========] 32 tests from 5 test suites ran. (654 ms total)
+9: [==========] 32 tests from 5 test suites ran. (667 ms total)
 9: [  PASSED  ] 31 tests.
 9: [  FAILED  ] 1 test, listed below:
 9: [  FAILED  ] CoordinatesTest.Uniqueness
@@ -1313,14 +1296,16 @@ test 10
 10: [  SKIPPED ] SQLQueryAPITest.RelationTraversal
 10: [  SKIPPED ] SQLQueryAPITest.ModelRegistryQuery
 10: [  SKIPPED ] SQLQueryAPITest.AggregateStats
-10/10 Test #10: HypercubeSQLTests ................   Passed    0.11 sec
+10/10 Test #10: HypercubeSQLTests ................   Passed    0.10 sec
 
-80% tests passed, 2 tests failed out of 10
+60% tests passed, 4 tests failed out of 10
 
-Total Test time (real) =  11.31 sec
+Total Test time (real) =  11.48 sec
 
 The following tests FAILED:
 	  4 - SemanticTest (Failed)
+	  7 - IntegrationTest (Failed)
+	  8 - QueryAPITest (Failed)
 	  9 - HypercubeTests (Failed)
 Errors while running CTest
 Output from these tests are in: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/Testing/Temporary/LastTest.log

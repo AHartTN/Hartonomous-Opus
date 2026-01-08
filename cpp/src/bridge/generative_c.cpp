@@ -4,6 +4,8 @@
 
 #include "hypercube/generative_c.h"
 #include "hypercube/generative.hpp"
+#include "hypercube/coordinates.hpp"
+#include "hypercube/types.hpp"
 
 #include <cstring>
 #include <algorithm>
@@ -249,24 +251,24 @@ GENERATIVE_C_API size_t gen_score_candidates(
 ) {
     int64_t idx = engine().vocab.find_label(current_label ? current_label : "");
     if (idx < 0) return 0;
-    
+
     TokenState current = engine().make_token_state(idx);
-    
+
     // Get all candidates and score them
     auto candidate_indices = engine().get_all_vocab_candidates();
-    
+
     std::vector<ScoredCandidate> scored;
     scored.reserve(candidate_indices.size());
-    
+
     for (size_t cand_idx : candidate_indices) {
         if (cand_idx == (size_t)idx) continue;  // Skip self
         scored.push_back(engine().score_candidate(current, cand_idx));
     }
-    
+
     // Sort by total score
     std::sort(scored.begin(), scored.end(),
         [](const auto& a, const auto& b) { return a.score_total > b.score_total; });
-    
+
     size_t n = std::min(scored.size(), top_k);
     for (size_t i = 0; i < n; ++i) {
         results[i].token_index = scored[i].index;
@@ -276,8 +278,70 @@ GENERATIVE_C_API size_t gen_score_candidates(
         results[i].score_global = scored[i].score_global;
         results[i].score_total = scored[i].score_total;
     }
-    
+
     return n;
+}
+
+// =============================================================================
+// Geometric Operations (4D Coordinate System)
+// =============================================================================
+
+GENERATIVE_C_API void geom_map_codepoint(
+    uint32_t codepoint,
+    GeomPoint4D* coords
+) {
+    auto point = hypercube::CoordinateMapper::map_codepoint(codepoint);
+    coords->x = point.x;
+    coords->y = point.y;
+    coords->z = point.z;
+    coords->m = point.m;
+}
+
+GENERATIVE_C_API double geom_euclidean_distance(
+    const GeomPoint4D* a,
+    const GeomPoint4D* b
+) {
+    hypercube::Point4D pa{a->x, a->y, a->z, a->m};
+    hypercube::Point4D pb{b->x, b->y, b->z, b->m};
+    return hypercube::CoordinateMapper::euclidean_distance(pa, pb);
+}
+
+GENERATIVE_C_API void geom_centroid(
+    const GeomPoint4D* points,
+    size_t count,
+    GeomPoint4D* result
+) {
+    std::vector<hypercube::Point4D> pts;
+    pts.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+        pts.push_back(hypercube::Point4D{points[i].x, points[i].y, points[i].z, points[i].m});
+    }
+    auto centroid = hypercube::CoordinateMapper::centroid(pts);
+    result->x = centroid.x;
+    result->y = centroid.y;
+    result->z = centroid.z;
+    result->m = centroid.m;
+}
+
+GENERATIVE_C_API void geom_weighted_centroid(
+    const GeomPoint4D* points,
+    const double* weights,
+    size_t count,
+    GeomPoint4D* result
+) {
+    std::vector<hypercube::Point4D> pts;
+    std::vector<double> wts;
+    pts.reserve(count);
+    wts.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+        pts.push_back(hypercube::Point4D{points[i].x, points[i].y, points[i].z, points[i].m});
+        wts.push_back(weights[i]);
+    }
+    auto centroid = hypercube::CoordinateMapper::weighted_centroid(pts, wts);
+    result->x = centroid.x;
+    result->y = centroid.y;
+    result->z = centroid.z;
+    result->m = centroid.m;
 }
 
 } // extern "C"

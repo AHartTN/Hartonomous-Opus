@@ -1,0 +1,9 @@
+d:\Repositories\Github\AHartTN\Hartonomous-Opus\csharp\HypercubeGenerativeApi\obj\Debug\net8.0\HypercubeGenerativeApi.csproj.AssemblyReference.cache
+d:\Repositories\Github\AHartTN\Hartonomous-Opus\csharp\HypercubeGenerativeApi\obj\Debug\net8.0\rpswa.dswa.cache.json
+d:\Repositories\Github\AHartTN\Hartonomous-Opus\csharp\HypercubeGenerativeApi\obj\Debug\net8.0\HypercubeGenerativeApi.GeneratedMSBuildEditorConfig.editorconfig
+d:\Repositories\Github\AHartTN\Hartonomous-Opus\csharp\HypercubeGenerativeApi\obj\Debug\net8.0\HypercubeGenerativeApi.AssemblyInfoInputs.cache
+d:\Repositories\Github\AHartTN\Hartonomous-Opus\csharp\HypercubeGenerativeApi\obj\Debug\net8.0\HypercubeGenerativeApi.AssemblyInfo.cs
+d:\Repositories\Github\AHartTN\Hartonomous-Opus\csharp\HypercubeGenerativeApi\obj\Debug\net8.0\HypercubeGenerativeApi.csproj.CoreCompileInputs.cache
+d:\Repositories\Github\AHartTN\Hartonomous-Opus\csharp\HypercubeGenerativeApi\obj\Debug\net8.0\HypercubeGenerativeApi.MvcApplicationPartsAssemblyInfo.cs
+d:\Repositories\Github\AHartTN\Hartonomous-Opus\csharp\HypercubeGenerativeApi\obj\Debug\net8.0\HypercubeGenerativeApi.MvcApplicationPartsAssemblyInfo.cache
+d:\Repositories\Github\AHartTN\Hartonomous-Opus\csharp\HypercubeGenerativeApi\obj\Debug\net8.0\HypercubeGenerativeApi.sourcelink.json
