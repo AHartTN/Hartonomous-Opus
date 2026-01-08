@@ -63,7 +63,10 @@ struct IngestContext {
     
     // Model manifest with architecture info and extraction plans
     std::optional<ModelManifest> manifest;
-    
+
+    // Verbose debug output flag
+    bool verbose = false;
+
     // =========================================================================
     // Config-Driven Tensor Lookup
     // =========================================================================
@@ -120,6 +123,7 @@ struct IngestContext {
         vocab_tokens.clear();
         token_to_idx.clear();
         manifest.reset();
+        verbose = false;
     }
 };
 

@@ -43,37 +43,51 @@ inline bool parse_safetensor_header(
     // Read 8-byte header size (little-endian)
     uint64_t header_size;
     file.read(reinterpret_cast<char*>(&header_size), 8);
-    std::cerr << "[DEBUG] Header size: " << header_size << "\n";
+    if (ctx.verbose) {
+        std::cerr << "[DEBUG] Header size: " << header_size << "\n";
+    }
 
     // Read JSON header
     std::vector<char> buf(header_size);
     file.read(buf.data(), header_size);
     std::string json(buf.begin(), buf.end());
-    std::cerr << "[DEBUG] JSON header length: " << json.size() << "\n";
-    std::cerr << "[DEBUG] JSON start: " << json.substr(0, std::min<size_t>(200, json.size())) << "\n";
+    if (ctx.verbose) {
+        std::cerr << "[DEBUG] JSON header length: " << json.size() << "\n";
+        std::cerr << "[DEBUG] JSON start: " << json.substr(0, std::min<size_t>(200, json.size())) << "\n";
+    }
     
     // Simple parser: find each tensor entry
     size_t pos = 0;
     int tensor_count = 0;
     while ((pos = json.find("\"dtype\"", pos)) != std::string::npos) {
-        std::cerr << "[DEBUG] Found 'dtype' at pos " << pos << "\n";
+        if (ctx.verbose) {
+            std::cerr << "[DEBUG] Found 'dtype' at pos " << pos << "\n";
+        }
         size_t entry_start = json.rfind("{", pos);
         size_t name_end = json.rfind("\":", entry_start);
         size_t name_start = json.rfind("\"", name_end - 1);
 
-        std::cerr << "[DEBUG] entry_start: " << entry_start << ", name_end: " << name_end << ", name_start: " << name_start << "\n";
+        if (ctx.verbose) {
+            std::cerr << "[DEBUG] entry_start: " << entry_start << ", name_end: " << name_end << ", name_start: " << name_start << "\n";
+        }
 
         if (name_start == std::string::npos || name_end == std::string::npos) {
-            std::cerr << "[DEBUG] Skipping malformed entry\n";
+            if (ctx.verbose) {
+                std::cerr << "[DEBUG] Skipping malformed entry\n";
+            }
             pos++;
             continue;
         }
 
         std::string name = json.substr(name_start + 1, name_end - name_start - 1);
-        std::cerr << "[DEBUG] Tensor name: '" << name << "'\n";
+        if (ctx.verbose) {
+            std::cerr << "[DEBUG] Tensor name: '" << name << "'\n";
+        }
 
         if (name == "__metadata__" || name == "format") {
-            std::cerr << "[DEBUG] Skipping metadata entry\n";
+            if (ctx.verbose) {
+                std::cerr << "[DEBUG] Skipping metadata entry\n";
+            }
             pos++;
             continue;
         }
@@ -110,16 +124,20 @@ inline bool parse_safetensor_header(
         
         ctx.tensors[name] = meta;
         tensor_count++;
-        std::cerr << "[DEBUG] Added tensor: " << name << " with shape [";
-        for (size_t i = 0; i < meta.shape.size(); ++i) {
-            if (i > 0) std::cerr << ",";
-            std::cerr << meta.shape[i];
+        if (ctx.verbose) {
+            std::cerr << "[DEBUG] Added tensor: " << name << " with shape [";
+            for (size_t i = 0; i < meta.shape.size(); ++i) {
+                if (i > 0) std::cerr << ",";
+                std::cerr << meta.shape[i];
+            }
+            std::cerr << "] dtype: " << meta.dtype << "\n";
         }
-        std::cerr << "] dtype: " << meta.dtype << "\n";
         pos = off_end;
     }
 
-    std::cerr << "[DEBUG] Total tensors parsed: " << tensor_count << "\n";
+    if (ctx.verbose) {
+        std::cerr << "[DEBUG] Total tensors parsed: " << tensor_count << "\n";
+    }
     return true;
 }
 
@@ -169,13 +187,17 @@ inline bool parse_model_index(IngestContext& ctx, const fs::path& index_path) {
     for (const auto& shard : shards_to_parse) {
         fs::path shard_path = parent / shard;
         if (fs::exists(shard_path)) {
-            std::cerr << "  Parsing shard: " << shard << "\n";
+            if (ctx.verbose) {
+                std::cerr << "  Parsing shard: " << shard << "\n";
+            }
             parse_safetensor_header(ctx, shard_path, shard_path.string());
         }
     }
-    
-    std::cerr << "[INDEX] Parsed " << shards_to_parse.size() << " shards, " 
-              << ctx.tensors.size() << " tensors\n";
+
+    if (ctx.verbose) {
+        std::cerr << "[INDEX] Parsed " << shards_to_parse.size() << " shards, "
+                  << ctx.tensors.size() << " tensors\n";
+    }
     return true;
 }
 
@@ -328,8 +350,10 @@ inline bool parse_tokenizer(IngestContext& ctx, const fs::path& tokenizer_path) 
                     ctx.vocab[token] = idx;
                 } catch (const std::exception& e) {
                     // Skip malformed entries but continue parsing
-                    std::cerr << "[TOKENIZER] Warning: Failed to parse vocab entry near pos " 
-                              << i << ": " << e.what() << "\n";
+                    if (ctx.verbose) {
+                        std::cerr << "[TOKENIZER] Warning: Failed to parse vocab entry near pos "
+                                  << i << ": " << e.what() << "\n";
+                    }
                 }
                 
                 i = comma + 1;

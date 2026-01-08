@@ -1976,11 +1976,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "d:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\csharp\\HypercubeGenerativeApi\\HypercubeGenerativeApi.csproj",
+      "projectUniqueName": "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\csharp\\HypercubeGenerativeApi\\HypercubeGenerativeApi.csproj",
       "projectName": "HypercubeGenerativeApi",
-      "projectPath": "d:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\csharp\\HypercubeGenerativeApi\\HypercubeGenerativeApi.csproj",
+      "projectPath": "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\csharp\\HypercubeGenerativeApi\\HypercubeGenerativeApi.csproj",
       "packagesPath": "C:\\Users\\ahart\\.nuget\\packages\\",
-      "outputPath": "d:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\csharp\\HypercubeGenerativeApi\\obj\\",
+      "outputPath": "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\csharp\\HypercubeGenerativeApi\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

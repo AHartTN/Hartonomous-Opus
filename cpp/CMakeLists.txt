@@ -115,25 +115,35 @@ if(NOT HAS_MKL)
         DOC "Intel MKL interface library"
     )
 
-    find_library(MKL_SEQUENTIAL_LIB
-        NAMES mkl_sequential mkl_sequential_dll
+    # Find the threading layer instead of sequential
+    find_library(MKL_THREAD_LIB
+        NAMES mkl_intel_thread mkl_intel_thread_dll
         PATHS ${MKL_SEARCH_PATHS}
         PATH_SUFFIXES lib lib/intel64 lib/ia32
-        DOC "Intel MKL sequential library"
+        DOC "Intel MKL threading library"
+    )
+
+    # Find the Intel OpenMP library (required for the threading layer)
+    find_library(MKL_IOMP5_LIB
+        NAMES libiomp5md libiomp5md.dll
+        PATHS ${MKL_SEARCH_PATHS} "D:/Intel/oneAPI/compiler/latest/lib"
+        PATH_SUFFIXES lib lib/intel64 lib/ia32
+        DOC "Intel OpenMP library"
     )
 
     message(STATUS "MKL detection results:")
     message(STATUS "  MKL_INCLUDE_DIR: ${MKL_INCLUDE_DIR}")
     message(STATUS "  MKL_CORE_LIB: ${MKL_CORE_LIB}")
     message(STATUS "  MKL_INTL_LP64_LIB: ${MKL_INTL_LP64_LIB}")
-    message(STATUS "  MKL_SEQUENTIAL_LIB: ${MKL_SEQUENTIAL_LIB}")
+    message(STATUS "  MKL_THREAD_LIB: ${MKL_THREAD_LIB}")
+    message(STATUS "  MKL_IOMP5_LIB: ${MKL_IOMP5_LIB}")
 
-    if(MKL_INCLUDE_DIR AND MKL_CORE_LIB AND MKL_INTL_LP64_LIB AND MKL_SEQUENTIAL_LIB)
+    if(MKL_INCLUDE_DIR AND MKL_CORE_LIB AND MKL_INTL_LP64_LIB AND MKL_THREAD_LIB)
         set(MKL_FOUND TRUE)
         set(MKL_INCLUDE_DIRS ${MKL_INCLUDE_DIR})
-        set(MKL_LIBRARIES ${MKL_INTL_LP64_LIB} ${MKL_SEQUENTIAL_LIB} ${MKL_CORE_LIB})
+        set(MKL_LIBRARIES ${MKL_INTL_LP64_LIB} ${MKL_THREAD_LIB} ${MKL_CORE_LIB} ${MKL_IOMP5_LIB})
         set(HAS_MKL ON)
-        message(STATUS "SUCCESS: MKL detected - will use MKL BLAS operations")
+        message(STATUS "SUCCESS: MKL detected - will use MKL BLAS operations (PARALLEL mode)")
     else()
         set(MKL_FOUND FALSE)
         set(HAS_MKL OFF)
@@ -147,8 +157,11 @@ if(NOT HAS_MKL)
         if(NOT MKL_INTL_LP64_LIB)
             message(STATUS "  Missing: MKL interface library - check library paths")
         endif()
-        if(NOT MKL_SEQUENTIAL_LIB)
-            message(STATUS "  Missing: MKL sequential library - check library paths")
+        if(NOT MKL_THREAD_LIB)
+            message(STATUS "  Missing: MKL threading library - check library paths")
+        endif()
+        if(NOT MKL_IOMP5_LIB)
+            message(STATUS "  Missing: Intel OpenMP library - check library paths")
         endif()
     endif()
 endif()

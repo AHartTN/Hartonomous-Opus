@@ -1,5 +1,9 @@
 #include "hypercube/hilbert.hpp"
 
+#ifdef __BMI2__
+#include <immintrin.h>
+#endif
+
 namespace hypercube {
 
 /**
@@ -91,25 +95,51 @@ HilbertIndex HilbertCurve::coords_to_index(const Point4D& point) noexcept {
     };
     axes_to_transpose(X, 4, 32);
     
-    // Interleave the 4 transposed coordinates into 128-bit index
+    // Interleave the 4 transposed coordinates into 128-bit index using BMI2
     // Bit-plane interleave: bit i of dimension d goes to position i*4 + d
-    // Bit 0 (LSB) is least significant nibble at index 0
-    // This preserves locality: nearby coordinates map to nearby indices
     HilbertIndex result{0, 0};
-    
+
+#ifdef __BMI2__
+    // Use BMI2 _pdep_u64 for hardware-accelerated bit deposition
+    // Masks for bit positions: for dimension d, bits at 4*i + d
+    const uint64_t mask_low[4] = {
+        0x1111111111111111ULL,  // d=0: bits 0,4,8,...,60
+        0x2222222222222222ULL,  // d=1: bits 1,5,9,...,61
+        0x4444444444444444ULL,  // d=2: bits 2,6,10,...,62
+        0x8888888888888888ULL   // d=3: bits 3,7,11,...,63
+    };
+    const uint64_t mask_high[4] = {
+        0x1111111111111111ULL,  // Upper 64: same pattern
+        0x2222222222222222ULL,
+        0x4444444444444444ULL,
+        0x8888888888888888ULL
+    };
+
+    for (int d = 0; d < 4; ++d) {
+        uint32_t x = X[d];
+        // Deposit lower 16 bits into lower 64 positions
+        uint64_t low = _pdep_u64(x & 0xFFFF, mask_low[d]);
+        // Deposit upper 16 bits into upper 64 positions
+        uint64_t high = _pdep_u64((x >> 16) & 0xFFFF, mask_high[d]);
+        result.lo |= low;
+        result.hi |= high;
+    }
+#else
+    // Fallback: original bit-loop implementation
     for (uint32_t bit = 0; bit < 32; ++bit) {
         uint32_t out_pos = bit * 4;
         uint64_t nibble = ((X[0] >> bit) & 1) |
                           (((X[1] >> bit) & 1) << 1) |
                           (((X[2] >> bit) & 1) << 2) |
                           (((X[3] >> bit) & 1) << 3);
-        
+
         if (out_pos < 64) {
             result.lo |= (nibble << out_pos);
         } else {
             result.hi |= (nibble << (out_pos - 64));
         }
     }
+#endif
     
     return result;
 }

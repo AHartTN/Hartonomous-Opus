@@ -275,9 +275,9 @@ public static class GeometricController
 
             return neighbors;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            // Fallback if C++ call fails
+            // Fallback if C++ call fails - use simple placeholder for now
             return new List<GeometricNeighbor>
             {
                 new GeometricNeighbor {

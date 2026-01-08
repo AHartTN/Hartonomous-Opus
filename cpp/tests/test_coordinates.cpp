@@ -500,10 +500,10 @@ void test_distance_uniformity() {
     const double MAX_ACCEPTABLE_CV = 2.0;
 
     if (cv <= MAX_ACCEPTABLE_CV) {
-        std::cout << "  ✓ CV " << (cv * 100) << "% is within acceptable range (≤ " << (MAX_ACCEPTABLE_CV * 100)
+        std::cout << "  [OK] CV " << (cv * 100) << "% is within acceptable range (<= " << (MAX_ACCEPTABLE_CV * 100)
                   << "%) for semantic adjacency constraints" << std::endl;
     } else {
-        std::cout << "  ⚠ CV " << (cv * 100) << "% exceeds acceptable range - may indicate issues" << std::endl;
+        std::cout << "  [WARN] CV " << (cv * 100) << "% exceeds acceptable range - may indicate issues" << std::endl;
     }
 
     // Basic sanity checks

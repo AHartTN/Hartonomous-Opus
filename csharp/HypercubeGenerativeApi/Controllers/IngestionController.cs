@@ -77,7 +77,7 @@ public static class IngestionController
         catch (Exception ex)
         {
             logger.LogError(ex, "Error ingesting document: {Title}", request.Title);
-            return TypedResults.StatusCode(500, new
+            return TypedResults.Json(new
             {
                 error = new
                 {
@@ -85,7 +85,7 @@ public static class IngestionController
                     type = "internal_error",
                     details = ex.Message
                 }
-            });
+            }, statusCode: 500);
         }
     }
 
@@ -137,14 +137,15 @@ public static class IngestionController
         catch (Exception ex)
         {
             logger.LogError(ex, "Error ingesting codebase: {Name}", request.Name);
-            return TypedResults.StatusCode(500, new
+            return TypedResults.Json(new
             {
                 error = new
                 {
                     message = "Codebase ingestion failed",
-                    type = "internal_error"
+                    type = "internal_error",
+                    detail = ex.Message
                 }
-            });
+            }, statusCode: 500);
         }
     }
 
@@ -179,14 +180,15 @@ public static class IngestionController
         catch (Exception ex)
         {
             logger.LogError(ex, "Error checking ingestion status: {Id}", id);
-            return TypedResults.StatusCode(500, new
+            return TypedResults.Json(new
             {
                 error = new
                 {
                     message = "Status check failed",
-                    type = "internal_error"
+                    type = "internal_error",
+                    detail = ex.Message
                 }
-            });
+            }, statusCode: 500);
         }
     }
 
@@ -237,14 +239,15 @@ public static class IngestionController
         catch (Exception ex)
         {
             logger.LogError(ex, "Error retrieving ingestion stats");
-            return TypedResults.StatusCode(500, new
+            return TypedResults.Json(new
             {
                 error = new
                 {
                     message = "Statistics retrieval failed",
-                    type = "internal_error"
+                    type = "internal_error",
+                    detail = ex.Message
                 }
-            });
+            }, statusCode: 500);
         }
     }
 

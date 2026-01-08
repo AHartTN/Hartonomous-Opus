@@ -14,7 +14,7 @@ public static class ModelsEndpoints
     {
         var response = new ModelsResponse
         {
-            Data = new[]
+            Data = new List<ModelInfo>
             {
                 new ModelInfo
                 {

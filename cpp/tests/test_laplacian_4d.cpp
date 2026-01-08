@@ -52,7 +52,7 @@ static int g_tests_failed = 0;
     if ((a) != (b)) throw std::runtime_error("Assertion failed: " #a " == " #b)
 
 #define ASSERT_NEAR(a, b, eps) \
-    if (std::abs((a) - (b)) > (eps)) throw std::runtime_error("Assertion failed: " #a " ≈ " #b)
+    if (std::abs((a) - (b)) > (eps)) throw std::runtime_error("Assertion failed: " #a " ~= " #b)
 
 // =============================================================================
 // Tests

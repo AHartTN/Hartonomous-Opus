@@ -906,8 +906,14 @@ LanczosResult LanczosSolver::solve(const SparseSymmetricMatrix& L) {
     LanczosResult result;
     result.converged = false;
     result.iterations_used = 0;
-    
-    std::cerr << "[LANCZOS] Config: tol=" << config_.convergence_tol 
+
+    // Ensure convergence tolerance is reasonable
+    if (config_.convergence_tol <= 0.0) {
+        config_.convergence_tol = 1e-8;
+        std::cerr << "[LANCZOS] WARNING: convergence_tol was 0, setting to 1e-8\n";
+    }
+
+    std::cerr << "[LANCZOS] Config: tol=" << config_.convergence_tol
               << ", max_iter=" << config_.max_iterations
               << ", num_eigenpairs=" << config_.num_eigenpairs << "\n";
     

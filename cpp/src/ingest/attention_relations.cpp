@@ -105,12 +105,22 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
                   << architecture_to_string(ctx.manifest->architecture) << ")\n";
         
         for (const auto& plan : ctx.manifest->extraction_plans) {
-            if (plan.category == TensorCategory::TOKEN_EMBEDDING) {
+            if (plan.category == TensorCategory::TOKEN_EMBEDDING ||
+                plan.category == TensorCategory::ATTENTION_QUERY ||
+                plan.category == TensorCategory::ATTENTION_KEY ||
+                plan.category == TensorCategory::ATTENTION_VALUE ||
+                plan.category == TensorCategory::ATTENTION_OUTPUT ||
+                plan.category == TensorCategory::FFN_UP ||
+                plan.category == TensorCategory::FFN_DOWN ||
+                plan.category == TensorCategory::FFN_GATE ||
+                plan.category == TensorCategory::LAYER_NORM ||
+                plan.category == TensorCategory::RMS_NORM ||
+                plan.category == TensorCategory::CONV_KERNEL) {
                 auto it = ctx.tensors.find(plan.name);
                 if (it != ctx.tensors.end()) {
                     embed = &it->second;
                     embed_name = plan.name;
-                    std::cerr << "[SEMANTIC] Found TOKEN_EMBEDDING via manifest: " << plan.name << "\n";
+                    std::cerr << "[SEMANTIC] Found " << category_to_string(plan.category) << " via manifest: " << plan.name << "\n";
                     break;
                 }
             }

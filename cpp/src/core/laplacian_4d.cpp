@@ -502,6 +502,49 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
         }
         for (auto& t : norm_threads) t.join();
     }
+
+    // Check for degenerate embeddings (all nearly identical after normalization)
+    // This happens when embeddings collapse to a single point in high-D space
+    {
+        size_t samples_to_check = std::min(size_t(100), n);
+        float max_diff = 0.0f;
+        for (size_t i = 1; i < samples_to_check; ++i) {
+            float diff = 0.0f;
+            for (size_t d = 0; d < dim; ++d) {
+                float delta = normalized[i][d] - normalized[0][d];
+                diff += delta * delta;
+            }
+            diff = std::sqrt(diff);
+            if (diff > max_diff) max_diff = diff;
+        }
+
+        float degeneracy_threshold = 0.01f;  // Very small differences indicate collapse
+        if (max_diff < degeneracy_threshold) {
+            std::cerr << "[HNSWLIB] WARNING: Embeddings are degenerate (max_diff=" << max_diff
+                      << "). Adding random noise to break symmetry.\n";
+
+            // Add small random noise to break symmetry
+            std::mt19937 rng(42);  // Fixed seed for reproducibility
+            std::normal_distribution<float> noise(0.0f, 0.001f);  // Very small noise
+
+            for (size_t i = 0; i < n; ++i) {
+                for (size_t d = 0; d < dim; ++d) {
+                    normalized[i][d] += noise(rng);
+                }
+                // Re-normalize after adding noise
+                float norm_sq = 0.0f;
+                for (size_t d = 0; d < dim; ++d) {
+                    norm_sq += normalized[i][d] * normalized[i][d];
+                }
+                float norm = std::sqrt(norm_sq);
+                if (norm > 1e-10f) {
+                    for (size_t d = 0; d < dim; ++d) {
+                        normalized[i][d] /= norm;
+                    }
+                }
+            }
+        }
+    }
     
     // Add points to index (must be sequential for HNSWLIB)
     for (size_t i = 0; i < n; ++i) {
@@ -743,23 +786,37 @@ void LaplacianProjector::ensure_connectivity(
     // Connect all components to the first component's representative
     // This creates a star topology - not optimal but guaranteed connected in O(k)
     size_t main_rep = comp_reps[0].second;
-    
+
     for (size_t c = 1; c < comp_reps.size(); ++c) {
         size_t other_rep = comp_reps[c].second;
-        
-        // Compute similarity for weight
+
+        // Compute similarity for weight - use actual similarity for better conditioning
         float sim = embedding::cosine_similarity(
             embeddings[main_rep].data(),
             embeddings[other_rep].data(),
             dim);
 
-        // Use stronger connectivity weight to ensure numerical stability
-        double weight = 1.0;  // Fixed weight for connectivity edges
+        // Use high weight for connectivity (but not too high to avoid conditioning issues)
+        double weight = std::max(0.1, static_cast<double>(sim));  // At least 0.1, preferably the actual similarity
         W.add_edge(main_rep, other_rep, weight);
         unite(main_rep, other_rep);
         ++edges_added;
     }
-    
+
+    // Verify connectivity after enforcement
+    std::unordered_set<size_t> final_roots;
+    for (size_t i = 0; i < n; ++i) {
+        final_roots.insert(find(i));
+    }
+    size_t final_components = final_roots.size();
+
+    if (final_components > 1) {
+        std::cerr << "[CONNECT] WARNING: Still " << final_components << " components after connectivity enforcement!\n";
+        std::cerr << "[CONNECT] This will cause zero eigenvalues. Laplacian eigenmaps requires connected graph.\n";
+    } else {
+        std::cerr << "[CONNECT] Graph is now connected (" << final_components << " component)\n";
+    }
+
     std::cerr << "[CONNECT] Added " << edges_added << " inter-component edges\n";
 }
 
@@ -791,6 +848,13 @@ SparseSymmetricMatrix LaplacianProjector::build_laplacian(const SparseSymmetricM
         double val = -w * inv_sqrt_degree[i] * inv_sqrt_degree[j];
         L.add_edge(i, j, val);
     });
+
+    // Add ridge regularization to stabilize the solver (prevent singular matrices)
+    // Use larger ridge for better numerical stability on large matrices
+    double ridge = (n > 10000) ? 1e-3 : 1e-6;
+    for (size_t i = 0; i < n; ++i) {
+        L.set_diagonal(i, L.get_diagonal(i) + ridge);
+    }
 
     L.finalize();
     return L;
@@ -1215,39 +1279,34 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     }
     
     // ==========================================================================
-    // FOR LARGE MATRICES: Use Lanczos eigensolver directly
+    // FOR LARGE MATRICES: Use Lanczos eigensolver on -L to find largest eigenvalues
     // ==========================================================================
 
-    // DESIGN NOTE: Conjugate Gradient inverse iteration is NOT suitable for finding
-    // eigenvectors of nearly-singular Laplacian matrices. The shift σ required to
-    // avoid the null space (σ ~ 1e-6) creates an ill-conditioned system where
-    // round-off errors dominate. CG requires positive definite matrices, but
-    // L + σI with tiny σ is nearly singular (κ ~ 10^12).
-    //
-    // SOLUTION: Use Lanczos algorithm directly. Lanczos is specifically designed
-    // for symmetric matrices (doesn't require positive definiteness) and handles
-    // the null space cleanly via deflation. It has been proven robust in testing.
-    //
-    // REMOVED: solve_eigenvectors_cg() - dead code path (100% failure rate)
-    // USING: Lanczos as primary eigensolver (not a fallback)
+    // To find smallest eigenvalues of L, find largest eigenvalues of -L
+    // Since L has eigenvalues 0 < λ1 ≤ λ2 ≤ ... 
+    // Then -L has eigenvalues 0 > -λ1 ≥ -λ2 ≥ ...
+    // So largest eigenvalues of -L are 0, -λ1, -λ2, ...
+    // Skip 0, then eigenvalues of L are λi = - (eigenvalue of -L)
 
-    // ==========================================================================
-    // LANCZOS EIGENSOLVER (Primary Method)
-    // ==========================================================================
-
-    std::cerr << "[LANCZOS] Finding " << k << " smallest non-zero eigenvectors using Lanczos algorithm\n";
+    std::cerr << "[LANCZOS] Finding " << k << " smallest non-zero eigenvectors using Lanczos on -L\n";
     std::cerr << "[LANCZOS] config_.convergence_tol = " << config_.convergence_tol << "\n";
 
-    // Configure Lanczos solver
+    // Create -L matrix
+    SparseSymmetricMatrix neg_L(L.size());
+    L.for_each_edge([&](size_t i, size_t j, double w) {
+        neg_L.add_edge(i, j, -w);
+    });
+    for (size_t i = 0; i < L.size(); ++i) {
+        neg_L.set_diagonal(i, -L.get_diagonal(i));
+    }
+    neg_L.finalize();
+
+    // Configure Lanczos solver for -L
     lanczos::LanczosConfig lanczos_config;
-    // Request k+1 eigenpairs to skip the null space (constant eigenvector at λ=0)
-    lanczos_config.num_eigenpairs = k + 1;
-    lanczos_config.max_iterations = std::min(300, static_cast<int>(L.size()) / 2);
-    lanczos_config.convergence_tol = 1e-6;  // Real convergence tolerance (not 0)
-    std::cerr << "[LANCZOS] lanczos_config.convergence_tol = " << lanczos_config.convergence_tol << "\n";
-    // For graph Laplacians: direct Lanczos finds smallest eigenvalues naturally
-    // Shift-invert is unstable near λ=0 null space
-    lanczos_config.use_shift_invert = false;
+    lanczos_config.num_eigenpairs = k + 1;  // k+1 to skip null space
+    lanczos_config.max_iterations = 500;
+    lanczos_config.convergence_tol = 1e-8;
+    lanczos_config.use_shift_invert = false;  // Use direct Lanczos
     lanczos_config.num_threads = config_.num_threads;
 
     lanczos::LanczosSolver solver(lanczos_config);
@@ -1257,8 +1316,8 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
         report_progress(stage, static_cast<size_t>(current), static_cast<size_t>(total));
     });
 
-    // Run Lanczos
-    lanczos::LanczosResult result = solver.solve(L);
+    // Run Lanczos on -L
+    lanczos::LanczosResult result = solver.solve(neg_L);
 
     // Report convergence status
     std::cerr << "[LANCZOS] " << (result.converged ? "Converged" : "Did not fully converge")
@@ -1280,10 +1339,11 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     }
     std::cerr << "\n";
 
-    // Copy eigenvalues SKIPPING index 0 (null space)
-    // eigenvalues_out[0..3] = result.eigenvalues[1..4]
+    // Convert eigenvalues back to L eigenvalues and skip null space
+    // result.eigenvalues are for -L: [0, -λ1, -λ2, -λ3, -λ4, ...]
+    // So L eigenvalues are: [0, λ1, λ2, λ3, λ4, ...]
     for (int i = 0; i < 4 && (i + 1) < static_cast<int>(result.eigenvalues.size()); ++i) {
-        eigenvalues_out[i] = result.eigenvalues[i + 1];  // Skip index 0
+        eigenvalues_out[i] = -result.eigenvalues[i + 1];  // Negate and skip index 0
     }
 
     std::cerr << "[LANCZOS] Semantic eigenvalues (skipped λ_0): ";
@@ -1553,6 +1613,58 @@ ProjectionResult LaplacianProjector::project(
     
     // Step 3: Find 4 smallest non-zero eigenvectors
     std::cerr << "\n[3] Finding 4 smallest non-zero eigenvectors...\n";
+
+    // DEBUG: Check Laplacian properties before eigensolver
+    {
+        size_t n = L.size();
+        std::cerr << "[DEBUG] Laplacian matrix size: " << n << "x" << n << "\n";
+
+        // Check degrees and Laplacian diagonal
+        double min_degree = 1e308, max_degree = -1e308;
+        double min_diag = 1e308, max_diag = -1e308;
+        size_t zero_degree_count = 0;
+
+        for (size_t i = 0; i < n; ++i) {
+            double degree = W.get_degree(i);
+            double diag = L.get_diagonal(i);
+
+            if (degree < 1e-12) zero_degree_count++;
+            min_degree = std::min(min_degree, degree);
+            max_degree = std::max(max_degree, degree);
+            min_diag = std::min(min_diag, diag);
+            max_diag = std::max(max_diag, diag);
+        }
+
+        std::cerr << "[DEBUG] Degrees: min=" << min_degree << ", max=" << max_degree
+                  << ", zero_count=" << zero_degree_count << "\n";
+        std::cerr << "[DEBUG] Laplacian diagonal: min=" << min_diag << ", max=" << max_diag << "\n";
+
+        // Check if Laplacian is symmetric
+        bool is_sym = L.is_symmetric();
+        std::cerr << "[DEBUG] Laplacian is symmetric: " << (is_sym ? "YES" : "NO") << "\n";
+
+        // Check connectivity
+        std::vector<bool> visited(n, false);
+        std::queue<size_t> q;
+        q.push(0);
+        visited[0] = true;
+        size_t visited_count = 1;
+
+        while (!q.empty()) {
+            size_t u = q.front(); q.pop();
+            L.for_each_edge([&](size_t i, size_t j, double w) {
+                if (!visited[j]) {
+                    visited[j] = true;
+                    visited_count++;
+                    q.push(j);
+                }
+            });
+        }
+
+        std::cerr << "[DEBUG] Graph connectivity: " << visited_count << "/" << n
+                  << " nodes reachable from node 0\n";
+    }
+
     auto eigenvectors = find_smallest_eigenvectors(L, 4, result.eigenvalues);
     
     if (eigenvectors.size() < 4) {
@@ -1607,10 +1719,19 @@ ProjectionResult LaplacianProjector::project(
     auto end = std::chrono::steady_clock::now();
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
     
+    // Compute variance explained: ratio of eigenvalues used to theoretical maximum
+    // For normalized Laplacian, eigenvalues range from 0 to 2
+    // We use 4 eigenvectors, so theoretical maximum is 4 * 2 = 8
+    double sum_eigenvalues = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        sum_eigenvalues += result.eigenvalues[i];
+    }
+    result.total_variance_explained = sum_eigenvalues / 8.0;  // Normalize to [0, 1]
+
     std::cerr << "\n=== Projection Complete in " << secs << " seconds ===\n";
     std::cerr << "Projected " << n << " tokens to 4D hypercube\n";
     std::cerr << "Similarity graph edges: " << result.edge_count << "\n";
-    
+
     return result;
 }
 

@@ -30,8 +30,8 @@
 using namespace hypercube;
 
 // Configuration
-static constexpr int NUM_PARTITIONS = 12;
-static constexpr int NUM_GENERATORS = 12;
+static constexpr int NUM_PARTITIONS = 8;
+static constexpr int NUM_GENERATORS = 8;
 
 struct AtomRecord {
     Blake3Hash hash;

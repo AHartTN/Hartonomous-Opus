@@ -142,13 +142,14 @@ int main(int argc, char* argv[]) {
     // Create ingest context
     IngestContext ctx;
     ctx.model_prefix = config.model_name + ":";
+    ctx.verbose = config.verbose;
     
     // ============================================================================
     // CRITICAL: Configure threading BEFORE any parallel operations
     // MKL defaults to 1 thread if not configured - this kills performance
+    // Limit to 8 Performance cores on 14900KS to avoid E-core tail latency
     // ============================================================================
-    int num_threads = static_cast<int>(std::thread::hardware_concurrency());
-    if (num_threads < 1) num_threads = 8;
+    int num_threads = 8;  // 14900KS has 8 Performance cores
 
     // Set OpenMP threads
     #ifdef _OPENMP
@@ -176,8 +177,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "[0] Parsing model manifest (config.json, architecture detection)...\n";
     ingest::ModelManifest manifest = ingest::parse_model_manifest(dir);
     manifest.model_name = config.model_name;  // Override with user-specified name
-    manifest.print_summary();
-    
+
     // Store manifest in context for config-driven tensor lookup
     ctx.manifest = manifest;
     
@@ -269,6 +269,9 @@ int main(int argc, char* argv[]) {
             ctx.manifest->categorize_tensor(name, meta.shape, meta.dtype);
         }
         std::cerr << "[INFO] Created " << ctx.manifest->extraction_plans.size() << " extraction plans\n";
+
+        // Now print the summary with the categorized tensors
+        ctx.manifest->print_summary();
     }
     
     // Connect to database

@@ -107,6 +107,9 @@ foreach ($oneAPIPath in $IntelOneAPIPaths) {
         # Set MKLROOT for CMake detection
         $env:MKLROOT = "$oneAPIPath\mkl\latest"
 
+        # Limit MKL to 8 threads for optimal P-core utilization on 14900KS
+        $env:MKL_NUM_THREADS = "8"
+
         # Add compiler and MKL bin directories for DLLs
         $compilerBin = "$oneAPIPath\compiler\latest\bin"
         $mklBin = "$oneAPIPath\mkl\latest\bin"

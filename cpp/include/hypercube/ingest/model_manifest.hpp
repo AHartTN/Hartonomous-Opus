@@ -493,10 +493,11 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
             return TensorCategory::PATCH_EMBEDDING;
         }
         // Token embeddings
-        if (lower_name.find("shared") != std::string::npos || 
+        if (lower_name.find("shared") != std::string::npos ||
             lower_name.find("token") != std::string::npos ||
             lower_name.find("wte") != std::string::npos ||
-            lower_name.find("word_embed") != std::string::npos) {
+            lower_name.find("word_embed") != std::string::npos ||
+            lower_name == "embeddings.word_embeddings.weight") {
             return TensorCategory::TOKEN_EMBEDDING;
         }
         // Large embedding tables are likely vocab
@@ -679,29 +680,30 @@ inline void ModelManifest::categorize_tensor(const std::string& name,
             break;
             
         // =====================================================================
-        // FFN - transformation geometry
+        // FFN - transformation geometry (semantic concept mixing)
         // =====================================================================
         case TensorCategory::FFN_UP:
         case TensorCategory::FFN_DOWN:
         case TensorCategory::FFN_GATE:
-            plan.extract_statistics = true;  // For now - will enable geometry later
+            plan.extract_embeddings = true;  // FFN layers mix semantic concepts
+            plan.extract_attention = true;   // Extract transformation relationships
             ffn_tensors++;
             break;
         
         // =====================================================================
-        // NORMALIZATION
+        // NORMALIZATION (semantic scaling and domain adaptation)
         // =====================================================================
         case TensorCategory::LAYER_NORM:
         case TensorCategory::RMS_NORM:
-            plan.extract_statistics = true;
+            plan.extract_embeddings = true;  // Scale/bias parameters encode semantic importance
             norm_tensors++;
             break;
-            
+
         // =====================================================================
-        // CONVOLUTION
+        // CONVOLUTION (hierarchical visual features)
         // =====================================================================
         case TensorCategory::CONV_KERNEL:
-            plan.extract_statistics = true;
+            plan.extract_embeddings = true;  // Learned filters represent visual semantics
             conv_tensors++;
             break;
         
@@ -751,6 +753,44 @@ inline void ModelManifest::categorize_tensor(const std::string& name,
 }
 
 inline void ModelManifest::print_summary() const {
+    // Count actual extraction types dynamically
+    int ffn_embeddings = 0, ffn_relations = 0, ffn_stats = 0;
+    int norm_embeddings = 0, norm_relations = 0, norm_stats = 0;
+    int conv_embeddings = 0, conv_relations = 0, conv_stats = 0;
+
+    for (const auto& plan : extraction_plans) {
+        if (plan.category == TensorCategory::FFN_UP ||
+            plan.category == TensorCategory::FFN_DOWN ||
+            plan.category == TensorCategory::FFN_GATE) {
+            if (plan.extract_embeddings) ffn_embeddings++;
+            else if (plan.extract_attention) ffn_relations++;
+            else if (plan.extract_statistics) ffn_stats++;
+        }
+        else if (plan.category == TensorCategory::LAYER_NORM ||
+                 plan.category == TensorCategory::RMS_NORM) {
+            if (plan.extract_embeddings) norm_embeddings++;
+            else if (plan.extract_attention) norm_relations++;
+            else if (plan.extract_statistics) norm_stats++;
+        }
+        else if (plan.category == TensorCategory::CONV_KERNEL) {
+            if (plan.extract_embeddings) conv_embeddings++;
+            else if (plan.extract_attention) conv_relations++;
+            else if (plan.extract_statistics) conv_stats++;
+        }
+    }
+
+    // Determine dominant extraction method for each category
+    auto get_extraction_label = [](int embeddings, int relations, int stats, int total) -> std::string {
+        if (embeddings > 0) return "eigenmap extraction";
+        if (relations > 0) return "relation extraction";
+        if (stats > 0) return "stats only";
+        return "skipped";
+    };
+
+    std::string ffn_label = get_extraction_label(ffn_embeddings, ffn_relations, ffn_stats, ffn_tensors);
+    std::string norm_label = get_extraction_label(norm_embeddings, norm_relations, norm_stats, norm_tensors);
+    std::string conv_label = get_extraction_label(conv_embeddings, conv_relations, conv_stats, conv_tensors);
+
     std::cerr << "\n+--------------------------------------------------------------+\n";
     std::cerr << "|              MODEL MANIFEST SUMMARY                          |\n";
     std::cerr << "+--------------------------------------------------------------+\n";
@@ -759,18 +799,18 @@ inline void ModelManifest::print_summary() const {
     std::cerr << "  Path: " << model_path << "\n";
     std::cerr << "+--------------------------------------------------------------+\n";
     std::cerr << "  DIMENSIONS:\n";
-    if (dims.vocab_size > 0) 
+    if (dims.vocab_size > 0)
         std::cerr << "    Vocab Size: " << dims.vocab_size << "\n";
-    if (dims.d_model > 0) 
+    if (dims.d_model > 0)
         std::cerr << "    Model Dim (d_model): " << dims.d_model << "\n";
-    if (dims.num_layers > 0) 
+    if (dims.num_layers > 0)
         std::cerr << "    Layers: " << dims.num_layers << "\n";
-    if (dims.num_heads > 0) 
+    if (dims.num_heads > 0)
         std::cerr << "    Attention Heads: " << dims.num_heads << "\n";
-    if (dims.ffn_dim > 0) 
+    if (dims.ffn_dim > 0)
         std::cerr << "    FFN Dim: " << dims.ffn_dim << "\n";
-    if (dims.num_experts > 0) 
-        std::cerr << "    MoE Experts: " << dims.num_experts 
+    if (dims.num_experts > 0)
+        std::cerr << "    MoE Experts: " << dims.num_experts
                   << " (top-" << dims.num_experts_per_tok << ")\n";
     if (!dims.vision_dims.empty()) {
         std::cerr << "    Vision Dims: [";
@@ -784,9 +824,9 @@ inline void ModelManifest::print_summary() const {
     std::cerr << "  TENSORS BY CATEGORY:\n";
     std::cerr << "    Embeddings:    " << embedding_tensors << " (eigenmap extraction)\n";
     std::cerr << "    Attention:     " << attention_tensors << " (relation extraction)\n";
-    std::cerr << "    FFN:           " << ffn_tensors << " (stats only)\n";
-    std::cerr << "    Normalization: " << norm_tensors << " (stats only)\n";
-    std::cerr << "    Convolution:   " << conv_tensors << " (stats only)\n";
+    std::cerr << "    FFN:           " << ffn_tensors << " (" << ffn_label << ")\n";
+    std::cerr << "    Normalization: " << norm_tensors << " (" << norm_label << ")\n";
+    std::cerr << "    Convolution:   " << conv_tensors << " (" << conv_label << ")\n";
     std::cerr << "    Other:         " << other_tensors << "\n";
     std::cerr << "    TOTAL:         " << total_tensors << "\n";
     std::cerr << "+--------------------------------------------------------------+\n";

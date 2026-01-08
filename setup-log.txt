@@ -32,8 +32,9 @@
 --   MKL_INCLUDE_DIR: D:/Intel/oneAPI/mkl/latest/include
 --   MKL_CORE_LIB: D:/Intel/oneAPI/mkl/latest/lib/mkl_core.lib
 --   MKL_INTL_LP64_LIB: D:/Intel/oneAPI/mkl/latest/lib/mkl_intel_lp64.lib
---   MKL_SEQUENTIAL_LIB: D:/Intel/oneAPI/mkl/latest/lib/mkl_sequential.lib
--- SUCCESS: MKL detected - will use MKL BLAS operations
+--   MKL_THREAD_LIB: D:/Intel/oneAPI/mkl/latest/lib/mkl_intel_thread.lib
+--   MKL_IOMP5_LIB: D:/Intel/oneAPI/compiler/latest/lib/libiomp5md.lib
+-- SUCCESS: MKL detected - will use MKL BLAS operations (PARALLEL mode)
 -- Skipping Eigen3 (MKL is preferred)
 -- Compiler: Clang 21.1.8
 -- SIMD: Native architecture (march=native)
@@ -56,18 +57,18 @@
 -- HNSWLIB: ON
 -- Tests: ON (Google Test)
 -- 
--- Configuring done (8.8s)
+-- Configuring done (8.3s)
 -- Generating done (0.2s)
 -- Build files have been written to: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
 [1/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/hilbert.cpp.obj
-[2/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.obj
-[3/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/geometry.cpp.obj
+[2/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/geometry.cpp.obj
+[3/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.obj
 [4/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/atom_calculator.cpp.obj
-[5/86] Building CXX object CMakeFiles/hypercube_core.dir/src/util/utf8.cpp.obj
-[6/86] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.obj
-[7/86] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.obj
+[5/86] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.obj
+[6/86] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.obj
+[7/86] Building CXX object CMakeFiles/hypercube_core.dir/src/util/utf8.cpp.obj
 [8/86] Building C object CMakeFiles/semantic_ops.dir/src/pg/semantic_ops_pg.c.obj
-[9/86] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.obj
+[9/86] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.obj
 [10/86] Building CXX object CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:138:18: warning: unused variable 'dist1' [-Wunused-variable]
   138 |     HilbertIndex dist1 = HilbertIndex::abs_distance(a, b);
@@ -93,12 +94,12 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:209:1
 7 warnings generated.
 [11/86] Building C object CMakeFiles/hypercube_ops.dir/src/pg/hypercube_ops_pg.c.obj
 [12/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
-[13/86] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
-[14/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
+[13/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
+[14/86] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
 [15/86] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
-[16/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.obj
+[16/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.obj
 [17/86] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.obj
-[18/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.obj
+[18/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.obj
 [19/86] Building CXX object CMakeFiles/test_coordinates.dir/tests/test_coordinates.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:249:13: warning: unused variable 'coords1' [-Wunused-variable]
   249 |     Point4D coords1 = CoordinateMapper::map_codepoint(test_cp);
@@ -134,8 +135,8 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_clustering.cpp:77
       |            ^~~~~~~~~~~~~~~~~
 1 warning generated.
 [21/86] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj
-[22/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
-[23/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
+[22/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
+[23/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
 [24/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:1166:10: warning: unused variable 'tangent_basis' [-Wunused-variable]
  1166 |     auto tangent_basis = [](const Point4F& p) -> std::array<Point4F, 3> {
@@ -159,35 +160,35 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:290
   290 | uint64_t get_semantic_order(uint32_t cp) noexcept {
       |          ^~~~~~~~~~~~~~~~~~
 7 warnings generated.
-[25/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/parallel_cpe.cpp.obj
+[25/86] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.obj
 [26/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.obj
-[27/86] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.obj
+[27/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/parallel_cpe.cpp.obj
 [28/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/projection_db.cpp.obj
-[29/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
+[29/86] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.obj
+[30/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_io.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[30/86] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.obj
-[31/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.obj
-[32/86] Building CXX object CMakeFiles/test_integration.dir/tests/test_integration.cpp.obj
-[33/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
+[31/86] Building CXX object CMakeFiles/test_integration.dir/tests/test_integration.cpp.obj
+[32/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.obj
+[33/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_main.cpp.obj
+[34/86] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.obj
+[35/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/compositions.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[34/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_main.cpp.obj
-[35/86] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.obj
 [36/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_blake3.cpp.obj
 [37/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_coordinates.cpp.obj
-[38/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
-[39/86] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
-[40/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.obj
-[41/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
+[38/86] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
+[39/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
+[40/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
+[41/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.obj
 [42/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_hierarchy.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
@@ -196,12 +197,12 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnsw
       |             ^~~~~~~~~~~~~
 1 warning generated.
 [43/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_schema.cpp.obj
-[44/86] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
-[45/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.obj
-[46/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
-[47/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.obj
-[48/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_query_api.cpp.obj
-[49/86] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.obj
+[44/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
+[45/86] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
+[46/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.obj
+[47/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.obj
+[48/86] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.obj
+[49/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_query_api.cpp.obj
 [50/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/multimodal_extraction.cpp:15:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
@@ -209,37 +210,37 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnsw
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[51/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.obj
+[51/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
+[52/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/embedding_relations.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[52/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
+[53/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[53/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
 [54/86] Linking CXX executable vocab_extract.exe
-[55/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.obj
-D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:751:15: warning: unused variable 'sim' [-Wunused-variable]
-  751 |         float sim = embedding::cosine_similarity(
-      |               ^~~
+[55/86] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
+[56/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.obj
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:1654:20: warning: unused variable 'u' [-Wunused-variable]
+ 1654 |             size_t u = q.front(); q.pop();
+      |                    ^
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:59:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
-D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:811:41: warning: unused function 'feast_sparse_eigensolver' [-Wunused-function]
-  811 | static std::vector<std::vector<double>> feast_sparse_eigensolver(
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:875:41: warning: unused function 'feast_sparse_eigensolver' [-Wunused-function]
+  875 | static std::vector<std::vector<double>> feast_sparse_eigensolver(
       |                                         ^~~~~~~~~~~~~~~~~~~~~~~~
 3 warnings generated.
-[56/86] Linking CXX static library hypercube_core.lib
-[57/86] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
-[58/86] Linking CXX executable vocab_ingest.exe
+[57/86] Linking CXX executable vocab_ingest.exe
+[58/86] Linking CXX static library hypercube_core.lib
 [59/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/semantic_extraction.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/semantic_extraction.cpp:14:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
@@ -247,29 +248,29 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnsw
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
 1 warning generated.
-[60/86] Linking CXX static library hypercube_ingest.lib
-[61/86] Linking CXX executable model_discovery.exe
+[60/86] Linking CXX executable model_discovery.exe
+[61/86] Linking CXX static library hypercube_ingest.lib
 [62/86] Linking CXX shared library embedding_c.dll
 [63/86] Linking CXX shared library generative_c.dll
 [64/86] Linking CXX executable test_hilbert.exe
-[65/86] Linking CXX executable test_blake3.exe
-[66/86] Linking CXX shared library hypercube_c.dll
-[67/86] Linking CXX executable test_coordinates.exe
-[68/86] Linking CXX executable test_semantic.exe
+[65/86] Linking CXX executable test_coordinates.exe
+[66/86] Linking CXX executable test_blake3.exe
+[67/86] Linking CXX shared library hypercube_c.dll
+[68/86] Linking CXX executable test_clustering.exe
 [69/86] Linking CXX executable test_laplacian_4d.exe
-[70/86] Linking CXX executable test_clustering.exe
-[71/86] Linking CXX executable hypercube_tests.exe
-[72/86] Linking CXX executable test_integration.exe
-[73/86] Linking CXX executable seed_atoms_parallel.exe
-[74/86] Linking CXX executable extract_embeddings.exe
-[75/86] Linking CXX executable test_query_api.exe
-[76/86] Linking CXX executable hypercube_sql_tests.exe
-[77/86] Linking CXX executable ingest.exe
-[78/86] Linking C shared library embedding_ops.dll
-[79/86] Linking C shared library hypercube_ops.dll
-[80/86] Linking C shared library semantic_ops.dll
+[70/86] Linking CXX executable test_semantic.exe
+[71/86] Linking CXX executable test_integration.exe
+[72/86] Linking CXX executable extract_embeddings.exe
+[73/86] Linking CXX executable test_query_api.exe
+[74/86] Linking CXX executable seed_atoms_parallel.exe
+[75/86] Linking CXX executable hypercube_tests.exe
+[76/86] Linking CXX executable ingest.exe
+[77/86] Linking CXX executable hypercube_sql_tests.exe
+[78/86] Linking C shared library semantic_ops.dll
+[79/86] Linking C shared library generative.dll
+[80/86] Linking C shared library embedding_ops.dll
 [81/86] Linking C shared library hypercube.dll
-[82/86] Linking C shared library generative.dll
+[82/86] Linking C shared library hypercube_ops.dll
 [83/86] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:39:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
@@ -312,52 +313,44 @@ psql:D:/Repositories/Github/AHartTN/Hartonomous-Opus/sql/007_model_registry.sql:
 psql:D:/Repositories/Github/AHartTN/Hartonomous-Opus/sql/007_model_registry.sql:25: NOTICE:  relation "idx_model_vocab" already exists, skipping
 === Parallel Partitioned Atom Seeder ===
 Connection: dbname=hypercube host=localhost port=5432 user=postgres password=postgres
-Partitions: 12
-Generators: 12
-Connection Pool: 12 connections
+Partitions: 8
+Generators: 8
+Connection Pool: 8 connections
 
-[1/5] Generating atoms (12 threads)...
-      Generated 1112064 atoms in 784 ms
+[1/5] Generating atoms (8 threads)...
+      Generated 1112064 atoms in 678 ms
 [2/5] Partitioning by hash...
-Partition sizes: 95707 95147 95707 95561 90842 90986 91118 91042 91690 91508 91178 91578 
-      Partitioned in 38 ms
+Partition sizes: 139251 139578 138615 139019 138988 138063 139388 139162 
+      Partitioned in 35 ms
 [3/5] Preparing database...
-      Setup in 114 ms
-[4/5] Parallel COPY to atom table (12 connections)...
-Partition 0 build time: 347 ms
-Partition 1 build time: 461 ms
-Partition 0 total time: 680 ms, I/O: 333 ms, atoms: 95707, rate: 140745 atoms/sec
-Partition 2 build time: 547 ms
-Partition 3 build time: 576 ms
-Partition 4 build time: 580 ms
-Partition 5 build time: 556 ms
-Partition 1 total time: 910 ms, I/O: 449 ms, atoms: 95147, rate: 104557 atoms/sec
-Partition 6 build time: 642 ms
-Partition 2 total time: 1020 ms, I/O: 473 ms, atoms: 95707, rate: 93830 atoms/sec
-Partition 7 build time: 680 ms
-Partition 3 total time: 1101 ms, I/O: 525 ms, atoms: 95561, rate: 86794 atoms/sec
-Partition 4 total time: 1122 ms, I/O: 542 ms, atoms: 90842, rate: 80964 atoms/sec
-Partition 5 total time: 1140 ms, I/O: 584 ms, atoms: 90986, rate: 79812 atoms/sec
-Partition 9 build time: 670 ms
-Partition 8 build time: 726 ms
-Partition 6 total time: 1236 ms, I/O: 594 ms, atoms: 91118, rate: 73720 atoms/sec
-Partition 10 build time: 673 ms
-Partition 11 build time: 654 ms
-Partition 7 total time: 1358 ms, I/O: 678 ms, atoms: 91042, rate: 67041 atoms/sec
-Partition 8 total time: 1443 ms, I/O: 717 ms, atoms: 91690, rate: 63541 atoms/sec
-Partition 9 total time: 1443 ms, I/O: 773 ms, atoms: 91508, rate: 63415 atoms/sec
-Partition 10 total time: 1466 ms, I/O: 793 ms, atoms: 91178, rate: 62195 atoms/sec
-Partition 11 total time: 1482 ms, I/O: 828 ms, atoms: 91578, rate: 61793 atoms/sec
-      Parallel COPY in 1483 ms
+      Setup in 187 ms
+[4/5] Parallel COPY to atom table (8 connections)...
+Partition 0 build time: 712 ms
+Partition 6 build time: 758 ms
+Partition 2 build time: 777 ms
+Partition 3 build time: 793 ms
+Partition 0 total time: 1028 ms, I/O: 316 ms, atoms: 139251, rate: 135458 atoms/sec
+Partition 4 build time: 951 ms
+Partition 5 build time: 922 ms
+Partition 6 total time: 1234 ms, I/O: 476 ms, atoms: 139388, rate: 112956 atoms/sec
+Partition 1 build time: 1032 ms
+Partition 2 total time: 1402 ms, I/O: 625 ms, atoms: 138615, rate: 98869 atoms/sec
+Partition 3 total time: 1436 ms, I/O: 643 ms, atoms: 139019, rate: 96809 atoms/sec
+Partition 7 build time: 1060 ms
+Partition 4 total time: 1521 ms, I/O: 570 ms, atoms: 138988, rate: 91379 atoms/sec
+Partition 5 total time: 1521 ms, I/O: 599 ms, atoms: 138063, rate: 90771 atoms/sec
+Partition 1 total time: 1572 ms, I/O: 540 ms, atoms: 139578, rate: 88790 atoms/sec
+Partition 7 total time: 1650 ms, I/O: 590 ms, atoms: 139162, rate: 84340 atoms/sec
+      Parallel COPY in 1651 ms
 [5/5] Building indexes...
-      Index build in 2022 ms
+      Index build in 2012 ms
 
 === Complete ===
 Total atoms: 1112064
-Total time: 4443 ms (4.443 s)
-Rate: 250295 atoms/sec
-[THREADING] OpenMP threads: 32
-[THREADING] MKL threads: 1 (dynamic=0)
+Total time: 4565 ms (4.565 s)
+Rate: 243606 atoms/sec
+[THREADING] OpenMP threads: 8
+[THREADING] MKL threads: 8 (dynamic=0)
 === Universal Safetensor Ingester (Modular) ===
 Directory: D:\Repositories\Github\AHartTN\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf
 Model: sentence-transformers/all-MiniLM-L6-v2
@@ -366,6 +359,24 @@ Threshold: 0.5
 [0] Parsing model manifest (config.json, architecture detection)...
 [MANIFEST] Parsed config for c9745ed1d9f207416be6d2e6f8de32d1f16199bf (BERT)
 [MANIFEST] Found 13 config atoms
+
+[1] Parsing tokenizer: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\tokenizer.json"
+[TOKENIZER] Loaded 0 BPE merges, 30522 vocab entries
+[2] Parsing vocab: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\vocab.txt"
+
+[VOCAB] Loaded 30522 tokens in 516ms
+
+[2.5] Parsing model metadata (config, tokenizer, special tokens)...
+
+=== Parsing Model Metadata: c9745ed1d9f207416be6d2e6f8de32d1f16199bf ===
+[CONFIG] Parsed 21 config atoms, model_type=bert, vocab_size=30522
+[TOKENIZER] Loaded 5 special tokens, 0 BPE merges, 30522 vocab entries
+[METADATA] Total: 21 config atoms, 30522 vocab tokens, 0 merges, 5 special tokens
+[3] Parsing 1 safetensor files...
+  Parsing: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\model.safetensors"
+[INFO] Found 104 tensors
+[3.1] Categorizing tensors for extraction...
+[INFO] Created 104 extraction plans
 
 +--------------------------------------------------------------+
 |              MODEL MANIFEST SUMMARY                          |
@@ -382,13 +393,13 @@ Threshold: 0.5
     FFN Dim: 1536
 +--------------------------------------------------------------+
   TENSORS BY CATEGORY:
-    Embeddings:    0 (eigenmap extraction)
-    Attention:     0 (relation extraction)
-    FFN:           0 (stats only)
-    Normalization: 0 (stats only)
-    Convolution:   0 (stats only)
-    Other:         0
-    TOTAL:         0
+    Embeddings:    4 (eigenmap extraction)
+    Attention:     30 (relation extraction)
+    FFN:           0 (skipped)
+    Normalization: 26 (eigenmap extraction)
+    Convolution:   0 (skipped)
+    Other:         44
+    TOTAL:         104
 +--------------------------------------------------------------+
   METADATA FOR INGESTION:
     Config atoms:    13
@@ -397,444 +408,6 @@ Threshold: 0.5
     Vocab entries:   0
 +--------------------------------------------------------------+
 
-
-[1] Parsing tokenizer: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\tokenizer.json"
-[TOKENIZER] Loaded 0 BPE merges, 30522 vocab entries
-[2] Parsing vocab: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\vocab.txt"
-
-[VOCAB] Loaded 30522 tokens in 513ms
-
-[2.5] Parsing model metadata (config, tokenizer, special tokens)...
-
-=== Parsing Model Metadata: c9745ed1d9f207416be6d2e6f8de32d1f16199bf ===
-[CONFIG] Parsed 21 config atoms, model_type=bert, vocab_size=30522
-[TOKENIZER] Loaded 5 special tokens, 0 BPE merges, 30522 vocab entries
-[METADATA] Total: 21 config atoms, 30522 vocab tokens, 0 merges, 5 special tokens
-[3] Parsing 1 safetensor files...
-  Parsing: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\model.safetensors"
-[DEBUG] Header size: 11408
-[DEBUG] JSON header length: 11408
-[DEBUG] JSON start: {"__metadata__":{"format":"pt"},"embeddings.position_ids":{"dtype":"I64","shape":[1,512],"data_offsets":[0,4096]},"embeddings.LayerNorm.bias":{"dtype":"F32","shape":[384],"data_offsets":[4096,5632]},"
-[DEBUG] Found 'dtype' at pos 59
-[DEBUG] entry_start: 58, name_end: 56, name_start: 32
-[DEBUG] Tensor name: 'embeddings.position_ids'
-[DEBUG] Added tensor: embeddings.position_ids with shape [1,512] dtype: I64
-[DEBUG] Found 'dtype' at pos 143
-[DEBUG] entry_start: 142, name_end: 140, name_start: 114
-[DEBUG] Tensor name: 'embeddings.LayerNorm.bias'
-[DEBUG] Added tensor: embeddings.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 230
-[DEBUG] entry_start: 229, name_end: 227, name_start: 199
-[DEBUG] Tensor name: 'embeddings.LayerNorm.weight'
-[DEBUG] Added tensor: embeddings.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 327
-[DEBUG] entry_start: 326, name_end: 324, name_start: 286
-[DEBUG] Tensor name: 'embeddings.position_embeddings.weight'
-[DEBUG] Added tensor: embeddings.position_embeddings.weight with shape [512,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 432
-[DEBUG] entry_start: 431, name_end: 429, name_start: 389
-[DEBUG] Tensor name: 'embeddings.token_type_embeddings.weight'
-[DEBUG] Added tensor: embeddings.token_type_embeddings.weight with shape [2,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 531
-[DEBUG] entry_start: 530, name_end: 528, name_start: 494
-[DEBUG] Tensor name: 'embeddings.word_embeddings.weight'
-[DEBUG] Added tensor: embeddings.word_embeddings.weight with shape [30522,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 650
-[DEBUG] entry_start: 649, name_end: 647, name_start: 599
-[DEBUG] Tensor name: 'encoder.layer.0.attention.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.0.attention.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 767
-[DEBUG] entry_start: 766, name_end: 764, name_start: 714
-[DEBUG] Tensor name: 'encoder.layer.0.attention.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.0.attention.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 878
-[DEBUG] entry_start: 877, name_end: 875, name_start: 831
-[DEBUG] Tensor name: 'encoder.layer.0.attention.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.0.attention.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 991
-[DEBUG] entry_start: 990, name_end: 988, name_start: 942
-[DEBUG] Tensor name: 'encoder.layer.0.attention.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.0.attention.output.dense.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 1102
-[DEBUG] entry_start: 1101, name_end: 1099, name_start: 1059
-[DEBUG] Tensor name: 'encoder.layer.0.attention.self.key.bias'
-[DEBUG] Added tensor: encoder.layer.0.attention.self.key.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 1211
-[DEBUG] entry_start: 1210, name_end: 1208, name_start: 1166
-[DEBUG] Tensor name: 'encoder.layer.0.attention.self.key.weight'
-[DEBUG] Added tensor: encoder.layer.0.attention.self.key.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 1324
-[DEBUG] entry_start: 1323, name_end: 1321, name_start: 1279
-[DEBUG] Tensor name: 'encoder.layer.0.attention.self.query.bias'
-[DEBUG] Added tensor: encoder.layer.0.attention.self.query.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 1435
-[DEBUG] entry_start: 1434, name_end: 1432, name_start: 1388
-[DEBUG] Tensor name: 'encoder.layer.0.attention.self.query.weight'
-[DEBUG] Added tensor: encoder.layer.0.attention.self.query.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 1548
-[DEBUG] entry_start: 1547, name_end: 1545, name_start: 1503
-[DEBUG] Tensor name: 'encoder.layer.0.attention.self.value.bias'
-[DEBUG] Added tensor: encoder.layer.0.attention.self.value.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 1659
-[DEBUG] entry_start: 1658, name_end: 1656, name_start: 1612
-[DEBUG] Tensor name: 'encoder.layer.0.attention.self.value.weight'
-[DEBUG] Added tensor: encoder.layer.0.attention.self.value.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 1770
-[DEBUG] entry_start: 1769, name_end: 1767, name_start: 1727
-[DEBUG] Tensor name: 'encoder.layer.0.intermediate.dense.bias'
-[DEBUG] Added tensor: encoder.layer.0.intermediate.dense.bias with shape [1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 1880
-[DEBUG] entry_start: 1879, name_end: 1877, name_start: 1835
-[DEBUG] Tensor name: 'encoder.layer.0.intermediate.dense.weight'
-[DEBUG] Added tensor: encoder.layer.0.intermediate.dense.weight with shape [1536,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 1990
-[DEBUG] entry_start: 1989, name_end: 1987, name_start: 1949
-[DEBUG] Tensor name: 'encoder.layer.0.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.0.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 2097
-[DEBUG] entry_start: 2096, name_end: 2094, name_start: 2054
-[DEBUG] Tensor name: 'encoder.layer.0.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.0.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 2198
-[DEBUG] entry_start: 2197, name_end: 2195, name_start: 2161
-[DEBUG] Tensor name: 'encoder.layer.0.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.0.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 2301
-[DEBUG] entry_start: 2300, name_end: 2298, name_start: 2262
-[DEBUG] Tensor name: 'encoder.layer.0.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.0.output.dense.weight with shape [384,1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 2421
-[DEBUG] entry_start: 2420, name_end: 2418, name_start: 2370
-[DEBUG] Tensor name: 'encoder.layer.1.attention.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.1.attention.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 2538
-[DEBUG] entry_start: 2537, name_end: 2535, name_start: 2485
-[DEBUG] Tensor name: 'encoder.layer.1.attention.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.1.attention.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 2649
-[DEBUG] entry_start: 2648, name_end: 2646, name_start: 2602
-[DEBUG] Tensor name: 'encoder.layer.1.attention.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.1.attention.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 2762
-[DEBUG] entry_start: 2761, name_end: 2759, name_start: 2713
-[DEBUG] Tensor name: 'encoder.layer.1.attention.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.1.attention.output.dense.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 2873
-[DEBUG] entry_start: 2872, name_end: 2870, name_start: 2830
-[DEBUG] Tensor name: 'encoder.layer.1.attention.self.key.bias'
-[DEBUG] Added tensor: encoder.layer.1.attention.self.key.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 2982
-[DEBUG] entry_start: 2981, name_end: 2979, name_start: 2937
-[DEBUG] Tensor name: 'encoder.layer.1.attention.self.key.weight'
-[DEBUG] Added tensor: encoder.layer.1.attention.self.key.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 3095
-[DEBUG] entry_start: 3094, name_end: 3092, name_start: 3050
-[DEBUG] Tensor name: 'encoder.layer.1.attention.self.query.bias'
-[DEBUG] Added tensor: encoder.layer.1.attention.self.query.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 3206
-[DEBUG] entry_start: 3205, name_end: 3203, name_start: 3159
-[DEBUG] Tensor name: 'encoder.layer.1.attention.self.query.weight'
-[DEBUG] Added tensor: encoder.layer.1.attention.self.query.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 3319
-[DEBUG] entry_start: 3318, name_end: 3316, name_start: 3274
-[DEBUG] Tensor name: 'encoder.layer.1.attention.self.value.bias'
-[DEBUG] Added tensor: encoder.layer.1.attention.self.value.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 3430
-[DEBUG] entry_start: 3429, name_end: 3427, name_start: 3383
-[DEBUG] Tensor name: 'encoder.layer.1.attention.self.value.weight'
-[DEBUG] Added tensor: encoder.layer.1.attention.self.value.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 3541
-[DEBUG] entry_start: 3540, name_end: 3538, name_start: 3498
-[DEBUG] Tensor name: 'encoder.layer.1.intermediate.dense.bias'
-[DEBUG] Added tensor: encoder.layer.1.intermediate.dense.bias with shape [1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 3651
-[DEBUG] entry_start: 3650, name_end: 3648, name_start: 3606
-[DEBUG] Tensor name: 'encoder.layer.1.intermediate.dense.weight'
-[DEBUG] Added tensor: encoder.layer.1.intermediate.dense.weight with shape [1536,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 3761
-[DEBUG] entry_start: 3760, name_end: 3758, name_start: 3720
-[DEBUG] Tensor name: 'encoder.layer.1.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.1.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 3868
-[DEBUG] entry_start: 3867, name_end: 3865, name_start: 3825
-[DEBUG] Tensor name: 'encoder.layer.1.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.1.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 3969
-[DEBUG] entry_start: 3968, name_end: 3966, name_start: 3932
-[DEBUG] Tensor name: 'encoder.layer.1.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.1.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 4072
-[DEBUG] entry_start: 4071, name_end: 4069, name_start: 4033
-[DEBUG] Tensor name: 'encoder.layer.1.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.1.output.dense.weight with shape [384,1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 4192
-[DEBUG] entry_start: 4191, name_end: 4189, name_start: 4141
-[DEBUG] Tensor name: 'encoder.layer.2.attention.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.2.attention.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 4309
-[DEBUG] entry_start: 4308, name_end: 4306, name_start: 4256
-[DEBUG] Tensor name: 'encoder.layer.2.attention.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.2.attention.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 4420
-[DEBUG] entry_start: 4419, name_end: 4417, name_start: 4373
-[DEBUG] Tensor name: 'encoder.layer.2.attention.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.2.attention.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 4533
-[DEBUG] entry_start: 4532, name_end: 4530, name_start: 4484
-[DEBUG] Tensor name: 'encoder.layer.2.attention.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.2.attention.output.dense.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 4644
-[DEBUG] entry_start: 4643, name_end: 4641, name_start: 4601
-[DEBUG] Tensor name: 'encoder.layer.2.attention.self.key.bias'
-[DEBUG] Added tensor: encoder.layer.2.attention.self.key.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 4753
-[DEBUG] entry_start: 4752, name_end: 4750, name_start: 4708
-[DEBUG] Tensor name: 'encoder.layer.2.attention.self.key.weight'
-[DEBUG] Added tensor: encoder.layer.2.attention.self.key.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 4866
-[DEBUG] entry_start: 4865, name_end: 4863, name_start: 4821
-[DEBUG] Tensor name: 'encoder.layer.2.attention.self.query.bias'
-[DEBUG] Added tensor: encoder.layer.2.attention.self.query.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 4977
-[DEBUG] entry_start: 4976, name_end: 4974, name_start: 4930
-[DEBUG] Tensor name: 'encoder.layer.2.attention.self.query.weight'
-[DEBUG] Added tensor: encoder.layer.2.attention.self.query.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 5090
-[DEBUG] entry_start: 5089, name_end: 5087, name_start: 5045
-[DEBUG] Tensor name: 'encoder.layer.2.attention.self.value.bias'
-[DEBUG] Added tensor: encoder.layer.2.attention.self.value.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 5201
-[DEBUG] entry_start: 5200, name_end: 5198, name_start: 5154
-[DEBUG] Tensor name: 'encoder.layer.2.attention.self.value.weight'
-[DEBUG] Added tensor: encoder.layer.2.attention.self.value.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 5312
-[DEBUG] entry_start: 5311, name_end: 5309, name_start: 5269
-[DEBUG] Tensor name: 'encoder.layer.2.intermediate.dense.bias'
-[DEBUG] Added tensor: encoder.layer.2.intermediate.dense.bias with shape [1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 5422
-[DEBUG] entry_start: 5421, name_end: 5419, name_start: 5377
-[DEBUG] Tensor name: 'encoder.layer.2.intermediate.dense.weight'
-[DEBUG] Added tensor: encoder.layer.2.intermediate.dense.weight with shape [1536,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 5532
-[DEBUG] entry_start: 5531, name_end: 5529, name_start: 5491
-[DEBUG] Tensor name: 'encoder.layer.2.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.2.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 5639
-[DEBUG] entry_start: 5638, name_end: 5636, name_start: 5596
-[DEBUG] Tensor name: 'encoder.layer.2.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.2.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 5740
-[DEBUG] entry_start: 5739, name_end: 5737, name_start: 5703
-[DEBUG] Tensor name: 'encoder.layer.2.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.2.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 5843
-[DEBUG] entry_start: 5842, name_end: 5840, name_start: 5804
-[DEBUG] Tensor name: 'encoder.layer.2.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.2.output.dense.weight with shape [384,1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 5963
-[DEBUG] entry_start: 5962, name_end: 5960, name_start: 5912
-[DEBUG] Tensor name: 'encoder.layer.3.attention.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.3.attention.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 6080
-[DEBUG] entry_start: 6079, name_end: 6077, name_start: 6027
-[DEBUG] Tensor name: 'encoder.layer.3.attention.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.3.attention.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 6191
-[DEBUG] entry_start: 6190, name_end: 6188, name_start: 6144
-[DEBUG] Tensor name: 'encoder.layer.3.attention.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.3.attention.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 6304
-[DEBUG] entry_start: 6303, name_end: 6301, name_start: 6255
-[DEBUG] Tensor name: 'encoder.layer.3.attention.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.3.attention.output.dense.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 6415
-[DEBUG] entry_start: 6414, name_end: 6412, name_start: 6372
-[DEBUG] Tensor name: 'encoder.layer.3.attention.self.key.bias'
-[DEBUG] Added tensor: encoder.layer.3.attention.self.key.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 6524
-[DEBUG] entry_start: 6523, name_end: 6521, name_start: 6479
-[DEBUG] Tensor name: 'encoder.layer.3.attention.self.key.weight'
-[DEBUG] Added tensor: encoder.layer.3.attention.self.key.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 6637
-[DEBUG] entry_start: 6636, name_end: 6634, name_start: 6592
-[DEBUG] Tensor name: 'encoder.layer.3.attention.self.query.bias'
-[DEBUG] Added tensor: encoder.layer.3.attention.self.query.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 6748
-[DEBUG] entry_start: 6747, name_end: 6745, name_start: 6701
-[DEBUG] Tensor name: 'encoder.layer.3.attention.self.query.weight'
-[DEBUG] Added tensor: encoder.layer.3.attention.self.query.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 6861
-[DEBUG] entry_start: 6860, name_end: 6858, name_start: 6816
-[DEBUG] Tensor name: 'encoder.layer.3.attention.self.value.bias'
-[DEBUG] Added tensor: encoder.layer.3.attention.self.value.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 6972
-[DEBUG] entry_start: 6971, name_end: 6969, name_start: 6925
-[DEBUG] Tensor name: 'encoder.layer.3.attention.self.value.weight'
-[DEBUG] Added tensor: encoder.layer.3.attention.self.value.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 7083
-[DEBUG] entry_start: 7082, name_end: 7080, name_start: 7040
-[DEBUG] Tensor name: 'encoder.layer.3.intermediate.dense.bias'
-[DEBUG] Added tensor: encoder.layer.3.intermediate.dense.bias with shape [1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 7193
-[DEBUG] entry_start: 7192, name_end: 7190, name_start: 7148
-[DEBUG] Tensor name: 'encoder.layer.3.intermediate.dense.weight'
-[DEBUG] Added tensor: encoder.layer.3.intermediate.dense.weight with shape [1536,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 7303
-[DEBUG] entry_start: 7302, name_end: 7300, name_start: 7262
-[DEBUG] Tensor name: 'encoder.layer.3.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.3.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 7410
-[DEBUG] entry_start: 7409, name_end: 7407, name_start: 7367
-[DEBUG] Tensor name: 'encoder.layer.3.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.3.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 7511
-[DEBUG] entry_start: 7510, name_end: 7508, name_start: 7474
-[DEBUG] Tensor name: 'encoder.layer.3.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.3.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 7614
-[DEBUG] entry_start: 7613, name_end: 7611, name_start: 7575
-[DEBUG] Tensor name: 'encoder.layer.3.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.3.output.dense.weight with shape [384,1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 7734
-[DEBUG] entry_start: 7733, name_end: 7731, name_start: 7683
-[DEBUG] Tensor name: 'encoder.layer.4.attention.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.4.attention.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 7851
-[DEBUG] entry_start: 7850, name_end: 7848, name_start: 7798
-[DEBUG] Tensor name: 'encoder.layer.4.attention.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.4.attention.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 7962
-[DEBUG] entry_start: 7961, name_end: 7959, name_start: 7915
-[DEBUG] Tensor name: 'encoder.layer.4.attention.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.4.attention.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 8075
-[DEBUG] entry_start: 8074, name_end: 8072, name_start: 8026
-[DEBUG] Tensor name: 'encoder.layer.4.attention.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.4.attention.output.dense.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 8186
-[DEBUG] entry_start: 8185, name_end: 8183, name_start: 8143
-[DEBUG] Tensor name: 'encoder.layer.4.attention.self.key.bias'
-[DEBUG] Added tensor: encoder.layer.4.attention.self.key.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 8295
-[DEBUG] entry_start: 8294, name_end: 8292, name_start: 8250
-[DEBUG] Tensor name: 'encoder.layer.4.attention.self.key.weight'
-[DEBUG] Added tensor: encoder.layer.4.attention.self.key.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 8408
-[DEBUG] entry_start: 8407, name_end: 8405, name_start: 8363
-[DEBUG] Tensor name: 'encoder.layer.4.attention.self.query.bias'
-[DEBUG] Added tensor: encoder.layer.4.attention.self.query.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 8519
-[DEBUG] entry_start: 8518, name_end: 8516, name_start: 8472
-[DEBUG] Tensor name: 'encoder.layer.4.attention.self.query.weight'
-[DEBUG] Added tensor: encoder.layer.4.attention.self.query.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 8632
-[DEBUG] entry_start: 8631, name_end: 8629, name_start: 8587
-[DEBUG] Tensor name: 'encoder.layer.4.attention.self.value.bias'
-[DEBUG] Added tensor: encoder.layer.4.attention.self.value.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 8743
-[DEBUG] entry_start: 8742, name_end: 8740, name_start: 8696
-[DEBUG] Tensor name: 'encoder.layer.4.attention.self.value.weight'
-[DEBUG] Added tensor: encoder.layer.4.attention.self.value.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 8854
-[DEBUG] entry_start: 8853, name_end: 8851, name_start: 8811
-[DEBUG] Tensor name: 'encoder.layer.4.intermediate.dense.bias'
-[DEBUG] Added tensor: encoder.layer.4.intermediate.dense.bias with shape [1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 8964
-[DEBUG] entry_start: 8963, name_end: 8961, name_start: 8919
-[DEBUG] Tensor name: 'encoder.layer.4.intermediate.dense.weight'
-[DEBUG] Added tensor: encoder.layer.4.intermediate.dense.weight with shape [1536,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 9074
-[DEBUG] entry_start: 9073, name_end: 9071, name_start: 9033
-[DEBUG] Tensor name: 'encoder.layer.4.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.4.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 9181
-[DEBUG] entry_start: 9180, name_end: 9178, name_start: 9138
-[DEBUG] Tensor name: 'encoder.layer.4.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.4.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 9282
-[DEBUG] entry_start: 9281, name_end: 9279, name_start: 9245
-[DEBUG] Tensor name: 'encoder.layer.4.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.4.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 9385
-[DEBUG] entry_start: 9384, name_end: 9382, name_start: 9346
-[DEBUG] Tensor name: 'encoder.layer.4.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.4.output.dense.weight with shape [384,1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 9505
-[DEBUG] entry_start: 9504, name_end: 9502, name_start: 9454
-[DEBUG] Tensor name: 'encoder.layer.5.attention.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.5.attention.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 9622
-[DEBUG] entry_start: 9621, name_end: 9619, name_start: 9569
-[DEBUG] Tensor name: 'encoder.layer.5.attention.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.5.attention.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 9733
-[DEBUG] entry_start: 9732, name_end: 9730, name_start: 9686
-[DEBUG] Tensor name: 'encoder.layer.5.attention.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.5.attention.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 9846
-[DEBUG] entry_start: 9845, name_end: 9843, name_start: 9797
-[DEBUG] Tensor name: 'encoder.layer.5.attention.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.5.attention.output.dense.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 9957
-[DEBUG] entry_start: 9956, name_end: 9954, name_start: 9914
-[DEBUG] Tensor name: 'encoder.layer.5.attention.self.key.bias'
-[DEBUG] Added tensor: encoder.layer.5.attention.self.key.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 10066
-[DEBUG] entry_start: 10065, name_end: 10063, name_start: 10021
-[DEBUG] Tensor name: 'encoder.layer.5.attention.self.key.weight'
-[DEBUG] Added tensor: encoder.layer.5.attention.self.key.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 10179
-[DEBUG] entry_start: 10178, name_end: 10176, name_start: 10134
-[DEBUG] Tensor name: 'encoder.layer.5.attention.self.query.bias'
-[DEBUG] Added tensor: encoder.layer.5.attention.self.query.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 10290
-[DEBUG] entry_start: 10289, name_end: 10287, name_start: 10243
-[DEBUG] Tensor name: 'encoder.layer.5.attention.self.query.weight'
-[DEBUG] Added tensor: encoder.layer.5.attention.self.query.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 10403
-[DEBUG] entry_start: 10402, name_end: 10400, name_start: 10358
-[DEBUG] Tensor name: 'encoder.layer.5.attention.self.value.bias'
-[DEBUG] Added tensor: encoder.layer.5.attention.self.value.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 10514
-[DEBUG] entry_start: 10513, name_end: 10511, name_start: 10467
-[DEBUG] Tensor name: 'encoder.layer.5.attention.self.value.weight'
-[DEBUG] Added tensor: encoder.layer.5.attention.self.value.weight with shape [384,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 10625
-[DEBUG] entry_start: 10624, name_end: 10622, name_start: 10582
-[DEBUG] Tensor name: 'encoder.layer.5.intermediate.dense.bias'
-[DEBUG] Added tensor: encoder.layer.5.intermediate.dense.bias with shape [1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 10735
-[DEBUG] entry_start: 10734, name_end: 10732, name_start: 10690
-[DEBUG] Tensor name: 'encoder.layer.5.intermediate.dense.weight'
-[DEBUG] Added tensor: encoder.layer.5.intermediate.dense.weight with shape [1536,384] dtype: F32
-[DEBUG] Found 'dtype' at pos 10845
-[DEBUG] entry_start: 10844, name_end: 10842, name_start: 10804
-[DEBUG] Tensor name: 'encoder.layer.5.output.LayerNorm.bias'
-[DEBUG] Added tensor: encoder.layer.5.output.LayerNorm.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 10952
-[DEBUG] entry_start: 10951, name_end: 10949, name_start: 10909
-[DEBUG] Tensor name: 'encoder.layer.5.output.LayerNorm.weight'
-[DEBUG] Added tensor: encoder.layer.5.output.LayerNorm.weight with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 11053
-[DEBUG] entry_start: 11052, name_end: 11050, name_start: 11016
-[DEBUG] Tensor name: 'encoder.layer.5.output.dense.bias'
-[DEBUG] Added tensor: encoder.layer.5.output.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 11156
-[DEBUG] entry_start: 11155, name_end: 11153, name_start: 11117
-[DEBUG] Tensor name: 'encoder.layer.5.output.dense.weight'
-[DEBUG] Added tensor: encoder.layer.5.output.dense.weight with shape [384,1536] dtype: F32
-[DEBUG] Found 'dtype' at pos 11246
-[DEBUG] entry_start: 11245, name_end: 11243, name_start: 11225
-[DEBUG] Tensor name: 'pooler.dense.bias'
-[DEBUG] Added tensor: pooler.dense.bias with shape [384] dtype: F32
-[DEBUG] Found 'dtype' at pos 11333
-[DEBUG] entry_start: 11332, name_end: 11330, name_start: 11310
-[DEBUG] Tensor name: 'pooler.dense.weight'
-[DEBUG] Added tensor: pooler.dense.weight with shape [384,384] dtype: F32
-[DEBUG] Total tensors parsed: 104
-[INFO] Found 104 tensors
-[3.1] Categorizing tensors for extraction...
-[INFO] Created 104 extraction plans
 
 [3.5] Inserting model metadata as content...
 
@@ -871,63 +444,81 @@ Threshold: 0.5
 [COMP] Inserting 30522 token compositions...
 [COMP] 29525 multi-char compositions to insert
 [COMP] Building batch strings with 16 threads...
-  [BUILD] 30522/30522 tokens (61044/s)
+  [BUILD] 30522/30522 tokens (60440/s)
 
-[COMP] Built 19001KB compositions + 26895KB children in 500ms
+[COMP] Built 19001KB compositions + 26895KB children in 506ms
 [COMP] Streaming to database...
 [COMP] Dropping idx_comp_label to prevent corruption...
 [COMP] Creating temp tables...
 [COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (1511KB)
-  [COPY] Batch 2/16 (1372KB)
-  [COPY] Batch 3/16 (1173KB)
-  [COPY] Batch 4/16 (1075KB)
-  [COPY] Batch 5/16 (1359KB)
-  [COPY] Batch 6/16 (1087KB)
-  [COPY] Batch 7/16 (1293KB)
-  [COPY] Batch 8/16 (1124KB)
-  [COPY] Batch 9/16 (1077KB)
-  [COPY] Batch 10/16 (1053KB)
-  [COPY] Batch 11/16 (1153KB)
-  [COPY] Batch 12/16 (1179KB)
-  [COPY] Batch 13/16 (1135KB)
-  [COPY] Batch 14/16 (1080KB)
-  [COPY] Batch 15/16 (1236KB)
-  [COPY] Batch 16/16 (1087KB)
+  [COPY] Batch 1/16 (357KB)
+  [COPY] Batch 2/16 (1844KB)
+  [COPY] Batch 3/16 (1354KB)
+  [COPY] Batch 4/16 (871KB)
+  [COPY] Batch 5/16 (1202KB)
+  [COPY] Batch 6/16 (1261KB)
+  [COPY] Batch 7/16 (1683KB)
+  [COPY] Batch 8/16 (1335KB)
+  [COPY] Batch 9/16 (1313KB)
+  [COPY] Batch 10/16 (1656KB)
+  [COPY] Batch 11/16 (836KB)
+  [COPY] Batch 12/16 (1242KB)
+  [COPY] Batch 13/16 (1276KB)
+  [COPY] Batch 14/16 (1261KB)
+  [COPY] Batch 15/16 (998KB)
+  [COPY] Batch 16/16 (504KB)
 
 [COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (2144KB)
-  [COPY] Batch 2/16 (1941KB)
-  [COPY] Batch 3/16 (1666KB)
-  [COPY] Batch 4/16 (1539KB)
-  [COPY] Batch 5/16 (1909KB)
-  [COPY] Batch 6/16 (1548KB)
-  [COPY] Batch 7/16 (1833KB)
-  [COPY] Batch 8/16 (1586KB)
-  [COPY] Batch 9/16 (1536KB)
-  [COPY] Batch 10/16 (1478KB)
-  [COPY] Batch 11/16 (1617KB)
-  [COPY] Batch 12/16 (1677KB)
-  [COPY] Batch 13/16 (1602KB)
-  [COPY] Batch 14/16 (1536KB)
-  [COPY] Batch 15/16 (1740KB)
-  [COPY] Batch 16/16 (1536KB)
+  [COPY] Batch 1/16 (497KB)
+  [COPY] Batch 2/16 (2620KB)
+  [COPY] Batch 3/16 (1941KB)
+  [COPY] Batch 4/16 (1219KB)
+  [COPY] Batch 5/16 (1712KB)
+  [COPY] Batch 6/16 (1797KB)
+  [COPY] Batch 7/16 (2395KB)
+  [COPY] Batch 8/16 (1900KB)
+  [COPY] Batch 9/16 (1850KB)
+  [COPY] Batch 10/16 (2318KB)
+  [COPY] Batch 11/16 (1177KB)
+  [COPY] Batch 12/16 (1737KB)
+  [COPY] Batch 13/16 (1811KB)
+  [COPY] Batch 14/16 (1783KB)
+  [COPY] Batch 15/16 (1413KB)
+  [COPY] Batch 16/16 (718KB)
 
 [COMP] Inserting into composition table...
 [COMP] Inserted 29525 compositions
 [COMP] Inserting into composition_child table...
 [COMP] Inserted 0 children
 [COMP] Recreating idx_comp_label...
-[COMP] Inserted 29525 compositions, 0 children in 1660ms
+[COMP] Inserted 29525 compositions, 0 children in 1661ms
 
 [5.5] Projecting token embeddings to 4D semantic coordinates...
 ============================================================
 [PROJECTION] LAPLACIAN EIGENMAP PROJECTION starting
 ============================================================
 [PROJECTION] Using config-driven tensor lookup
-[PROJECTION] Found TOKEN_EMBEDDING: embeddings.word_embeddings.weight [30522 x 384]
+[PROJECTION] Scanning 104 extraction plans...
+[PROJECTION]   Candidate 1: embeddings.word_embeddings.weight [30522 x 384] - AVAILABLE
+[PROJECTION] >>> SELECTED: embeddings.word_embeddings.weight
+[PROJECTION]   Candidate 2: embeddings.token_type_embeddings.weight [2 x 384] - AVAILABLE
 [PROJECTION] Loading 30522 x 384 embeddings...
-[PROJECTION] Loaded in 36ms
+[LOAD_TENSOR] Opening file: D:\Repositories\Github\AHartTN\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 796672
+[LOAD_TENSOR] Reading 11720448 elements as F32
+[LOAD_TENSOR] Successfully read 46881792 bytes (expected 46881792)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
+[PROJECTION] Loaded in 37ms
+[PROJECTION] Embedding statistics (raw from safetensor):
+  Tensor: embeddings.word_embeddings.weight [30522 x 384]
+  Dtype: F32, File offset: 796672
+  Min: -5.073242e-01, Max: 1.049400e+00
+  Mean: 1.204355e-05, StdDev: 5.562442e-02
+  Zeros: 3 (2.6e-05%)
+  NaNs: 0
+  First embedding (token 0): [2.3026e-02, -7.4234e-03, -2.4521e-02, 4.4067e-02, -2.1561e-02, 4.9896e-03, -1.5884e-02, -1.8692e-02, 5.4703e-03, 2.3071e-02, ...]
+  Second embedding (token 1): [2.8458e-02, -9.9258e-03, -2.6657e-02, 3.8513e-02, -2.8595e-02, 1.0262e-02, -2.8320e-02, -3.2196e-02, 2.5177e-02, 1.3870e-02, ...]
+  First two rows identical: NO (good)
 [PROJECTION] Projecting 30522 embeddings to 4D using Laplacian eigenmaps...
 
 === Laplacian Eigenmap Projection to 4D ===
@@ -935,12 +526,13 @@ Tokens: 30522, Embedding dim: 384
 
 [1] Building k-NN similarity graph (k=15)...
 [HNSWLIB] Building HNSW index for 30522 points, dim=384
-[HNSWLIB] Index built in 8800 ms
-[HNSWLIB] k-NN queries completed in 3158 ms
+[HNSWLIB] Index built in 7753 ms
+[HNSWLIB] k-NN queries completed in 2819 ms
 [HNSWLIB] Built k-NN graph with 219345 edges
 
 [1.5] Ensuring graph connectivity...
 [CONNECT] Found 17 disconnected components - adding edges
+[CONNECT] Graph is now connected (1 component)
 [CONNECT] Added 16 inter-component edges
 [MKL] Created sparse matrix handle: 30522x30522, 438722 non-zeros
 
@@ -948,73 +540,108 @@ Tokens: 30522, Embedding dim: 384
 [MKL] Created sparse matrix handle: 30522x30522, 438722 non-zeros
 
 [3] Finding 4 smallest non-zero eigenvectors...
-[LANCZOS] Finding 4 smallest non-zero eigenvectors using Lanczos algorithm
-[LANCZOS] config_.convergence_tol = 0
-[LANCZOS] lanczos_config.convergence_tol = 0
-[LANCZOS] Config: tol=0, max_iter=300, num_eigenpairs=5
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[DEBUG] Laplacian matrix size: 30522x30522
+[DEBUG] Degrees: min=0.1, max=261.093, zero_count=0
+[DEBUG] Laplacian diagonal: min=1.001, max=1.001
+[DEBUG] Laplacian is symmetric: YES
+[DEBUG] Graph connectivity: 30522/30522 nodes reachable from node 0
+[LANCZOS] Finding 4 smallest non-zero eigenvectors using Lanczos on -L
+[LANCZOS] config_.convergence_tol = 1e-08
+[MKL] Created sparse matrix handle: 30522x30522, 438722 non-zeros
+[LANCZOS] Config: tol=1e-08, max_iter=500, num_eigenpairs=5
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62142 -1.59802 -1.5507 -1.50267 -1.45447 -1.40361 -1.34706 -1.28347 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00126413 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62433 -1.61804 -1.60999 -1.59691 -1.56954 -1.54606 -1.52038 -1.49266 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00120384 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.59761 -1.59274 -1.57826 -1.56544 -1.55081 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00120896 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60245 -1.59762 -1.5932 -1.58049 -1.57626 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00112867 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58338 -1.57867 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00114171 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00110524 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00107045 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00105138 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00106929 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00106793 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00102382 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00103988 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: 0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00102012 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -0 0 0 0 0 0 0 0 0 0 ...
+[CONV] Residual[0] = 0.00101695 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[CONV] Residual[0] = 0 > tol=0 - not converged
+[CONV] Residual[0] = 0.00101012 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
 
-[LANCZOS] Subspace exhausted at m=300, returning best approximation (residuals may be high)
-[LANCZOS] Did not fully converge in 300 iterations
-[LANCZOS] Warning: residuals = [0, 0, 0, 0]
-[LANCZOS] All eigenvalues (raw): 0 0 0 0 0 
-[LANCZOS] Semantic eigenvalues (skipped ╬╗_0): 0 0 0 0 
+[CONV] Residual[0] = 0.00101049 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
+
+[CONV] Residual[0] = 0.00100536 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
+
+[CONV] Residual[0] = 0.000991412 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
+
+[CONV] Residual[0] = 0.000993064 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
+
+[CONV] Residual[0] = 0.000994817 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
+
+[CONV] Residual[0] = 0.000980377 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
+
+[CONV] Residual[0] = 0.000990112 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
+
+[CONV] Residual[0] = 0.000992809 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
+
+[CONV] Residual[0] = 0.000978687 > tol=1e-08 - not converged
+[RITZ] Raw eigenvalues from tridiagonal solver: -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 -1.60389 -1.59762 -1.59324 -1.58386 -1.58206 ...
+
+[CONV] Residual[0] = 0.000983919 > tol=1e-08 - not converged
+
+[LANCZOS] Subspace exhausted at m=500, returning best approximation (residuals may be high)
+[LANCZOS] Did not fully converge in 500 iterations
+[LANCZOS] Warning: residuals = [0.000983919, 0.00368336, 0.0111056, 0.0269735]
+[LANCZOS] All eigenvalues (raw): -1.7281 -1.70577 -1.62449 -1.62086 -1.6119 
+[LANCZOS] Semantic eigenvalues (skipped ╬╗_0): 1.70577 1.62449 1.62086 1.6119 
 [LANCZOS] Returning 4 eigenvectors (skipped null space)
 
 [4] Gram-Schmidt orthonormalization...
 [GS] Robust Double-Pass Gram-Schmidt on 4 columns
-[GS] Max off-diagonal dot product after correction: 0
+[GS] Max off-diagonal dot product after correction: 2.73103e-17
 
 [5] Normalizing to [0, 2^32-1]^4...
 [NORM] Coordinate ranges before normalization:
-  dim 0: [-0, 0]
-  dim 1: [-0, 0]
-  dim 2: [-0, 0]
-  dim 3: [-0, 0]
+  dim 0: [-0.0585475, 0.0463936]
+  dim 1: [-0.0404688, 0.0459195]
+  dim 2: [-0.0501247, 0.0480058]
+  dim 3: [-0.0460905, 0.0787895]
 [NORM] Normalized 30522 points to [0, 2^32-1]^4
 
 [6] Projecting to hypersphere...
@@ -1023,12 +650,12 @@ Tokens: 30522, Embedding dim: 384
 
 [7] Computing Hilbert indices (parallel)...
 
-=== Projection Complete in 19 seconds ===
+=== Projection Complete in 38 seconds ===
 Projected 30522 tokens to 4D hypercube
 Similarity graph edges: 219345
-[PROJECTION] Projection completed in 19976ms
+[PROJECTION] Projection completed in 38223ms
 [PROJECTION] 4D coordinates range computed
-[PROJECTION] Variance explained: 0%
+[PROJECTION] Variance explained: 7.59379e-319%
 [PROJECTION] Variance explained too low, skipping database update
 
 [6] Computing composition centroids hierarchically...
@@ -1039,13 +666,18 @@ Similarity graph edges: 219345
 [SEMANTIC] PARALLEL EXTRACTION starting
 [SEMANTIC] Hardware threads: 32
 [SEMANTIC] OpenMP threads: 32
-[SEMANTIC] MKL threads: 1 (dynamic=0)
+[SEMANTIC] MKL threads: 32 (dynamic=0)
 [SEMANTIC] HNSWLIB: available
 ============================================================
 [SEMANTIC] Using config-driven tensor lookup (architecture: BERT)
 [SEMANTIC] Found TOKEN_EMBEDDING via manifest: embeddings.word_embeddings.weight [30522 x 384]
 [SEMANTIC] Loading 30522 x 384 embeddings...
-[SEMANTIC] Loaded in 37ms
+[LOAD_TENSOR] Opening file: D:\Repositories\Github\AHartTN\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 796672
+[LOAD_TENSOR] Reading 11720448 elements as F32
+[LOAD_TENSOR] Successfully read 46881792 bytes (expected 46881792)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
+[SEMANTIC] Loaded in 36ms
 [SEMANTIC] Normalizing (parallel)...
 [SEMANTIC] 30522/30522 valid embeddings in 2ms
 [SEMANTIC] 0 projections
@@ -1053,30 +685,13 @@ Similarity graph edges: 219345
 
 [8] Extracting weight-based relations (router, attention, MLP)...
 [SEMANTIC] Using config-driven lookup (arch: BERT)
-[SEMANTIC] Found TOKEN_EMBEDDING via manifest: embeddings.word_embeddings.weight
+[SEMANTIC] Found ATTENTION_KEY via manifest: encoder.layer.1.attention.self.key.bias
 
-[SEMANTIC] Extracting tokenΓåötoken similarity from embeddings.word_embeddings.weight
-[SEMANTIC] Vocab: 30522 tokens, Embedding dim: 384
+[SEMANTIC] Extracting tokenΓåötoken similarity from encoder.layer.1.attention.self.key.bias
+[SEMANTIC] Vocab: 384 tokens, Embedding dim: 22236716441206901
 [SEMANTIC] Using 32 threads
-[SEMANTIC] Loaded 30522 token embeddings in 29ms
-[SEMANTIC] Loading cached HNSW index from C:\Users\ahart\AppData\Local\Temp\hypercube_hnsw_cache\3648419960641565176.hnsw...
-[SEMANTIC] Loaded cached index in 68ms
-[SEMANTIC] HNSW index loaded in 68ms
-[SEMANTIC] Querying k-NN (PARALLEL, 32 threads)...
-  [QUERY] 3052/30522 (9%)
-  [QUERY] 6104/30522 (19%)
-  [QUERY] 9156/30522 (29%)
-  [QUERY] 12208/30522 (39%)
-  [QUERY] 15260/30522 (49%)
-  [QUERY] 18312/30522 (59%)
-  [QUERY] 21364/30522 (69%)
-  [QUERY] 24416/30522 (79%)
-  [QUERY] 27468/30522 (89%)
-  [QUERY] 30520/30522 (99%)
-[SEMANTIC] k-NN queries completed in 768ms
-[SEMANTIC] Found 178376 semantic similarity edges
-[SEMANTIC] Inserted 178376 tokenΓåötoken semantic relations
-[SEMANTIC] These relations give tokens MEANING through semantic proximity
+[SEMANTIC] Loaded 0 token embeddings in 0ms
+[SEMANTIC] Not enough valid embeddings
 
 [9] Extracting multimodal semantic structures...
 
@@ -1095,12 +710,12 @@ Similarity graph edges: 219345
 [MULTIMODAL] Extracted 8082 semantic relations
 
 === Complete ===
-Total time: 39 seconds
+Total time: 53 seconds
 Tensors: 104
 BPE merges: 0
 Vocab: 30522 tokens
   Atoms  | Compositions | With Labels | Relations | Max Depth | Total Size 
 ---------+--------------+-------------+-----------+-----------+------------
- 1112064 |        61157 |       31703 |    186453 |        24 | 544 MB
+ 1112064 |        61157 |       31703 |      8077 |        24 | 464 MB
 (1 row)
 

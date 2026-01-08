@@ -67,7 +67,7 @@ public static class SemanticQueryController
         catch (Exception ex)
         {
             logger.LogError(ex, "Error in semantic query: {Query}", request.Query);
-            return TypedResults.StatusCode(500, new
+            return TypedResults.Json(new
             {
                 error = new
                 {
@@ -75,7 +75,7 @@ public static class SemanticQueryController
                     type = "internal_error",
                     details = ex.Message
                 }
-            });
+            }, statusCode: 500);
         }
     }
 
@@ -121,14 +121,15 @@ public static class SemanticQueryController
         catch (Exception ex)
         {
             logger.LogError(ex, "Error in analogy query");
-            return TypedResults.StatusCode(500, new
+            return TypedResults.Json(new
             {
                 error = new
                 {
                     message = "Analogy computation failed",
-                    type = "internal_error"
+                    type = "internal_error",
+                    detail = ex.Message
                 }
-            });
+            }, statusCode: 500);
         }
     }
 
@@ -169,14 +170,15 @@ public static class SemanticQueryController
         catch (Exception ex)
         {
             logger.LogError(ex, "Error in relationship query");
-            return TypedResults.StatusCode(500, new
+            return TypedResults.Json(new
             {
                 error = new
                 {
                     message = "Relationship exploration failed",
-                    type = "internal_error"
+                    type = "internal_error",
+                    detail = ex.Message
                 }
-            });
+            }, statusCode: 500);
         }
     }
 

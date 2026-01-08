@@ -83,16 +83,37 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
     size_t n = meta.element_count();
     std::vector<float> data(n);
 
+    std::cerr << "[LOAD_TENSOR] Opening file: " << meta.shard_file << "\n";
+    std::cerr << "[LOAD_TENSOR] Seeking to offset: " << meta.data_offset_start << "\n";
+    std::cerr << "[LOAD_TENSOR] Reading " << n << " elements as " << meta.dtype << "\n";
+
     std::ifstream f(meta.shard_file, std::ios::binary);
-    if (!f) return {};
+    if (!f) {
+        std::cerr << "[LOAD_TENSOR] ERROR: Failed to open file!\n";
+        return {};
+    }
 
     f.seekg(static_cast<std::streamoff>(meta.data_offset_start));
-    
+    if (f.fail()) {
+        std::cerr << "[LOAD_TENSOR] ERROR: Seek failed! Offset may be invalid.\n";
+        return {};
+    }
+
     if (meta.dtype == "F32") {
         f.read(reinterpret_cast<char*>(data.data()), n * 4);
+        if (f.fail()) {
+            std::cerr << "[LOAD_TENSOR] ERROR: Read failed for F32 data!\n";
+            return {};
+        }
+        std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 4) << ")\n";
     } else if (meta.dtype == "BF16") {
         std::vector<uint16_t> raw(n);
         f.read(reinterpret_cast<char*>(raw.data()), n * 2);
+        if (f.fail()) {
+            std::cerr << "[LOAD_TENSOR] ERROR: Read failed for BF16 data!\n";
+            return {};
+        }
+        std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 2) << ")\n";
         // PARALLEL BF16 conversion
         #pragma omp parallel for schedule(static)
         for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
@@ -102,6 +123,11 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
     } else if (meta.dtype == "F16") {
         std::vector<uint16_t> raw(n);
         f.read(reinterpret_cast<char*>(raw.data()), n * 2);
+        if (f.fail()) {
+            std::cerr << "[LOAD_TENSOR] ERROR: Read failed for F16 data!\n";
+            return {};
+        }
+        std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 2) << ")\n";
         // PARALLEL F16 conversion
         #pragma omp parallel for schedule(static)
         for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
@@ -112,7 +138,18 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
             uint32_t fval = (e == 0) ? s : (e == 31) ? (s | 0x7F800000 | (m << 13)) : (s | ((e + 112) << 23) | (m << 13));
             std::memcpy(&data[i], &fval, 4);
         }
+    } else {
+        std::cerr << "[LOAD_TENSOR] ERROR: Unknown dtype '" << meta.dtype << "'\n";
+        return {};
     }
+
+    // Verify non-zero data
+    int nonzero = 0;
+    for (size_t i = 0; i < std::min(size_t(100), n); ++i) {
+        if (std::abs(data[i]) > 1e-10f) ++nonzero;
+    }
+    std::cerr << "[LOAD_TENSOR] Non-zero values in first 100 elements: " << nonzero << "/100\n";
+
     return data;
 }
 
@@ -535,17 +572,29 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
 
     if (ctx.manifest.has_value()) {
         std::cerr << "[PROJECTION] Using config-driven tensor lookup\n";
+        std::cerr << "[PROJECTION] Scanning " << ctx.manifest->extraction_plans.size() << " extraction plans...\n";
+
+        // List ALL token embedding candidates
+        int candidate_count = 0;
         for (const auto& plan : ctx.manifest->extraction_plans) {
             if (plan.category == TensorCategory::TOKEN_EMBEDDING) {
+                std::cerr << "[PROJECTION]   Candidate " << (++candidate_count) << ": " << plan.name;
                 auto it = ctx.tensors.find(plan.name);
                 if (it != ctx.tensors.end()) {
-                    emb = &it->second;
-                    emb_name = plan.name;
-                    std::cerr << "[PROJECTION] Found TOKEN_EMBEDDING: " << plan.name
-                              << " [" << emb->shape[0] << " x " << emb->shape[1] << "]\n";
-                    break;
+                    std::cerr << " [" << it->second.shape[0] << " x " << it->second.shape[1] << "] - AVAILABLE\n";
+                    if (!emb) {  // Take first available
+                        emb = &it->second;
+                        emb_name = plan.name;
+                        std::cerr << "[PROJECTION] >>> SELECTED: " << plan.name << "\n";
+                    }
+                } else {
+                    std::cerr << " - NOT FOUND IN TENSORS\n";
                 }
             }
+        }
+
+        if (candidate_count == 0) {
+            std::cerr << "[PROJECTION] WARNING: No TOKEN_EMBEDDING plans found in manifest!\n";
         }
     }
 
@@ -586,6 +635,72 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
     std::cerr << "[PROJECTION] Loaded in "
               << std::chrono::duration_cast<std::chrono::milliseconds>(load_end - load_start).count() << "ms\n";
 
+    // DIAGNOSTIC: Check embedding statistics BEFORE conversion
+    {
+        double sum = 0.0, sum_sq = 0.0;
+        double min_val = E_flat[0], max_val = E_flat[0];
+        size_t zero_count = 0, nan_count = 0;
+
+        for (size_t i = 0; i < std::min(size_t(V * D), E_flat.size()); ++i) {
+            float val = E_flat[i];
+            if (std::isnan(val)) {
+                ++nan_count;
+                continue;
+            }
+            if (std::abs(val) < 1e-10f) ++zero_count;
+            sum += val;
+            sum_sq += val * val;
+            if (val < min_val) min_val = val;
+            if (val > max_val) max_val = val;
+        }
+
+        double mean = sum / (V * D);
+        double variance = (sum_sq / (V * D)) - (mean * mean);
+        double stddev = std::sqrt(variance);
+
+        std::cerr << "[PROJECTION] Embedding statistics (raw from safetensor):\n";
+        std::cerr << "  Tensor: " << emb_name << " [" << V << " x " << D << "]\n";
+        std::cerr << "  Dtype: " << emb->dtype << ", File offset: " << emb->data_offset_start << "\n";
+        std::cerr << std::scientific << std::setprecision(6);
+        std::cerr << "  Min: " << min_val << ", Max: " << max_val << "\n";
+        std::cerr << "  Mean: " << mean << ", StdDev: " << stddev << "\n";
+        std::cerr << std::defaultfloat << std::setprecision(2);
+        std::cerr << "  Zeros: " << zero_count << " (" << (100.0 * zero_count / (V * D)) << "%)\n";
+        std::cerr << "  NaNs: " << nan_count << "\n";
+
+        // Check first few embeddings with better precision
+        std::cerr << std::scientific << std::setprecision(4);
+        std::cerr << "  First embedding (token 0): [";
+        for (size_t j = 0; j < std::min(size_t(10), D); ++j) {
+            std::cerr << E_flat[j];
+            if (j < std::min(size_t(10), D) - 1) std::cerr << ", ";
+        }
+        std::cerr << ", ...]\n";
+
+        // Show second embedding too
+        if (V > 1) {
+            std::cerr << "  Second embedding (token 1): [";
+            for (size_t j = 0; j < std::min(size_t(10), D); ++j) {
+                std::cerr << E_flat[D + j];
+                if (j < std::min(size_t(10), D) - 1) std::cerr << ", ";
+            }
+            std::cerr << ", ...]\n";
+        }
+        std::cerr << std::defaultfloat << std::setprecision(6);
+
+        // Check if all rows are identical
+        bool all_same = true;
+        if (V > 1) {
+            for (size_t j = 0; j < D; ++j) {
+                if (std::abs(E_flat[j] - E_flat[D + j]) > 1e-6f) {
+                    all_same = false;
+                    break;
+                }
+            }
+        }
+        std::cerr << "  First two rows identical: " << (all_same ? "YES (DEGENERATE!)" : "NO (good)") << "\n";
+    }
+
     // Convert to vector<vector<float>> for LaplacianProjector
     std::vector<std::vector<float>> embeddings(V);
     for (size_t i = 0; i < V; ++i) {
@@ -613,6 +728,7 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
     lap_config.num_threads = g_num_threads;
     lap_config.project_to_sphere = true;
     lap_config.verbose = true;
+    lap_config.convergence_tol = 1e-8;
 
     std::cerr << "[PROJECTION] Projecting " << V << " embeddings to 4D using Laplacian eigenmaps...\n";
     auto proj_start = std::chrono::steady_clock::now();

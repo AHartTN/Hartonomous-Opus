@@ -36,10 +36,10 @@ namespace lanczos {
 struct LanczosConfig {
     int max_iterations = 300;       // Max Lanczos iterations (m)
     int num_eigenpairs = 4;         // k smallest non-zero eigenpairs wanted
-    double convergence_tol = 1e-6; // Ritz residual tolerance
+    double convergence_tol = 1e-8; // Ritz residual tolerance
     double reorth_tol = 1e-8;       // Reorthogonalization threshold
     bool use_shift_invert = true;   // Use shift-invert for smallest eigenvalues
-    double shift_sigma = 1e-6;      // Shift for (L - σI)^-1
+    double shift_sigma = -0.5;      // Shift for (L - σI)^-1 (< min eigenvalue for Laplacian)
     int cg_max_iterations = 200;    // CG iterations for shift-invert
     double cg_tolerance = 1e-12;    // CG convergence tolerance
     int num_threads = 0;            // 0 = auto
