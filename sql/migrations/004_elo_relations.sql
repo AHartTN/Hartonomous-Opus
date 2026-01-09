@@ -116,8 +116,8 @@ BEGIN
             COALESCE(source_model, 'unknown'),
             COALESCE(layer, -1),
             COALESCE(component, 'legacy'),
-            -- Infer initial rating from weight
-            1500.0 + 400.0 * ATANH(LEAST(0.999, GREATEST(-0.999, weight))),
+            -- Infer initial rating from weight, clamped to valid range
+            LEAST(3000.0, GREATEST(0.0, 1500.0 + 400.0 * ATANH(LEAST(0.999, GREATEST(-0.999, weight))))),
             COALESCE(source_count, 1),
             weight,
             weight,

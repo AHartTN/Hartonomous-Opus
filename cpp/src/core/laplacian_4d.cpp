@@ -1622,19 +1622,24 @@ void LaplacianProjector::project_to_sphere(std::vector<std::array<uint32_t, 4>>&
 
 ProjectionResult LaplacianProjector::project(
     const std::vector<std::vector<float>>& embeddings,
-    const std::vector<std::string>& labels
+    const std::vector<std::string>& labels,
+    const std::vector<AnchorPoint>& anchors
 ) {
     ProjectionResult result;
     const size_t n = embeddings.size();
-    
+
     if (n == 0) {
         std::cerr << "[PROJECT] No embeddings to project\n";
         return result;
     }
-    
+
     std::cerr << "\n=== Laplacian Eigenmap Projection to 4D ===\n";
-    std::cerr << "Tokens: " << n << ", Embedding dim: " << embeddings[0].size() << "\n\n";
-    
+    std::cerr << "Tokens: " << n << ", Embedding dim: " << embeddings[0].size() << "\n";
+    if (!anchors.empty()) {
+        std::cerr << "Anchors: " << anchors.size() << " (aligning with existing 4D coordinates)\n";
+    }
+    std::cerr << "\n";
+
     auto start = std::chrono::steady_clock::now();
     
     // Step 1: Build k-NN similarity graph
@@ -1647,7 +1652,7 @@ ProjectionResult LaplacianProjector::project(
     // Step 1.5: Ensure graph connectivity (fix disconnected components)
     std::cerr << "\n[1.5] Ensuring graph connectivity...\n";
     ensure_connectivity(W, embeddings);
-    
+
     // Step 1.6: Finalize the similarity graph (convert adj list to CSR)
     W.finalize();
 
@@ -1732,7 +1737,102 @@ ProjectionResult LaplacianProjector::project(
     // Step 4: Gram-Schmidt orthonormalization on columns
     std::cerr << "\n[4] Gram-Schmidt orthonormalization...\n";
     gram_schmidt_columns(eigenvectors);
-    
+
+    // Step 4.5: Apply Procrustes alignment if anchors provided
+    if (!anchors.empty()) {
+        std::cerr << "\n[4.5] Applying Procrustes alignment to match anchor coordinates...\n";
+
+        // Extract anchor positions from eigenvectors (projected positions)
+        std::vector<std::array<double, 4>> projected_anchors;
+        std::vector<std::array<double, 4>> target_anchors;
+
+        for (const auto& anchor : anchors) {
+            if (anchor.token_index >= n) continue;
+
+            // Projected position (from eigenvectors, transposed: row i = token i)
+            std::array<double, 4> proj_pos;
+            for (int d = 0; d < 4; ++d) {
+                proj_pos[d] = eigenvectors[d][anchor.token_index];
+            }
+            projected_anchors.push_back(proj_pos);
+
+            // Target position (known 4D coordinates from database)
+            target_anchors.push_back(anchor.coords_4d);
+        }
+
+        if (projected_anchors.size() >= 3) {  // Need at least 3 points for meaningful alignment
+            // Compute centroids
+            std::array<double, 4> proj_centroid = {0, 0, 0, 0};
+            std::array<double, 4> target_centroid = {0, 0, 0, 0};
+
+            for (size_t i = 0; i < projected_anchors.size(); ++i) {
+                for (int d = 0; d < 4; ++d) {
+                    proj_centroid[d] += projected_anchors[i][d];
+                    target_centroid[d] += target_anchors[i][d];
+                }
+            }
+
+            for (int d = 0; d < 4; ++d) {
+                proj_centroid[d] /= projected_anchors.size();
+                target_centroid[d] /= target_anchors.size();
+            }
+
+            // Center both point sets
+            for (auto& p : projected_anchors) {
+                for (int d = 0; d < 4; ++d) p[d] -= proj_centroid[d];
+            }
+            for (auto& p : target_anchors) {
+                for (int d = 0; d < 4; ++d) p[d] -= target_centroid[d];
+            }
+
+            // Compute scale factor (isotropic scaling)
+            double proj_scale = 0, target_scale = 0;
+            for (const auto& p : projected_anchors) {
+                for (int d = 0; d < 4; ++d) proj_scale += p[d] * p[d];
+            }
+            for (const auto& p : target_anchors) {
+                for (int d = 0; d < 4; ++d) target_scale += p[d] * p[d];
+            }
+
+            double scale = std::sqrt(target_scale / (proj_scale + 1e-12));
+
+            std::cerr << "[PROCRUSTES] Scale factor: " << scale << "\n";
+            std::cerr << "[PROCRUSTES] Proj centroid: [" << proj_centroid[0] << ", "
+                      << proj_centroid[1] << ", " << proj_centroid[2] << ", "
+                      << proj_centroid[3] << "]\n";
+            std::cerr << "[PROCRUSTES] Target centroid: [" << target_centroid[0] << ", "
+                      << target_centroid[1] << ", " << target_centroid[2] << ", "
+                      << target_centroid[3] << "]\n";
+
+            // Apply transformation to ALL eigenvectors: scale + translate
+            // Transform: Y_new = scale * (Y - proj_centroid) + target_centroid
+            for (size_t i = 0; i < n; ++i) {
+                for (int d = 0; d < 4; ++d) {
+                    eigenvectors[d][i] = scale * (eigenvectors[d][i] - proj_centroid[d]) + target_centroid[d];
+                }
+            }
+
+            // Verify alignment quality
+            double alignment_error = 0;
+            for (const auto& anchor : anchors) {
+                if (anchor.token_index >= n) continue;
+
+                double error = 0;
+                for (int d = 0; d < 4; ++d) {
+                    double diff = eigenvectors[d][anchor.token_index] - anchor.coords_4d[d];
+                    error += diff * diff;
+                }
+                alignment_error += std::sqrt(error);
+            }
+            alignment_error /= anchors.size();
+
+            std::cerr << "[PROCRUSTES] Mean anchor alignment error: " << alignment_error << "\n";
+        } else {
+            std::cerr << "[PROCRUSTES] WARNING: Only " << projected_anchors.size()
+                      << " valid anchors, skipping alignment (need >=3)\n";
+        }
+    }
+
     // Step 5: Normalize to hypercube
     std::cerr << "\n[5] Normalizing to [0, 2^32-1]^4...\n";
     result.coords = normalize_to_hypercube(eigenvectors);

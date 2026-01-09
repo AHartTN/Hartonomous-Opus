@@ -26,4 +26,10 @@ public class PostgresCompositionRepository : ICompositionRepository
     {
         return await _postgresService.GetValidTokensFromPromptAsync(prompt);
     }
+
+    /// <inheritdoc/>
+    public async Task<byte[]?> GetCompositionIdByLabelAsync(string label)
+    {
+        return await _postgresService.GetCompositionIdByLabelAsync(label);
+    }
 }

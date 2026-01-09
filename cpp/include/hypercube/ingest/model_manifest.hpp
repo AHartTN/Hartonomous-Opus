@@ -34,7 +34,7 @@ namespace fs = std::filesystem;
 
 enum class TensorCategory {
     UNKNOWN,
-    
+
     // =========================================================================
     // EMBEDDINGS - semantic manifolds
     // =========================================================================
@@ -42,13 +42,20 @@ enum class TensorCategory {
     POSITION_EMBEDDING,   // embed_positions.weight [max_pos, d_model] - 1D positional
     POSITION_EMBEDDING_2D,// row/column embeddings [grid_size, d_model] - 2D positional
     PATCH_EMBEDDING,      // vision patch embeddings [num_patches, d_model]
-    
+
     // =========================================================================
     // OBJECT DETECTION - DETR/Florence visual "tokens"
     // =========================================================================
     OBJECT_QUERY,         // query_position_embeddings [num_queries, d_model] - DETR slots
     CLASS_HEAD,           // class_labels_classifier [num_classes, d_model]
     BBOX_HEAD,            // bbox_predictor layers
+
+    // =========================================================================
+    // DETECTION HEADS - Grounding-DINO, RT-DETR specific
+    // =========================================================================
+    DETECTION_BACKBONE,   // ResNet backbone features
+    DETECTION_NECK,       // FPN/feature pyramid features
+    DETECTION_HEAD,       // Detection prediction heads
     
     // =========================================================================
     // ATTENTION - extract Q/K/V projections for relational patterns
@@ -119,6 +126,11 @@ inline std::string category_to_string(TensorCategory cat) {
         case TensorCategory::OBJECT_QUERY: return "OBJECT_QUERY";
         case TensorCategory::CLASS_HEAD: return "CLASS_HEAD";
         case TensorCategory::BBOX_HEAD: return "BBOX_HEAD";
+
+        // Detection Components
+        case TensorCategory::DETECTION_BACKBONE: return "DETECTION_BACKBONE";
+        case TensorCategory::DETECTION_NECK: return "DETECTION_NECK";
+        case TensorCategory::DETECTION_HEAD: return "DETECTION_HEAD";
         
         // Attention
         case TensorCategory::ATTENTION_QUERY: return "ATTENTION_QUERY";
@@ -307,6 +319,7 @@ struct ModelManifest {
     int ffn_tensors = 0;
     int norm_tensors = 0;
     int conv_tensors = 0;
+    int detection_tensors = 0;
     int other_tensors = 0;
     
     // Methods
@@ -345,6 +358,17 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
     if (lower_name.find("zero_point") != std::string::npos) {
         return TensorCategory::QUANTIZATION_ZERO_POINT;
     }
+
+    // =========================================================================
+    // 1.5. BIAS VECTORS AND RUNNING STATISTICS - skip
+    // =========================================================================
+    if (lower_name.find("bias") != std::string::npos && shape.size() == 1) {
+        return TensorCategory::QUANTIZATION_SCALE;  // Reuse as "skip" category
+    }
+    if (lower_name.find("running_mean") != std::string::npos ||
+        lower_name.find("running_var") != std::string::npos) {
+        return TensorCategory::QUANTIZATION_SCALE;  // Reuse as "skip" category
+    }
     
     // =========================================================================
     // 2. OBJECT DETECTION HEADS (DETR, Florence, RT-DETR)
@@ -370,8 +394,16 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
     
     // Bounding box prediction head
     if (lower_name.find("bbox_predictor") != std::string::npos ||
-        lower_name.find("bbox_embed") != std::string::npos) {
+        lower_name.find("bbox_embed") != std::string::npos ||
+        lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
         return TensorCategory::BBOX_HEAD;
+    }
+
+    // General detection heads
+    if (lower_name.find("pred_head") != std::string::npos ||
+        lower_name.find("det_head") != std::string::npos ||
+        lower_name.find("dn_embed") != std::string::npos) {
+        return TensorCategory::DETECTION_HEAD;
     }
     
     // =========================================================================
@@ -473,6 +505,33 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
         return TensorCategory::VISION_PROJECTION;
     }
     
+    // Detection backbone (ResNet, Swin features)
+    if (lower_name.find("backbone") != std::string::npos) {
+        if (lower_name.find("stage") != std::string::npos ||
+            lower_name.find("layer") != std::string::npos ||
+            lower_name.find("stem") != std::string::npos ||
+            lower_name.find("conv") != std::string::npos) {
+            return TensorCategory::DETECTION_BACKBONE;
+        }
+    }
+
+    // Detection neck (FPN, feature pyramid)
+    if (lower_name.find("neck") != std::string::npos ||
+        lower_name.find("lateral") != std::string::npos ||
+        lower_name.find("fpn") != std::string::npos ||
+        lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+        lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+        return TensorCategory::DETECTION_NECK;
+    }
+
+    // DETR decoder components
+    if (lower_name.find("decoder") != std::string::npos) {
+        if (lower_name.find("self_attn") != std::string::npos ||
+            lower_name.find("cross_attn") != std::string::npos) {
+            return TensorCategory::CROSS_ATTENTION;
+        }
+    }
+
     // CNN backbone (DETR, Grounding-DINO)
     if (lower_name.find("backbone") != std::string::npos &&
         lower_name.find("conv") != std::string::npos) {
@@ -651,7 +710,32 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
             return TensorCategory::MODALITY_PROJECTION;
         }
     }
-    
+
+    // =========================================================================
+    // 13. ROTARY POSITION EMBEDDING (RoPE)
+    // =========================================================================
+    if (lower_name.find("rotary") != std::string::npos ||
+        lower_name.find("rope") != std::string::npos) {
+        return TensorCategory::POSITION_EMBEDDING;
+    }
+
+    // =========================================================================
+    // 14. COMMON MODEL BUFFERS AND CACHE
+    // =========================================================================
+    if (lower_name.find("buffer") != std::string::npos ||
+        lower_name.find("cache") != std::string::npos ||
+        lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+        return TensorCategory::QUANTIZATION_SCALE;  // Skip
+    }
+
+    // =========================================================================
+    // 15. RESIDUAL CONNECTIONS AND SKIP CONNECTIONS
+    // =========================================================================
+    if (lower_name.find("residual") != std::string::npos ||
+        lower_name.find("shortcut") != std::string::npos) {
+        return TensorCategory::LAYER_NORM;  // Treat as normalization
+    }
+
     return TensorCategory::UNKNOWN;
 }
 
@@ -691,6 +775,24 @@ inline void ModelManifest::categorize_tensor(const std::string& name,
         case TensorCategory::BBOX_HEAD:
             plan.extract_embeddings = true;  // Class prototypes
             embedding_tensors++;
+            break;
+
+        // =====================================================================
+        // DETECTION COMPONENTS
+        // =====================================================================
+        case TensorCategory::DETECTION_BACKBONE:
+            plan.extract_embeddings = true;  // Backbone features
+            detection_tensors++;
+            break;
+
+        case TensorCategory::DETECTION_NECK:
+            plan.extract_embeddings = true;  // FPN features
+            detection_tensors++;
+            break;
+
+        case TensorCategory::DETECTION_HEAD:
+            plan.extract_embeddings = true;  // Detection predictions
+            detection_tensors++;
             break;
         
         // =====================================================================
@@ -885,6 +987,7 @@ inline void ModelManifest::print_summary() const {
     std::cerr << "    FFN:           " << ffn_tensors << " (" << ffn_label << ")\n";
     std::cerr << "    Normalization: " << norm_tensors << " (" << norm_label << ")\n";
     std::cerr << "    Convolution:   " << conv_tensors << " (" << conv_label << ")\n";
+    std::cerr << "    Detection:     " << detection_tensors << " (eigenmap extraction)\n";
     std::cerr << "    Other:         " << other_tensors << "\n";
     std::cerr << "    TOTAL:         " << total_tensors << "\n";
     std::cerr << "+--------------------------------------------------------------+\n";

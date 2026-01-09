@@ -43,38 +43,10 @@ $ingester = if (Test-Path "$env:HC_BUILD_DIR\ingest.exe") {
 $dbArgs = @("-d", $env:HC_DB_NAME, "-U", $env:HC_DB_USER, "-h", $env:HC_DB_HOST, "-p", $env:HC_DB_PORT)
 
 # ============================================================================
-# 1. TEXT FILES - Universal Ingestion
-# ============================================================================
-Write-Host "[1/3] Text Files" -ForegroundColor Yellow
-
-$textFiles = Get-ChildItem -Path $testDataDir -Filter "*.txt" -File
-if ($textFiles.Count -gt 0 -and $ingester) {
-    foreach ($file in $textFiles) {
-        Write-Host "      $($file.Name)..." -NoNewline
-        $beforeCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition"
-        
-        & $ingester @dbArgs $file.FullName 2>&1 | Out-Null
-        
-        $afterCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition"
-        $newComps = [int]$afterCount - [int]$beforeCount
-        
-        if ($newComps -gt 0) {
-            Write-Host " +$newComps compositions" -ForegroundColor Green
-        } else {
-            Write-Host " (already ingested)" -ForegroundColor DarkGray
-        }
-    }
-} elseif (-not $ingester) {
-    Write-Host "      WARNING: ingest.exe not found - run build.ps1 first" -ForegroundColor Yellow
-} else {
-    Write-Host "      (no text files found)" -ForegroundColor DarkGray
-}
-
-# ============================================================================
-# 2. EMBEDDING MODELS
+# 1. EMBEDDING MODELS
 # ============================================================================
 Write-Host ""
-Write-Host "[2/3] Embedding Models" -ForegroundColor Yellow
+Write-Host "[1/3] Embedding Models" -ForegroundColor Yellow
 
 if ($Quick) {
     Write-Host "      (skipped with -Quick flag)" -ForegroundColor DarkGray
@@ -105,6 +77,37 @@ if ($Quick) {
             Write-Host "      Model ingestion complete" -ForegroundColor Green
         }
     }
+}
+
+# Re-set PGPASSWORD in case child scripts cleared it
+$env:PGPASSWORD = $env:HC_DB_PASS
+
+# ============================================================================
+# 2. TEXT FILES - Universal Ingestion
+# ============================================================================
+Write-Host "[2/3] Text Files" -ForegroundColor Yellow
+
+$textFiles = Get-ChildItem -Path $testDataDir -Filter "*.txt" -File
+if ($textFiles.Count -gt 0 -and $ingester) {
+    foreach ($file in $textFiles) {
+        Write-Host "      $($file.Name)..." -NoNewline
+        $beforeCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition"
+        
+        & $ingester @dbArgs $file.FullName 2>&1 | Out-Null
+        
+        $afterCount = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition"
+        $newComps = [int]$afterCount - [int]$beforeCount
+        
+        if ($newComps -gt 0) {
+            Write-Host " +$newComps compositions" -ForegroundColor Green
+        } else {
+            Write-Host " (already ingested)" -ForegroundColor DarkGray
+        }
+    }
+} elseif (-not $ingester) {
+    Write-Host "      WARNING: ingest.exe not found - run build.ps1 first" -ForegroundColor Yellow
+} else {
+    Write-Host "      (no text files found)" -ForegroundColor DarkGray
 }
 
 # Re-set PGPASSWORD in case child scripts cleared it

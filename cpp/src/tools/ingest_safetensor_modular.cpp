@@ -373,7 +373,18 @@ int main(int argc, char* argv[]) {
         );
         std::cerr << "[MULTIMODAL] Extracted " << multimodal_relations << " semantic relations\n";
     }
-    
+
+    // Step 10: Refresh relation consensus materialized view
+    std::cerr << "\n[10] Refreshing relation consensus...\n";
+    {
+        hypercube::db::Result res = hypercube::db::exec(conn, "SELECT refresh_relation_consensus()");
+        if (res.ok()) {
+            std::cerr << "[CONSENSUS] Refreshed relation consensus materialized view\n";
+        } else {
+            std::cerr << "[CONSENSUS] Failed to refresh consensus: " << res.error_message() << "\n";
+        }
+    }
+
     PQfinish(conn);
     
     auto total_end = std::chrono::steady_clock::now();

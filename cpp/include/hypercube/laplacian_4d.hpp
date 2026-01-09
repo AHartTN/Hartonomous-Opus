@@ -33,6 +33,16 @@ struct LaplacianConfig;
 struct ProjectionResult;
 
 /**
+ * Anchor point for constrained Laplacian projection
+ * Used to align new embeddings with existing 4D coordinate system
+ */
+struct AnchorPoint {
+    size_t token_index;                 // Index in the embedding matrix
+    std::array<double, 4> coords_4d;    // Known 4D coordinates from database
+    double weight = 1.0;                // Constraint weight (higher = stricter)
+};
+
+/**
  * Configuration for Laplacian eigenmap projection
  */
 struct LaplacianConfig {
@@ -43,10 +53,13 @@ struct LaplacianConfig {
     bool project_to_sphere = true;      // Project final coords onto hypersphere
     double sphere_radius = 1.0;         // Radius of target hypersphere (before scaling)
     bool verbose = false;               // Enable verbose debug output
-    
+
     // Convergence tolerance for eigensolver
     double convergence_tol = 1e-6;
     int max_deflation_iterations = 100;
+
+    // Anchor constraints for aligning with existing 4D space
+    double anchor_weight = 10.0;        // Weight for anchor constraints (higher = stricter alignment)
 };
 
 /**
@@ -154,14 +167,16 @@ public:
     
     /**
      * Project embeddings to 4D hypercube coordinates
-     * 
+     *
      * @param embeddings  n x d matrix of embeddings (n tokens, d dimensions)
      * @param labels      Optional labels for each token (for progress reporting)
+     * @param anchors     Optional anchor points with known 4D coordinates (for alignment)
      * @return ProjectionResult with 4D coordinates and Hilbert indices
      */
     ProjectionResult project(
         const std::vector<std::vector<float>>& embeddings,
-        const std::vector<std::string>& labels = {}
+        const std::vector<std::string>& labels = {},
+        const std::vector<AnchorPoint>& anchors = {}
     );
     
     /**

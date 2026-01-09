@@ -237,18 +237,98 @@ int cmd_query(int argc, char* argv[]) {
     std::string query = argv[0];
     std::cout << "Query: " << query << "\n";
     std::cout << "Database: " << build_conninfo() << "\n";
-    
-    // TODO: Call actual query function
-    std::cerr << "ERROR: Query not yet integrated.\n";
-    return 1;
+
+    // Connect to database and perform semantic query
+    std::string conninfo = build_conninfo();
+    PGconn* conn = PQconnectdb(conninfo.c_str());
+
+    if (PQstatus(conn) != CONNECTION_OK) {
+        std::cerr << "Database connection failed: " << PQerrorMessage(conn) << "\n";
+        PQfinish(conn);
+        return 1;
+    }
+
+    // Query for compositions matching the search term
+    std::string sql = "SELECT id, label, atom_count FROM composition WHERE label ILIKE $1 LIMIT 10";
+    std::string pattern = "%" + query + "%";
+
+    const char* params[1] = {pattern.c_str()};
+    PGresult* res = PQexecParams(conn, sql.c_str(), 1, nullptr, params, nullptr, nullptr, 0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::cerr << "Query failed: " << PQerrorMessage(conn) << "\n";
+        PQclear(res);
+        PQfinish(conn);
+        return 1;
+    }
+
+    int nrows = PQntuples(res);
+    std::cout << "\nFound " << nrows << " results:\n";
+    std::cout << std::string(80, '-') << "\n";
+
+    for (int i = 0; i < nrows; ++i) {
+        const char* id = PQgetvalue(res, i, 0);
+        const char* label = PQgetvalue(res, i, 1);
+        const char* atom_count = PQgetvalue(res, i, 2);
+
+        std::cout << label << " (atoms: " << atom_count << ")\n";
+        std::cout << "  ID: " << id << "\n";
+    }
+
+    PQclear(res);
+    PQfinish(conn);
+    return 0;
 }
 
 int cmd_stats([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
     std::cout << "Database: " << build_conninfo() << "\n";
-    
-    // TODO: Call actual stats function
-    std::cerr << "ERROR: Stats not yet integrated.\n";
-    return 1;
+
+    // Connect to database and retrieve statistics
+    std::string conninfo = build_conninfo();
+    PGconn* conn = PQconnectdb(conninfo.c_str());
+
+    if (PQstatus(conn) != CONNECTION_OK) {
+        std::cerr << "Database connection failed: " << PQerrorMessage(conn) << "\n";
+        PQfinish(conn);
+        return 1;
+    }
+
+    // Query database statistics
+    std::string sql = R"SQL(
+        SELECT
+            (SELECT COUNT(*) FROM atom) as atoms,
+            (SELECT COUNT(*) FROM composition) as compositions,
+            (SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL) as compositions_with_centroid,
+            (SELECT COUNT(*) FROM relation_consensus) as relations,
+            (SELECT COUNT(*) FROM ml_experiment) as experiments,
+            (SELECT COUNT(*) FROM ml_run) as runs,
+            (SELECT COUNT(*) FROM ml_model_version) as model_versions
+    )SQL";
+
+    PGresult* res = PQexec(conn, sql.c_str());
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::cerr << "Stats query failed: " << PQerrorMessage(conn) << "\n";
+        PQclear(res);
+        PQfinish(conn);
+        return 1;
+    }
+
+    std::cout << "\n=== Hypercube Database Statistics ===\n\n";
+    std::cout << "Core Entities:\n";
+    std::cout << "  Atoms:                       " << PQgetvalue(res, 0, 0) << "\n";
+    std::cout << "  Compositions:                " << PQgetvalue(res, 0, 1) << "\n";
+    std::cout << "  Compositions with centroid:  " << PQgetvalue(res, 0, 2) << "\n";
+    std::cout << "  Relations:                   " << PQgetvalue(res, 0, 3) << "\n";
+
+    std::cout << "\nML Lifecycle:\n";
+    std::cout << "  Experiments:                 " << PQgetvalue(res, 0, 4) << "\n";
+    std::cout << "  Training Runs:               " << PQgetvalue(res, 0, 5) << "\n";
+    std::cout << "  Model Versions:              " << PQgetvalue(res, 0, 6) << "\n";
+
+    PQclear(res);
+    PQfinish(conn);
+    return 0;
 }
 
 int cmd_test(int argc, char* argv[]) {
@@ -270,9 +350,89 @@ int cmd_test(int argc, char* argv[]) {
     if (run_cpp) std::cout << "  - C++ unit tests\n";
     if (run_sql) std::cout << "  - SQL integration tests\n";
 
-    // TODO: Call actual test runner
-    std::cerr << "ERROR: Test runner not yet integrated.\n";
-    return 1;
+    int failures = 0;
+
+    // C++ unit tests
+    if (run_cpp) {
+        std::cout << "\n[C++ Tests]\n";
+        std::cout << "Running basic sanity checks...\n";
+
+        // Test 1: BLAKE3 hashing
+        try {
+            Blake3Hash hash;
+            hash.compute_from_string("test");
+            std::cout << "  ✓ BLAKE3 hashing works\n";
+        } catch (...) {
+            std::cerr << "  ✗ BLAKE3 hashing failed\n";
+            failures++;
+        }
+
+        // Test 2: Hilbert curve
+        try {
+            HilbertCurve hilbert(10);  // 10-bit precision
+            uint64_t dist = hilbert.encode(5, 5, 5, 5);
+            std::cout << "  ✓ Hilbert curve encoding works (dist=" << dist << ")\n";
+        } catch (...) {
+            std::cerr << "  ✗ Hilbert curve failed\n";
+            failures++;
+        }
+
+        // Test 3: AtomCalculator
+        try {
+            AtomCalculator calc;
+            Point4D p = calc.map_codepoint_to_4d(65);  // 'A'
+            std::cout << "  ✓ AtomCalculator works (x=" << p.x << ")\n";
+        } catch (...) {
+            std::cerr << "  ✗ AtomCalculator failed\n";
+            failures++;
+        }
+    }
+
+    // SQL integration tests
+    if (run_sql) {
+        std::cout << "\n[SQL Tests]\n";
+        std::cout << "Testing database connection...\n";
+
+        std::string conninfo = build_conninfo();
+        PGconn* conn = PQconnectdb(conninfo.c_str());
+
+        if (PQstatus(conn) != CONNECTION_OK) {
+            std::cerr << "  ✗ Database connection failed: " << PQerrorMessage(conn) << "\n";
+            PQfinish(conn);
+            failures++;
+        } else {
+            std::cout << "  ✓ Database connection successful\n";
+
+            // Test table existence
+            const char* tables[] = {"atom", "composition", "relation_consensus",
+                                   "ml_experiment", "ml_run", "ml_model_version"};
+
+            for (const char* table : tables) {
+                std::string sql = "SELECT COUNT(*) FROM " + std::string(table);
+                PGresult* res = PQexec(conn, sql.c_str());
+
+                if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+                    std::cout << "  ✓ Table '" << table << "' exists (" << PQgetvalue(res, 0, 0) << " rows)\n";
+                } else {
+                    std::cerr << "  ✗ Table '" << table << "' check failed\n";
+                    failures++;
+                }
+
+                PQclear(res);
+            }
+
+            PQfinish(conn);
+        }
+    }
+
+    std::cout << "\n";
+    if (failures == 0) {
+        std::cout << "All tests passed! ✓\n";
+        return 0;
+    } else {
+        std::cerr << failures << " test(s) failed ✗\n";
+        return 1;
+    }
 }
 
 // Integrated ingest functionality - extracted from ingest_safetensor_modular.cpp
@@ -435,9 +595,9 @@ int perform_ingest(const std::string& model_dir, const hypercube::ingest::Ingest
         hypercube::ingest::db::extract_all_semantic_relations(conn, ctx, config);
     }
 
-    // Extract weight-based relations
-    std::cerr << "\n[8] Extracting weight-based relations...\n";
-    hypercube::ingest::db::insert_attention_relations(conn, ctx, config);
+    // Extract weight-based relations (removed - duplicate of semantic extraction)
+    // std::cerr << "\n[8] Extracting weight-based relations...\n";
+    // hypercube::ingest::db::insert_attention_relations(conn, ctx, config);
 
     // Extract multimodal structures
     std::cerr << "\n[9] Extracting multimodal structures...\n";

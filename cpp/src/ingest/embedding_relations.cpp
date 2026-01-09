@@ -275,14 +275,19 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
     }
     
     // =========================================================================
-    // PHASE 2: Single bulk insert of all accumulated edges (no temp table)
+    // PHASE 2: Single bulk insert of all accumulated edges into relation_evidence
     // =========================================================================
     auto insert_start = std::chrono::steady_clock::now();
 
     Transaction tx(conn);
 
-    // Parse global_batch and build direct INSERT with VALUES
-    std::string insert_sql = "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) VALUES ";
+    // Parse global_batch and build direct INSERT with VALUES for relation_evidence
+    std::string insert_sql = R"SQL(
+        INSERT INTO relation_evidence
+            (source_id, target_id, relation_type, source_model, layer, component,
+             rating, observation_count, raw_weight, normalized_weight)
+        VALUES
+    )SQL";
     std::vector<std::string> values;
     std::istringstream iss(global_batch);
     std::string line;

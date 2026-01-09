@@ -22,6 +22,7 @@
 #include <chrono>
 #include <algorithm>
 #include <filesystem>
+#include <sstream>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -72,6 +73,11 @@ static std::string get_cache_path(const std::string& model_name, size_t n, size_
     
     return (cache_dir / (std::to_string(h) + ".hnsw")).string();
 }
+
+static bool extract_merge_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
+static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
+static bool extract_attention_projection_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
+static bool ensure_dimension_compositions_exist(PGconn* conn, const std::string& component, int layer, const std::vector<int64_t>& dimensions);
 
 bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
     // =========================================================================
@@ -370,8 +376,13 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
     
     Transaction tx(conn);
 
-    // Direct bulk INSERT without temp table
-    std::string insert_sql = "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, source_count, layer, component) VALUES ";
+    // Direct bulk INSERT into relation_evidence
+    std::string insert_sql = R"SQL(
+        INSERT INTO relation_evidence
+            (source_id, target_id, relation_type, source_model, layer, component,
+             rating, observation_count, raw_weight, normalized_weight)
+        VALUES
+    )SQL";
     std::vector<std::string> values;
 
     for (const auto& edges : thread_edges) {
@@ -382,15 +393,15 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
             const auto& comp_i = ctx.vocab_tokens[tok_i].comp;
             const auto& comp_j = ctx.vocab_tokens[tok_j].comp;
 
-            char type_i = (comp_i.children.size() <= 1) ? 'A' : 'C';
-            char type_j = (comp_j.children.size() <= 1) ? 'A' : 'C';
-
             std::string source_hex = "\\x" + comp_i.hash.to_hex();
             std::string target_hex = "\\x" + comp_j.hash.to_hex();
 
-            std::string val = "('" + std::string(1, type_i) + "', '" + source_hex + "', '" +
-                              std::string(1, type_j) + "', '" + target_hex + "', 'S', " +
-                              std::to_string(sim) + ", '" + config.model_name + "', 1, -1, 'embedding')";
+            // Normalize cosine similarity (already -1 to 1 for inner product)
+            float normalized = sim;
+
+            std::string val = "('" + source_hex + "', '" + target_hex + "', 'S', '" +
+                              config.model_name + "', -1, 'embedding', 1500.0, 1, " +
+                              std::to_string(sim) + ", " + std::to_string(normalized) + ")";
             values.push_back(val);
         }
     }
@@ -403,9 +414,21 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
             if (j > i) batch_sql += ", ";
             batch_sql += values[j];
         }
-        batch_sql += " ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
-                    "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
-                    "  source_count = relation.source_count + 1";
+        batch_sql += R"SQL( ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
+        DO UPDATE SET
+            rating = relation_evidence.rating +
+                     LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
+                     (
+                         (EXCLUDED.normalized_weight + 1.0) / 2.0 -
+                         (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))
+                     ),
+            observation_count = relation_evidence.observation_count + 1,
+            raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
+                         (relation_evidence.observation_count + 1),
+            normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
+                               (relation_evidence.observation_count + 1),
+            last_updated = NOW()
+    )SQL";
 
         Result res = exec(conn, batch_sql);
         if (!res.ok()) {
@@ -418,7 +441,493 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
     
     std::cerr << "[SEMANTIC] Inserted " << total_edges << " token↔token semantic relations\n";
     std::cerr << "[SEMANTIC] These relations give tokens MEANING through semantic proximity\n";
-    
+
+    // =========================================================================
+    // EXTRACT HIERARCHY RELATIONS FROM TENSOR NAMES
+    // =========================================================================
+
+    extract_hierarchy_relations(conn, ctx, config);
+
+    // =========================================================================
+    // EXTRACT MERGE RELATIONS FROM BPE/CPE MERGES
+    // =========================================================================
+
+    extract_merge_relations(conn, ctx, config);
+
+    // =========================================================================
+    // EXTRACT ATTENTION RELATIONS FROM PROJECTION MATRICES
+    // =========================================================================
+
+    extract_attention_projection_relations(conn, ctx, config);
+
+    return true;
+}
+
+static bool extract_merge_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
+    std::cerr << "\n[MERGE] Extracting BPE/CPE merge relations...\n";
+
+    if (ctx.bpe_merges.empty()) {
+        std::cerr << "[MERGE] No BPE merges found\n";
+        return true;
+    }
+
+    Transaction tx(conn);
+
+    std::string insert_sql = R"SQL(
+        INSERT INTO relation_evidence
+            (source_id, target_id, relation_type, source_model, layer, component,
+             rating, observation_count, raw_weight, normalized_weight)
+        VALUES
+    )SQL";
+    std::vector<std::string> values;
+
+    size_t merge_edges = 0;
+
+    // For each BPE merge, create M-relations between parts and merged token
+    for (const auto& [left, right] : ctx.bpe_merges) {
+        std::string merged = left + right;
+
+        // Create compositions for the parts and merged token if they don't exist
+        auto left_hash = AtomCalculator::compute_vocab_token(left).hash;
+        auto right_hash = AtomCalculator::compute_vocab_token(right).hash;
+        auto merged_hash = AtomCalculator::compute_vocab_token(merged).hash;
+
+        // Create M-relations: left -> merged, right -> merged
+        // Weight represents the merge strength (1.0 for direct merges)
+        float weight = 1.0f;
+
+        // left -> merged
+        {
+            std::string source_hex = "\\x" + left_hash.to_hex();
+            std::string target_hex = "\\x" + merged_hash.to_hex();
+
+            std::string val = "('" + source_hex + "', '" + target_hex + "', 'M', '" +
+                              config.model_name + "', -1, 'merge', 1500.0, 1, " +
+                              std::to_string(weight) + ", " + std::to_string(weight) + ")";
+            values.push_back(val);
+            merge_edges++;
+        }
+
+        // right -> merged
+        {
+            std::string source_hex = "\\x" + right_hash.to_hex();
+            std::string target_hex = "\\x" + merged_hash.to_hex();
+
+            std::string val = "('" + source_hex + "', '" + target_hex + "', 'M', '" +
+                              config.model_name + "', -1, 'merge', 1500.0, 1, " +
+                              std::to_string(weight) + ", " + std::to_string(weight) + ")";
+            values.push_back(val);
+            merge_edges++;
+        }
+    }
+
+    // Batch insert merge relations
+    if (!values.empty()) {
+        const size_t batch_size = 1000;
+        for (size_t i = 0; i < values.size(); i += batch_size) {
+            std::string batch_sql = insert_sql;
+            for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
+                if (j > i) batch_sql += ", ";
+                batch_sql += values[j];
+            }
+            batch_sql += R"SQL( ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
+            DO UPDATE SET
+                rating = relation_evidence.rating +
+                         LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
+                         (
+                             (EXCLUDED.normalized_weight + 1.0) / 2.0 -
+                             (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))
+                         ),
+                observation_count = relation_evidence.observation_count + 1,
+                raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
+                             (relation_evidence.observation_count + 1),
+                normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
+                                    (relation_evidence.observation_count + 1),
+                last_updated = NOW()
+        )SQL";
+
+            Result res = exec(conn, batch_sql);
+            if (!res.ok()) {
+                std::cerr << "[MERGE] Batch insert failed: " << res.error_message() << "\n";
+                return false;
+            }
+        }
+    }
+
+    // Ensure merge token compositions exist
+    if (!ctx.bpe_merges.empty()) {
+        std::unordered_set<std::string> tokens_to_create;
+        for (const auto& [left, right] : ctx.bpe_merges) {
+            tokens_to_create.insert(left);
+            tokens_to_create.insert(right);
+            tokens_to_create.insert(left + right);
+        }
+
+        std::string comp_insert = "INSERT INTO composition (id, label, depth, child_count, atom_count, centroid, hilbert_lo, hilbert_hi) VALUES ";
+        std::vector<std::string> comp_values;
+
+        for (const std::string& token : tokens_to_create) {
+            CompositionRecord comp = AtomCalculator::compute_vocab_token(token);
+            std::string hex_id = "\\x" + comp.hash.to_hex();
+            std::string centroid = "010100002000000000000000000000000000000000000000000000000000000000000000";  // POINT(0 0 0 0)
+            comp_values.push_back("('" + hex_id + "', '" + token + "', 1, 1, 1, '" + centroid + "', 0, 0)");
+        }
+
+        if (!comp_values.empty()) {
+            for (size_t i = 0; i < comp_values.size(); ++i) {
+                if (i > 0) comp_insert += ", ";
+                comp_insert += comp_values[i];
+            }
+            comp_insert += " ON CONFLICT (id) DO NOTHING";
+
+            Result comp_res = exec(conn, comp_insert);
+            if (!comp_res.ok()) {
+                std::cerr << "[MERGE] Failed to insert merge token compositions: " << comp_res.error_message() << "\n";
+                return false;
+            }
+        }
+    }
+
+    tx.commit();
+
+    std::cerr << "[MERGE] Inserted " << merge_edges << " merge relations\n";
+
+    return true;
+}
+
+static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
+    std::cerr << "\n[HIERARCHY] Extracting tensor hierarchy relations...\n";
+
+    Transaction tx(conn);
+
+    std::string insert_sql = R"SQL(
+        INSERT INTO relation_evidence
+            (source_id, target_id, relation_type, source_model, layer, component,
+             rating, observation_count, raw_weight, normalized_weight)
+        VALUES
+    )SQL";
+    std::vector<std::string> values;
+
+    size_t hierarchy_edges = 0;
+
+    // Process each tensor to build parent-child relations
+    for (const auto& [tensor_name, tensor] : ctx.tensors) {
+        // Parse tensor name into components
+        std::vector<std::string> parts;
+        std::stringstream ss(tensor_name);
+        std::string part;
+        while (std::getline(ss, part, '.')) {
+            parts.push_back(part);
+        }
+
+        if (parts.size() < 2) continue;
+
+        // Build hierarchical path
+        std::string current_path;
+        for (size_t i = 0; i < parts.size(); ++i) {
+            std::string parent_path = current_path;
+            if (!current_path.empty()) current_path += ".";
+            current_path += parts[i];
+
+            if (i > 0) {  // Not the root
+                // Create H-relation from parent to child
+                auto parent_hash = AtomCalculator::compute_vocab_token(parent_path).hash;
+                auto child_hash = AtomCalculator::compute_vocab_token(current_path).hash;
+
+                std::string parent_hex = "\\x" + parent_hash.to_hex();
+                std::string child_hex = "\\x" + child_hash.to_hex();
+
+                // Parse layer number if present
+                int layer = -1;
+                if (parent_path.find("layers.") != std::string::npos) {
+                    size_t layer_pos = parent_path.find("layers.");
+                    if (layer_pos != std::string::npos) {
+                        size_t num_start = layer_pos + 7;
+                        size_t num_end = parent_path.find(".", num_start);
+                        if (num_end != std::string::npos) {
+                            try {
+                                layer = std::stoi(parent_path.substr(num_start, num_end - num_start));
+                            } catch (...) {}
+                        }
+                    }
+                }
+
+                // Weight = 1.0 for direct hierarchy (strong relation)
+                float weight = 1.0f;
+
+                std::string val = "('" + parent_hex + "', '" + child_hex + "', 'H', '" +
+                                  config.model_name + "', " + std::to_string(layer) + ", 'hierarchy', 1500.0, 1, " +
+                                  std::to_string(weight) + ", " + std::to_string(weight) + ")";
+                values.push_back(val);
+                hierarchy_edges++;
+            }
+        }
+    }
+
+    // Batch insert hierarchy relations
+    if (!values.empty()) {
+        const size_t batch_size = 1000;
+        for (size_t i = 0; i < values.size(); i += batch_size) {
+            std::string batch_sql = insert_sql;
+            for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
+                if (j > i) batch_sql += ", ";
+                batch_sql += values[j];
+            }
+            batch_sql += R"SQL( ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
+            DO UPDATE SET
+                rating = relation_evidence.rating +
+                         LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
+                         (
+                             (EXCLUDED.normalized_weight + 1.0) / 2.0 -
+                             (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))
+                         ),
+                observation_count = relation_evidence.observation_count + 1,
+                raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
+                             (relation_evidence.observation_count + 1),
+                normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
+                                    (relation_evidence.observation_count + 1),
+                last_updated = NOW()
+        )SQL";
+
+            Result res = exec(conn, batch_sql);
+            if (!res.ok()) {
+                std::cerr << "[HIERARCHY] Batch insert failed: " << res.error_message() << "\n";
+                return false;
+            }
+        }
+    }
+
+    tx.commit();
+
+    std::cerr << "[HIERARCHY] Inserted " << hierarchy_edges << " hierarchy relations\n";
+
+    return true;
+}
+
+static bool extract_attention_projection_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
+    std::cerr << "\n[ATTENTION] Extracting attention projection relations...\n";
+
+    // Find attention projection tensors
+    std::vector<std::pair<std::string, const TensorMeta*>> attn_tensors;
+
+    for (const auto& [name, meta] : ctx.tensors) {
+        if ((name.find("attn.q_proj.weight") != std::string::npos ||
+             name.find("attn.k_proj.weight") != std::string::npos ||
+             name.find("attn.v_proj.weight") != std::string::npos ||
+             name.find("attn.o_proj.weight") != std::string::npos ||
+             name.find("self_attn.q_proj.weight") != std::string::npos ||
+             name.find("self_attn.k_proj.weight") != std::string::npos ||
+             name.find("self_attn.v_proj.weight") != std::string::npos ||
+             name.find("self_attn.o_proj.weight") != std::string::npos) &&
+            meta.shape.size() == 2) {
+            attn_tensors.emplace_back(name, &meta);
+        }
+    }
+
+    if (attn_tensors.empty()) {
+        std::cerr << "[ATTENTION] No attention projection tensors found\n";
+        return true;
+    }
+
+    std::cerr << "[ATTENTION] Found " << attn_tensors.size() << " attention projection tensors\n";
+
+    size_t total_attn_edges = 0;
+
+    for (const auto& [tensor_name, tensor] : attn_tensors) {
+        // Parse layer number from tensor name
+        int layer = -1;
+        size_t layers_pos = tensor_name.find("layers.");
+        if (layers_pos != std::string::npos) {
+            size_t num_start = layers_pos + 7;
+            size_t num_end = tensor_name.find(".", num_start);
+            if (num_end != std::string::npos) {
+                layer = std::stoi(tensor_name.substr(num_start, num_end - num_start));
+            }
+        }
+
+        // Determine component type
+        std::string component;
+        if (tensor_name.find("q_proj") != std::string::npos) component = "q_proj";
+        else if (tensor_name.find("k_proj") != std::string::npos) component = "k_proj";
+        else if (tensor_name.find("v_proj") != std::string::npos) component = "v_proj";
+        else if (tensor_name.find("o_proj") != std::string::npos) component = "o_proj";
+        else component = "attn_proj";
+
+        int64_t out_dim = tensor->shape[0];
+        int64_t in_dim = tensor->shape[1];
+
+        // Sample rows to keep computation tractable (attention matrices are large)
+        int64_t max_rows = std::min(out_dim, static_cast<int64_t>(512));
+        int64_t stride = std::max(static_cast<int64_t>(1), out_dim / max_rows);
+
+        std::cerr << "  " << tensor_name << " [" << out_dim << " x " << in_dim << "] layer=" << layer << " component=" << component;
+        if (stride > 1) std::cerr << " (sampling every " << stride << " rows)";
+        std::cerr << "\n";
+
+        // Read sampled rows
+        std::vector<std::vector<float>> rows;
+        std::vector<int64_t> row_indices;
+        rows.reserve(max_rows);
+        row_indices.reserve(max_rows);
+
+        for (int64_t i = 0; i < out_dim; i += stride) {
+            auto row = read_tensor_row(*tensor, static_cast<size_t>(i));
+            if (!row.empty()) {
+                rows.push_back(std::move(row));
+                row_indices.push_back(i);
+            }
+        }
+
+        if (rows.size() < 2) continue;
+
+        // Build k-NN similarity for attention projection rows
+        const int k_neighbors = 8;
+        std::vector<std::tuple<size_t, size_t, float>> edges;
+
+        for (size_t i = 0; i < rows.size(); ++i) {
+            std::vector<std::pair<float, size_t>> neighbors;
+            for (size_t j = 0; j < rows.size(); ++j) {
+                if (i == j) continue;
+                // Compute cosine similarity
+                float sim = 0.0f;
+                float norm_i = 0.0f, norm_j = 0.0f;
+                for (int64_t d = 0; d < in_dim; ++d) {
+                    sim += rows[i][d] * rows[j][d];
+                    norm_i += rows[i][d] * rows[i][d];
+                    norm_j += rows[j][d] * rows[j][d];
+                }
+                norm_i = std::sqrt(norm_i);
+                norm_j = std::sqrt(norm_j);
+                if (norm_i > 1e-6f && norm_j > 1e-6f) {
+                    sim /= (norm_i * norm_j);
+                }
+                neighbors.emplace_back(sim, j);
+            }
+
+            std::partial_sort(neighbors.begin(),
+                              neighbors.begin() + std::min(static_cast<size_t>(k_neighbors), neighbors.size()),
+                              neighbors.end(),
+                              [](auto& a, auto& b) { return a.first > b.first; });
+
+            for (size_t k = 0; k < std::min(static_cast<size_t>(k_neighbors), neighbors.size()); ++k) {
+                float sim = neighbors[k].first;
+                size_t j = neighbors[k].second;
+                if (sim >= 0.1f && i < j) {  // Lower threshold for attention projections
+                    edges.emplace_back(i, j, sim);
+                }
+            }
+        }
+
+        if (edges.empty()) continue;
+
+        // Insert A-relations for attention projection similarities
+        Transaction tx(conn);
+
+        std::string insert_sql = R"SQL(
+            INSERT INTO relation_evidence
+                (source_id, target_id, relation_type, source_model, layer, component,
+                 rating, observation_count, raw_weight, normalized_weight)
+            VALUES
+        )SQL";
+        std::vector<std::string> values;
+
+        for (const auto& [i, j, sim] : edges) {
+            // Create dimension composition hashes for attention projection dimensions
+            std::string src_key = component + ":" + std::to_string(layer) + ":dim" + std::to_string(row_indices[i]);
+            std::string tgt_key = component + ":" + std::to_string(layer) + ":dim" + std::to_string(row_indices[j]);
+
+            auto src_hash = AtomCalculator::compute_vocab_token(src_key).hash;
+            auto tgt_hash = AtomCalculator::compute_vocab_token(tgt_key).hash;
+
+            std::string source_hex = "\\x" + src_hash.to_hex();
+            std::string target_hex = "\\x" + tgt_hash.to_hex();
+
+            float normalized = sim;  // Cosine similarity
+
+            std::string val = "('" + source_hex + "', '" + target_hex + "', 'A', '" +
+                              config.model_name + "', " + std::to_string(layer) + ", '" + component + "', 1500.0, 1, " +
+                              std::to_string(sim) + ", " + std::to_string(normalized) + ")";
+            values.push_back(val);
+        }
+
+        // Batch insert
+        const size_t batch_size = 1000;
+        for (size_t i = 0; i < values.size(); i += batch_size) {
+            std::string batch_sql = insert_sql;
+            for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
+                if (j > i) batch_sql += ", ";
+                batch_sql += values[j];
+            }
+            batch_sql += R"SQL( ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
+            DO UPDATE SET
+                rating = relation_evidence.rating +
+                         LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
+                         (
+                             (EXCLUDED.normalized_weight + 1.0) / 2.0 -
+                             (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))
+                         ),
+                observation_count = relation_evidence.observation_count + 1,
+                raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
+                             (relation_evidence.observation_count + 1),
+                normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
+                                    (relation_evidence.observation_count + 1),
+                last_updated = NOW()
+        )SQL";
+
+            Result res = exec(conn, batch_sql);
+            if (!res.ok()) {
+                std::cerr << "[ATTENTION] Batch insert failed: " << res.error_message() << "\n";
+                return false;
+            }
+        }
+
+        tx.commit();
+
+        std::cerr << "    -> " << edges.size() << " attention projection edges\n";
+        total_attn_edges += edges.size();
+
+        // Ensure dimension compositions exist
+        ensure_dimension_compositions_exist(conn, component, layer, row_indices);
+    }
+
+    std::cerr << "[ATTENTION] Total: " << total_attn_edges << " attention projection relations\n";
+
+    return true;
+}
+
+static bool ensure_dimension_compositions_exist(PGconn* conn, const std::string& component, int layer, const std::vector<int64_t>& dimensions) {
+    // Create compositions for dimension atoms if they don't exist
+    Transaction tx(conn);
+
+    std::string insert_sql = "INSERT INTO composition (id, label, depth, child_count, atom_count, centroid, hilbert_lo, hilbert_hi) VALUES ";
+    std::vector<std::string> inserts;
+
+    for (int64_t dim : dimensions) {
+        std::string key = component + ":" + std::to_string(layer) + ":dim" + std::to_string(dim);
+        CompositionRecord comp = AtomCalculator::compute_vocab_token(key);
+        std::string hex_id = "\\x" + comp.hash.to_hex();
+
+        // Build centroid EWKB (simplified point)
+        std::string centroid = "010100002000000000000000000000000000000000000000000000000000000000000000";  // POINT(0 0 0 0)
+
+        inserts.push_back("('" + hex_id + "', '" + key + "', 1, 1, 1, '" + centroid + "', 0, 0)");
+    }
+
+    if (!inserts.empty()) {
+        for (size_t i = 0; i < inserts.size(); ++i) {
+            if (i > 0) insert_sql += ", ";
+            insert_sql += inserts[i];
+        }
+        insert_sql += " ON CONFLICT (id) DO NOTHING";
+
+        Result ins_res = exec(conn, insert_sql);
+        if (!ins_res.ok()) {
+            std::cerr << "[ATTENTION] Failed to insert dimension compositions: " << ins_res.error_message() << "\n";
+            return false;
+        }
+    }
+
+    tx.commit();
     return true;
 }
 

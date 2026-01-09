@@ -22,12 +22,9 @@ bool insert_compositions(PGconn* conn, IngestContext& ctx) {
     size_t total = ctx.vocab_tokens.size();
     std::cerr << "[COMP] Inserting " << total << " token compositions...\n";
     
-    // Count compositions (skip single-char tokens)
-    size_t comp_count = 0;
-    for (const auto& token : ctx.vocab_tokens) {
-        if (token.comp.children.size() > 1) comp_count++;
-    }
-    std::cerr << "[COMP] " << comp_count << " multi-char compositions to insert\n";
+    // Count compositions (all tokens)
+    size_t comp_count = ctx.vocab_tokens.size();
+    std::cerr << "[COMP] " << comp_count << " token compositions to insert\n";
     
     // Phase 1: Build batch strings in parallel
     unsigned int num_threads = std::thread::hardware_concurrency();
@@ -73,8 +70,7 @@ bool insert_compositions(PGconn* conn, IngestContext& ctx) {
             
             processed.fetch_add(1);
             
-            // Skip single-char tokens (they're just atoms, already seeded)
-            if (c.children.size() <= 1) continue;
+            // Insert compositions for all tokens to ensure relations can reference them
             
             // Build composition row
             comp_batch += "\\\\x";

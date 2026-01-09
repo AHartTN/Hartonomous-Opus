@@ -11,15 +11,16 @@
 #include <algorithm>
 
 using namespace hypercube::generative;
+using namespace hypercube;
 
 // Global engine
 static GenerativeEngine& engine() {
     return get_engine();
 }
 
-// Helper to convert raw bytes to Blake3Hash
-static Blake3Hash bytes_to_hash(const uint8_t* bytes) {
-    Blake3Hash h;
+// Helper to convert raw bytes to Blake3Hash (using generative namespace)
+static hypercube::generative::Blake3Hash bytes_to_hash(const uint8_t* bytes) {
+    hypercube::generative::Blake3Hash h;
     std::memcpy(h.data(), bytes, 32);
     return h;
 }
@@ -116,8 +117,8 @@ GENERATIVE_C_API int gen_bigram_debug_find(
     const uint8_t* right_id,
     double* out_score
 ) {
-    Blake3Hash left = bytes_to_hash(left_id);
-    Blake3Hash right = bytes_to_hash(right_id);
+    hypercube::generative::Blake3Hash left = bytes_to_hash(left_id);
+    hypercube::generative::Blake3Hash right = bytes_to_hash(right_id);
     
     // Try to find exact match
     BigramKey key{left, right};
@@ -219,6 +220,10 @@ GENERATIVE_C_API size_t gen_find_similar(
 }
 
 // =============================================================================
+// Plugin System Integration (TODO: Implement)
+// =============================================================================
+
+// =============================================================================
 // Generation
 // =============================================================================
 
@@ -290,25 +295,38 @@ GENERATIVE_C_API void geom_map_codepoint(
     uint32_t codepoint,
     GeomPoint4D* coords
 ) {
-    // TODO: Implement coordinate mapping
-    // For now, return placeholder coordinates
-    coords->x = 1000000U;  // Placeholder uint32 values
-    coords->y = 1000000U;
-    coords->z = 1000000U;
-    coords->m = 1000000U;
+    // Map Unicode codepoint to 4D coordinates using Hilbert curve
+    // This creates a deterministic geometric embedding of Unicode
+    AtomCalculator calc;
+    Point4D p = calc.map_codepoint_to_4d(codepoint);
+
+    // Convert to uint32 representation for C API
+    // Map [-1,1] float range to [0, UINT32_MAX] uint32 range
+    auto float_to_uint32 = [](double val) -> uint32_t {
+        // Clamp to [-1, 1]
+        val = std::max(-1.0, std::min(1.0, val));
+        // Map to [0, 1]
+        val = (val + 1.0) / 2.0;
+        // Scale to uint32
+        return static_cast<uint32_t>(val * static_cast<double>(UINT32_MAX));
+    };
+
+    coords->x = float_to_uint32(p.x);
+    coords->y = float_to_uint32(p.y);
+    coords->z = float_to_uint32(p.z);
+    coords->m = float_to_uint32(p.m);
 }
 
 GENERATIVE_C_API double geom_euclidean_distance(
     const GeomPoint4D* a,
     const GeomPoint4D* b
 ) {
-    // TODO: Implement real Euclidean distance calculation
-    // Simple placeholder for now
+    // Standard Euclidean distance in 4D space
     double dx = (double)a->x - (double)b->x;
     double dy = (double)a->y - (double)b->y;
     double dz = (double)a->z - (double)b->z;
     double dm = (double)a->m - (double)b->m;
-    return sqrt(dx*dx + dy*dy + dz*dz + dm*dm);
+    return std::sqrt(dx*dx + dy*dy + dz*dz + dm*dm);
 }
 
 GENERATIVE_C_API void geom_centroid(
@@ -316,8 +334,7 @@ GENERATIVE_C_API void geom_centroid(
     size_t count,
     GeomPoint4D* result
 ) {
-    // TODO: Implement real centroid calculation
-    // Simple average placeholder for now
+    // Compute geometric centroid (arithmetic mean) of 4D points
     if (count == 0) {
         result->x = result->y = result->z = result->m = 0;
         return;
@@ -343,8 +360,8 @@ GENERATIVE_C_API void geom_weighted_centroid(
     size_t count,
     GeomPoint4D* result
 ) {
-    // TODO: Implement real weighted centroid calculation
-    // Simple weighted average placeholder for now
+    // Compute weighted centroid of 4D points
+    // Each point is weighted by its importance/confidence
     if (count == 0) {
         result->x = result->y = result->z = result->m = 0;
         return;

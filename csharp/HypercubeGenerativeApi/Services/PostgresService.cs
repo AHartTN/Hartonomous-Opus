@@ -156,6 +156,40 @@ public class PostgresService : IDisposable
     }
 
     /// <summary>
+    /// Get composition ID (BLAKE3 hash) by label
+    /// </summary>
+    public async Task<byte[]?> GetCompositionIdByLabelAsync(string label)
+    {
+        if (_connection == null || _disposed || string.IsNullOrWhiteSpace(label))
+        {
+            return null;
+        }
+
+        try
+        {
+            // Query for composition ID by label
+            await using var cmd = new NpgsqlCommand(
+                "SELECT id FROM composition WHERE label = @label LIMIT 1",
+                _connection);
+            cmd.Parameters.AddWithValue("@label", label);
+
+            var result = await cmd.ExecuteScalarAsync();
+            if (result == null || result is DBNull)
+            {
+                return null;
+            }
+
+            // PostgreSQL BYTEA type returns byte[]
+            return result as byte[];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error getting composition ID for label '{Label}'", label);
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Dispose database connection
     /// </summary>
     public void Dispose()

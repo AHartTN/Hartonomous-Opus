@@ -58,7 +58,7 @@
 -- HNSWLIB: ON
 -- Tests: ON (Google Test)
 -- 
--- Configuring done (10.2s)
+-- Configuring done (9.7s)
 -- Generating done (0.2s)
 -- Build files have been written to: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
 [1/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/hilbert.cpp.obj
@@ -94,14 +94,21 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_hilbert.cpp:209:1
       |                  ^~
 7 warnings generated.
 [11/86] Building C object CMakeFiles/hypercube_ops.dir/src/pg/hypercube_ops_pg.c.obj
-[12/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
+[12/86] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj
+FAILED: [code=1] CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj 
+C:\PROGRA~1\LLVM\bin\CLANG_~1.EXE -DGENERATIVE_C_EXPORTS -DHAS_AVX=1 -DHAS_HNSWLIB=1 -DHAS_MKL=1 -DHAS_OPENMP=1 -Dgenerative_c_EXPORTS -ID:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include -ID:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib -ID:/Intel/oneAPI/mkl/latest/include -O3 -DNDEBUG -Wall -Wextra -march=native -mtune=native -ffast-math -std=c++20 -D_DLL -D_MT -Xclang --dependent-lib=msvcrt -Wno-unused-parameter -Wno-sign-compare -fopenmp=libomp -MD -MT CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj -MF CMakeFiles\generative_c.dir\src\bridge\generative_c.cpp.obj.d -o CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj -c D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/bridge/generative_c.cpp
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/bridge/generative_c.cpp:300:5: error: unknown type name 'AtomCalculator'
+  300 |     AtomCalculator calc;
+      |     ^
+1 error generated.
 [13/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
-[14/86] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
+[14/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
 [15/86] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
-[16/86] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.obj
+[16/86] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
 [17/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.obj
-[18/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.obj
-[19/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.obj
+[18/86] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.obj
+[19/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.obj
+[20/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:1142:10: warning: unused variable 'tangent_basis' [-Wunused-variable]
  1142 |     auto tangent_basis = [](const Point4F& p) -> std::array<Point4F, 3> {
       |          ^~~~~~~~~~~~~
@@ -121,11 +128,6 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:204
   204 | uint32_t case_fold(uint32_t cp) {
       |          ^~~~~~~~~
 6 warnings generated.
-[20/86] Building CXX object CMakeFiles/test_clustering.dir/tests/test_clustering.cpp.obj
-D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_clustering.cpp:77:12: warning: unused variable 'avg_case_distance' [-Wunused-variable]
-   77 |     double avg_case_distance = total_case_distance / case_pairs.size();
-      |            ^~~~~~~~~~~~~~~~~
-1 warning generated.
 [21/86] Building CXX object CMakeFiles/test_coordinates.dir/tests/test_coordinates.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:249:13: warning: unused variable 'coords1' [-Wunused-variable]
   249 |     Point4D coords1 = CoordinateMapper::map_codepoint(test_cp);
@@ -155,7 +157,11 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_coordinates.cpp:8
   804 |     uint64_t normal_key = (static_cast<uint64_t>(normal.x) << 32) | normal.y;
       |              ^~~~~~~~~~
 9 warnings generated.
-[22/86] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj
+[22/86] Building CXX object CMakeFiles/test_clustering.dir/tests/test_clustering.cpp.obj
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/test_clustering.cpp:77:12: warning: unused variable 'avg_case_distance' [-Wunused-variable]
+   77 |     double avg_case_distance = total_case_distance / case_pairs.size();
+      |            ^~~~~~~~~~~~~~~~~
+1 warning generated.
 [23/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/projection_db.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/projection_db.cpp:181:13: warning: unused function 'sql_escape' [-Wunused-function]
   181 | std::string sql_escape(const std::string& s) {
@@ -163,64 +169,293 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/projection_db.cpp
 1 warning generated.
 [24/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
 [25/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
-[26/86] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.obj
-[27/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.obj
-[28/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/parallel_cpe.cpp.obj
-[29/86] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.obj
-[30/86] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.obj
-[31/86] Building CXX object CMakeFiles/test_integration.dir/tests/test_integration.cpp.obj
-[32/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
+[26/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/parallel_cpe.cpp.obj
+[27/86] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.obj
+[28/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.obj
+[29/86] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.obj
+[30/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_io.cpp:9:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:41:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/context.hpp:18:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  397 |         lower_name.find("bbox_embed") != std::string::npos ||
+      |                                                            ~~
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: note: place parentheses around the '&&' expression to silence this warning
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |                                                      ^                                              
+      |         (                                                                                           )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  521 |         lower_name.find("fpn") != std::string::npos ||
+      |                                                     ~~
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: note: place parentheses around the '&&' expression to silence this warning
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                   ^
+      |         (                                                                                        )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                                                                   ~~
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: note: place parentheses around the '&&' expression to silence this warning
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |                                                        ^                                              
+      |         (                                                                                             )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  726 |         lower_name.find("cache") != std::string::npos ||
+      |                                                       ~~
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: note: place parentheses around the '&&' expression to silence this warning
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |                                                      ^                   
+      |         (                                                                )
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_io.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
-1 warning generated.
-[33/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.obj
-[34/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_main.cpp.obj
-[35/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
+5 warnings generated.
+[31/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.obj
+[32/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/compositions.cpp:9:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:41:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/context.hpp:18:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  397 |         lower_name.find("bbox_embed") != std::string::npos ||
+      |                                                            ~~
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: note: place parentheses around the '&&' expression to silence this warning
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |                                                      ^                                              
+      |         (                                                                                           )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  521 |         lower_name.find("fpn") != std::string::npos ||
+      |                                                     ~~
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: note: place parentheses around the '&&' expression to silence this warning
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                   ^
+      |         (                                                                                        )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                                                                   ~~
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: note: place parentheses around the '&&' expression to silence this warning
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |                                                        ^                                              
+      |         (                                                                                             )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  726 |         lower_name.find("cache") != std::string::npos ||
+      |                                                       ~~
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: note: place parentheses around the '&&' expression to silence this warning
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |                                                      ^                   
+      |         (                                                                )
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/compositions.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
-1 warning generated.
-[36/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_blake3.cpp.obj
-[37/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
-[38/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.obj
-[39/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_coordinates.cpp.obj
-[40/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
-[41/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_schema.cpp.obj
-[42/86] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
-[43/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
-[44/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.obj
-[45/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.obj
+5 warnings generated.
+[33/86] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
+[34/86] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
+[35/86] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
+[36/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_hierarchy.cpp:9:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:41:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/context.hpp:18:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  397 |         lower_name.find("bbox_embed") != std::string::npos ||
+      |                                                            ~~
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: note: place parentheses around the '&&' expression to silence this warning
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |                                                      ^                                              
+      |         (                                                                                           )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  521 |         lower_name.find("fpn") != std::string::npos ||
+      |                                                     ~~
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: note: place parentheses around the '&&' expression to silence this warning
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                   ^
+      |         (                                                                                        )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                                                                   ~~
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: note: place parentheses around the '&&' expression to silence this warning
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |                                                        ^                                              
+      |         (                                                                                             )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  726 |         lower_name.find("cache") != std::string::npos ||
+      |                                                       ~~
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: note: place parentheses around the '&&' expression to silence this warning
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |                                                      ^                   
+      |         (                                                                )
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_hierarchy.cpp:9:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
-1 warning generated.
-[46/86] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
-[47/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.obj
-[48/86] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_query_api.cpp.obj
-[49/86] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
-[50/86] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.obj
-[51/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.obj
+5 warnings generated.
+[37/86] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj
+FAILED: [code=1] CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj 
+C:\PROGRA~1\LLVM\bin\CLANG_~1.EXE -DHAS_AVX=1 -DHAS_HNSWLIB=1 -DHAS_MKL=1 -DHAS_OPENMP=1 -ID:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include -ID:/vcpkg/installed/x64-windows/include -ID:/vcpkg/installed/x64-windows/include/server -ID:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib -ID:/Intel/oneAPI/mkl/latest/include -O3 -DNDEBUG -Wall -Wextra -march=native -mtune=native -ffast-math -std=c++20 -D_DLL -D_MT -Xclang --dependent-lib=msvcrt -Wno-unused-parameter -Wno-sign-compare -fopenmp=libomp -MD -MT CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj -MF CMakeFiles\hypercube_cli.dir\src\cli\main.cpp.obj.d -o CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj -c D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:37:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/context.hpp:18:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  397 |         lower_name.find("bbox_embed") != std::string::npos ||
+      |                                                            ~~
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: note: place parentheses around the '&&' expression to silence this warning
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |                                                      ^                                              
+      |         (                                                                                           )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  521 |         lower_name.find("fpn") != std::string::npos ||
+      |                                                     ~~
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: note: place parentheses around the '&&' expression to silence this warning
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                   ^
+      |         (                                                                                        )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                                                                   ~~
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: note: place parentheses around the '&&' expression to silence this warning
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |                                                        ^                                              
+      |         (                                                                                             )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  726 |         lower_name.find("cache") != std::string::npos ||
+      |                                                       ~~
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: note: place parentheses around the '&&' expression to silence this warning
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |                                                      ^                   
+      |         (                                                                )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:363:18: error: no member named 'compute_from_string' in 'hypercube::Blake3Hash'
+  363 |             hash.compute_from_string("test");
+      |             ~~~~ ^
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:372:26: error: excess elements in struct initializer
+  372 |             HilbertCurve hilbert(10);  // 10-bit precision
+      |                          ^       ~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:373:37: error: no member named 'encode' in 'hypercube::HilbertCurve'
+  373 |             uint64_t dist = hilbert.encode(5, 5, 5, 5);
+      |                             ~~~~~~~ ^
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:383:30: error: no member named 'map_codepoint_to_4d' in 'hypercube::AtomCalculator'
+  383 |             Point4D p = calc.map_codepoint_to_4d(65);  // 'A'
+      |                         ~~~~ ^
+4 warnings and 4 errors generated.
+[38/86] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.obj
+[39/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/multimodal_extraction.cpp:14:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/multimodal_extraction.hpp:16:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/context.hpp:18:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  397 |         lower_name.find("bbox_embed") != std::string::npos ||
+      |                                                            ~~
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: note: place parentheses around the '&&' expression to silence this warning
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |                                                      ^                                              
+      |         (                                                                                           )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  521 |         lower_name.find("fpn") != std::string::npos ||
+      |                                                     ~~
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: note: place parentheses around the '&&' expression to silence this warning
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                   ^
+      |         (                                                                                        )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                                                                   ~~
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: note: place parentheses around the '&&' expression to silence this warning
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |                                                        ^                                              
+      |         (                                                                                             )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  726 |         lower_name.find("cache") != std::string::npos ||
+      |                                                       ~~
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: note: place parentheses around the '&&' expression to silence this warning
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |                                                      ^                   
+      |         (                                                                )
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/multimodal_extraction.cpp:15:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
-1 warning generated.
-[52/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
-In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
-In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
-D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
-   89 | static bool AVX512Capable() {
-      |             ^~~~~~~~~~~~~
-1 warning generated.
-[53/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.obj
+5 warnings generated.
+[40/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/embedding_relations.cpp:11:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:41:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/context.hpp:18:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  397 |         lower_name.find("bbox_embed") != std::string::npos ||
+      |                                                            ~~
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: note: place parentheses around the '&&' expression to silence this warning
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |                                                      ^                                              
+      |         (                                                                                           )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  521 |         lower_name.find("fpn") != std::string::npos ||
+      |                                                     ~~
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: note: place parentheses around the '&&' expression to silence this warning
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                   ^
+      |         (                                                                                        )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                                                                   ~~
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: note: place parentheses around the '&&' expression to silence this warning
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |                                                        ^                                              
+      |         (                                                                                             )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  726 |         lower_name.find("cache") != std::string::npos ||
+      |                                                       ~~
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: note: place parentheses around the '&&' expression to silence this warning
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |                                                      ^                   
+      |         (                                                                )
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/embedding_relations.cpp:14:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/tensor_classifier.hpp:189:32: warning: unused variable 'd1' [-Wunused-variable]
   189 |         int64_t d0 = shape[0], d1 = shape[1];
@@ -230,16 +465,54 @@ In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/includ
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
-2 warnings generated.
-[54/86] Linking CXX executable vocab_extract.exe
-[55/86] Linking CXX executable vocab_ingest.exe
-[56/86] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
-[57/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.obj
+6 warnings generated.
+[41/86] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/tools/extract_embeddings.cpp:49:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/parsing.hpp:20:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/context.hpp:18:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  397 |         lower_name.find("bbox_embed") != std::string::npos ||
+      |                                                            ~~
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: note: place parentheses around the '&&' expression to silence this warning
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |                                                      ^                                              
+      |         (                                                                                           )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  521 |         lower_name.find("fpn") != std::string::npos ||
+      |                                                     ~~
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: note: place parentheses around the '&&' expression to silence this warning
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                   ^
+      |         (                                                                                        )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                                                                   ~~
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: note: place parentheses around the '&&' expression to silence this warning
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |                                                        ^                                              
+      |         (                                                                                             )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  726 |         lower_name.find("cache") != std::string::npos ||
+      |                                                       ~~
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: note: place parentheses around the '&&' expression to silence this warning
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |                                                      ^                   
+      |         (                                                                )
+4 warnings generated.
+[42/86] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.obj
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:598:28: warning: unused variable 'local_i' [-Wunused-variable]
   598 |                     size_t local_i = i - start;
       |                            ^~~~~~~
-D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:1711:20: warning: unused variable 'u' [-Wunused-variable]
- 1711 |             size_t u = q.front(); q.pop();
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:1716:20: warning: unused variable 'u' [-Wunused-variable]
+ 1716 |             size_t u = q.front(); q.pop();
       |                    ^
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:59:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
@@ -249,493 +522,176 @@ D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:93
   932 | static std::vector<std::vector<double>> feast_sparse_eigensolver(
       |                                         ^~~~~~~~~~~~~~~~~~~~~~~~
 4 warnings generated.
-[58/86] Linking CXX executable model_discovery.exe
-[59/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/semantic_extraction.cpp.obj
+[43/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:41:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/context.hpp:18:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  397 |         lower_name.find("bbox_embed") != std::string::npos ||
+      |                                                            ~~
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: note: place parentheses around the '&&' expression to silence this warning
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |                                                      ^                                              
+      |         (                                                                                           )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  521 |         lower_name.find("fpn") != std::string::npos ||
+      |                                                     ~~
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: note: place parentheses around the '&&' expression to silence this warning
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                   ^
+      |         (                                                                                        )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                                                                   ~~
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: note: place parentheses around the '&&' expression to silence this warning
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |                                                        ^                                              
+      |         (                                                                                             )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  726 |         lower_name.find("cache") != std::string::npos ||
+      |                                                       ~~
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: note: place parentheses around the '&&' expression to silence this warning
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |                                                      ^                   
+      |         (                                                                )
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+5 warnings generated.
+[44/86] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/semantic_extraction.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/semantic_extraction.cpp:14:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:41:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/context.hpp:18:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  397 |         lower_name.find("bbox_embed") != std::string::npos ||
+      |                                                            ~~
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: note: place parentheses around the '&&' expression to silence this warning
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |                                                      ^                                              
+      |         (                                                                                           )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  521 |         lower_name.find("fpn") != std::string::npos ||
+      |                                                     ~~
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: note: place parentheses around the '&&' expression to silence this warning
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                   ^
+      |         (                                                                                        )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                                                                   ~~
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: note: place parentheses around the '&&' expression to silence this warning
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |                                                        ^                                              
+      |         (                                                                                             )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  726 |         lower_name.find("cache") != std::string::npos ||
+      |                                                       ~~
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: note: place parentheses around the '&&' expression to silence this warning
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |                                                      ^                   
+      |         (                                                                )
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/semantic_extraction.cpp:14:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
-1 warning generated.
-[60/86] Linking CXX static library hypercube_core.lib; Copying Intel OpenMP DLL to output directory
-[61/86] Linking CXX static library hypercube_ingest.lib
-[62/86] Linking CXX shared library hypercube_c.dll
-[63/86] Linking CXX shared library embedding_c.dll
-[64/86] Linking CXX executable test_blake3.exe
-[65/86] Linking CXX executable test_hilbert.exe
-[66/86] Linking CXX executable test_coordinates.exe
-[67/86] Linking CXX shared library generative_c.dll
-[68/86] Linking CXX executable test_clustering.exe
-[69/86] Linking CXX executable test_laplacian_4d.exe
-[70/86] Linking CXX executable test_semantic.exe
-[71/86] Linking CXX executable test_integration.exe
-[72/86] Linking CXX executable extract_embeddings.exe
-[73/86] Linking CXX executable hypercube_tests.exe
-[74/86] Linking CXX executable seed_atoms_parallel.exe
-[75/86] Linking CXX executable ingest.exe
-[76/86] Linking CXX executable test_query_api.exe
-[77/86] Linking CXX executable hypercube_sql_tests.exe
-[78/86] Linking C shared library semantic_ops.dll
-[79/86] Linking C shared library hypercube.dll
-[80/86] Linking C shared library hypercube_ops.dll
-[81/86] Linking C shared library generative.dll
-[82/86] Linking C shared library embedding_ops.dll
-[83/86] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj
-In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:39:
-In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
-D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
-   89 | static bool AVX512Capable() {
-      |             ^~~~~~~~~~~~~
-1 warning generated.
-[84/86] Building CXX object CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.obj
+5 warnings generated.
+[45/86] Building CXX object CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/tools/ingest_safetensor_modular.cpp:58:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/context.hpp:18:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  397 |         lower_name.find("bbox_embed") != std::string::npos ||
+      |                                                            ~~
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:398:54: note: place parentheses around the '&&' expression to silence this warning
+  398 |         lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+      |                                                      ^                                              
+      |         (                                                                                           )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  521 |         lower_name.find("fpn") != std::string::npos ||
+      |                                                     ~~
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:522:51: note: place parentheses around the '&&' expression to silence this warning
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                   ^
+      |         (                                                                                        )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  522 |         lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
+      |                                                                                                   ~~
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:523:56: note: place parentheses around the '&&' expression to silence this warning
+  523 |         lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+      |                                                        ^                                              
+      |         (                                                                                             )
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: warning: '&&' within '||' [-Wlogical-op-parentheses]
+  726 |         lower_name.find("cache") != std::string::npos ||
+      |                                                       ~~
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/model_manifest.hpp:727:54: note: place parentheses around the '&&' expression to silence this warning
+  727 |         lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+      |                                                      ^                   
+      |         (                                                                )
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/tools/ingest_safetensor_modular.cpp:66:
 In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:49:
 D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
    89 | static bool AVX512Capable() {
       |             ^~~~~~~~~~~~~
-1 warning generated.
-[85/86] Linking CXX executable hc.exe
-[86/86] Linking CXX executable ingest_safetensor.exe
-=== Parallel Partitioned Atom Seeder ===
-Connection: dbname=hypercube host=localhost port=5432 user=hartonomous password=hartonomous
-Partitions: 8
-Generators: 8
-Connection Pool: 8 connections
-
-[1/5] Generating atoms (8 threads)...
-      Generated 1114112 atoms in 624 ms
-[2/5] Partitioning by hash...
-Partition sizes: 139506 139838 138867 139265 139269 138313 139631 139423 
-      Partitioned in 28 ms
-[3/5] Preparing database...
-      Setup in 89 ms
-[4/5] Parallel COPY to atom table (8 connections)...
-Partition 0 build time: 607 ms
-Partition 3 build time: 657 ms
-Partition 4 build time: 783 ms
-Partition 5 build time: 745 ms
-Partition 0 total time: 985 ms, I/O: 378 ms, atoms: 139506, rate: 141630 atoms/sec
-Partition 1 build time: 884 ms
-Partition 3 total time: 1125 ms, I/O: 468 ms, atoms: 139265, rate: 123791 atoms/sec
-Partition 2 build time: 861 ms
-Partition 6 build time: 840 ms
-Partition 5 total time: 1213 ms, I/O: 468 ms, atoms: 138313, rate: 114025 atoms/sec
-Partition 4 total time: 1214 ms, I/O: 431 ms, atoms: 139269, rate: 114719 atoms/sec
-Partition 7 build time: 867 ms
-Partition 1 total time: 1308 ms, I/O: 424 ms, atoms: 139838, rate: 106909 atoms/sec
-Partition 2 total time: 1322 ms, I/O: 461 ms, atoms: 138867, rate: 105043 atoms/sec
-Partition 6 total time: 1350 ms, I/O: 510 ms, atoms: 139631, rate: 103430 atoms/sec
-Partition 7 total time: 1420 ms, I/O: 553 ms, atoms: 139423, rate: 98185 atoms/sec
-      Parallel COPY in 1421 ms
-[5/5] Building indexes...
-      Index build in 1796 ms
-
-=== Complete ===
-Total atoms: 1114112
-Total time: 3961 ms (3.961 s)
-Rate: 281270 atoms/sec
-[THREADING] OpenMP threads: 8
-[THREADING] MKL threads: 8 (dynamic=0)
-=== Universal Safetensor Ingester (Modular) ===
-Directory: D:\Repositories\Github\AHartTN\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf
-Model: sentence-transformers/all-MiniLM-L6-v2
-Threshold: 0.5
-
-[0] Parsing model manifest (config.json, architecture detection)...
-[MANIFEST] Parsed config for c9745ed1d9f207416be6d2e6f8de32d1f16199bf (BERT)
-[MANIFEST] Found 13 config atoms
-
-[1] Parsing tokenizer: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\tokenizer.json"
-[TOKENIZER] Loaded 0 BPE merges, 30522 vocab entries
-[2] Parsing vocab: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\vocab.txt"
-
-[VOCAB] Loaded 30522 tokens in 507ms
-
-[2.5] Parsing model metadata (config, tokenizer, special tokens)...
-
-=== Parsing Model Metadata: c9745ed1d9f207416be6d2e6f8de32d1f16199bf ===
-[CONFIG] Parsed 21 config atoms, model_type=bert, vocab_size=30522
-[TOKENIZER] Loaded 5 special tokens, 0 BPE merges, 30522 vocab entries
-[METADATA] Total: 21 config atoms, 30522 vocab tokens, 0 merges, 5 special tokens
-[3] Parsing 1 safetensor files...
-  Parsing: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\model.safetensors"
-[INFO] Found 104 tensors
-[3.1] Categorizing tensors for extraction...
-[INFO] Created 104 extraction plans
-
-+--------------------------------------------------------------+
-|              MODEL MANIFEST SUMMARY                          |
-+--------------------------------------------------------------+
-  Model: sentence-transformers/all-MiniLM-L6-v2
-  Architecture: BERT
-  Path: D:\Repositories\Github\AHartTN\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf
-+--------------------------------------------------------------+
-  DIMENSIONS:
-    Vocab Size: 30522
-    Model Dim (d_model): 384
-    Layers: 6
-    Attention Heads: 12
-    FFN Dim: 1536
-+--------------------------------------------------------------+
-  TENSORS BY CATEGORY:
-    Embeddings:    4 (eigenmap extraction)
-    Attention:     18 (relation extraction)
-    FFN:           0 (skipped)
-    Normalization: 26 (skipped)
-    Convolution:   0 (skipped)
-    Other:         56
-    TOTAL:         104
-+--------------------------------------------------------------+
-  METADATA FOR INGESTION:
-    Config atoms:    13
-    Tokenizer atoms: 0
-    BPE merges:      0 (composition edges)
-    Vocab entries:   0
-+--------------------------------------------------------------+
-
-
-[3.5] Inserting model metadata as content...
-
-=== Inserting Model Metadata: c9745ed1d9f207416be6d2e6f8de32d1f16199bf ===
-[METADATA] Type: bert
-[METADATA] Config atoms: 21
-[METADATA] BPE merges: 0
-[METADATA] Special tokens: 5
-[METADATA] Vocab tokens: 30522
-[METADATA] Loading 1012 atoms (max codepoint: 65374 / 0xff5e)...
-[CACHE] Loaded 1012 atoms for 1012 unique codepoints in 11 ms
-[METADATA] Loaded 1012 atoms
-[CONFIG-AST] Built 42 nodes, 22 relations
-[BPE-TREE] Built 30522 token compositions
-[BPE-TREE] Built 0 merge relations
-[SPECIAL] Built 5 special token nodes
-[METADATA] Total: 30556 compositions, 27 relations
-[STREAM] Dropping idx_comp_label to prevent corruption...
-[STREAM] Buffers: comp=5095KB, child=27089KB, rel=5KB
-NOTICE:  table "tmp_meta_comp" does not exist, skipping
-NOTICE:  table "tmp_meta_child" does not exist, skipping
-NOTICE:  table "tmp_meta_rel" does not exist, skipping
-[STREAM] Merging into main tables...
-[STREAM] Child diagnostics: 198112 total, 198112 have parent comp, 198112 have atom child
-[STREAM] Inserted: 30556 compositions, 198112 children, 27 relations
-[STREAM] Recreating idx_comp_label...
-
-[4] Building tensor name hierarchy...
-[HIER] Building tensor hierarchy from 104 tensors
-[HIER] Found 33 unique codepoints in tensor names
-[HIER] Validated 33 atoms exist
-[HIER] Found 197 unique hierarchy nodes
-[HIER] Built 197 compositions with atom children
-[HIER] Built 194 composition->composition edges
-[HIER] Inserted/updated 197 hierarchy compositions
-NOTICE:  table "tmp_hier_atom_child" does not exist, skipping
-[HIER] Inserted 6904 atom children
-NOTICE:  table "tmp_hier_comp_child" does not exist, skipping
-[HIER] Inserted 194 composition->composition edges
-
-[5] Inserting token compositions...
-[COMP] Inserting 30522 token compositions...
-[COMP] 29525 multi-char compositions to insert
-[COMP] Building batch strings with 16 threads...
-  [BUILD] 30522/30522 tokens (59847/s)
-
-[COMP] Built 19011KB compositions + 26895KB children in 511ms
-[COMP] Streaming to database...
-[COMP] Dropping idx_comp_label to prevent corruption...
-[COMP] Creating temp tables...
-NOTICE:  table "tmp_comp" does not exist, skipping
-NOTICE:  table "tmp_comp_child" does not exist, skipping
-[COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (2122KB)
-  [COPY] Batch 2/16 (1278KB)
-  [COPY] Batch 3/16 (1967KB)
-  [COPY] Batch 4/16 (88KB)
-  [COPY] Batch 5/16 (2102KB)
-  [COPY] Batch 6/16 (1067KB)
-  [COPY] Batch 7/16 (815KB)
-  [COPY] Batch 8/16 (1864KB)
-  [COPY] Batch 9/16 (1894KB)
-  [COPY] Batch 10/16 (1231KB)
-  [COPY] Batch 11/16 (228KB)
-  [COPY] Batch 12/16 (1578KB)
-  [COPY] Batch 13/16 (1431KB)
-  [COPY] Batch 14/16 (136KB)
-  [COPY] Batch 15/16 (1075KB)
-  [COPY] Batch 16/16 (127KB)
-
-[COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (3018KB)
-  [COPY] Batch 2/16 (1824KB)
-  [COPY] Batch 3/16 (2798KB)
-  [COPY] Batch 4/16 (117KB)
-  [COPY] Batch 5/16 (2987KB)
-  [COPY] Batch 6/16 (1523KB)
-  [COPY] Batch 7/16 (1142KB)
-  [COPY] Batch 8/16 (2634KB)
-  [COPY] Batch 9/16 (2665KB)
-  [COPY] Batch 10/16 (1733KB)
-  [COPY] Batch 11/16 (314KB)
-  [COPY] Batch 12/16 (2236KB)
-  [COPY] Batch 13/16 (2019KB)
-  [COPY] Batch 14/16 (181KB)
-  [COPY] Batch 15/16 (1530KB)
-  [COPY] Batch 16/16 (166KB)
-
-[COMP] Inserting into composition table...
-[COMP] Inserted 29525 compositions
-[COMP] Inserting into composition_child table...
-[COMP] Inserted 0 children
-[COMP] Recreating idx_comp_label...
-[COMP] Inserted 29525 compositions, 0 children in 2004ms
-
-[5.5] Projecting token embeddings to 4D semantic coordinates...
-============================================================
-[PROJECTION] LAPLACIAN EIGENMAP PROJECTION starting
-============================================================
-[PROJECTION] Using config-driven tensor lookup
-[PROJECTION] Scanning 104 extraction plans...
-[PROJECTION]   Candidate 1: embeddings.word_embeddings.weight [30522 x 384] - AVAILABLE
-[PROJECTION] >>> WILL PROJECT: embeddings.word_embeddings.weight
-[PROJECTION]   Candidate 2: embeddings.token_type_embeddings.weight [2 x 384] - AVAILABLE
-[PROJECTION] >>> WILL PROJECT: embeddings.token_type_embeddings.weight
-[PROJECTION] Processing embedding: embeddings.word_embeddings.weight
-[PROJECTION] Loading 30522 x 384 embeddings...
-[LOAD_TENSOR] Opening file: D:\Repositories\Github\AHartTN\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\model.safetensors
-[LOAD_TENSOR] Seeking to offset: 796672
-[LOAD_TENSOR] Reading 11720448 elements as F32
-[LOAD_TENSOR] Successfully read 46881792 bytes (expected 46881792)
-[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
-[PROJECTION] Loaded in 38ms
-[PROJECTION] Embedding statistics (raw from safetensor):
-  Tensor: embeddings.word_embeddings.weight [30522 x 384]
-  Dtype: F32, File offset: 796672
-  Min: -5.073242e-01, Max: 1.049400e+00
-  Mean: 1.204355e-05, StdDev: 5.562442e-02
-  Zeros: 3 (2.6e-05%)
-  NaNs: 0
-  First embedding (token 0): [2.3026e-02, -7.4234e-03, -2.4521e-02, 4.4067e-02, -2.1561e-02, 4.9896e-03, -1.5884e-02, -1.8692e-02, 5.4703e-03, 2.3071e-02, ...]
-  Second embedding (token 1): [2.8458e-02, -9.9258e-03, -2.6657e-02, 3.8513e-02, -2.8595e-02, 1.0262e-02, -2.8320e-02, -3.2196e-02, 2.5177e-02, , ...]
-  First two rows identical: NO (good)
-[PROJECTION] Projecting 30522 embeddings to 4D using Laplacian eigenmaps...
-
-=== Laplacian Eigenmap Projection to 4D ===
-Tokens: 30522, Embedding dim: 384
-
-[1] Building k-NN similarity graph (k=15)...
-[HNSWLIB] Building HNSW index for 30522 points, dim=384
-[HNSWLIB] Using SEQUENTIAL strategy for 30522 points
-[HNSWLIB] Adding points to index...
-[HNSWLIB]   Progress: 1526/30522 (5.0%) | 14262 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 3052/30522 (10.0%) | 12987 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 4578/30522 (15.0%) | 11166 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 6104/30522 (20.0%) | 9567 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 7630/30522 (25.0%) | 8440 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 9156/30522 (30.0%) | 7624 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 10682/30522 (35.0%) | 6973 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 12208/30522 (40.0%) | 6504 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 13734/30522 (45.0%) | 5879 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 15260/30522 (50.0%) | 5450 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 16786/30522 (55.0%) | 5050 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 18312/30522 (60.0%) | 4709 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 19838/30522 (65.0%) | 4369 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 21364/30522 (70.0%) | 4183 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 22890/30522 (75.0%) | 3922 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 24416/30522 (80.0%) | 3737 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 25942/30522 (85.0%) | 3583 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 27468/30522 (90.0%) | 3420 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 28994/30522 (95.0%) | 3322 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 30520/30522 (100.0%) | 3352 pts/sec | ETA: 0m
-[HNSWLIB]   Progress: 30522/30522 (100.0%) | 3352 pts/sec
-[HNSWLIB] Index built in 9128 ms
-[HNSWLIB] Querying k-NN across 1 partition(s)...
-[HNSWLIB] k-NN queries completed in 2936 ms
-[HNSWLIB] Built k-NN graph with 219316 edges
-
-[1.5] Ensuring graph connectivity...
-[CONNECT] Found 17 disconnected components - adding edges
-[CONNECT] Graph is now connected (1 component)
-[CONNECT] Added 16 inter-component edges
-
-[2] Building normalized Laplacian...
-
-[3] Finding 4 smallest non-zero eigenvectors...
-[DEBUG] Laplacian matrix size: 30522x30522
-[DEBUG] Degrees: min=0, max=261, zero_count=0
-[DEBUG] Laplacian diagonal: min=1, max=1
-[DEBUG] Laplacian is symmetric: YES
-[DEBUG] Graph connectivity: 30522/30522 nodes reachable from node 0
-[LANCZOS] Finding 4 smallest non-zero eigenvectors using Lanczos on -L
-[LANCZOS] config_.convergence_tol = 0
-[LANCZOS] Config: tol=0, max_iter=500, num_eigenpairs=5
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -1 -1 -1 -1 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -1 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[0] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[1] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[1] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[1] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[1] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[1] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[1] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[1] = 0 > tol=0 - not converged
-[RITZ] Raw eigenvalues from tridiagonal solver: -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 ...
-
-[CONV] Residual[1] = 0 > tol=0 - not converged
-
-[LANCZOS] Subspace exhausted at m=500, returning best approximation (residuals may be high)
-[LANCZOS] Did not fully converge in 500 iterations
-[LANCZOS] Warning: residuals = [0, 0, 0, 0]
-[LANCZOS] All eigenvalues (raw): -2 -2 -2 -2 -2 
-[LANCZOS] Semantic eigenvalues (skipped ╬╗_0): 2 2 2 2 
-[LANCZOS] Returning 4 eigenvectors (skipped null space)
-
-[4] Gram-Schmidt orthonormalization...
-[GS] Robust Double-Pass Gram-Schmidt on 4 columns
-[GS] Max off-diagonal dot product after correction: 0
-
-[5] Normalizing to [0, 2^32-1]^4...
-[NORM] Coordinate ranges before normalization:
-  dim 0: [-0, 0]
-  dim 1: [-0, 0]
-  dim 2: [-0, 0]
-  dim 3: [-0, 0]
-[NORM] Normalized 30522 points to [0, 2^32-1]^4
-
-[6] Projecting to hypersphere...
-[SPHERE] Projecting 30522 points onto hypersphere (parallel)...
-[SPHERE] Projection complete
-
-[7] Computing Hilbert indices (parallel)...
-
-=== Projection Complete in 40 seconds ===
-Projected 30522 tokens to 4D hypercube
-Similarity graph edges: 219316
-[PROJECTION] Projection completed in 40240ms
-[PROJECTION] 4D coordinates range computed
-[PROJECTION] Variance explained: 82%
-[PROJECTION] Updating database with projected 4D coordinates for embeddings.word_embeddings.weight...
-[DB] Persisting 0 atoms, 30522 compositions...
-[DB] Computed 30522 composition centroids from atoms
-[DB] Inserted 30522 compositions
-[DB] Inserted 997 composition_child entries
-[DB] Persisted 30522 compositions with physical-first centroids
-[DB] Updated 0 atoms, 30522 compositions
-[PROJECTION] Updated 30522 token compositions with Laplacian-projected coordinates from embeddings.word_embeddings.weight
-[PROJECTION] Processing embedding: embeddings.token_type_embeddings.weight
-[PROJECTION] Loading 2 x 384 embeddings...
-[LOAD_TENSOR] Opening file: D:\Repositories\Github\AHartTN\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\model.safetensors
-[LOAD_TENSOR] Seeking to offset: 793600
-[LOAD_TENSOR] Reading 768 elements as F32
-[LOAD_TENSOR] Successfully read 3072 bytes (expected 3072)
-[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
-[PROJECTION] Loaded in 0ms
-[PROJECTION] Embedding statistics (raw from safetensor):
-  Tensor: embeddings.token_type_embeddings.weight [2 x 384]
-  Dtype: F32, File offset: 793600
-  Min: -1.087036e-01, Max: 8.135986e-02
-  Mean: 7.726286e-04, StdDev: 2.603564e-02
-  Zeros: 0 (0%)
-  NaNs: 0
-  First embedding (token 0): [1.3947e-02, -3.1403e-02, -4.0741e-02, 4.8645e-02, -7.3891e-03, 4.6997e-03, -3.7354e-02, -2.6443e-02, -2.7256e-03, 4.7913e-02, ...]
-  Second embedding (token 1): [2.1072e-02, -1.7136e-02, -2.9205e-02, 4.4800e-02, -1.7410e-02, 9.1400e-03, -1.8539e-02, -1.0780e-02, 3.4313e-03, , ...]
-  First two rows identical: NO (good)
-[PROJECTION] Projecting 2 embeddings to 4D using Laplacian eigenmaps...
-
-=== Laplacian Eigenmap Projection to 4D ===
-Tokens: 2, Embedding dim: 384
-
-[1] Building k-NN similarity graph (k=15)...
-[HNSWLIB] Building HNSW index for 2 points, dim=384
-[HNSWLIB] Using SEQUENTIAL strategy for 2 points
-[HNSWLIB] Adding points to index...
-[HNSWLIB]   Progress: 2/2 (100.0%) | 2000 pts/sec
-[HNSWLIB] Index built in 0 ms
-[HNSWLIB] Querying k-NN across 1 partition(s)...
-[HNSWLIB] k-NN queries completed in 106 ms
-[HNSWLIB] Built k-NN graph with 1 edges
-
-[1.5] Ensuring graph connectivity...
-
-[2] Building normalized Laplacian...
-
-[3] Finding 4 smallest non-zero eigenvectors...
-[DEBUG] Laplacian matrix size: 2x2
-[DEBUG] Degrees: min=1, max=1, zero_count=0
-[DEBUG] Laplacian diagonal: min=1, max=1
-[DEBUG] Laplacian is symmetric: YES
-[DEBUG] Graph connectivity: 2/2 nodes reachable from node 0
-[EIGEN] Using dense eigendecomposition for 2 points
-[MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
-[MKL] Eigendecomposition completed in 0 ms
-[MKL] Found 2 eigenvalues
-[MKL] Eigenvalues: 0 2 ...
-[ERROR] Could not find 4 eigenvectors
-[PROJECTION] Projection completed in 108ms
-[PROJECTION] 4D coordinates range computed
-[PROJECTION] Variance explained: 82%
+5 warnings generated.
+ninja: build stopped: subcommand failed.
+psql:hypercube_schema.sql:13: NOTICE:  extension "postgis" already exists, skipping
+psql:schema/01_tables.sql:22: NOTICE:  relation "atom" already exists, skipping
+psql:schema/01_tables.sql:41: NOTICE:  relation "composition" already exists, skipping
+psql:schema/01_tables.sql:54: NOTICE:  relation "composition_child" already exists, skipping
+psql:schema/01_tables.sql:77: NOTICE:  relation "relation" already exists, skipping
+psql:schema/01_tables.sql:91: NOTICE:  relation "model" already exists, skipping
+psql:schema/01_tables.sql:103: NOTICE:  relation "bigram_stats" already exists, skipping
+psql:schema/01_tables.sql:108: NOTICE:  relation "unigram_stats" already exists, skipping
+psql:schema/01_tables.sql:114: NOTICE:  relation "token_corpus_stats" already exists, skipping
+psql:schema/02_indexes.sql:15: NOTICE:  relation "idx_atom_codepoint" already exists, skipping
+psql:schema/02_indexes.sql:18: NOTICE:  relation "idx_atom_hilbert" already exists, skipping
+psql:schema/02_indexes.sql:21: NOTICE:  relation "idx_atom_geom" already exists, skipping
+psql:schema/02_indexes.sql:28: NOTICE:  relation "idx_comp_centroid" already exists, skipping
+psql:schema/02_indexes.sql:31: NOTICE:  relation "idx_comp_hilbert" already exists, skipping
+psql:schema/02_indexes.sql:34: NOTICE:  relation "idx_comp_label" already exists, skipping
+psql:schema/02_indexes.sql:37: NOTICE:  relation "idx_comp_depth" already exists, skipping
+psql:schema/02_indexes.sql:40: NOTICE:  relation "idx_comp_child_count" already exists, skipping
+psql:schema/02_indexes.sql:47: NOTICE:  relation "idx_comp_child_child" already exists, skipping
+psql:schema/02_indexes.sql:50: NOTICE:  relation "idx_comp_child_ordinal" already exists, skipping
+psql:schema/02_indexes.sql:57: NOTICE:  relation "idx_relation_source" already exists, skipping
+psql:schema/02_indexes.sql:60: NOTICE:  relation "idx_relation_target" already exists, skipping
+psql:schema/02_indexes.sql:63: NOTICE:  relation "idx_relation_type" already exists, skipping
+psql:schema/02_indexes.sql:66: NOTICE:  relation "idx_relation_model" already exists, skipping
+psql:schema/02_indexes.sql:69: NOTICE:  relation "idx_relation_weight" already exists, skipping
+psql:schema/02_indexes.sql:72: NOTICE:  relation "idx_relation_layer" already exists, skipping
+psql:schema/02_indexes.sql:79: NOTICE:  relation "idx_model_name" already exists, skipping
+psql:schema/02_indexes.sql:82: NOTICE:  relation "idx_model_source" already exists, skipping
+psql:schema/02_indexes.sql:89: NOTICE:  relation "idx_bigram_left" already exists, skipping
+psql:schema/02_indexes.sql:92: NOTICE:  relation "idx_bigram_right" already exists, skipping
+psql:schema/02_indexes.sql:95: NOTICE:  relation "idx_bigram_pmi" already exists, skipping
   Atoms  | Compositions | With Labels | Relations | Max Depth | Total Size 
 ---------+--------------+-------------+-----------+-----------+------------
- 1114112 |        62154 |       32700 |        27 |        24 | 458 MB
+ 1114112 |       190047 |      160593 |    255816 |        24 | 741 MB
 (1 row)
 
