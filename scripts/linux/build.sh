@@ -15,6 +15,14 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env.sh"
 
+# ============================================================================
+# SOURCE INTEL ONEAPI ENVIRONMENT
+# ============================================================================
+
+if [ -f "/opt/intel/oneapi/setvars.sh" ]; then
+    source /opt/intel/oneapi/setvars.sh > /dev/null 2>&1
+fi
+
 CLEAN=false
 INSTALL=false
 
@@ -52,11 +60,13 @@ else
 fi
 
 # ============================================================================
-# CMAKE CONFIGURE
+# CMAKE CONFIGURE & BUILD
 # ============================================================================
 
-mkdir -p "$HC_BUILD_DIR"
-cd "$HC_BUILD_DIR"
+cd "$HC_PROJECT_ROOT/cpp"
+
+mkdir -p build
+cd build
 
 echo ""
 echo "Configuring with CMake..."
@@ -65,27 +75,19 @@ cmake_args=(
     "-DCMAKE_BUILD_TYPE=$HC_BUILD_TYPE"
 )
 
-# Use Ninja if available
+# Use Ninja if available for faster builds
 if command -v ninja &> /dev/null; then
     cmake_args+=("-G" "Ninja")
 fi
 
-cmake "${cmake_args[@]}" ..
+cmake "${cmake_args[@]}" .. > /dev/null 2>&1
 
-# ============================================================================
-# BUILD
-# ============================================================================
-
-echo ""
 echo "Building with $HC_PARALLEL_JOBS parallel jobs..."
 
 START_TIME=$(date +%s)
 
-if [ -f "build.ninja" ]; then
-    ninja -j "$HC_PARALLEL_JOBS"
-else
-    make -j "$HC_PARALLEL_JOBS"
-fi
+# Build using cmake (works with both Ninja and Make)
+cmake --build . --config Release --parallel "$HC_PARALLEL_JOBS" 2>&1 | grep -E "^\[|Built|error:|Linking"
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
@@ -98,16 +100,30 @@ echo "============================================================"
 
 echo ""
 echo "Executables:"
-find . -maxdepth 2 -type f -executable \( -name "ingest*" -o -name "seed_*" -o -name "test_*" -o -name "extract_*" -o -name "hc" \) 2>/dev/null | while read f; do
-    echo "  $(basename "$f")"
+for exe in hc seed_atoms_parallel ingest ingest_safetensor extract_embeddings vocab_ingest vocab_extract; do
+    if [ -f "$exe" ]; then
+        echo "  ✓ $exe"
+    fi
 done
 
 echo ""
 echo "Extensions:"
-ls -1 *.so 2>/dev/null || echo "  (none)"
+for ext in hypercube semantic_ops hypercube_ops embedding_ops generative; do
+    if [ -f "$ext.so" ]; then
+        echo "  ✓ $ext.so"
+    fi
+done
+
+echo ""
+echo "Core Libraries:"
+for lib in libhypercube_c.so libhypercube_core.a libhypercube_ingest.a; do
+    if [ -f "$lib" ]; then
+        echo "  ✓ $lib"
+    fi
+done
 
 # ============================================================================
-# INSTALL EXTENSIONS
+# INSTALL EXTENSIONS (Optional)
 # ============================================================================
 
 if [ "$INSTALL" = true ]; then

@@ -205,7 +205,7 @@ public:
                 
                 double p_a = static_cast<double>(atom_counts[current[i]]) / total_atoms;
                 double p_b = static_cast<double>(atom_counts[current[i+1]]) / total_atoms;
-                double p_ab = static_cast<double>(pair_count) / std::max(1ULL, total_atoms - total_tokens);
+                double p_ab = static_cast<double>(pair_count) / static_cast<double>(std::max(static_cast<uint64_t>(1), total_atoms - total_tokens));
                 
                 if (p_a > 0 && p_b > 0 && p_ab > 0) {
                     double pmi = std::log2(p_ab / (p_a * p_b));
@@ -525,7 +525,7 @@ int main(int argc, char* argv[]) {
             if (verbose && model_tokens % batch_size == 0) {
                 auto now = std::chrono::high_resolution_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - model_start).count();
-                double tps = model_tokens * 1000.0 / std::max(1LL, elapsed);
+                double tps = model_tokens * 1000.0 / static_cast<double>(std::max(1LL, static_cast<long long>(elapsed)));
                 
                 std::cerr << "  " << model_tokens << " tokens, " 
                           << (pmi.total_compositions - model_compositions_before) << " new comps, "
@@ -552,7 +552,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "Models processed: " << models_processed << "\n";
     std::cerr << "Total tokens: " << total_tokens << "\n";
     std::cerr << "Total time: " << total_duration << " ms\n";
-    std::cerr << "Overall rate: " << (total_tokens * 1000.0 / std::max(1LL, total_duration)) << " tok/s\n";
+    std::cerr << "Overall rate: " << (total_tokens * 1000.0 / static_cast<double>(std::max(1LL, static_cast<long long>(total_duration)))) << " tok/s\n";
     
     // JSON output
     std::cout << "{\n";

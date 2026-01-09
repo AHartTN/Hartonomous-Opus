@@ -242,7 +242,7 @@ int main(int argc, char* argv[]) {
     }
 #endif
     if (!env_paths_str.empty()) {
-        search_paths = split_paths(env_paths);
+        search_paths = split_paths(env_paths_str);
     }
     
     // Add command line paths

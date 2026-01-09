@@ -833,7 +833,7 @@ inline void ModelManifest::print_summary() const {
     }
 
     // Determine dominant extraction method for each category
-    auto get_extraction_label = [](int embeddings, int relations, int stats, int total) -> std::string {
+    auto get_extraction_label = [](int embeddings, int relations, int stats, [[maybe_unused]] int total) -> std::string {
         if (embeddings > 0) return "eigenmap extraction";
         if (relations > 0) return "relation extraction";
         if (stats > 0) return "stats only";

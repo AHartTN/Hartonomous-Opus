@@ -119,7 +119,7 @@ std::string build_conninfo() {
 
 namespace hypercube::cli {
 
-int cmd_help(int argc, char* argv[]) {
+int cmd_help([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
     std::cout << "Hypercube - Semantic Graph Database Toolkit\n";
     std::cout << "Version " << HYPERCUBE_VERSION_STRING << "\n\n";
     std::cout << "Usage: hypercube <command> [options]\n\n";
@@ -154,7 +154,7 @@ int cmd_help(int argc, char* argv[]) {
 // Backend Command
 // =============================================================================
 
-int cmd_backend(int argc, char* argv[]) {
+int cmd_backend([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
     auto info = hypercube::Backend::detect();
     std::cout << info.summary();
     
@@ -173,7 +173,7 @@ int cmd_backend(int argc, char* argv[]) {
 // Version Command
 // =============================================================================
 
-int cmd_version(int argc, char* argv[]) {
+int cmd_version([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
     std::cout << "Hypercube " << HYPERCUBE_VERSION_STRING << "\n";
     
     auto info = hypercube::Backend::info();
@@ -243,7 +243,7 @@ int cmd_query(int argc, char* argv[]) {
     return 1;
 }
 
-int cmd_stats(int argc, char* argv[]) {
+int cmd_stats([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
     std::cout << "Database: " << build_conninfo() << "\n";
     
     // TODO: Call actual stats function
