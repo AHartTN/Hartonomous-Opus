@@ -649,13 +649,38 @@ inline bool stream_to_database(PGconn* conn,
     }
     int inserted_comps = cmd_tuples(res);
     
+    // DIAGNOSTIC: Check why children aren't inserting
+    res = exec(conn, "SELECT COUNT(*) FROM tmp_meta_child");
+    int total_children_in_temp = 0;
+    if (res.ok() && PQntuples(res.get()) > 0) {
+        total_children_in_temp = std::stoi(PQgetvalue(res.get(), 0, 0));
+    }
+
+    res = exec(conn, "SELECT COUNT(*) FROM tmp_meta_child c WHERE EXISTS (SELECT 1 FROM composition WHERE id = c.composition_id)");
+    int children_with_comp = 0;
+    if (res.ok() && PQntuples(res.get()) > 0) {
+        children_with_comp = std::stoi(PQgetvalue(res.get(), 0, 0));
+    }
+
+    res = exec(conn, "SELECT COUNT(*) FROM tmp_meta_child c WHERE c.child_type = 'A' AND EXISTS (SELECT 1 FROM atom WHERE id = c.child_id)");
+    int children_with_atom = 0;
+    if (res.ok() && PQntuples(res.get()) > 0) {
+        children_with_atom = std::stoi(PQgetvalue(res.get(), 0, 0));
+    }
+
+    std::cerr << "[STREAM] Child diagnostics: " << total_children_in_temp << " total, "
+              << children_with_comp << " have parent comp, "
+              << children_with_atom << " have atom child\n";
+
     res = exec(conn,
         "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
-        "SELECT composition_id, ordinal, child_type, child_id "
-        "FROM tmp_meta_child "
-        "WHERE EXISTS (SELECT 1 FROM composition WHERE id = tmp_meta_child.composition_id) "
+        "SELECT c.composition_id, c.ordinal, c.child_type, c.child_id "
+        "FROM tmp_meta_child c "
+        "WHERE EXISTS (SELECT 1 FROM composition WHERE id = c.composition_id) "
+        "  AND ((c.child_type = 'A' AND EXISTS (SELECT 1 FROM atom WHERE id = c.child_id)) "
+        "       OR (c.child_type = 'C' AND EXISTS (SELECT 1 FROM composition WHERE id = c.child_id))) "
         "ON CONFLICT (composition_id, ordinal) DO NOTHING");
-    
+
     if (!res.ok()) {
         std::cerr << "[STREAM] Child insert failed: " << res.error_message() << "\n";
         return false;

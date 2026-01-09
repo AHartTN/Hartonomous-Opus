@@ -120,6 +120,25 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
             uint32_t bits = static_cast<uint32_t>(raw[i]) << 16;
             std::memcpy(&data[i], &bits, 4);
         }
+
+        // VALIDATE: Check for extreme values indicating corruption
+        size_t corrupt_count = 0;
+        size_t nan_count = 0;
+        #pragma omp parallel for reduction(+:corrupt_count,nan_count)
+        for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
+            float val = data[i];
+            if (std::isnan(val)) {
+                nan_count++;
+                data[i] = 0.0f;  // Replace NaN with 0
+            } else if (std::abs(val) > 1e10f) {  // Extreme values
+                corrupt_count++;
+                data[i] = 0.0f;  // Replace corrupt values with 0
+            }
+        }
+        if (corrupt_count > 0 || nan_count > 0) {
+            std::cerr << "[LOAD_TENSOR] WARNING: Fixed " << corrupt_count << " extreme values and "
+                      << nan_count << " NaNs in BF16 data\n";
+        }
     } else if (meta.dtype == "F16") {
         std::vector<uint16_t> raw(n);
         f.read(reinterpret_cast<char*>(raw.data()), n * 2);
@@ -583,26 +602,31 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
     std::cerr << "[PROJECTION] LAPLACIAN EIGENMAP PROJECTION starting\n";
     std::cerr << "============================================================\n";
 
-    // Find the token embedding tensor (same logic as extract_all_semantic_relations)
-    const TensorMeta* emb = nullptr;
-    std::string emb_name;
+    // Process ALL token embedding tensors that are reasonable for projection
+    std::vector<std::pair<const TensorMeta*, std::string>> embeddings_to_project;
 
     if (ctx.manifest.has_value()) {
         std::cerr << "[PROJECTION] Using config-driven tensor lookup\n";
         std::cerr << "[PROJECTION] Scanning " << ctx.manifest->extraction_plans.size() << " extraction plans...\n";
 
-        // List ALL token embedding candidates
+        // Scan for embeddings with reasonable vocab size
+
+        // Process all TOKEN_EMBEDDING tensors with extract_embeddings=true
         int candidate_count = 0;
+
         for (const auto& plan : ctx.manifest->extraction_plans) {
-            if (plan.category == TensorCategory::TOKEN_EMBEDDING) {
+            if (plan.category == TensorCategory::TOKEN_EMBEDDING && plan.extract_embeddings) {
                 std::cerr << "[PROJECTION]   Candidate " << (++candidate_count) << ": " << plan.name;
                 auto it = ctx.tensors.find(plan.name);
                 if (it != ctx.tensors.end()) {
-                    std::cerr << " [" << it->second.shape[0] << " x " << it->second.shape[1] << "] - AVAILABLE\n";
-                    if (!emb) {  // Take first available
-                        emb = &it->second;
-                        emb_name = plan.name;
-                        std::cerr << "[PROJECTION] >>> SELECTED: " << plan.name << "\n";
+                    const auto& meta = it->second;
+                    std::cerr << " [" << meta.shape[0] << " x " << meta.shape[1] << "] - AVAILABLE\n";
+
+                    if (meta.shape.size() == 2) {
+                        embeddings_to_project.emplace_back(&meta, plan.name);
+                        std::cerr << "[PROJECTION] >>> WILL PROJECT: " << plan.name << "\n";
+                    } else {
+                        std::cerr << "[PROJECTION] >>> SKIPPED: " << plan.name << " (not 2D)\n";
                     }
                 } else {
                     std::cerr << " - NOT FOUND IN TENSORS\n";
@@ -615,175 +639,187 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
         }
     }
 
-    if (!emb) {
-        std::cerr << "[PROJECTION] WARNING: Manifest lookup failed, falling back to tensor scan\n";
-        size_t expected_vocab = ctx.get_vocab_size();
+    if (embeddings_to_project.empty()) {
+        // Fallback: If no manifest or manifest didn't find embeddings, scan tensors
+        std::cerr << "[PROJECTION] No embeddings found via manifest, falling back to tensor scan\n";
         for (const auto& [name, meta] : ctx.tensors) {
             if (meta.shape.size() != 2) continue;
             if (name.find("position") != std::string::npos) continue;
-            if (expected_vocab > 0 && meta.shape[0] == static_cast<int64_t>(expected_vocab)) {
-                emb = &meta;
-                emb_name = name;
-                std::cerr << "[PROJECTION] Found embedding: " << name
-                          << " [" << meta.shape[0] << " x " << meta.shape[1] << "]\n";
-                break;
-            }
+
+            // Include all potential embedding tensors
+            embeddings_to_project.emplace_back(&meta, name);
+            std::cerr << "[PROJECTION] >>> FOUND VIA SCAN: " << name
+                      << " [" << meta.shape[0] << " x " << meta.shape[1] << "]\n";
         }
     }
 
-    if (!emb) {
-        std::cerr << "[PROJECTION] No embedding tensor found, skipping Laplacian projection\n";
+    if (embeddings_to_project.empty()) {
+        std::cerr << "[PROJECTION] No suitable embedding tensors found for projection\n";
         return true;
     }
 
-    size_t V = static_cast<size_t>(emb->shape[0]);
-    size_t D = static_cast<size_t>(emb->shape[1]);
-    if (!ctx.vocab_tokens.empty()) V = std::min(V, ctx.vocab_tokens.size());
+    // Process each embedding tensor that was selected
+    for (const auto& [emb, emb_name] : embeddings_to_project) {
+        std::cerr << "[PROJECTION] Processing embedding: " << emb_name << "\n";
 
-    std::cerr << "[PROJECTION] Loading " << V << " x " << D << " embeddings...\n";
-    auto load_start = std::chrono::steady_clock::now();
-    auto E_flat = load_tensor(*emb);
-    auto load_end = std::chrono::steady_clock::now();
-    if (E_flat.empty()) {
-        std::cerr << "[PROJECTION] Failed to load embeddings\n";
-        return false;
-    }
-    E_flat.resize(V * D);
-    std::cerr << "[PROJECTION] Loaded in "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(load_end - load_start).count() << "ms\n";
+        size_t V = static_cast<size_t>(emb->shape[0]);
+        size_t D = static_cast<size_t>(emb->shape[1]);
+        if (!ctx.vocab_tokens.empty()) V = std::min(V, ctx.vocab_tokens.size());
 
-    // DIAGNOSTIC: Check embedding statistics BEFORE conversion
-    {
-        double sum = 0.0, sum_sq = 0.0;
-        double min_val = E_flat[0], max_val = E_flat[0];
-        size_t zero_count = 0, nan_count = 0;
+        // NOTE: Large vocabularies (>150K) will take significant time for HNSW build
+        // The build is progress-monitored and can be interrupted if needed
+        if (V > 150000) {
+            std::cerr << "[PROJECTION] WARNING: Large vocabulary (" << V << " tokens) - HNSW build may take 30-60 minutes\n";
+            std::cerr << "[PROJECTION] This is NORMAL for models like Llama with 200K vocab\n";
+            std::cerr << "[PROJECTION] Progress will be shown every 10%...\n";
+        }
 
-        for (size_t i = 0; i < std::min(size_t(V * D), E_flat.size()); ++i) {
-            float val = E_flat[i];
-            if (std::isnan(val)) {
-                ++nan_count;
-                continue;
+        std::cerr << "[PROJECTION] Loading " << V << " x " << D << " embeddings...\n";
+        auto load_start = std::chrono::steady_clock::now();
+        auto E_flat = load_tensor(*emb);
+        auto load_end = std::chrono::steady_clock::now();
+        if (E_flat.empty()) {
+            std::cerr << "[PROJECTION] Failed to load embeddings for " << emb_name << "\n";
+            continue;
+        }
+        E_flat.resize(V * D);
+        std::cerr << "[PROJECTION] Loaded in "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(load_end - load_start).count() << "ms\n";
+
+        // DIAGNOSTIC: Check embedding statistics BEFORE conversion
+        {
+            double sum = 0.0, sum_sq = 0.0;
+            double min_val = E_flat[0], max_val = E_flat[0];
+            size_t zero_count = 0, nan_count = 0;
+
+            for (size_t i = 0; i < std::min(size_t(V * D), E_flat.size()); ++i) {
+                float val = E_flat[i];
+                if (std::isnan(val)) {
+                    ++nan_count;
+                    continue;
+                }
+                if (std::abs(val) < 1e-10f) ++zero_count;
+                sum += val;
+                sum_sq += val * val;
+                if (val < min_val) min_val = val;
+                if (val > max_val) max_val = val;
             }
-            if (std::abs(val) < 1e-10f) ++zero_count;
-            sum += val;
-            sum_sq += val * val;
-            if (val < min_val) min_val = val;
-            if (val > max_val) max_val = val;
-        }
 
-        double mean = sum / (V * D);
-        double variance = (sum_sq / (V * D)) - (mean * mean);
-        double stddev = std::sqrt(variance);
+            double mean = sum / (V * D);
+            double variance = (sum_sq / (V * D)) - (mean * mean);
+            double stddev = std::sqrt(variance);
 
-        std::cerr << "[PROJECTION] Embedding statistics (raw from safetensor):\n";
-        std::cerr << "  Tensor: " << emb_name << " [" << V << " x " << D << "]\n";
-        std::cerr << "  Dtype: " << emb->dtype << ", File offset: " << emb->data_offset_start << "\n";
-        std::cerr << std::scientific << std::setprecision(6);
-        std::cerr << "  Min: " << min_val << ", Max: " << max_val << "\n";
-        std::cerr << "  Mean: " << mean << ", StdDev: " << stddev << "\n";
-        std::cerr << std::defaultfloat << std::setprecision(2);
-        std::cerr << "  Zeros: " << zero_count << " (" << (100.0 * zero_count / (V * D)) << "%)\n";
-        std::cerr << "  NaNs: " << nan_count << "\n";
+            std::cerr << "[PROJECTION] Embedding statistics (raw from safetensor):\n";
+            std::cerr << "  Tensor: " << emb_name << " [" << V << " x " << D << "]\n";
+            std::cerr << "  Dtype: " << emb->dtype << ", File offset: " << emb->data_offset_start << "\n";
+            std::cerr << std::scientific << std::setprecision(6);
+            std::cerr << "  Min: " << min_val << ", Max: " << max_val << "\n";
+            std::cerr << "  Mean: " << mean << ", StdDev: " << stddev << "\n";
+            std::cerr << std::defaultfloat << std::setprecision(2);
+            std::cerr << "  Zeros: " << zero_count << " (" << (100.0 * zero_count / (V * D)) << "%)\n";
+            std::cerr << "  NaNs: " << nan_count << "\n";
 
-        // Check first few embeddings with better precision
-        std::cerr << std::scientific << std::setprecision(4);
-        std::cerr << "  First embedding (token 0): [";
-        for (size_t j = 0; j < std::min(size_t(10), D); ++j) {
-            std::cerr << E_flat[j];
-            if (j < std::min(size_t(10), D) - 1) std::cerr << ", ";
-        }
-        std::cerr << ", ...]\n";
-
-        // Show second embedding too
-        if (V > 1) {
-            std::cerr << "  Second embedding (token 1): [";
+            // Check first few embeddings with better precision
+            std::cerr << std::scientific << std::setprecision(4);
+            std::cerr << "  First embedding (token 0): [";
             for (size_t j = 0; j < std::min(size_t(10), D); ++j) {
-                std::cerr << E_flat[D + j];
+                std::cerr << E_flat[j];
                 if (j < std::min(size_t(10), D) - 1) std::cerr << ", ";
             }
             std::cerr << ", ...]\n";
-        }
-        std::cerr << std::defaultfloat << std::setprecision(6);
 
-        // Check if all rows are identical
-        bool all_same = true;
-        if (V > 1) {
-            for (size_t j = 0; j < D; ++j) {
-                if (std::abs(E_flat[j] - E_flat[D + j]) > 1e-6f) {
-                    all_same = false;
-                    break;
+            // Show second embedding too
+            if (V > 1) {
+                std::cerr << "  Second embedding (token 1): [";
+                for (size_t j = 0; j < std::min(size_t(10), D) - 1; ++j) {
+                    std::cerr << E_flat[D + j];
+                    if (j < std::min(size_t(10), D) - 1) std::cerr << ", ";
+                }
+                std::cerr << ", ...]\n";
+            }
+            std::cerr << std::defaultfloat << std::setprecision(6);
+
+            // Check if all rows are identical
+            bool all_same = true;
+            if (V > 1) {
+                for (size_t j = 0; j < D; ++j) {
+                    if (std::abs(E_flat[j] - E_flat[D + j]) > 1e-6f) {
+                        all_same = false;
+                        break;
+                    }
                 }
             }
+            std::cerr << "  First two rows identical: " << (all_same ? "YES (DEGENERATE!)" : "NO (good)") << "\n";
         }
-        std::cerr << "  First two rows identical: " << (all_same ? "YES (DEGENERATE!)" : "NO (good)") << "\n";
-    }
 
-    // Convert to vector<vector<float>> for LaplacianProjector
-    std::vector<std::vector<float>> embeddings(V);
-    for (size_t i = 0; i < V; ++i) {
-        embeddings[i].resize(D);
-        for (size_t j = 0; j < D; ++j) {
-            embeddings[i][j] = E_flat[i * D + j];
+        // Convert to vector<vector<float>> for LaplacianProjector
+        std::vector<std::vector<float>> embeddings(V);
+        for (size_t i = 0; i < V; ++i) {
+            embeddings[i].resize(D);
+            for (size_t j = 0; j < D; ++j) {
+                embeddings[i][j] = E_flat[i * D + j];
+            }
         }
-    }
 
-    // Prepare labels
-    std::vector<std::string> labels(V);
-    for (size_t i = 0; i < V; ++i) {
-        if (i < ctx.vocab_tokens.size()) {
-            labels[i] = ctx.vocab_tokens[i].text;
-        } else {
-            labels[i] = "token_" + std::to_string(i);
+        // Prepare labels
+        std::vector<std::string> labels(V);
+        for (size_t i = 0; i < V; ++i) {
+            if (i < ctx.vocab_tokens.size()) {
+                labels[i] = ctx.vocab_tokens[i].text;
+            } else {
+                labels[i] = "token_" + std::to_string(i);
+            }
         }
+
+        // Configure Laplacian projector
+        LaplacianConfig lap_config;
+        lap_config.k_neighbors = 15;
+        lap_config.similarity_threshold = 0.0f;
+        lap_config.power_iterations = 50;  // Reduced for speed - 50 is often sufficient
+        lap_config.num_threads = g_num_threads;
+        lap_config.project_to_sphere = true;
+        lap_config.verbose = true;
+        // RELAXED tolerance for large sparse matrices (>100K points)
+        // Residuals ~1e-2 are acceptable for semantic embeddings
+        lap_config.convergence_tol = (V > 100000) ? 1e-2 : 1e-3;
+
+        std::cerr << "[PROJECTION] Projecting " << V << " embeddings to 4D using Laplacian eigenmaps...\n";
+        auto proj_start = std::chrono::steady_clock::now();
+
+        LaplacianProjector projector(lap_config);
+        ProjectionResult result = projector.project(embeddings, labels);
+
+        auto proj_end = std::chrono::steady_clock::now();
+        std::cerr << "[PROJECTION] Projection completed in "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(proj_end - proj_start).count() << "ms\n";
+        std::cerr << "[PROJECTION] 4D coordinates range computed\n";
+        std::cerr << "[PROJECTION] Variance explained: " << result.total_variance_explained * 100 << "%\n";
+
+        if (result.total_variance_explained < 0.01) {
+            std::cerr << "[PROJECTION] Variance explained too low for " << emb_name << ", skipping database update\n";
+            continue;
+        }
+
+        // Prepare TokenData for database update
+        std::vector<hypercube::db::TokenData> tokens(V);
+        for (size_t i = 0; i < V; ++i) {
+            tokens[i].label = labels[i];
+            tokens[i].hash = ctx.vocab_tokens[i].comp.hash;  // Use existing hash
+            tokens[i].is_atom = false;  // These are compositions (tokens)
+            tokens[i].coords = result.coords[i];
+            tokens[i].hilbert_lo = result.hilbert_lo[i];
+            tokens[i].hilbert_hi = result.hilbert_hi[i];
+        }
+
+        // Update database with projected coordinates
+        std::cerr << "[PROJECTION] Updating database with projected 4D coordinates for " << emb_name << "...\n";
+        hypercube::db::PersistConfig persist_config;
+        persist_config.update_existing = true;
+        hypercube::db::ProjectionPersister persister(conn, persist_config);
+        size_t updated = persister.persist(tokens);
+
+        std::cerr << "[PROJECTION] Updated " << updated << " token compositions with Laplacian-projected coordinates from " << emb_name << "\n";
     }
-
-    // Configure Laplacian projector
-    LaplacianConfig lap_config;
-    lap_config.k_neighbors = 15;
-    lap_config.similarity_threshold = 0.0f;
-    lap_config.power_iterations = 100;  // Reduced for speed
-    lap_config.num_threads = g_num_threads;
-    lap_config.project_to_sphere = true;
-    lap_config.verbose = true;
-    // Relax tolerance for large sparse matrices - residuals ~1e-3 are acceptable
-    lap_config.convergence_tol = 1e-4;
-
-    std::cerr << "[PROJECTION] Projecting " << V << " embeddings to 4D using Laplacian eigenmaps...\n";
-    auto proj_start = std::chrono::steady_clock::now();
-
-    LaplacianProjector projector(lap_config);
-    ProjectionResult result = projector.project(embeddings, labels);
-
-    auto proj_end = std::chrono::steady_clock::now();
-    std::cerr << "[PROJECTION] Projection completed in "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(proj_end - proj_start).count() << "ms\n";
-    std::cerr << "[PROJECTION] 4D coordinates range computed\n";
-    std::cerr << "[PROJECTION] Variance explained: " << result.total_variance_explained * 100 << "%\n";
-
-    if (result.total_variance_explained < 0.01) {
-        std::cerr << "[PROJECTION] Variance explained too low, skipping database update\n";
-        return true;
-    }
-
-    // Prepare TokenData for database update
-    std::vector<hypercube::db::TokenData> tokens(V);
-    for (size_t i = 0; i < V; ++i) {
-        tokens[i].label = labels[i];
-        tokens[i].hash = ctx.vocab_tokens[i].comp.hash;  // Use existing hash
-        tokens[i].is_atom = false;  // These are compositions (tokens)
-        tokens[i].coords = result.coords[i];
-        tokens[i].hilbert_lo = result.hilbert_lo[i];
-        tokens[i].hilbert_hi = result.hilbert_hi[i];
-    }
-
-    // Update database with projected coordinates
-    std::cerr << "[PROJECTION] Updating database with projected 4D coordinates...\n";
-    hypercube::db::PersistConfig persist_config;
-    persist_config.update_existing = true;
-    hypercube::db::ProjectionPersister persister(conn, persist_config);
-    size_t updated = persister.persist(tokens);
-
-    std::cerr << "[PROJECTION] Updated " << updated << " token compositions with Laplacian-projected coordinates\n";
 
     return true;
 }

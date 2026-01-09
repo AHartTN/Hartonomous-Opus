@@ -1,14 +1,17 @@
 /**
  * @file embedding_relations.cpp
  * @brief Extract k-NN similarity relations from embedding tensors
- * 
+ *
  * Uses HNSWLIB to build efficient k-NN graphs from model embeddings
  * and inserts similarity edges as relation records.
+ *
+ * NOW LANGUAGE-AGNOSTIC: Uses tensor shapes and structure instead of English names
  */
 
 #include "hypercube/ingest/db_operations.hpp"
 #include "hypercube/db/operations.hpp"
 #include "hypercube/db/helpers.hpp"
+#include "hypercube/tensor_classifier.hpp"
 
 namespace hypercube {
 namespace ingest {
@@ -17,33 +20,63 @@ namespace db {
 using namespace hypercube::db;
 
 bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
-    // Find embedding tensors - support multiple model architectures
+    // Find embedding tensors using LANGUAGE-AGNOSTIC shape analysis
     std::vector<std::pair<std::string, TensorMeta*>> embed_tensors;
-    
+
+    // First pass: analyze all tensors to determine model statistics
+    std::vector<hypercube::ingest::TensorShape> all_shapes;
     for (auto& [name, meta] : ctx.tensors) {
-        // Language model embeddings (semantic - high cosine values)
-        if (name.find("embed_tokens") != std::string::npos ||
-            name.find("word_embeddings") != std::string::npos ||
-            name.find("wte.weight") != std::string::npos ||
-            name.find("token_embedding") != std::string::npos) {
-            embed_tensors.emplace_back("token", &meta);
-        }
-        // Vision model patch embeddings (moderate cosine values)
-        else if (name.find("patch_embed") != std::string::npos ||
-                 name.find("patch_embedding") != std::string::npos ||
-                 (name.find("proj.weight") != std::string::npos && name.find("patch") != std::string::npos)) {
-            embed_tensors.emplace_back("patch", &meta);
-        }
-        // CLIP/multimodal projections (moderate cosine values)
-        else if (name.find("text_projection") != std::string::npos ||
-                 name.find("visual_projection") != std::string::npos) {
-            embed_tensors.emplace_back("projection", &meta);
-        }
-        // Position embeddings (near-orthogonal by design - very low cosine values)
-        else if (name.find("position_embed") != std::string::npos ||
-                 name.find("pos_embed") != std::string::npos ||
-                 name.find("query_position") != std::string::npos) {
-            embed_tensors.emplace_back("position", &meta);
+        all_shapes.push_back({meta.shape});
+    }
+    hypercube::ingest::TensorClassifier classifier;
+    classifier.update_model_stats(all_shapes);
+
+    // Second pass: classify embedding tensors by shape
+    for (auto& [name, meta] : ctx.tensors) {
+        hypercube::ingest::TensorShape shape{meta.shape};
+        hypercube::ingest::ClassificationContext context =
+            hypercube::ingest::TensorClassifier::analyze_path(name);
+
+        hypercube::ingest::TensorComponent comp_type =
+            hypercube::ingest::TensorClassifier::classify(shape, context);
+
+        // Map component types to embedding categories
+        switch (comp_type) {
+            case hypercube::ingest::TensorComponent::TOKEN_EMBEDDINGS:
+                embed_tensors.emplace_back("token", &meta);
+                break;
+            case hypercube::ingest::TensorComponent::POSITION_EMBEDDINGS:
+                embed_tensors.emplace_back("position", &meta);
+                break;
+            case hypercube::ingest::TensorComponent::PATCH_EMBEDDING:
+                embed_tensors.emplace_back("patch", &meta);
+                break;
+            case hypercube::ingest::TensorComponent::VISUAL_PROJECTION:
+                embed_tensors.emplace_back("projection", &meta);
+                break;
+            default:
+                // Keep legacy string matching as fallback for now
+                if (name.find("embed_tokens") != std::string::npos ||
+                    name.find("word_embeddings") != std::string::npos ||
+                    name.find("wte.weight") != std::string::npos ||
+                    name.find("token_embedding") != std::string::npos) {
+                    embed_tensors.emplace_back("token", &meta);
+                }
+                else if (name.find("patch_embed") != std::string::npos ||
+                         name.find("patch_embedding") != std::string::npos ||
+                         (name.find("proj.weight") != std::string::npos && name.find("patch") != std::string::npos)) {
+                    embed_tensors.emplace_back("patch", &meta);
+                }
+                else if (name.find("text_projection") != std::string::npos ||
+                         name.find("visual_projection") != std::string::npos) {
+                    embed_tensors.emplace_back("projection", &meta);
+                }
+                else if (name.find("position_embed") != std::string::npos ||
+                         name.find("pos_embed") != std::string::npos ||
+                         name.find("query_position") != std::string::npos) {
+                    embed_tensors.emplace_back("position", &meta);
+                }
+                break;
         }
     }
     

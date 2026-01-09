@@ -728,7 +728,9 @@ inline void ModelManifest::categorize_tensor(const std::string& name,
         case TensorCategory::MOE_SHARED_EXPERT:
         case TensorCategory::MOE_EXPERT:
         case TensorCategory::MOE_GATE:  // legacy
-            plan.extract_embeddings = true;  // Expert geometry
+            // DO NOT extract embeddings from MoE experts - hundreds of large tensors
+            // Expert weights analyzed via router relations
+            plan.extract_attention = true;  // Track router→expert routing patterns
             ffn_tensors++;
             break;
             
@@ -738,17 +740,19 @@ inline void ModelManifest::categorize_tensor(const std::string& name,
         case TensorCategory::FFN_UP:
         case TensorCategory::FFN_DOWN:
         case TensorCategory::FFN_GATE:
-            plan.extract_embeddings = true;  // FFN layers mix semantic concepts
+            // DO NOT extract embeddings from FFN - too many tensors, too slow
+            // FFN weights are better analyzed via attention relations
             plan.extract_attention = true;   // Extract transformation relationships
             ffn_tensors++;
             break;
-        
+
         // =====================================================================
         // NORMALIZATION (semantic scaling and domain adaptation)
         // =====================================================================
         case TensorCategory::LAYER_NORM:
         case TensorCategory::RMS_NORM:
-            plan.extract_embeddings = true;  // Scale/bias parameters encode semantic importance
+            // DO NOT extract embeddings from normalization - single vector per layer
+            // Norm parameters don't represent semantic manifolds
             norm_tensors++;
             break;
 
@@ -756,7 +760,8 @@ inline void ModelManifest::categorize_tensor(const std::string& name,
         // CONVOLUTION (hierarchical visual features)
         // =====================================================================
         case TensorCategory::CONV_KERNEL:
-            plan.extract_embeddings = true;  // Learned filters represent visual semantics
+            // DO NOT extract embeddings from conv kernels - too high dimensional
+            // Conv filters analyzed better via attention patterns
             conv_tensors++;
             break;
         

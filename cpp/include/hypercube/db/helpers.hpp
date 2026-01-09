@@ -278,7 +278,7 @@ public:
     
     bool ok() const {
         ExecStatusType status = PQresultStatus(res_);
-        return status == PGRES_TUPLES_OK || status == PGRES_COMMAND_OK;
+        return status == PGRES_TUPLES_OK || status == PGRES_COMMAND_OK || status == PGRES_COPY_IN;
     }
     
     bool has_rows() const {

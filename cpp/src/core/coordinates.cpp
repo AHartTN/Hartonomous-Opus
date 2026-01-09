@@ -701,7 +701,8 @@ Point4F CoordinateMapper::map_codepoint_float(uint32_t codepoint) noexcept {
     // Use double precision instead of long double for performance
     // Precompute constants and use SIMD-friendly operations
 
-    const uint64_t i = static_cast<uint64_t>(codepoint);
+    // Use semantic order to position semantically related codepoints adjacently
+    const uint64_t i = get_semantic_order(codepoint);
     const double N = static_cast<double>(TOTAL_CODEPOINTS);
 
     // Precomputed irrational constants (sufficient precision for our use case)

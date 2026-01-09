@@ -258,15 +258,23 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
                    "composition_id BYTEA, ordinal SMALLINT, child_type CHAR(1), child_id BYTEA)");
 
         Result copy_res = exec(conn, "COPY tmp_hier_atom_child FROM STDIN");
-        if (copy_res.ok()) {
-            PQputCopyData(conn, atom_child_batch.c_str(), static_cast<int>(atom_child_batch.size()));
-            PQputCopyEnd(conn, nullptr);
-            PGresult* r = PQgetResult(conn);
-            if (PQresultStatus(r) != PGRES_COMMAND_OK) {
-                std::cerr << "[HIER] Atom child COPY failed: " << PQerrorMessage(conn) << "\n";
-            }
-            PQclear(r);
+        if (!copy_res.ok()) {
+            std::cerr << "[HIER] COPY start failed: " << copy_res.error_message() << "\n";
+            return false;
         }
+        PQputCopyData(conn, atom_child_batch.c_str(), static_cast<int>(atom_child_batch.size()));
+        int copy_end_result = PQputCopyEnd(conn, nullptr);
+        if (copy_end_result != 1) {
+            std::cerr << "[HIER] PQputCopyEnd failed: " << PQerrorMessage(conn) << "\n";
+            return false;
+        }
+        PGresult* r = PQgetResult(conn);
+        if (PQresultStatus(r) != PGRES_COMMAND_OK) {
+            std::cerr << "[HIER] Atom child COPY failed: " << PQerrorMessage(conn) << "\n";
+            PQclear(r);
+            return false;
+        }
+        PQclear(r);
 
         Result ins_res = exec(conn,
             "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
@@ -278,6 +286,7 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
         int atom_edges = ins_res.ok() ? cmd_tuples(ins_res) : 0;
         if (!ins_res.ok()) {
             std::cerr << "[HIER] Atom children insert failed: " << ins_res.error_message() << "\n";
+            return false;
         }
         std::cerr << "[HIER] Inserted " << atom_edges << " atom children\n";
     }
@@ -289,15 +298,23 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
                    "composition_id BYTEA, ordinal SMALLINT, child_type CHAR(1), child_id BYTEA)");
 
         Result copy_res = exec(conn, "COPY tmp_hier_comp_child FROM STDIN");
-        if (copy_res.ok()) {
-            PQputCopyData(conn, child_batch.c_str(), static_cast<int>(child_batch.size()));
-            PQputCopyEnd(conn, nullptr);
-            PGresult* r = PQgetResult(conn);
-            if (PQresultStatus(r) != PGRES_COMMAND_OK) {
-                std::cerr << "[HIER] Comp child COPY failed: " << PQerrorMessage(conn) << "\n";
-            }
-            PQclear(r);
+        if (!copy_res.ok()) {
+            std::cerr << "[HIER] COPY start failed: " << copy_res.error_message() << "\n";
+            return false;
         }
+        PQputCopyData(conn, child_batch.c_str(), static_cast<int>(child_batch.size()));
+        int copy_end_result = PQputCopyEnd(conn, nullptr);
+        if (copy_end_result != 1) {
+            std::cerr << "[HIER] PQputCopyEnd failed: " << PQerrorMessage(conn) << "\n";
+            return false;
+        }
+        PGresult* r = PQgetResult(conn);
+        if (PQresultStatus(r) != PGRES_COMMAND_OK) {
+            std::cerr << "[HIER] Comp child COPY failed: " << PQerrorMessage(conn) << "\n";
+            PQclear(r);
+            return false;
+        }
+        PQclear(r);
 
         Result ins_res = exec(conn,
             "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
@@ -309,6 +326,7 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
         int edges_inserted = ins_res.ok() ? cmd_tuples(ins_res) : 0;
         if (!ins_res.ok()) {
             std::cerr << "[HIER] Comp children insert failed: " << ins_res.error_message() << "\n";
+            return false;
         }
         std::cerr << "[HIER] Inserted " << edges_inserted << " composition->composition edges\n";
     }
