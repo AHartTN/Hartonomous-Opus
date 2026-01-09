@@ -49,7 +49,20 @@
       "Bash(while true)",
       "Bash(do tail -3 \"d:\\\\Repositories\\\\Github\\\\AHartTN\\\\Hartonomous-Opus\\\\ingest-models-log.txt\")",
       "Bash(break)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(ninja:*)",
+      "Bash(\".\\\\cpp\\\\build\\\\ingest_safetensor_modular.exe\" \"test-data\\\\embedding_models\\\\models--sentence-transformers--all-MiniLM-L6-v2\\\\snapshots\\\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\\\model.safetensors\")",
+      "Bash(\".\\\\cpp\\\\build\\\\ingest_safetensor.exe\" \"test-data\\\\embedding_models\\\\models--sentence-transformers--all-MiniLM-L6-v2\\\\snapshots\\\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\\\model.safetensors\")",
+      "Bash(Select-String -Pattern \"HIER|FATAL|ERROR|Validated|Inserted|Failed\")",
+      "Bash(Select-Object -Last 20)",
+      "Bash(\".\\\\cpp\\\\build\\\\ingest_safetensor.exe\" \"test-data\\\\embedding_models\\\\models--sentence-transformers--all-MiniLM-L6-v2\\\\snapshots\\\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\")",
+      "Bash(set PGPASSWORD=hartonomous:*)",
+      "Bash(set PGHOST=localhost)",
+      "Bash(set PGPORT=5432)",
+      "Bash(set:*)",
+      "Bash(set PGDATABASE=hypercube:*)",
+      "Bash(Select-Object -Last 60)",
+      "Bash(\".\\\\cpp\\\\build\\\\ingest_safetensor.exe\" -d \"host=localhost port=5432 dbname=hypercube user=hartonomous password=hartonomous\" \"test-data\\\\embedding_models\\\\models--sentence-transformers--all-MiniLM-L6-v2\\\\snapshots\\\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\")"
     ]
   },
   "outputStyle": "default"

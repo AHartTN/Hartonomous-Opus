@@ -253,9 +253,9 @@ echo ""
 
 # Final database state
 export PGPASSWORD="$HC_DB_PASS"
-ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null | tr -d '[:space:]')
-COMP_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM composition" 2>/dev/null | tr -d '[:space:]')
-REL_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM relation" 2>/dev/null | tr -d '[:space:]')
+ATOM_COUNT=$(hc_psql -tAc "SELECT atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
+COMP_COUNT=$(hc_psql -tAc "SELECT compositions FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
+REL_COUNT=$(hc_psql -tAc "SELECT relations FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
 unset PGPASSWORD
 
 echo "  Final Database State:"

@@ -79,7 +79,7 @@
             GET /ingest/status/{id} - Check ingestion status and results
             </summary>
         </member>
-        <member name="M:HypercubeGenerativeApi.Controllers.IngestionController.GetIngestionStats(HypercubeGenerativeApi.Services.PostgresService,Microsoft.Extensions.Logging.ILogger{HypercubeGenerativeApi.Services.GenerativeService})">
+        <member name="M:HypercubeGenerativeApi.Controllers.IngestionController.GetIngestionStats(HypercubeGenerativeApi.Services.IngestionService,Microsoft.Extensions.Logging.ILogger{HypercubeGenerativeApi.Services.IngestionService})">
             <summary>
             GET /ingest/stats - Overall ingestion statistics and knowledge base metrics
             </summary>
@@ -99,7 +99,7 @@
             Hypercube semantic query operations - the revolutionary core
             </summary>
         </member>
-        <member name="M:HypercubeGenerativeApi.Controllers.SemanticQueryController.QuerySemantic(HypercubeGenerativeApi.Controllers.SemanticQueryRequest,HypercubeGenerativeApi.Services.GenerativeService,HypercubeGenerativeApi.Services.PostgresService,Microsoft.Extensions.Logging.ILogger{HypercubeGenerativeApi.Services.GenerativeService})">
+        <member name="M:HypercubeGenerativeApi.Controllers.SemanticQueryController.QuerySemantic(HypercubeGenerativeApi.Controllers.SemanticQueryRequest,HypercubeGenerativeApi.Services.SemanticQueryService,Microsoft.Extensions.Logging.ILogger{HypercubeGenerativeApi.Services.SemanticQueryService})">
             <summary>
             POST /query/semantic - Find semantically related content across all ingested knowledge
             </summary>
@@ -112,6 +112,46 @@
         <member name="M:HypercubeGenerativeApi.Controllers.SemanticQueryController.QueryRelationships(HypercubeGenerativeApi.Controllers.RelationshipQueryRequest,Microsoft.Extensions.Logging.ILogger{HypercubeGenerativeApi.Services.GenerativeService})">
             <summary>
             POST /query/relationships - Explore semantic relationships for an entity
+            </summary>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Interfaces.ICompositionRepository">
+            <summary>
+            Repository interface for composition-related database operations
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Interfaces.ICompositionRepository.TokenExistsAsync(System.String)">
+            <summary>
+            Checks if a token exists in the hypercube vocabulary
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Interfaces.ICompositionRepository.GetValidTokensFromPromptAsync(System.String)">
+            <summary>
+            Gets all tokens that exist in the vocabulary from a prompt
+            </summary>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Interfaces.IConnectionRepository">
+            <summary>
+            Repository interface for database connection operations
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Interfaces.IConnectionRepository.InitializeAsync">
+            <summary>
+            Initializes database connection
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Interfaces.IConnectionRepository.CheckConnectionAsync">
+            <summary>
+            Checks database connectivity
+            </summary>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Interfaces.IDatabaseStatsRepository">
+            <summary>
+            Repository interface for database statistics operations
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Interfaces.IDatabaseStatsRepository.GetDatabaseStatsAsync">
+            <summary>
+            Gets database statistics
             </summary>
         </member>
         <member name="T:HypercubeGenerativeApi.Interop.GenerativeInterop">
@@ -364,6 +404,36 @@
             Error response factory methods
             </summary>
         </member>
+        <member name="T:HypercubeGenerativeApi.Repositories.PostgresCompositionRepository">
+            <summary>
+            PostgreSQL implementation of composition repository
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Repositories.PostgresCompositionRepository.TokenExistsAsync(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Repositories.PostgresCompositionRepository.GetValidTokensFromPromptAsync(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Repositories.PostgresConnectionRepository">
+            <summary>
+            PostgreSQL implementation of connection repository
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Repositories.PostgresConnectionRepository.InitializeAsync">
+            <inheritdoc/>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Repositories.PostgresConnectionRepository.CheckConnectionAsync">
+            <inheritdoc/>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Repositories.PostgresDatabaseStatsRepository">
+            <summary>
+            PostgreSQL implementation of database stats repository
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Repositories.PostgresDatabaseStatsRepository.GetDatabaseStatsAsync">
+            <inheritdoc/>
+        </member>
         <member name="T:HypercubeGenerativeApi.Services.GenerativeHealthCheck">
             <summary>
             Health check for generative service
@@ -392,6 +462,31 @@
         <member name="M:HypercubeGenerativeApi.Services.GenerativeService.GetCacheStats">
             <summary>
             Get cache statistics
+            </summary>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Services.IngestionService">
+            <summary>
+            Service for handling ingestion operations
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Services.IngestionService.GetIngestionStatisticsAsync">
+            <summary>
+            Gets ingestion statistics
+            </summary>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Services.IngestionStatistics">
+            <summary>
+            Ingestion statistics model
+            </summary>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Services.IngestionMetrics">
+            <summary>
+            Ingestion metrics
+            </summary>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Services.KnowledgeGraphMetrics">
+            <summary>
+            Knowledge graph metrics
             </summary>
         </member>
         <member name="T:HypercubeGenerativeApi.Services.PostgresService">
@@ -427,6 +522,26 @@
         <member name="M:HypercubeGenerativeApi.Services.PostgresService.Dispose">
             <summary>
             Dispose database connection
+            </summary>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Services.SemanticQueryService">
+            <summary>
+            Service for handling semantic query operations
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Services.SemanticQueryService.GetValidTokensFromPromptAsync(System.String)">
+            <summary>
+            Gets valid tokens from a prompt
+            </summary>
+        </member>
+        <member name="M:HypercubeGenerativeApi.Services.SemanticQueryService.FindSemanticRelationshipsAsync(System.String[],System.Int32)">
+            <summary>
+            Finds semantically related content (placeholder implementation)
+            </summary>
+        </member>
+        <member name="T:HypercubeGenerativeApi.Services.SemanticResult">
+            <summary>
+            Semantic result model
             </summary>
         </member>
         <member name="T:HypercubeGenerativeApi.Services.TokenizationService">

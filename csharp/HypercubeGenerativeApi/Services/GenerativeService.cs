@@ -1,4 +1,5 @@
 using HypercubeGenerativeApi.Interop;
+using HypercubeGenerativeApi.Interfaces;
 using HypercubeGenerativeApi.Models;
 using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
@@ -12,17 +13,17 @@ public class GenerativeService
 {
     private readonly ILogger<GenerativeService> _logger;
     private readonly TokenizationService _tokenizationService;
-    private readonly PostgresService _postgresService;
+    private readonly ICompositionRepository _compositionRepository;
     private bool _isInitialized;
 
     public GenerativeService(
         ILogger<GenerativeService> logger,
         TokenizationService tokenizationService,
-        PostgresService postgresService)
+        ICompositionRepository compositionRepository)
     {
         _logger = logger;
         _tokenizationService = tokenizationService;
-        _postgresService = postgresService;
+        _compositionRepository = compositionRepository;
         _isInitialized = false;
     }
 
@@ -92,7 +93,7 @@ public class GenerativeService
             }
 
             // Get valid tokens from the prompt
-            var validTokens = await _postgresService.GetValidTokensFromPromptAsync(request.Prompt);
+            var validTokens = await _compositionRepository.GetValidTokensFromPromptAsync(request.Prompt);
 
             if (validTokens.Length == 0)
             {

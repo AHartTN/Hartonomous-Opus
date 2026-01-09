@@ -75,7 +75,7 @@ run_test "Hilbert index exists" "[ \$(hc_psql -tAc \"SELECT COUNT(*) FROM pg_ind
 echo ""
 echo -e "${BLUE}─── Atom Seeding ──────────────────────────────────────────${NC}"
 
-ATOM_COUNT=$(hc_psql -tAc "SELECT leaf_atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
+ATOM_COUNT=$(hc_psql -tAc "SELECT atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]')
 if [ -z "$ATOM_COUNT" ]; then
     ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0" | tr -d '[:space:]')
 fi

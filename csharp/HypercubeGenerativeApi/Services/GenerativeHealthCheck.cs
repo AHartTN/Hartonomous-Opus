@@ -1,3 +1,4 @@
+using HypercubeGenerativeApi.Interfaces;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace HypercubeGenerativeApi.Services;
@@ -8,12 +9,17 @@ namespace HypercubeGenerativeApi.Services;
 public class GenerativeHealthCheck : IHealthCheck
 {
     private readonly GenerativeService _generativeService;
-    private readonly PostgresService _postgresService;
+    private readonly IConnectionRepository _connectionRepository;
+    private readonly IDatabaseStatsRepository _databaseStatsRepository;
 
-    public GenerativeHealthCheck(GenerativeService generativeService, PostgresService postgresService)
+    public GenerativeHealthCheck(
+        GenerativeService generativeService,
+        IConnectionRepository connectionRepository,
+        IDatabaseStatsRepository databaseStatsRepository)
     {
         _generativeService = generativeService;
-        _postgresService = postgresService;
+        _connectionRepository = connectionRepository;
+        _databaseStatsRepository = databaseStatsRepository;
     }
 
     public async Task<HealthCheckResult> CheckHealthAsync(
@@ -32,7 +38,7 @@ public class GenerativeHealthCheck : IHealthCheck
         data["attention_count"] = attentionCount;
 
         // Check database connectivity
-        var dbHealthy = await _postgresService.CheckConnectionAsync();
+        var dbHealthy = await _connectionRepository.CheckConnectionAsync();
         data["database_connected"] = dbHealthy;
 
         // Overall health

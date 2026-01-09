@@ -363,12 +363,21 @@ int main() {
     if (db_str.empty()) db_str = get_env("PGDATABASE");
     if (db_str.empty()) db_str = "hypercube";
     const char* db = db_str.c_str();
-    
+
+    // DEBUG: Print environment variable values
+    std::cout << DIM << "\nDEBUG Environment variables:" << RESET << "\n";
+    std::cout << DIM << "  HC_DB_HOST='" << get_env("HC_DB_HOST") << "' PGHOST='" << get_env("PGHOST") << "' -> host='" << host << "'" << RESET << "\n";
+    std::cout << DIM << "  HC_DB_PORT='" << get_env("HC_DB_PORT") << "' PGPORT='" << get_env("PGPORT") << "' -> port='" << port << "'" << RESET << "\n";
+    std::cout << DIM << "  HC_DB_USER='" << get_env("HC_DB_USER") << "' PGUSER='" << get_env("PGUSER") << "' -> user='" << user << "'" << RESET << "\n";
+    std::cout << DIM << "  HC_DB_PASS='" << get_env("HC_DB_PASS") << "' PGPASSWORD='" << get_env("PGPASSWORD") << "' -> pw='***'" << RESET << "\n";
+    std::cout << DIM << "  HC_DB_NAME='" << get_env("HC_DB_NAME") << "' PGDATABASE='" << get_env("PGDATABASE") << "' -> db='" << db << "'" << RESET << "\n";
+
     std::string connstr = "host=" + std::string(host) + " port=" + std::string(port) +
                           " user=" + std::string(user) + " password=" + std::string(pw) +
                           " dbname=" + std::string(db);
-    
+
     std::cout << "\n" << DIM << "Connecting to " << db << "@" << host << "..." << RESET << "\n";
+    std::cout << DIM << "Connection string: " << connstr << RESET << "\n";
     
     conn = PQconnectdb(connstr.c_str());
     if (PQstatus(conn) != CONNECTION_OK) {

@@ -196,43 +196,14 @@ public static class IngestionController
     /// GET /ingest/stats - Overall ingestion statistics and knowledge base metrics
     /// </summary>
     public static async Task<IResult> GetIngestionStats(
-        PostgresService postgresService,
-        ILogger<GenerativeService> logger)
+        IngestionService ingestionService,
+        ILogger<IngestionService> logger)
     {
         try
         {
             logger.LogInformation("Retrieving ingestion statistics");
 
-            var dbStats = await postgresService.GetDatabaseStatsAsync();
-
-            // Add ingestion-specific metrics
-            var ingestionStats = new
-            {
-                database = dbStats,
-                ingestion = new
-                {
-                    total_documents = 1250,  // Would come from ingestion tracking table
-                    total_codebases = 45,
-                    content_types = new[]
-                    {
-                        "text/plain",
-                        "text/markdown",
-                        "application/json",
-                        "text/x-python",
-                        "text/x-csharp"
-                    },
-                    ingestion_rate_per_hour = 25.5,
-                    last_ingestion_timestamp = DateTimeOffset.UtcNow.AddMinutes(-15).ToUnixTimeSeconds()
-                },
-                knowledge_graph = new
-                {
-                    total_nodes = dbStats.GetValueOrDefault("compositions", 0L),
-                    total_relationships = dbStats.GetValueOrDefault("relations", 0L),
-                    semantic_coverage = "universal", // Not limited to training data
-                    geometric_dimensions = 4,
-                    continuous_learning = true
-                }
-            };
+            var ingestionStats = await ingestionService.GetIngestionStatisticsAsync();
 
             return TypedResults.Ok(ingestionStats);
         }

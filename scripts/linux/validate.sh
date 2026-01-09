@@ -73,11 +73,11 @@ echo -e " ${GREEN}EXISTS${NC}"
 echo -e "[3/4] Reading database state..."
 echo ""
 
-ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null | tr -d '[:space:]' || echo "0")
-COMP_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM composition" 2>/dev/null | tr -d '[:space:]' || echo "0")
-REL_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM relation" 2>/dev/null | tr -d '[:space:]' || echo "0")
+ATOM_COUNT=$(hc_psql -tAc "SELECT atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
+COMP_COUNT=$(hc_psql -tAc "SELECT compositions FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
+REL_COUNT=$(hc_psql -tAc "SELECT relations FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
 CHILD_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM composition_child" 2>/dev/null | tr -d '[:space:]' || echo "0")
-CENTROID_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL" 2>/dev/null | tr -d '[:space:]' || echo "0")
+CENTROID_COUNT=$(hc_psql -tAc "SELECT compositions_with_centroid FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
 
 printf "  ┌─────────────────────────────────────────┐\n"
 printf "  │  TABLE               │  COUNT           │\n"

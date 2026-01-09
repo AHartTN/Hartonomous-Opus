@@ -350,18 +350,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Session tuning for bulk load
-    PQexec(main_conn, "SET synchronous_commit = off");
-    PQexec(main_conn, "SET maintenance_work_mem = '2GB'");
-    PQexec(main_conn, "SET work_mem = '256MB'");
-    
-    // Drop all indexes for fast bulk insert
-    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_geom");
-    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_hilbert");
-    PQexec(main_conn, "DROP INDEX IF EXISTS idx_atom_codepoint");
-
-    // Truncate outside transaction first (for parallel COPY to work)
-    PQexec(main_conn, "TRUNCATE atom CASCADE");
+    // Use stored procedure for database setup
+    PQexec(main_conn, "CALL seed_atoms_setup()");
     
     auto setup_time = std::chrono::high_resolution_clock::now();
     auto setup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(setup_time - part_time).count();
@@ -396,13 +386,8 @@ int main(int argc, char* argv[]) {
     // === STEP 5: Rebuild indexes ===
     std::cerr << "[5/5] Building indexes...\n";
 
-    PQexec(main_conn, "SET maintenance_work_mem = '2GB'");
-    PQexec(main_conn, "SET max_parallel_maintenance_workers = 4");
-    
-    PQexec(main_conn, "CREATE INDEX IF NOT EXISTS idx_atom_codepoint ON atom(codepoint)");
-    PQexec(main_conn, "CREATE INDEX IF NOT EXISTS idx_atom_hilbert ON atom(hilbert_hi, hilbert_lo)");
-    PQexec(main_conn, "CREATE INDEX IF NOT EXISTS idx_atom_geom ON atom USING GIST(geom)");
-    PQexec(main_conn, "ANALYZE atom");
+    // Use stored procedure for finalization
+    PQexec(main_conn, "CALL seed_atoms_finalize()");
     
     auto end_time = std::chrono::high_resolution_clock::now();
     auto index_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - copy_time).count();

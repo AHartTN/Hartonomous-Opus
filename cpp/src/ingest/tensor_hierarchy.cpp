@@ -9,6 +9,7 @@
 #include "hypercube/ingest/db_operations.hpp"
 #include "hypercube/db/helpers.hpp"
 #include "hypercube/db/operations.hpp"
+#include "hypercube/blake3.hpp"
 
 namespace hypercube {
 namespace ingest {
@@ -16,10 +17,53 @@ namespace db {
 
 bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
     using namespace hypercube::db;
-    
+
     if (ctx.tensors.empty()) return true;
-    
+
     std::cerr << "[HIER] Building tensor hierarchy from " << ctx.tensors.size() << " tensors\n";
+
+    // Collect all unique codepoints from tensor names to ensure atoms exist
+    std::unordered_set<uint32_t> unique_codepoints;
+    for (const auto& [tensor_name, meta] : ctx.tensors) {
+        auto codepoints = AtomCalculator::decode_utf8(tensor_name);
+        unique_codepoints.insert(codepoints.begin(), codepoints.end());
+    }
+
+    std::cerr << "[HIER] Found " << unique_codepoints.size() << " unique codepoints in tensor names\n";
+
+    // VALIDATE atoms exist - FAIL FAST if not seeded
+    if (!unique_codepoints.empty()) {
+        // Build list of codepoint hashes to check
+        std::string hash_list;
+        for (uint32_t cp : unique_codepoints) {
+            AtomRecord atom = AtomCalculator::compute_atom(cp);
+            if (!hash_list.empty()) hash_list += ", ";
+            hash_list += "'\\x" + atom.hash.to_hex() + "'";
+        }
+
+        std::string check_sql = "SELECT COUNT(*) FROM atom WHERE id IN (" + hash_list + ")";
+        Result check_res = exec(conn, check_sql);
+
+        if (!check_res.ok()) {
+            std::cerr << "[HIER] Failed to validate atoms: " << check_res.error_message() << "\n";
+            return false;
+        }
+
+        int64_t found_count = 0;
+        if (PQntuples(check_res.get()) > 0) {
+            const char* val = PQgetvalue(check_res.get(), 0, 0);
+            if (val) found_count = std::strtoll(val, nullptr, 10);
+        }
+
+        if (found_count != static_cast<int64_t>(unique_codepoints.size())) {
+            std::cerr << "[HIER] FATAL: Only " << found_count << "/" << unique_codepoints.size()
+                      << " atoms exist in database!\n";
+            std::cerr << "[HIER] Run seed_atoms_parallel before model ingestion.\n";
+            return false;
+        }
+
+        std::cerr << "[HIER] Validated " << found_count << " atoms exist\n";
+    }
     
     // Collect all unique path components across all tensors
     std::unordered_map<std::string, int> path_to_depth;  // path -> depth
@@ -167,6 +211,11 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
         std::string id_hex, label, depth_str, child_count_str, atom_count_str, geom_ewkb, centroid_ewkb, hilbert_lo_str, hilbert_hi_str;
         if (!(line_ss >> id_hex >> label >> depth_str >> child_count_str >> atom_count_str >> geom_ewkb >> centroid_ewkb >> hilbert_lo_str >> hilbert_hi_str)) continue;
 
+        // Fix double-escaped hex: \\x -> \x for SQL INSERT
+        if (id_hex.substr(0, 3) == "\\\\x") id_hex = "\\" + id_hex.substr(2);
+        if (geom_ewkb.substr(0, 3) == "\\\\x") geom_ewkb = "\\" + geom_ewkb.substr(2);
+        if (centroid_ewkb.substr(0, 3) == "\\\\x") centroid_ewkb = "\\" + centroid_ewkb.substr(2);
+
         // Handle \N for null geom
         std::string geom_val = (geom_ewkb == "\\N") ? "NULL" : ("'" + geom_ewkb + "'");
 
@@ -202,77 +251,65 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
     
     std::cerr << "[HIER] Inserted/updated " << comp_inserted << " hierarchy compositions\n";
     
-    // Direct insert ATOM children
+    // COPY atom children to temp table, then INSERT with existence checks
     if (!atom_child_batch.empty()) {
-        std::string insert_atom_sql = "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) VALUES ";
-        std::vector<std::string> atom_values;
-        std::istringstream atom_iss(atom_child_batch);
-        std::string atom_line;
-        while (std::getline(atom_iss, atom_line)) {
-            if (atom_line.empty()) continue;
-            std::istringstream line_ss(atom_line);
-            std::string comp_id_hex, ordinal_str, child_type, child_id_hex;
-            if (!(line_ss >> comp_id_hex >> ordinal_str >> child_type >> child_id_hex)) continue;
+        exec(conn, "DROP TABLE IF EXISTS tmp_hier_atom_child");
+        exec(conn, "CREATE TEMP TABLE tmp_hier_atom_child ("
+                   "composition_id BYTEA, ordinal SMALLINT, child_type CHAR(1), child_id BYTEA)");
 
-            std::string val = "('" + comp_id_hex + "', " + ordinal_str + ", '" + child_type + "', '" + child_id_hex + "')";
-            atom_values.push_back(val);
+        Result copy_res = exec(conn, "COPY tmp_hier_atom_child FROM STDIN");
+        if (copy_res.ok()) {
+            PQputCopyData(conn, atom_child_batch.c_str(), static_cast<int>(atom_child_batch.size()));
+            PQputCopyEnd(conn, nullptr);
+            PGresult* r = PQgetResult(conn);
+            if (PQresultStatus(r) != PGRES_COMMAND_OK) {
+                std::cerr << "[HIER] Atom child COPY failed: " << PQerrorMessage(conn) << "\n";
+            }
+            PQclear(r);
         }
 
-        // Batch atom children insert
-        int atom_edges = 0;
-        for (size_t i = 0; i < atom_values.size(); i += batch_size) {
-            std::string batch_sql = insert_atom_sql;
-            for (size_t j = i; j < std::min(i + batch_size, atom_values.size()); ++j) {
-                if (j > i) batch_sql += ", ";
-                batch_sql += atom_values[j];
-            }
-            batch_sql += " ON CONFLICT (composition_id, ordinal) DO NOTHING";
+        Result ins_res = exec(conn,
+            "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
+            "SELECT composition_id, ordinal, child_type, child_id FROM tmp_hier_atom_child t "
+            "WHERE EXISTS (SELECT 1 FROM composition WHERE id = t.composition_id) "
+            "AND EXISTS (SELECT 1 FROM atom WHERE id = t.child_id) "
+            "ON CONFLICT (composition_id, ordinal) DO NOTHING");
 
-            Result res = exec(conn, batch_sql);
-            if (res.ok()) {
-                atom_edges += cmd_tuples(res);
-            } else {
-                std::cerr << "[HIER] Batch insert atom children failed: " << res.error_message() << "\n";
-            }
+        int atom_edges = ins_res.ok() ? cmd_tuples(ins_res) : 0;
+        if (!ins_res.ok()) {
+            std::cerr << "[HIER] Atom children insert failed: " << ins_res.error_message() << "\n";
         }
-
         std::cerr << "[HIER] Inserted " << atom_edges << " atom children\n";
     }
 
-    // Direct insert parent->child composition edges
+    // COPY composition children to temp table, then INSERT with existence checks
     if (!child_batch.empty()) {
-        std::string insert_child_sql = "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) VALUES ";
-        std::vector<std::string> child_values;
-        std::istringstream child_iss(child_batch);
-        std::string child_line;
-        while (std::getline(child_iss, child_line)) {
-            if (child_line.empty()) continue;
-            std::istringstream line_ss(child_line);
-            std::string comp_id_hex, ordinal_str, child_type, child_id_hex;
-            if (!(line_ss >> comp_id_hex >> ordinal_str >> child_type >> child_id_hex)) continue;
+        exec(conn, "DROP TABLE IF EXISTS tmp_hier_comp_child");
+        exec(conn, "CREATE TEMP TABLE tmp_hier_comp_child ("
+                   "composition_id BYTEA, ordinal SMALLINT, child_type CHAR(1), child_id BYTEA)");
 
-            std::string val = "('" + comp_id_hex + "', " + ordinal_str + ", '" + child_type + "', '" + child_id_hex + "')";
-            child_values.push_back(val);
+        Result copy_res = exec(conn, "COPY tmp_hier_comp_child FROM STDIN");
+        if (copy_res.ok()) {
+            PQputCopyData(conn, child_batch.c_str(), static_cast<int>(child_batch.size()));
+            PQputCopyEnd(conn, nullptr);
+            PGresult* r = PQgetResult(conn);
+            if (PQresultStatus(r) != PGRES_COMMAND_OK) {
+                std::cerr << "[HIER] Comp child COPY failed: " << PQerrorMessage(conn) << "\n";
+            }
+            PQclear(r);
         }
 
-        // Batch composition edges insert
-        int edges_inserted = 0;
-        for (size_t i = 0; i < child_values.size(); i += batch_size) {
-            std::string batch_sql = insert_child_sql;
-            for (size_t j = i; j < std::min(i + batch_size, child_values.size()); ++j) {
-                if (j > i) batch_sql += ", ";
-                batch_sql += child_values[j];
-            }
-            batch_sql += " ON CONFLICT (composition_id, ordinal) DO NOTHING";
+        Result ins_res = exec(conn,
+            "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
+            "SELECT composition_id, ordinal, child_type, child_id FROM tmp_hier_comp_child t "
+            "WHERE EXISTS (SELECT 1 FROM composition WHERE id = t.composition_id) "
+            "AND EXISTS (SELECT 1 FROM composition WHERE id = t.child_id) "
+            "ON CONFLICT (composition_id, ordinal) DO NOTHING");
 
-            Result res = exec(conn, batch_sql);
-            if (res.ok()) {
-                edges_inserted += cmd_tuples(res);
-            } else {
-                std::cerr << "[HIER] Batch insert composition edges failed: " << res.error_message() << "\n";
-            }
+        int edges_inserted = ins_res.ok() ? cmd_tuples(ins_res) : 0;
+        if (!ins_res.ok()) {
+            std::cerr << "[HIER] Comp children insert failed: " << ins_res.error_message() << "\n";
         }
-
         std::cerr << "[HIER] Inserted " << edges_inserted << " composition->composition edges\n";
     }
     

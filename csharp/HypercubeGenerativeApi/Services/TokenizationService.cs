@@ -1,3 +1,4 @@
+using HypercubeGenerativeApi.Interfaces;
 using HypercubeGenerativeApi.Interop;
 using Microsoft.Extensions.Logging;
 
@@ -9,12 +10,12 @@ namespace HypercubeGenerativeApi.Services;
 public class TokenizationService
 {
     private readonly ILogger<TokenizationService> _logger;
-    private readonly PostgresService _postgresService;
+    private readonly ICompositionRepository _compositionRepository;
 
-    public TokenizationService(ILogger<TokenizationService> logger, PostgresService postgresService)
+    public TokenizationService(ILogger<TokenizationService> logger, ICompositionRepository compositionRepository)
     {
         _logger = logger;
-        _postgresService = postgresService;
+        _compositionRepository = compositionRepository;
     }
 
     /// <summary>
@@ -117,8 +118,8 @@ public class TokenizationService
         {
             _logger.LogDebug("Looking up token '{Token}' in hypercube vocabulary", token);
 
-            // Check if token exists in vocabulary via PostgresService
-            var exists = await _postgresService.TokenExistsAsync(token);
+            // Check if token exists in vocabulary via repository
+            var exists = await _compositionRepository.TokenExistsAsync(token);
             if (!exists)
             {
                 _logger.LogDebug("Token '{Token}' not found in vocabulary", token);

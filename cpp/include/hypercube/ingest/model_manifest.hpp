@@ -537,21 +537,25 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
             lower_name.find("cross_attn") != std::string::npos) {
             return TensorCategory::CROSS_ATTENTION;
         }
-        // QKV projections
-        if (lower_name.find("q_proj") != std::string::npos ||
-            (lower_name.find("query") != std::string::npos && lower_name.find("weight") != std::string::npos)) {
+        // QKV projections - MUST be 2D matrices, not biases
+        if (shape.size() == 2 && (
+            lower_name.find("q_proj") != std::string::npos ||
+            (lower_name.find("query") != std::string::npos && lower_name.find("weight") != std::string::npos))) {
             return TensorCategory::ATTENTION_QUERY;
         }
-        if (lower_name.find("k_proj") != std::string::npos ||
-            lower_name.find("key") != std::string::npos) {
+        if (shape.size() == 2 && (
+            lower_name.find("k_proj") != std::string::npos ||
+            lower_name.find("key") != std::string::npos)) {
             return TensorCategory::ATTENTION_KEY;
         }
-        if (lower_name.find("v_proj") != std::string::npos ||
-            lower_name.find("value") != std::string::npos) {
+        if (shape.size() == 2 && (
+            lower_name.find("v_proj") != std::string::npos ||
+            lower_name.find("value") != std::string::npos)) {
             return TensorCategory::ATTENTION_VALUE;
         }
-        if (lower_name.find("out_proj") != std::string::npos ||
-            lower_name.find("o_proj") != std::string::npos) {
+        if (shape.size() == 2 && (
+            lower_name.find("out_proj") != std::string::npos ||
+            lower_name.find("o_proj") != std::string::npos)) {
             return TensorCategory::ATTENTION_OUTPUT;
         }
         // QKV combined
@@ -565,7 +569,7 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
     // =========================================================================
     // These projections separate content and positional information for attention
     // Pattern: {ca|sa}_{q|k|v}{content|pos}_proj where ca=cross-attn, sa=self-attn
-    if (lower_name.find("_proj") != std::string::npos) {
+    if (shape.size() == 2 && lower_name.find("_proj") != std::string::npos) {
         // Cross-attention decomposed components
         if (lower_name.find("ca_") != std::string::npos) {
             if (lower_name.find("qcontent_proj") != std::string::npos ||

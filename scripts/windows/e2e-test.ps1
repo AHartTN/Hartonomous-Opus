@@ -279,8 +279,8 @@ foreach ($ext in $extensions) {
 Write-Step 6 9 "SEED DATABASE (Unicode Atoms)"
 
 if (-not $SkipSeed) {
-    $atomCount = Invoke-Psql "SELECT COUNT(*) FROM atom" -Scalar
-    
+    $atomCount = Invoke-Psql "SELECT atoms FROM db_stats()" -Scalar
+
     if ([int]$atomCount -lt 1100000) {
         Write-Host "  Seeding 1.1M+ Unicode atoms..."
         $seedStart = Get-Date
@@ -305,7 +305,7 @@ if (-not $SkipSeed) {
             Invoke-Psql "SELECT seed_all_atoms();" | Out-Null
         }
         
-        $finalCount = Invoke-Psql "SELECT COUNT(*) FROM atom" -Scalar
+        $finalCount = Invoke-Psql "SELECT atoms FROM db_stats()" -Scalar
         $seedTime = (Get-Date) - $seedStart
         Write-Host "  Seeded $finalCount atoms in $($seedTime.TotalSeconds.ToString('F1'))s" -ForegroundColor Green
     } else {
@@ -339,13 +339,13 @@ if (-not $SkipModels) {
             
             foreach ($modelDir in $models) {
                 Write-Host "    Ingesting $($modelDir.Name)..." -NoNewline
-                $beforeRel = Invoke-Psql "SELECT COUNT(*) FROM relation" -Scalar
-                
+                $beforeRel = Invoke-Psql "SELECT relations FROM db_stats()" -Scalar
+
                 if ($ingestTool) {
                     & $ingestTool -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -p $env:HC_DB_PORT $modelDir.FullName 2>&1 | Out-Null
                 }
-                
-                $afterRel = Invoke-Psql "SELECT COUNT(*) FROM relation" -Scalar
+
+                $afterRel = Invoke-Psql "SELECT relations FROM db_stats()" -Scalar
                 $newRels = [int]$afterRel - [int]$beforeRel
                 
                 if ($newRels -gt 0) {
@@ -374,8 +374,8 @@ if (-not $SkipContent) {
     
     if (Test-Path $mobyPath) {
         Write-Host "  Ingesting $mobyPath..."
-        $beforeComp = Invoke-Psql "SELECT COUNT(*) FROM composition" -Scalar
-        
+        $beforeComp = Invoke-Psql "SELECT compositions FROM db_stats()" -Scalar
+
         $ingester = if (Test-Path "$env:HC_BUILD_DIR\ingest.exe") {
             "$env:HC_BUILD_DIR\ingest.exe"
         } elseif (Test-Path "$env:HC_BUILD_DIR\Release\ingest.exe") {
@@ -385,8 +385,8 @@ if (-not $SkipContent) {
         if ($ingester) {
             & $ingester -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -p $env:HC_DB_PORT $mobyPath 2>&1 | Out-Null
         }
-        
-        $afterComp = Invoke-Psql "SELECT COUNT(*) FROM composition" -Scalar
+
+        $afterComp = Invoke-Psql "SELECT compositions FROM db_stats()" -Scalar
         $newComps = [int]$afterComp - [int]$beforeComp
         
         Write-Host "  Created $newComps compositions" -ForegroundColor Green
@@ -436,7 +436,7 @@ Test-Assert "database_connected" {
 
 # Test: Atom count
 Test-Assert "atom_count_correct" {
-    $count = [int](Invoke-Psql "SELECT COUNT(*) FROM atom" -Scalar)
+    $count = [int](Invoke-Psql "SELECT atoms FROM db_stats()" -Scalar)
     return $count -ge 1100000
 } "INTEGRATION"
 
@@ -609,9 +609,9 @@ Write-Host ""
 
 # Database stats
 Write-Host "  Database Statistics:" -ForegroundColor Cyan
-$atomCount = Invoke-Psql "SELECT COUNT(*) FROM atom" -Scalar
-$compCount = Invoke-Psql "SELECT COUNT(*) FROM composition" -Scalar
-$relCount = Invoke-Psql "SELECT COUNT(*) FROM relation" -Scalar
+$atomCount = Invoke-Psql "SELECT atoms FROM db_stats()" -Scalar
+$compCount = Invoke-Psql "SELECT compositions FROM db_stats()" -Scalar
+$relCount = Invoke-Psql "SELECT relations FROM db_stats()" -Scalar
 Write-Host "    Atoms:        $atomCount"
 Write-Host "    Compositions: $compCount"
 Write-Host "    Relations:    $relCount"

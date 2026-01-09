@@ -61,11 +61,20 @@ try {
     Write-Host "[3/4] Reading database state..." -ForegroundColor Cyan
     Write-Host ""
     
-    $atomCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom" 2>$null).Trim()
-    $compCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition" 2>$null).Trim()
-    $relCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM relation" 2>$null).Trim()
+    # Get stats from database function
+    $stats = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT * FROM db_stats()" 2>$null
+    if ($stats) {
+        $statsArray = $stats -split '\|'
+        $atomCount = $statsArray[0].Trim()
+        $compCount = $statsArray[1].Trim()
+        $centroidCount = $statsArray[2].Trim()
+        $relCount = $statsArray[3].Trim()
+    } else {
+        $atomCount = $compCount = $centroidCount = $relCount = "0"
+    }
+
+    # Get composition child count separately (not in db_stats)
     $childCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition_child" 2>$null).Trim()
-    $centroidCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL" 2>$null).Trim()
     
     # Format with padding for alignment
     $atomStr = $atomCount.PadLeft(12)

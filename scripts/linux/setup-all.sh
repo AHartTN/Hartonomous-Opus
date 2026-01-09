@@ -149,9 +149,9 @@ echo ""
 
 # Final stats
 echo "  Final Database State:"
-FINAL_ATOMS=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null | tr -d '[:space:]' || echo "0")
-FINAL_COMPS=$(hc_psql -tAc "SELECT COUNT(*) FROM composition" 2>/dev/null | tr -d '[:space:]' || echo "0")
-FINAL_RELS=$(hc_psql -tAc "SELECT COUNT(*) FROM relation" 2>/dev/null | tr -d '[:space:]' || echo "0")
+FINAL_ATOMS=$(hc_psql -tAc "SELECT atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
+FINAL_COMPS=$(hc_psql -tAc "SELECT compositions FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
+FINAL_RELS=$(hc_psql -tAc "SELECT relations FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
 
 echo "    Atoms:        $FINAL_ATOMS"
 echo "    Compositions: $FINAL_COMPS"

@@ -304,9 +304,13 @@ static void insert(PGconn* conn, const std::vector<Edge>& edges, const IngestCon
         seen.emplace(s.hash, t.hash, e.sim);
     }
 
-    // Direct COPY to relation table (text format for simplicity)
-    std::string copy_cmd = "COPY relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) FROM STDIN";
+    // Use temp table then INSERT with existence checks
+    PQexec(conn, "DROP TABLE IF EXISTS tmp_semantic_rel");
+    PQexec(conn, "CREATE TEMP TABLE tmp_semantic_rel ("
+                 "source_type CHAR(1), source_id BYTEA, target_type CHAR(1), target_id BYTEA, "
+                 "relation_type CHAR(1), weight REAL, source_model TEXT, layer INTEGER, component TEXT)");
 
+    std::string copy_cmd = "COPY tmp_semantic_rel FROM STDIN";
     PGresult* res = PQexec(conn, copy_cmd.c_str());
     if (PQresultStatus(res) != PGRES_COPY_IN) {
         std::cerr << "[INSERT] COPY start failed: " << PQerrorMessage(conn) << "\n";
@@ -328,14 +332,27 @@ static void insert(PGconn* conn, const std::vector<Edge>& edges, const IngestCon
     }
 
     if (PQputCopyEnd(conn, nullptr) != 1) {
-        std::cerr << "[INSERT] COPY end failed: " << PQerrorMessage(conn) << "\n";
+        std::cerr << "[INSERT] COPY to temp failed: " << PQerrorMessage(conn) << "\n";
         return;
     }
 
     res = PQgetResult(conn);
     PQclear(res);
 
-    std::cerr << "[INSERT] Inserted " << seen.size() << " semantic relations\n";
+    // INSERT with existence checks
+    res = PQexec(conn,
+        "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) "
+        "SELECT source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component "
+        "FROM tmp_semantic_rel t "
+        "WHERE EXISTS (SELECT 1 FROM composition WHERE id = t.source_id) "
+        "AND EXISTS (SELECT 1 FROM composition WHERE id = t.target_id) "
+        "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
+        "weight = EXCLUDED.weight");
+
+    int inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
+    PQclear(res);
+
+    std::cerr << "[INSERT] Inserted " << inserted << " semantic relations (filtered " << (seen.size() - inserted) << " missing refs)\n";
 }
 
 // ============================================================================

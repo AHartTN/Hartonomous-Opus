@@ -75,26 +75,16 @@ public class PostgresService : IDisposable
         {
             var stats = new Dictionary<string, object>();
 
-            await using var cmd = new NpgsqlCommand(@"
-                SELECT 'atoms' as stat_name, COUNT(*) as stat_value FROM atom
-                UNION ALL
-                SELECT 'compositions', COUNT(*) FROM composition
-                UNION ALL
-                SELECT 'compositions_with_centroid', COUNT(*) FROM composition WHERE centroid IS NOT NULL
-                UNION ALL
-                SELECT 'relations', COUNT(*) FROM relation
-                UNION ALL
-                SELECT 'attention_edges', COUNT(*) FROM relation WHERE relation_type = 'A'
-                UNION ALL
-                SELECT 'sequence_edges', COUNT(*) FROM relation WHERE relation_type = 'S'
-            ", _connection);
-
+            await using var cmd = new NpgsqlCommand("SELECT * FROM db_stats()", _connection);
             await using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+
+            if (await reader.ReadAsync())
             {
-                var statName = reader.GetString(0);
-                var statValue = reader.GetInt64(1);
-                stats[statName] = statValue;
+                stats["atoms"] = reader.GetInt64(0);
+                stats["compositions"] = reader.GetInt64(1);
+                stats["compositions_with_centroid"] = reader.GetInt64(2);
+                stats["relations"] = reader.GetInt64(3);
+                // models array not used in current implementation
             }
 
             return stats;
@@ -118,14 +108,7 @@ public class PostgresService : IDisposable
 
         try
         {
-            await using var cmd = new NpgsqlCommand(@"
-                SELECT 1
-                FROM composition
-                WHERE label = @token
-                  AND centroid IS NOT NULL
-                LIMIT 1
-            ", _connection);
-
+            await using var cmd = new NpgsqlCommand("SELECT find_composition(@token)", _connection);
             cmd.Parameters.AddWithValue("@token", token);
 
             var result = await cmd.ExecuteScalarAsync();

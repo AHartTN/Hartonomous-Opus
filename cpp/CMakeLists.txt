@@ -131,14 +131,43 @@ if(NOT HAS_MKL)
         DOC "Intel OpenMP library"
     )
 
+    # Find MKL DLLs (for copying to output directory on Windows)
+    if(WIN32)
+        find_file(MKL_CORE_DLL
+            NAMES mkl_core.dll
+            PATHS ${MKL_SEARCH_PATHS} "D:/Intel/oneAPI/mkl/latest/bin" "D:/Intel/oneAPI/mkl/latest/redist/intel64_win/mkl"
+            PATH_SUFFIXES bin redist/intel64_win/mkl
+            DOC "MKL core DLL"
+        )
+        find_file(MKL_INTL_LP64_DLL
+            NAMES mkl_intel_lp64.dll
+            PATHS ${MKL_SEARCH_PATHS} "D:/Intel/oneAPI/mkl/latest/bin" "D:/Intel/oneAPI/mkl/latest/redist/intel64_win/mkl"
+            PATH_SUFFIXES bin redist/intel64_win/mkl
+            DOC "MKL interface DLL"
+        )
+        find_file(MKL_THREAD_DLL
+            NAMES mkl_intel_thread.dll
+            PATHS ${MKL_SEARCH_PATHS} "D:/Intel/oneAPI/mkl/latest/bin" "D:/Intel/oneAPI/mkl/latest/redist/intel64_win/mkl"
+            PATH_SUFFIXES bin redist/intel64_win/mkl
+            DOC "MKL threading DLL"
+        )
+        find_file(MKL_IOMP5_DLL
+            NAMES libiomp5md.dll
+            PATHS ${MKL_SEARCH_PATHS} "D:/Intel/oneAPI/compiler/latest/bin" "D:/Intel/oneAPI/compiler/latest/redist/intel64_win/compiler"
+            PATH_SUFFIXES bin redist/intel64_win/compiler
+            DOC "Intel OpenMP DLL"
+        )
+    endif()
+
     message(STATUS "MKL detection results:")
     message(STATUS "  MKL_INCLUDE_DIR: ${MKL_INCLUDE_DIR}")
     message(STATUS "  MKL_CORE_LIB: ${MKL_CORE_LIB}")
     message(STATUS "  MKL_INTL_LP64_LIB: ${MKL_INTL_LP64_LIB}")
     message(STATUS "  MKL_THREAD_LIB: ${MKL_THREAD_LIB}")
     message(STATUS "  MKL_IOMP5_LIB: ${MKL_IOMP5_LIB}")
+    message(STATUS "  MKL_IOMP5_DLL: ${MKL_IOMP5_DLL}")
 
-    if(MKL_INCLUDE_DIR AND MKL_CORE_LIB AND MKL_INTL_LP64_LIB AND MKL_THREAD_LIB)
+    if(MKL_INCLUDE_DIR AND MKL_CORE_LIB AND MKL_INTL_LP64_LIB AND MKL_THREAD_LIB AND (NOT WIN32 OR MKL_IOMP5_DLL))
         set(MKL_FOUND TRUE)
         set(MKL_INCLUDE_DIRS ${MKL_INCLUDE_DIR})
         set(MKL_LIBRARIES ${MKL_INTL_LP64_LIB} ${MKL_THREAD_LIB} ${MKL_CORE_LIB} ${MKL_IOMP5_LIB})
@@ -162,6 +191,9 @@ if(NOT HAS_MKL)
         endif()
         if(NOT MKL_IOMP5_LIB)
             message(STATUS "  Missing: Intel OpenMP library - check library paths")
+        endif()
+        if(WIN32 AND NOT MKL_IOMP5_DLL)
+            message(STATUS "  Missing: Intel OpenMP DLL - check bin paths")
         endif()
     endif()
 endif()
@@ -358,6 +390,16 @@ if(HAS_MKL)
     target_include_directories(hypercube_core PUBLIC ${MKL_INCLUDE_DIRS})
     target_link_libraries(hypercube_core PUBLIC ${MKL_LIBRARIES})
     target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1)
+
+    # Copy Intel OpenMP DLL to output directory on Windows
+    if(WIN32 AND MKL_IOMP5_DLL)
+        add_custom_command(TARGET hypercube_core POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${MKL_IOMP5_DLL}"
+                "$<TARGET_FILE_DIR:hypercube_core>"
+            COMMENT "Copying Intel OpenMP DLL to output directory"
+        )
+    endif()
 else()
     target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0)
 endif()

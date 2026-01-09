@@ -62,8 +62,8 @@ if [ "$RESET" = true ]; then
     
     # Check for existing data
     if hc_psql_admin -tAc "SELECT 1 FROM pg_database WHERE datname='$HC_DB_NAME'" 2>/dev/null | grep -q 1; then
-        COMP_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM composition" 2>/dev/null | tr -d '[:space:]' || echo "0")
-        REL_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM relation" 2>/dev/null | tr -d '[:space:]' || echo "0")
+        COMP_COUNT=$(hc_psql -tAc "SELECT compositions FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
+        REL_COUNT=$(hc_psql -tAc "SELECT relations FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
         if [ "$COMP_COUNT" -gt 0 ] || [ "$REL_COUNT" -gt 0 ]; then
             echo "Current database contains:"
             echo "  - $COMP_COUNT compositions"
@@ -133,7 +133,7 @@ fi
 # ATOM SEEDING (idempotent - checks count first)
 # ============================================================================
 echo -n "[5/5] Checking atoms..."
-ATOM_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null | tr -d '[:space:]' || echo "0")
+ATOM_COUNT=$(hc_psql -tAc "SELECT atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
 
 if [ "$ATOM_COUNT" -ge 1100000 ] && [ "$FORCE" = false ]; then
     echo " $ATOM_COUNT atoms (already seeded)"
@@ -165,7 +165,7 @@ else
         echo "Extension seeder completed successfully"
     fi
 
-    NEW_COUNT=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" | tr -d '[:space:]')
+    NEW_COUNT=$(hc_psql -tAc "SELECT atoms FROM db_stats()" | tr -d '[:space:]')
     echo "      Seeded $NEW_COUNT atoms"
 fi
 
@@ -176,9 +176,9 @@ echo ""
 echo "=== Database Ready ==="
 echo ""
 
-FINAL_ATOMS=$(hc_psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null | tr -d '[:space:]' || echo "0")
-FINAL_COMPS=$(hc_psql -tAc "SELECT COUNT(*) FROM composition" 2>/dev/null | tr -d '[:space:]' || echo "0")
-FINAL_RELS=$(hc_psql -tAc "SELECT COUNT(*) FROM relation" 2>/dev/null | tr -d '[:space:]' || echo "0")
+FINAL_ATOMS=$(hc_psql -tAc "SELECT atoms FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
+FINAL_COMPS=$(hc_psql -tAc "SELECT compositions FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
+FINAL_RELS=$(hc_psql -tAc "SELECT relations FROM db_stats()" 2>/dev/null | tr -d '[:space:]' || echo "0")
 
 echo "  Atoms:        $FINAL_ATOMS"
 echo "  Compositions: $FINAL_COMPS"

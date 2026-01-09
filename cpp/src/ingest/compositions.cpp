@@ -124,7 +124,10 @@ bool insert_compositions(PGconn* conn, IngestContext& ctx) {
                 child_batch += c.hash.to_hex();
                 child_batch += "\t";
                 child_batch += std::to_string(j);
-                child_batch += "\tA\t\\\\x";
+                child_batch += "\t";
+                // Determine child type: 'A' for atoms (depth 0), 'C' for compositions (depth > 0)
+                child_batch += (c.child_depths[j] == 0 ? "A" : "C");
+                child_batch += "\t\\\\x";
                 child_batch += c.children[j].to_hex();
                 child_batch += "\n";
             }
@@ -245,13 +248,15 @@ bool insert_compositions(PGconn* conn, IngestContext& ctx) {
     int inserted_comps = cmd_tuples(res);
     std::cerr << "[COMP] Inserted " << inserted_comps << " compositions\n";
     
-    // Insert composition children (only for compositions that exist)
+    // Insert composition children (only for compositions that exist and children that exist)
     std::cerr << "[COMP] Inserting into composition_child table...\n";
     res = exec(conn,
         "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
         "SELECT composition_id, ordinal, child_type, child_id "
         "FROM tmp_comp_child "
         "WHERE EXISTS (SELECT 1 FROM composition WHERE id = tmp_comp_child.composition_id) "
+        "AND ((child_type = 'A' AND EXISTS (SELECT 1 FROM atom WHERE id = tmp_comp_child.child_id)) "
+        "     OR (child_type = 'C' AND EXISTS (SELECT 1 FROM composition WHERE id = tmp_comp_child.child_id))) "
         "ON CONFLICT (composition_id, ordinal) DO NOTHING");
     
     if (!res.ok()) {

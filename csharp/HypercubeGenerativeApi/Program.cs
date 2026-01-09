@@ -1,4 +1,6 @@
 using HypercubeGenerativeApi.Services;
+using HypercubeGenerativeApi.Interfaces;
+using HypercubeGenerativeApi.Repositories;
 using HypercubeGenerativeApi.Interop;
 using HypercubeGenerativeApi.Controllers;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -14,10 +16,17 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks()
     .AddCheck<GenerativeHealthCheck>("generative", HealthStatus.Degraded, new[] { "hypercube" });
 
+// Register repositories
+builder.Services.AddSingleton<ICompositionRepository, PostgresCompositionRepository>();
+builder.Services.AddSingleton<IDatabaseStatsRepository, PostgresDatabaseStatsRepository>();
+builder.Services.AddSingleton<IConnectionRepository, PostgresConnectionRepository>();
+
 // Register application services
 builder.Services.AddSingleton<GenerativeService>();
-builder.Services.AddSingleton<PostgresService>();
+builder.Services.AddSingleton<PostgresService>(); // Still needed for repositories
 builder.Services.AddSingleton<TokenizationService>();
+builder.Services.AddSingleton<SemanticQueryService>();
+builder.Services.AddSingleton<IngestionService>();
 
 // Configure JSON options for OpenAI compatibility
 builder.Services.ConfigureHttpJsonOptions(options =>

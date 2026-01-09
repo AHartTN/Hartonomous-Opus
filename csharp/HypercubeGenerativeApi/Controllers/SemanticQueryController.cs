@@ -13,9 +13,8 @@ public static class SemanticQueryController
     /// </summary>
     public static async Task<IResult> QuerySemantic(
         [FromBody] SemanticQueryRequest request,
-        GenerativeService generativeService,
-        PostgresService postgresService,
-        ILogger<GenerativeService> logger)
+        SemanticQueryService semanticQueryService,
+        ILogger<SemanticQueryService> logger)
     {
         try
         {
@@ -36,7 +35,7 @@ public static class SemanticQueryController
             }
 
             // Get valid tokens from the query
-            var validTokens = await postgresService.GetValidTokensFromPromptAsync(request.Query);
+            var validTokens = await semanticQueryService.GetValidTokensFromPromptAsync(request.Query);
 
             if (validTokens.Length == 0)
             {
@@ -53,8 +52,8 @@ public static class SemanticQueryController
 
             // Find semantically related content through hypercube relationships
             // This would expand to use geometric similarity in 4D space
-            var semanticResults = await FindSemanticRelationshipsAsync(
-                validTokens, request.Limit ?? 10, postgresService);
+            var semanticResults = await semanticQueryService.FindSemanticRelationshipsAsync(
+                validTokens, request.Limit ?? 10);
 
             return TypedResults.Ok(new
             {
@@ -182,30 +181,7 @@ public static class SemanticQueryController
         }
     }
 
-    // Placeholder implementations - these would integrate with C++ geometric operations
 
-    private static async Task<List<SemanticResult>> FindSemanticRelationshipsAsync(
-        string[] tokens, int limit, PostgresService postgresService)
-    {
-        // Placeholder: This would use geometric similarity in 4D space
-        // For each token, find compositions with similar 4D centroids
-
-        await Task.Delay(10); // Simulate async operation
-
-        return new List<SemanticResult>
-        {
-            new SemanticResult {
-                Content = "Geometric relationship discovered",
-                Similarity = 0.95,
-                Source = "4D_centroid_similarity"
-            },
-            new SemanticResult {
-                Content = "Semantic connection found",
-                Similarity = 0.87,
-                Source = "hypercube_projection"
-            }
-        }.Take(limit).ToList();
-    }
 
     private static async Task<List<AnalogyResult>> FindGeometricAnalogiesAsync(string a, string b, string c)
     {

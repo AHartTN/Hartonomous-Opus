@@ -319,9 +319,12 @@ Write-Host ""
 
 # Final database state
 $env:PGPASSWORD = $env:HC_DB_PASS
-$atomCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom" 2>$null).Trim()
-$compCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition" 2>$null).Trim()
-$relCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM relation" 2>$null).Trim()
+$atomResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT atoms FROM db_stats()" 2>$null
+$atomCount = if ($atomResult) { $atomResult.Trim() } else { "N/A" }
+$compResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT compositions FROM db_stats()" 2>$null
+$compCount = if ($compResult) { $compResult.Trim() } else { "N/A" }
+$relResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT relations FROM db_stats()" 2>$null
+$relCount = if ($relResult) { $relResult.Trim() } else { "N/A" }
 Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
 
 Write-Host "  Final Database State:"

@@ -622,9 +622,13 @@ size_t extract_multimodal_structures(
 
         std::cerr << "[MULTIMODAL] Deduplicated " << all_edges.size() << " -> " << deduped_edges.size() << " unique edges\n";
 
-        // Text COPY directly to relation table (no conflicts since deduplicated)
-        std::string copy_cmd = "COPY relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) FROM STDIN WITH (FORMAT text)";
+        // Use temp table then INSERT with existence checks
+        PQexec(conn, "DROP TABLE IF EXISTS tmp_multimodal_rel");
+        PQexec(conn, "CREATE TEMP TABLE tmp_multimodal_rel ("
+                     "source_type CHAR(1), source_id BYTEA, target_type CHAR(1), target_id BYTEA, "
+                     "relation_type CHAR(1), weight REAL, source_model TEXT, layer INTEGER, component TEXT)");
 
+        std::string copy_cmd = "COPY tmp_multimodal_rel FROM STDIN WITH (FORMAT text)";
         hypercube::db::CopyStream copy(conn, copy_cmd.c_str());
         if (!copy.ok()) {
             std::cerr << "[MULTIMODAL] COPY start failed: " << copy.error() << "\n";
@@ -633,44 +637,25 @@ size_t extract_multimodal_structures(
 
         for (const auto& [key, edge] : deduped_edges) {
             std::string row;
-
-            // source_type (CHAR(1))
             row += edge.source_type;
-
-            // source_id (BYTEA)
             row += '\t';
             row += "\\\\x";
             row += edge.source_id.to_hex();
-
-            // target_type (CHAR(1))
             row += '\t';
             row += edge.target_type;
-
-            // target_id (BYTEA)
             row += '\t';
             row += "\\\\x";
             row += edge.target_id.to_hex();
-
-            // relation_type (CHAR(1))
             row += '\t';
             row += 'A';
-
-            // weight (REAL)
             row += '\t';
             row += std::to_string(edge.weight);
-
-            // source_model (TEXT)
             row += '\t';
             row += ctx.model_prefix;
-
-            // layer (INTEGER)
             row += '\t';
             row += std::to_string(edge.layer);
-
-            // component (TEXT)
             row += '\t';
             row += edge.component;
-
             row += '\n';
 
             if (!copy.put(row)) {
@@ -680,12 +665,30 @@ size_t extract_multimodal_structures(
         }
 
         if (!copy.end()) {
-            std::cerr << "[MULTIMODAL] COPY end failed: " << copy.error() << "\n";
+            std::cerr << "[MULTIMODAL] COPY to temp failed: " << copy.error() << "\n";
             return 0;
         }
 
+        // INSERT with existence checks for source and target
+        PGresult* ins_res = PQexec(conn,
+            "INSERT INTO relation (source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component) "
+            "SELECT source_type, source_id, target_type, target_id, relation_type, weight, source_model, layer, component "
+            "FROM tmp_multimodal_rel t "
+            "WHERE ((t.source_type = 'A' AND EXISTS (SELECT 1 FROM atom WHERE id = t.source_id)) "
+            "       OR (t.source_type = 'C' AND EXISTS (SELECT 1 FROM composition WHERE id = t.source_id))) "
+            "AND ((t.target_type = 'A' AND EXISTS (SELECT 1 FROM atom WHERE id = t.target_id)) "
+            "     OR (t.target_type = 'C' AND EXISTS (SELECT 1 FROM composition WHERE id = t.target_id))) "
+            "ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
+            "weight = EXCLUDED.weight");
+
+        int inserted = (PQresultStatus(ins_res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(ins_res)) : 0;
+        if (PQresultStatus(ins_res) != PGRES_COMMAND_OK) {
+            std::cerr << "[MULTIMODAL] Insert failed: " << PQerrorMessage(conn) << "\n";
+        }
+        PQclear(ins_res);
+
         tx.commit();
-        std::cerr << "[MULTIMODAL] Inserted " << deduped_edges.size() << " multimodal relations\n";
+        std::cerr << "[MULTIMODAL] Inserted " << inserted << " multimodal relations (filtered " << (deduped_edges.size() - inserted) << " missing refs)\n";
     }
 
     std::cerr << "+--------------------------------------------------------------+\n";

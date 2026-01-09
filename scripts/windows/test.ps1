@@ -18,6 +18,7 @@ $TestsPassed = 0
 $TestsFailed = 0
 $env:PGPASSWORD = $env:HC_DB_PASS
 $env:PGCLIENTENCODING = "UTF8"
+$env:PATH = "D:\Intel\oneAPI\compiler\2025.3\bin;D:\Intel\oneAPI\tbb\2022.3\bin;$env:PATH"
 
 function SQL { 
     param([string]$q) 
@@ -54,6 +55,18 @@ function Test-Result {
 $BuildDir = $env:HC_BUILD_DIR
 if (Test-Path "$BuildDir\Release") { $BuildDir = "$BuildDir\Release" }
 
+# Copy OpenSSL DLLs for runtime dependencies
+# PostgreSQL 18 uses OpenSSL 3 with -3-x64 suffix, but some deps expect OpenSSL 1.1 names
+$opensslDlls = @("libcrypto-3-x64.dll", "libssl-3-x64.dll")
+foreach ($dll in $opensslDlls) {
+    $srcPath = "D:\PostgreSQL\18\bin\$dll"
+    $dstName = $dll -replace "-3-x64", ""
+    $dstPath = "$BuildDir\$dstName"
+    if (Test-Path $srcPath) {
+        Copy-Item $srcPath $dstPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # ═══════════════════════════════════════════════════════════════════════════
 Write-Host "─── C++ Unit Tests ────────────────────────────────────────" -ForegroundColor Blue
 
@@ -84,6 +97,13 @@ Test-Result "PostGIS" ($gisVer -match "\d") "v$gisVer"
 Write-Host ""
 Write-Host "─── 3-Table Schema ────────────────────────────────────────" -ForegroundColor Blue
 
+# Get database stats using function
+$stats = SafeTrim (SQL "SELECT * FROM db_stats()")
+$statsArray = $stats -split '\|'
+$atomCount = [int]$statsArray[0]
+$compCount = [int]$statsArray[1]
+
+# Table existence checks using information_schema
 $atomExists = (SafeTrim (SQL "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='atom'")) -eq "1"
 Test-Result "atom table" $atomExists $(if($atomExists){"exists"}else{"MISSING"})
 
@@ -106,7 +126,7 @@ Test-Result "Hilbert index (idx_atom_hilbert)" $hilbertIdx $(if($hilbertIdx){"ex
 Write-Host ""
 Write-Host "─── Atom Seeding ──────────────────────────────────────────" -ForegroundColor Blue
 
-$leafCount = SafeTrim (SQL "SELECT COUNT(*) FROM atom")
+$leafCount = SafeTrim (SQL "SELECT atoms FROM db_stats()")
 $leafInt = 0
 [int]::TryParse($leafCount, [ref]$leafInt) | Out-Null
 $pass = $leafInt -gt 1100000
@@ -125,27 +145,27 @@ Test-Result "Atom 'A' (U+0041)" ($sampleA -match "cp=65") $sampleA
 Write-Host ""
 Write-Host "─── Core Functions ────────────────────────────────────────" -ForegroundColor Blue
 
-$isLeaf = SafeTrim (SQL "SELECT atom_is_leaf((SELECT id FROM atom WHERE codepoint = 65))")
+$isLeaf = SafeTrim (SQL "SELECT atom_is_leaf(atom_by_codepoint(65))")
 Test-Result "atom_is_leaf('A')" ($isLeaf -eq "t") "returns '$isLeaf' (expected: t)"
 
-$centroid = SafeTrim (SQL 'SELECT CONCAT(''X='', ROUND(ST_X(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))::numeric,2), '' Y='', ROUND(ST_Y(atom_centroid((SELECT id FROM atom WHERE codepoint = 65)))::numeric,2))')
+$centroid = SafeTrim (SQL "SELECT CONCAT('X=', ROUND(ST_X(atom_centroid(atom_by_codepoint(65)))::numeric,2), ' Y=', ROUND(ST_Y(atom_centroid(atom_by_codepoint(65)))::numeric,2))")
 Test-Result "atom_centroid('A')" ($centroid -match "X=") $centroid
 
-$reconstructA = SafeTrim (SQL "SELECT atom_reconstruct_text((SELECT id FROM atom WHERE codepoint = 65))")
+$reconstructA = SafeTrim (SQL "SELECT atom_reconstruct_text(atom_by_codepoint(65))")
 Test-Result "atom_reconstruct_text('A')" ($reconstructA -eq "A" -or $reconstructA -match "A") "returns '$reconstructA'"
 
 # ═══════════════════════════════════════════════════════════════════════════
 Write-Host ""
 Write-Host "─── Spatial Queries ───────────────────────────────────────" -ForegroundColor Blue
 
-$knnCount = SafeTrim (SQL "SELECT COUNT(*) FROM atom_knn((SELECT id FROM atom WHERE codepoint = 65), 5)")
+$knnCount = SafeTrim (SQL "SELECT COUNT(*) FROM atom_knn(atom_by_codepoint(65), 5)")
 Test-Result 'atom_knn(''A'', k=5)' (($knnCount -match '\d') -and ($knnCount -ne '0')) "$knnCount neighbors found"
 
 # ═══════════════════════════════════════════════════════════════════════════
 Write-Host ""
 Write-Host "─── Compositions ──────────────────────────────────────────" -ForegroundColor Blue
 
-$compCount = SafeTrim (SQL "SELECT COUNT(*) FROM composition")
+$compCount = SafeTrim (SQL "SELECT compositions FROM db_stats()")
 $compInt = 0
 [int]::TryParse($compCount, [ref]$compInt) | Out-Null
 $maxDepth = SafeTrim (SQL "SELECT COALESCE(MAX(depth), 0) FROM composition")
@@ -168,7 +188,7 @@ Write-Host ""
 Write-Host "─── Semantic Relations ────────────────────────────────────" -ForegroundColor Blue
 Write-Host "  (Edges from MiniLM embedding model - token similarity)" -ForegroundColor DarkGray
 
-$edgeCount = SafeTrim (SQL "SELECT COUNT(*) FROM relation")
+$edgeCount = SafeTrim (SQL "SELECT relations FROM db_stats()")
 $edgeInt = 0
 [int]::TryParse($edgeCount, [ref]$edgeInt) | Out-Null
 Test-Result "Total semantic edges" (($edgeInt -gt 0) -and -not $topEdgesError) "$($edgeInt.ToString('N0')) relationships in relation table"

@@ -122,32 +122,25 @@ try {
         }
 
         # ====================================================================
-        # SCHEMA APPLICATION (idempotent - uses CREATE IF NOT EXISTS)
-        # Priority order: schema first, then functions, then features
+        # SCHEMA APPLICATION (single refactored master file)
         # ====================================================================
         Write-Host "[4/6] Applying schema..." -ForegroundColor Cyan
 
-        # Priority files first
-        $priorityFiles = @("001_schema.sql", "002_core_functions.sql")
-        $otherFiles = Get-ChildItem -Path "$env:HC_PROJECT_ROOT\sql\*.sql" |
-                      Where-Object { $_.Name -notmatch "archive" -and $_.Name -notmatch "^001_|^002_" } |
-                      Sort-Object Name |
-                      Select-Object -ExpandProperty Name
-
-        $sqlFiles = $priorityFiles + $otherFiles
-        
-        foreach ($sqlFile in $sqlFiles) {
-            Write-Host "      $sqlFile..." -NoNewline
-            $sqlPath = Join-Path $env:HC_PROJECT_ROOT "sql\$sqlFile"
+        Write-Host "      hypercube_schema.sql..." -NoNewline
+        $sqlDir = Join-Path $env:HC_PROJECT_ROOT "sql"
+        Push-Location $sqlDir
+        try {
             # Run psql with ON_ERROR_STOP - it will exit non-zero on actual errors, but notices go to stderr
-            $null = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -v ON_ERROR_STOP=1 -f $sqlPath
+            $null = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -v ON_ERROR_STOP=1 -f "hypercube_schema.sql"
             if ($LASTEXITCODE -ne 0) {
                 Write-Host " FAILED" -ForegroundColor Red
                 Write-Host "      psql exited with code $LASTEXITCODE" -ForegroundColor Red
                 exit 1
             }
-            Write-Host " OK" -ForegroundColor Green
+        } finally {
+            Pop-Location
         }
+        Write-Host " OK" -ForegroundColor Green
 
         # ====================================================================
         # C++ EXTENSIONS (idempotent - uses CREATE EXTENSION IF NOT EXISTS)
@@ -232,10 +225,16 @@ try {
     Write-Host "=== Database Ready ===" -ForegroundColor Green
     Write-Host ""
     
-    # Show final counts
-    $finalAtoms = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom" 2>$null
-    $finalComps = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition" 2>$null
-    $finalRels = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM relation" 2>$null
+    # Show final counts using db_stats function
+    $stats = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT * FROM db_stats()" 2>$null
+    if ($stats) {
+        $statsArray = $stats -split '\|'
+        $finalAtoms = $statsArray[0].Trim()
+        $finalComps = $statsArray[1].Trim()
+        $finalRels = $statsArray[3].Trim()
+    } else {
+        $finalAtoms = $finalComps = $finalRels = "0"
+    }
     
     Write-Host "  Atoms:        $finalAtoms" -ForegroundColor Cyan
     Write-Host "  Compositions: $finalComps" -ForegroundColor Cyan
