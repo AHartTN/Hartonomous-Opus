@@ -25,9 +25,6 @@
 #include <cstdint>
 #include <functional>
 
-#ifdef HAS_MKL
-#include <mkl.h>
-#endif
 
 namespace hypercube {
 
@@ -146,17 +143,6 @@ private:
     std::vector<std::vector<std::pair<size_t, double>>> adj_;
     bool finalized_ = false;
 
-#ifdef HAS_MKL
-    // MKL sparse matrix handle for optimized operations
-    sparse_matrix_t mkl_matrix_ = nullptr;
-    matrix_descr descr_;
-    bool mkl_created_ = false;
-
-    // Create MKL sparse matrix handle
-    void create_mkl_matrix();
-    // Destroy MKL sparse matrix handle
-    void destroy_mkl_matrix();
-#endif
 };
 
 /**

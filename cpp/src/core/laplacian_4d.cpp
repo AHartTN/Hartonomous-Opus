@@ -179,15 +179,9 @@ void normalize(double* v, size_t n) {
 
 SparseSymmetricMatrix::SparseSymmetricMatrix(size_t n)
     : n_(n), diagonal_(n, 0.0), adj_(n), finalized_(false)
-#ifdef HAS_MKL
-    , mkl_matrix_(nullptr), mkl_created_(false)
-#endif
 {}
 
 SparseSymmetricMatrix::~SparseSymmetricMatrix() {
-#ifdef HAS_MKL
-    destroy_mkl_matrix();
-#endif
 }
 
 void SparseSymmetricMatrix::add_edge(size_t i, size_t j, double weight) {
@@ -254,10 +248,6 @@ void SparseSymmetricMatrix::finalize() {
     adj_.shrink_to_fit();
     finalized_ = true;
 
-#ifdef HAS_MKL
-    // Create MKL sparse matrix handle for optimized operations
-    create_mkl_matrix();
-#endif
 }
 
 void SparseSymmetricMatrix::multiply(const std::vector<double>& x, std::vector<double>& y) const {
@@ -318,61 +308,6 @@ double SparseSymmetricMatrix::get_degree(size_t i) const {
     return sum;
 }
 
-#ifdef HAS_MKL
-void SparseSymmetricMatrix::create_mkl_matrix() {
-    if (!finalized_ || mkl_created_) return;
-
-    // Validate CSR structure before creating MKL matrix
-    if (!validate_csr()) {
-        std::cerr << "[MKL] ERROR: CSR validation failed, cannot create MKL matrix\n";
-        mkl_matrix_ = nullptr;
-        return;
-    }
-
-    // Set matrix descriptor for symmetric upper triangular
-    descr_.type = SPARSE_MATRIX_TYPE_SYMMETRIC;
-    descr_.mode = SPARSE_FILL_MODE_UPPER;
-    descr_.diag = SPARSE_DIAG_NON_UNIT;
-
-    // Convert size_t to MKL_INT
-    std::vector<MKL_INT> mkl_row_ptr(row_ptr_.size());
-    std::vector<MKL_INT> mkl_col_idx(col_idx_.size());
-
-    for (size_t i = 0; i < row_ptr_.size(); ++i) {
-        mkl_row_ptr[i] = static_cast<MKL_INT>(row_ptr_[i]);
-    }
-    for (size_t i = 0; i < col_idx_.size(); ++i) {
-        mkl_col_idx[i] = static_cast<MKL_INT>(col_idx_[i]);
-    }
-
-    // Create MKL CSR sparse matrix
-    MKL_INT m = static_cast<MKL_INT>(n_);
-    MKL_INT nnz = static_cast<MKL_INT>(values_.size());
-
-    sparse_status_t status = mkl_sparse_d_create_csr(&mkl_matrix_,
-                                                    SPARSE_INDEX_BASE_ZERO,
-                                                    m, m, mkl_row_ptr.data(),
-                                                    mkl_row_ptr.data() + 1,
-                                                    mkl_col_idx.data(),
-                                                    values_.data());
-
-    if (status != SPARSE_STATUS_SUCCESS) {
-        std::cerr << "[MKL] ERROR: Failed to create sparse matrix, status=" << status << "\n";
-        mkl_matrix_ = nullptr;
-    } else {
-        mkl_created_ = true;
-        std::cerr << "[MKL] Created sparse matrix handle: " << n_ << "x" << n_ << ", " << nnz << " non-zeros\n";
-    }
-}
-
-void SparseSymmetricMatrix::destroy_mkl_matrix() {
-    if (mkl_created_ && mkl_matrix_) {
-        mkl_sparse_destroy(mkl_matrix_);
-        mkl_matrix_ = nullptr;
-        mkl_created_ = false;
-    }
-}
-#endif
 
 // Validate CSR structure (for debugging)
 bool SparseSymmetricMatrix::validate_csr() const {

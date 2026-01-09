@@ -57,9 +57,6 @@
 #include <immintrin.h>
 #endif
 
-#ifdef HAS_MKL
-#include <mkl.h>
-#endif
 
 #ifdef HAS_EIGEN
 #include <Eigen/Dense>
@@ -797,12 +794,7 @@ Point4D CoordinateMapper::centroid(const std::vector<Point4D>& points) noexcept 
     // Use fast inverse sqrt approximation for better performance
     double norm_sq = centroid_float.dot(centroid_float);
     if (norm_sq > 1e-12) {  // Avoid division by zero
-#ifdef __GNUC__
-        double inv_norm = __builtin_ia32_rsqrtpd(_mm_set1_pd(norm_sq))[0];  // GCC built-in
-        centroid_float = centroid_float * inv_norm;
-#else
         centroid_float = centroid_float * (1.0 / std::sqrt(norm_sq));
-#endif
     }
 
     // Quantize to uint32 for indexing
@@ -956,51 +948,19 @@ inline double avx_distance(const Point4F& a, const Point4F& b) noexcept {
 #endif
 
 // MKL-optimized operations for distance computations
-#ifdef HAS_MKL
-inline double mkl_distance(const Point4F& a, const Point4F& b) noexcept {
-    double a_arr[4] = {a.x, a.y, a.z, a.m};
-    double b_arr[4] = {b.x, b.y, b.z, b.m};
-    double diff[4];
-
-    // Compute difference: diff = a - b
-    vdSub(4, a_arr, b_arr, diff);
-
-    // Compute squared difference
-    vdSqr(4, diff, diff);
-
-    // Sum all components
-    double sum_sq = cblas_dasum(4, diff, 1);
-
-    return std::sqrt(sum_sq);
-}
-
-// MKL-optimized dot product
-inline double mkl_dot(const Point4F& a, const Point4F& b) noexcept {
-    double a_arr[4] = {a.x, a.y, a.z, a.m};
-    double b_arr[4] = {b.x, b.y, b.z, b.m};
-
-    return cblas_ddot(4, a_arr, 1, b_arr, 1);
-}
-#endif
 
 // Select distance function based on available optimizations
 inline double optimized_distance(const Point4F& a, const Point4F& b) noexcept {
-#ifdef HAS_MKL
-    return mkl_distance(a, b);
-#elif defined(HAS_AVX)
-    return avx_distance(a, b);
-#else
-    return a.distance(b);
-#endif
+    double dx = a.x - b.x;
+    double dy = a.y - b.y;
+    double dz = a.z - b.z;
+    double dm = a.m - b.m;
+    return std::sqrt(dx*dx + dy*dy + dz*dz + dm*dm);
 }
 
 // Select dot product function
 inline double optimized_dot(const Point4F& a, const Point4F& b) noexcept {
-#ifdef HAS_MKL
-    return mkl_dot(a, b);
-#else
-    return a.dot(b);
-#endif
+    return a.x * b.x + a.y * b.y + a.z * b.z + a.m * b.m;
 }
 
 CoordinateMapper::Diagnostics CoordinateMapper::compute_diagnostics(const std::map<uint32_t, Point4F>& points) {

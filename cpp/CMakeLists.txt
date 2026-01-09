@@ -95,33 +95,73 @@ endif()
 
 # Manual detection if pkg-config failed
 if(NOT HAS_MKL)
+    # MKL 2025.3 specific paths
     find_path(MKL_INCLUDE_DIR mkl.h
-        PATHS ${MKL_SEARCH_PATHS}
+        PATHS 
+            ${MKL_ROOT}
+            /opt/intel/oneapi/mkl/2025.3
         PATH_SUFFIXES include
-        DOC "Intel MKL include directory"
+        NO_DEFAULT_PATH
     )
+    
+    if(NOT MKL_INCLUDE_DIR)
+        find_path(MKL_INCLUDE_DIR mkl.h
+            PATHS ${MKL_SEARCH_PATHS}
+            PATH_SUFFIXES include
+        )
+    endif()
 
     find_library(MKL_CORE_LIB
         NAMES mkl_core mkl_core_dll
-        PATHS ${MKL_SEARCH_PATHS}
-        PATH_SUFFIXES lib lib/intel64 lib/ia32
-        DOC "Intel MKL core library"
+        PATHS 
+            ${MKL_ROOT}
+            /opt/intel/oneapi/mkl/2025.3
+        PATH_SUFFIXES lib
+        NO_DEFAULT_PATH
     )
+    
+    if(NOT MKL_CORE_LIB)
+        find_library(MKL_CORE_LIB
+            NAMES mkl_core mkl_core_dll
+            PATHS ${MKL_SEARCH_PATHS}
+            PATH_SUFFIXES lib lib/intel64 lib/ia32
+        )
+    endif()
 
     find_library(MKL_INTL_LP64_LIB
         NAMES mkl_intel_lp64 mkl_intel_lp64_dll
-        PATHS ${MKL_SEARCH_PATHS}
-        PATH_SUFFIXES lib lib/intel64 lib/ia32
-        DOC "Intel MKL interface library"
+        PATHS 
+            ${MKL_ROOT}
+            /opt/intel/oneapi/mkl/2025.3
+        PATH_SUFFIXES lib
+        NO_DEFAULT_PATH
     )
+    
+    if(NOT MKL_INTL_LP64_LIB)
+        find_library(MKL_INTL_LP64_LIB
+            NAMES mkl_intel_lp64 mkl_intel_lp64_dll
+            PATHS ${MKL_SEARCH_PATHS}
+            PATH_SUFFIXES lib lib/intel64 lib/ia32
+        )
+    endif()
 
     # Find the threading layer instead of sequential
     find_library(MKL_THREAD_LIB
         NAMES mkl_intel_thread mkl_intel_thread_dll
-        PATHS ${MKL_SEARCH_PATHS}
-        PATH_SUFFIXES lib lib/intel64 lib/ia32
-        DOC "Intel MKL threading library"
+        PATHS 
+            ${MKL_ROOT}
+            /opt/intel/oneapi/mkl/2025.3
+        PATH_SUFFIXES lib
+        NO_DEFAULT_PATH
     )
+    
+    if(NOT MKL_THREAD_LIB)
+        find_library(MKL_THREAD_LIB
+            NAMES mkl_intel_thread mkl_intel_thread_dll
+            PATHS ${MKL_SEARCH_PATHS}
+            PATH_SUFFIXES lib lib/intel64 lib/ia32
+        )
+    endif()
 
     # Find the Intel OpenMP library (required for the threading layer)
     find_library(MKL_IOMP5_LIB
@@ -388,6 +428,12 @@ endif()
 # Configure Intel MKL if available
 if(HAS_MKL)
     target_include_directories(hypercube_core PUBLIC ${MKL_INCLUDE_DIRS})
+    
+    # Add library directories
+    if(MKL_LIBRARY_DIRS)
+        link_directories(${MKL_LIBRARY_DIRS})
+    endif()
+    
     target_link_libraries(hypercube_core PUBLIC ${MKL_LIBRARIES})
     target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1)
 
