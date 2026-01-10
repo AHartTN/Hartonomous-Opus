@@ -1078,7 +1078,8 @@ static std::vector<std::vector<double>> feast_sparse_eigensolver(
 std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     SparseSymmetricMatrix& L,
     int k,
-    std::array<double, 4>& eigenvalues_out
+    std::array<double, 4>& eigenvalues_out,
+    bool& converged_out
 ) {
     const size_t n = L.size();
     
@@ -1092,7 +1093,8 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     // ==========================================================================
     if (n <= 2000) {
         std::cerr << "[EIGEN] Using dense eigendecomposition for " << n << " points\n";
-        
+        converged_out = true;  // Dense eigendecomposition always succeeds
+
         // Convert sparse Laplacian to dense
         std::vector<double> L_dense(n * n, 0.0);
         L.for_each_edge([&](size_t i, size_t j, double w) {
@@ -1379,6 +1381,7 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     // Report convergence status
     std::cerr << "[LANCZOS] " << (result.converged ? "Converged" : "Did not fully converge")
               << " in " << result.iterations_used << " iterations\n";
+    converged_out = result.converged;
 
     if (!result.converged) {
         std::cerr << "[LANCZOS] Warning: residuals = [";
@@ -1727,10 +1730,13 @@ ProjectionResult LaplacianProjector::project(
                   << " nodes reachable from node 0\n";
     }
 
-    auto eigenvectors = find_smallest_eigenvectors(L, 4, result.eigenvalues);
-    
+    bool converged = false;
+    auto eigenvectors = find_smallest_eigenvectors(L, 4, result.eigenvalues, converged);
+    result.converged = converged && (eigenvectors.size() == 4);
+
     if (eigenvectors.size() < 4) {
         std::cerr << "[ERROR] Could not find 4 eigenvectors\n";
+        result.converged = false;
         return result;
     }
     

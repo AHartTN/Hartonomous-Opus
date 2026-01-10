@@ -12,12 +12,15 @@
 #include "hypercube/db/operations.hpp"
 #include "hypercube/db/helpers.hpp"
 #include "hypercube/tensor_classifier.hpp"
+#include <unordered_map>
 
 namespace hypercube {
 namespace ingest {
 namespace db {
 
 using namespace hypercube::db;
+
+static std::unordered_map<std::string, float> fetch_quality_scores(PGconn* conn, const std::string& model_name, const std::vector<std::string>& tensor_names);
 
 bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
     // Find embedding tensors using LANGUAGE-AGNOSTIC shape analysis
@@ -112,17 +115,23 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
     
     auto process_embedding = [&](const std::string& embed_type, TensorMeta* embed) {
         if (embed->shape.size() < 2) return;
-        
+
         int64_t num_items = embed->shape[0];
         int64_t embed_dim = embed->shape[1];
         float threshold = get_threshold(embed_type);
-        
+
         if (embed_type == "token" && !ctx.vocab_tokens.empty()) {
             num_items = std::min(num_items, static_cast<int64_t>(ctx.vocab_tokens.size()));
         }
-        
-        std::cerr << "[EMBED] Processing " << embed->name << " [" << embed_type << ", thresh=" << threshold << "]: " 
+
+        std::cerr << "[EMBED] Processing " << embed->name << " [" << embed_type << ", thresh=" << threshold << "]: "
                   << num_items << " x " << embed_dim << " dims\n";
+
+        // Fetch quality score for this embedding tensor
+        std::vector<std::string> tensor_names = {embed->name};
+        auto quality_scores = fetch_quality_scores(conn, config.model_name, tensor_names);
+        float embed_quality = quality_scores.count(embed->name) ? quality_scores[embed->name] : 1.0f;
+        std::cerr << "[EMBED] Quality score for " << embed->name << ": " << embed_quality << "\n";
         
         auto start = std::chrono::steady_clock::now();
         
@@ -197,6 +206,8 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
                     result.pop();
                     if (static_cast<int64_t>(j) == i) continue;
                     float sim = 1.0f - dist;
+                    // Apply quality weighting: multiply by quality score squared for pairwise relations from same tensor
+                    sim *= embed_quality * embed_quality;
                     if (sim >= threshold && static_cast<size_t>(i) < j) {
                         local_edges.emplace_back(static_cast<size_t>(i), j, sim);
                     }
@@ -335,6 +346,50 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
     std::cerr << "[EMBED] Bulk inserted " << total_inserted << " relations in " << insert_ms << "ms\n";
     std::cerr << "[EMBED] Total: " << total_edges.load() << " embedding similarity relations\n";
     return true;
+}
+
+static std::unordered_map<std::string, float> fetch_quality_scores(PGconn* conn, const std::string& model_name, const std::vector<std::string>& tensor_names) {
+    std::unordered_map<std::string, float> quality_scores;
+
+    if (tensor_names.empty()) return quality_scores;
+
+    // Build IN clause for tensor names
+    std::string tensor_list;
+    for (size_t i = 0; i < tensor_names.size(); ++i) {
+        if (i > 0) tensor_list += ",";
+        tensor_list += "'" + tensor_names[i] + "'";
+    }
+
+    // Query projection_metadata for quality scores
+    std::string sql = R"SQL(
+        SELECT pm.tensor_name, pm.quality_score
+        FROM projection_metadata pm
+        JOIN model m ON m.id = pm.model_id
+        WHERE m.name = ')SQL" + model_name + R"SQL('
+        AND pm.tensor_name IN (')SQL" + tensor_list + R"SQL(')
+        AND pm.quality_score IS NOT NULL
+    )SQL";
+
+    Result res = exec(conn, sql);
+    if (!res.ok()) {
+        std::cerr << "[QUALITY] Failed to fetch quality scores: " << res.error_message() << "\n";
+        return quality_scores;
+    }
+
+    int ntuples = PQntuples(res.get());
+    for (int i = 0; i < ntuples; ++i) {
+        std::string tensor_name = PQgetvalue(res.get(), i, 0);
+        std::string quality_str = PQgetvalue(res.get(), i, 1);
+        try {
+            float quality = std::stof(quality_str);
+            quality_scores[tensor_name] = quality;
+        } catch (const std::exception& e) {
+            std::cerr << "[QUALITY] Invalid quality score for " << tensor_name << ": " << quality_str << "\n";
+        }
+    }
+
+    std::cerr << "[QUALITY] Fetched " << quality_scores.size() << " quality scores for model " << model_name << "\n";
+    return quality_scores;
 }
 
 } // namespace db

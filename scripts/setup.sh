@@ -125,10 +125,33 @@ ensure_schema() {
         psql -q -c "DROP DOMAIN IF EXISTS blake3_hash CASCADE;"
     fi
 
-    log_info "Applying new three-table schema..."
-    psql -q -f sql/001_schema.sql
-    psql -q -f sql/002_core_functions.sql
-    log_ok "New schema applied"
+    log_info "Applying schema files..."
+
+    # Tables first
+    psql -q -f sql/schema/01_tables.sql || {
+        log_error "Failed to create tables"
+        return 1
+    }
+
+    # Indexes second
+    psql -q -f sql/schema/02_indexes.sql || {
+        log_error "Failed to create indexes"
+        return 1
+    }
+
+    # Constraints third
+    psql -q -f sql/schema/03_constraints.sql 2>/dev/null || true
+
+    # Functions - apply all function SQL files
+    for func_dir in sql/functions/*/; do
+        [ -d "$func_dir" ] || continue
+        for func_file in "$func_dir"*.sql; do
+            [ -f "$func_file" ] || continue
+            psql -q -f "$func_file" 2>/dev/null || true
+        done
+    done
+
+    log_ok "Schema applied"
 }
 
 ensure_atoms() {
@@ -153,20 +176,6 @@ ensure_atoms() {
     log_ok "Atoms seeded"
 }
 
-ensure_functions() {
-    # Check if all core functions exist
-    if psql -tAc "SELECT 1 FROM pg_proc WHERE proname='get_atoms_by_codepoints'" | grep -q 1 && \
-       psql -tAc "SELECT 1 FROM pg_proc WHERE proname='recompute_composition_centroids'" | grep -q 1; then
-        return 0
-    fi
-
-    log_info "Applying additional SQL functions..."
-    for sqlfile in sql/003_*.sql sql/004_*.sql sql/005_*.sql sql/006_*.sql sql/007_*.sql; do
-        [ -f "$sqlfile" ] || continue
-        psql -q -f "$sqlfile" 2>/dev/null || true
-    done
-    log_ok "Additional functions applied"
-}
 
 ensure_extension() {
     # Check if extension functions exist
@@ -270,10 +279,9 @@ cmd_init() {
     
     ensure_database
     ensure_build
-    ensure_schema      # Creates PostGIS extension first
+    ensure_schema      # Creates tables, indexes, constraints, functions
     ensure_extension   # Hypercube extension requires PostGIS
     ensure_atoms
-    ensure_functions
     
     echo ""
     echo "=============================================="
@@ -364,31 +372,38 @@ cmd_tree() {
 
 cmd_ingest() {
     local target="$1"
-    
+    local model_name="$2"
+
     if [ -z "$target" ]; then
-        log_error "Usage: ./setup.sh ingest <file_or_directory>"
+        log_error "Usage: ./setup.sh ingest <path> [model_name]"
         exit 1
     fi
-    
+
     if [ ! -e "$target" ]; then
         log_error "Not found: $target"
         exit 1
     fi
-    
-    # Ensure C++ ingester is built
-    if [ ! -x "cpp/build/cpe_ingest" ]; then
-        ensure_build
+
+    ensure_build
+
+    # Check if this is a model directory (has .safetensors or tokenizer.json)
+    if [ -d "$target" ] && ([ -f "$target/model.safetensors" ] || [ -f "$target/tokenizer.json" ] || find "$target" -name "*.safetensors" 2>/dev/null | grep -q .); then
+        # Model ingestion
+        if [ -z "$model_name" ]; then
+            model_name=$(basename "$target")
+        fi
+        log_info "Ingesting model: $model_name from $target"
+        ./cpp/build/hc.exe ingest -d "$PGDATABASE" -n "$model_name" "$target"
+    else
+        # Text ingestion
+        log_info "Ingesting text: $target"
+        ./cpp/build/cpe_ingest \
+            -d "$PGDATABASE" \
+            -U "$PGUSER" \
+            -h "$PGHOST" \
+            "$target"
     fi
-    
-    log_info "Ingesting: $target"
-    
-    # Use C++ CPE ingester (fast)
-    ./cpp/build/cpe_ingest \
-        -d "$PGDATABASE" \
-        -U "$PGUSER" \
-        -h "$PGHOST" \
-        "$target"
-    
+
     echo ""
     cmd_status
 }

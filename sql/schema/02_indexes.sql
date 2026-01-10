@@ -95,6 +95,22 @@ CREATE INDEX IF NOT EXISTS idx_bigram_right ON bigram_stats(right_id);
 CREATE INDEX IF NOT EXISTS idx_bigram_pmi ON bigram_stats(pmi DESC) WHERE pmi IS NOT NULL;
 
 -- =============================================================================
+-- PROJECTION METADATA INDEXES
+-- =============================================================================
+
+-- Model lookups (which models have been projected)
+CREATE INDEX IF NOT EXISTS idx_proj_meta_model ON projection_metadata(model_id);
+
+-- Role filtering (embeddings vs attention vs ffn)
+CREATE INDEX IF NOT EXISTS idx_proj_meta_role ON projection_metadata(role);
+
+-- Quality-based queries (champion model selection)
+CREATE INDEX IF NOT EXISTS idx_proj_meta_quality ON projection_metadata(quality_score DESC);
+
+-- Geometry write status (track which projections define coordinates)
+CREATE INDEX IF NOT EXISTS idx_proj_meta_written ON projection_metadata(geom_written);
+
+-- =============================================================================
 -- COMMENTS
 -- =============================================================================
 

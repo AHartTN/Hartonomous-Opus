@@ -111,6 +111,46 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
                            (s | ((e + 112) << 23) | (m << 13));
             std::memcpy(&data[static_cast<size_t>(i)], &fval, 4);
         }
+    } else if (meta.dtype == "F8_E4M3") {
+        std::vector<uint8_t> raw(n);
+        f.read(reinterpret_cast<char*>(raw.data()),
+               static_cast<std::streamsize>(n * 1));
+        // PARALLEL F8_E4M3 conversion
+        #pragma omp parallel for schedule(static)
+        for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
+            uint8_t f8 = raw[static_cast<size_t>(i)];
+            uint32_t sign = (f8 >> 7) & 0x1;
+            uint32_t exp = (f8 >> 3) & 0xF;
+            uint32_t mant = f8 & 0x7;
+            uint32_t f;
+            if (exp == 0) {
+                if (mant == 0) {
+                    // Zero
+                    f = sign << 31;
+                } else {
+                    // Denormalized number - shift mantissa until leading 1
+                    int shift = 0;
+                    uint32_t m = mant;
+                    while ((m & 0x4) == 0 && shift < 3) {
+                        m <<= 1;
+                        shift++;
+                    }
+                    m &= 0x3;  // Remove leading 1
+                    f = (sign << 31) | ((1 + 127 - 7 - shift) << 23) | (m << 20);
+                }
+            } else if (exp == 15) {
+                // Infinity or NaN
+                if (mant == 0) {
+                    f = (sign << 31) | 0x7F800000;  // Infinity
+                } else {
+                    f = (sign << 31) | 0x7FC00000;  // NaN
+                }
+            } else {
+                // Normalized number
+                f = (sign << 31) | ((exp + 127 - 7) << 23) | (mant << 20);
+            }
+            std::memcpy(&data[static_cast<size_t>(i)], &f, 4);
+        }
     }
     return data;
 }

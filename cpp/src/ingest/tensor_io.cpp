@@ -30,7 +30,8 @@ std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row) {
     
     // Calculate bytes per element and row size
     size_t elem_size = 0;
-    if (meta.dtype == "F16" || meta.dtype == "BF16") elem_size = 2;
+    if (meta.dtype == "F8_E4M3") elem_size = 1;
+    else if (meta.dtype == "F16" || meta.dtype == "BF16") elem_size = 2;
     else if (meta.dtype == "F32") elem_size = 4;
     else if (meta.dtype == "F64") elem_size = 8;
     else return {};  // Unsupported dtype
@@ -89,6 +90,45 @@ std::vector<float> read_tensor_row(const TensorMeta& meta, size_t row) {
             double d;
             std::memcpy(&d, data + i * 8, 8);
             result[i] = static_cast<float>(d);
+        }
+    } else if (meta.dtype == "F8_E4M3") {
+        // F8_E4M3 to float conversion
+        // Format: 1 sign bit, 4 exponent bits (biased by 7), 3 mantissa bits
+        for (size_t i = 0; i < cols; ++i) {
+            uint8_t f8 = data[i];
+
+            uint32_t sign = (f8 >> 7) & 0x1;
+            uint32_t exp = (f8 >> 3) & 0xF;
+            uint32_t mant = f8 & 0x7;
+
+            uint32_t f;
+            if (exp == 0) {
+                if (mant == 0) {
+                    // Zero
+                    f = sign << 31;
+                } else {
+                    // Denormalized number - shift mantissa until leading 1
+                    int shift = 0;
+                    uint32_t m = mant;
+                    while ((m & 0x4) == 0 && shift < 3) {
+                        m <<= 1;
+                        shift++;
+                    }
+                    m &= 0x3;  // Remove leading 1
+                    f = (sign << 31) | ((1 + 127 - 7 - shift) << 23) | (m << 20);
+                }
+            } else if (exp == 15) {
+                // Infinity or NaN
+                if (mant == 0) {
+                    f = (sign << 31) | 0x7F800000;  // Infinity
+                } else {
+                    f = (sign << 31) | 0x7FC00000;  // NaN
+                }
+            } else {
+                // Normalized number
+                f = (sign << 31) | ((exp + 127 - 7) << 23) | (mant << 20);
+            }
+            std::memcpy(&result[i], &f, 4);
         }
     }
     

@@ -43,6 +43,7 @@
 #include "hypercube/ingest/parsing.hpp"
 #include "hypercube/embedding_ops.hpp"
 #include "hypercube/atom_calculator.hpp"
+#include "hypercube/laplacian_4d.hpp"
 
 // HNSWLIB for k-NN
 #ifdef HAS_HNSWLIB
@@ -176,9 +177,11 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
  * @param conn PostgreSQL connection
  * @param ctx Ingest context containing tensors and vocab_tokens
  * @param config Ingest configuration (for model name)
+ * @param anchors Optional anchor points for Procrustes alignment to existing atom coordinates
  * @return true on success, false on database error
  */
-bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
+bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const IngestConfig& config,
+                                   const std::vector<AnchorPoint>& anchors = {});
 
 } // namespace db
 } // namespace ingest

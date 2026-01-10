@@ -69,11 +69,12 @@ struct ProjectionResult {
     std::vector<std::array<uint32_t, 4>> coords;  // 4D hypercube coordinates
     std::vector<int64_t> hilbert_lo;              // Lower 64 bits of Hilbert index
     std::vector<int64_t> hilbert_hi;              // Upper 64 bits of Hilbert index
-    
+
     // Statistics
     std::array<double, 4> eigenvalues;            // The 4 eigenvalues used
     double total_variance_explained;              // Sum of eigenvalues / total
     size_t edge_count;                            // Number of edges in similarity graph
+    bool converged;                               // Whether the eigensolver converged
 };
 
 /**
@@ -207,7 +208,8 @@ private:
     std::vector<std::vector<double>> find_smallest_eigenvectors(
         SparseSymmetricMatrix& L,
         int k,
-        std::array<double, 4>& eigenvalues_out
+        std::array<double, 4>& eigenvalues_out,
+        bool& converged_out
     );
     
     // Gram-Schmidt orthonormalization on columns

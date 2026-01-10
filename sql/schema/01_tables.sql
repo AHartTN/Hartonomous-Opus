@@ -91,7 +91,36 @@ CREATE TABLE IF NOT EXISTS model (
 );
 
 -- =============================================================================
--- 6. BIGRAM STATISTICS: Co-occurrence and PMI scoring
+-- 6. PROJECTION METADATA: Quality tracking for 4D projections
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS projection_metadata (
+    id BIGSERIAL PRIMARY KEY,
+
+    -- Model and tensor identification
+    model_id BIGINT NOT NULL REFERENCES model(id) ON DELETE CASCADE,
+    tensor_name TEXT NOT NULL,
+
+    -- Tensor characteristics
+    role TEXT NOT NULL CHECK (role IN ('embeddings', 'attention', 'ffn', 'other')),
+    dtype TEXT NOT NULL,
+    dim INTEGER NOT NULL CHECK (dim > 0),
+
+    -- Projection quality metrics
+    variance_explained REAL CHECK (variance_explained >= 0.0 AND variance_explained <= 1.0),
+    converged BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Policy outcomes
+    geom_written BOOLEAN NOT NULL DEFAULT FALSE,
+    quality_score REAL,
+
+    -- Metadata
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =============================================================================
+-- 7. BIGRAM STATISTICS: Co-occurrence and PMI scoring
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS bigram_stats (

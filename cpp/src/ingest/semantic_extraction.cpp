@@ -68,6 +68,28 @@ namespace hypercube {
 namespace ingest {
 namespace db {
 
+// Quality score calculation matching SQL function
+static float calculate_projection_quality(const std::string& role, const std::string& dtype, int dim, float variance_explained) {
+    float dtype_bonus = 0.0f;
+    if (dtype == "F32") dtype_bonus = 2.0f;
+    else if (dtype == "BF16") dtype_bonus = 1.5f;
+    else if (dtype == "F16") dtype_bonus = 1.0f;
+    else if (dtype == "F8_E4M3") dtype_bonus = 0.5f;
+
+    float role_bonus = 0.0f;
+    if (role == "embeddings") role_bonus = 2.0f;
+    else if (role == "attention") role_bonus = 1.5f;
+    else if (role == "ffn") role_bonus = 1.0f;
+    else role_bonus = 0.5f;
+
+    float spectrum_bonus = 0.0f;
+    if (variance_explained > 0.0f) {
+        spectrum_bonus = variance_explained * 2.0f;
+    }
+
+    return std::log(static_cast<float>(dim)) + dtype_bonus + role_bonus + spectrum_bonus;
+}
+
 // Forward declarations for merge and hierarchy extraction
 static bool extract_merge_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
 static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
@@ -170,6 +192,50 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
             uint32_t m = h & 0x3FF;
             uint32_t fval = (e == 0) ? s : (e == 31) ? (s | 0x7F800000 | (m << 13)) : (s | ((e + 112) << 23) | (m << 13));
             std::memcpy(&data[i], &fval, 4);
+        }
+    } else if (meta.dtype == "F8_E4M3") {
+        std::vector<uint8_t> raw(n);
+        f.read(reinterpret_cast<char*>(raw.data()), n * 1);
+        if (f.fail()) {
+            std::cerr << "[LOAD_TENSOR] ERROR: Read failed for F8_E4M3 data!\n";
+            return {};
+        }
+        std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 1) << ")\n";
+        // PARALLEL F8_E4M3 conversion
+        #pragma omp parallel for schedule(static)
+        for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
+            uint8_t f8 = raw[i];
+            uint32_t sign = (f8 >> 7) & 0x1;
+            uint32_t exp = (f8 >> 3) & 0xF;
+            uint32_t mant = f8 & 0x7;
+            uint32_t f;
+            if (exp == 0) {
+                if (mant == 0) {
+                    // Zero
+                    f = sign << 31;
+                } else {
+                    // Denormalized number - shift mantissa until leading 1
+                    int shift = 0;
+                    uint32_t m = mant;
+                    while ((m & 0x4) == 0 && shift < 3) {
+                        m <<= 1;
+                        shift++;
+                    }
+                    m &= 0x3;  // Remove leading 1
+                    f = (sign << 31) | ((1 + 127 - 7 - shift) << 23) | (m << 20);
+                }
+            } else if (exp == 15) {
+                // Infinity or NaN
+                if (mant == 0) {
+                    f = (sign << 31) | 0x7F800000;  // Infinity
+                } else {
+                    f = (sign << 31) | 0x7FC00000;  // NaN
+                }
+            } else {
+                // Normalized number
+                f = (sign << 31) | ((exp + 127 - 7) << 23) | (mant << 20);
+            }
+            std::memcpy(&data[i], &f, 4);
         }
     } else {
         std::cerr << "[LOAD_TENSOR] ERROR: Unknown dtype '" << meta.dtype << "'\n";
@@ -452,10 +518,138 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
     std::cerr << "[SEMANTIC] WARNING: HNSWLIB NOT AVAILABLE - no k-NN!\n";
 #endif
     std::cerr << "============================================================\n";
-    
+
     // =========================================================================
-    // EXTRACT ADDITIONAL EMBEDDING RELATIONS
+    // QUERY ANCHOR ATOMS FOR LAPLACIAN PROJECTION CONSTRAINTS
     // =========================================================================
+
+    std::vector<AnchorPoint> anchors;
+
+    // Query anchor atoms from database
+    // Anchors are single-character tokens that already have 4D coordinates from SuperFibonacci + Hopf
+    std::cerr << "[SEMANTIC] Querying anchor atoms from database for Laplacian constraints...\n";
+
+    {
+        // Build SQL query to find single-character tokens that match atoms
+        std::string query =
+            "SELECT a.id, a.codepoint, a.value, "
+            "  ST_X(a.geom) as x, ST_Y(a.geom) as y, ST_Z(a.geom) as z, ST_M(a.geom) as m "
+            "FROM atom a "
+            "WHERE a.codepoint = ANY($1::integer[])";
+
+        // Collect codepoints for single-character tokens
+        std::vector<uint32_t> single_char_codepoints;
+        std::vector<size_t> single_char_indices;
+
+        for (size_t i = 0; i < ctx.vocab_tokens.size(); ++i) {
+            const std::string& token_text = ctx.vocab_tokens[i].text;
+
+            // Check if token is a single Unicode character
+            // Simple UTF-8 check: count characters
+            size_t char_count = 0;
+            for (size_t j = 0; j < token_text.size(); ) {
+                unsigned char c = token_text[j];
+                if (c < 0x80) j += 1;
+                else if ((c & 0xE0) == 0xC0) j += 2;
+                else if ((c & 0xF0) == 0xE0) j += 3;
+                else if ((c & 0xF8) == 0xF0) j += 4;
+                else j += 1;  // Invalid, skip
+                char_count++;
+            }
+
+            if (char_count == 1) {
+                // Decode the single character to get codepoint
+                uint32_t codepoint = 0;
+                const unsigned char* bytes = reinterpret_cast<const unsigned char*>(token_text.data());
+
+                if (bytes[0] < 0x80) {
+                    codepoint = bytes[0];
+                } else if ((bytes[0] & 0xE0) == 0xC0 && token_text.size() >= 2) {
+                    codepoint = ((bytes[0] & 0x1F) << 6) | (bytes[1] & 0x3F);
+                } else if ((bytes[0] & 0xF0) == 0xE0 && token_text.size() >= 3) {
+                    codepoint = ((bytes[0] & 0x0F) << 12) | ((bytes[1] & 0x3F) << 6) | (bytes[2] & 0x3F);
+                } else if ((bytes[0] & 0xF8) == 0xF0 && token_text.size() >= 4) {
+                    codepoint = ((bytes[0] & 0x07) << 18) | ((bytes[1] & 0x3F) << 12) |
+                                ((bytes[2] & 0x3F) << 6) | (bytes[3] & 0x3F);
+                }
+
+                if (codepoint > 0 && codepoint <= 0x10FFFF) {
+                    single_char_codepoints.push_back(codepoint);
+                    single_char_indices.push_back(i);
+                }
+            }
+        }
+
+        std::cerr << "[SEMANTIC]   Found " << single_char_codepoints.size()
+                  << " single-character tokens in vocabulary\n";
+
+        if (!single_char_codepoints.empty()) {
+            // Build PostgreSQL array literal
+            std::ostringstream array_literal;
+            array_literal << "{";
+            for (size_t i = 0; i < single_char_codepoints.size(); ++i) {
+                if (i > 0) array_literal << ",";
+                array_literal << single_char_codepoints[i];
+            }
+            array_literal << "}";
+
+            std::string array_str = array_literal.str();
+            const char* params[1] = {array_str.c_str()};
+
+            PGresult* res = PQexecParams(conn, query.c_str(), 1, nullptr, params, nullptr, nullptr, 0);
+
+            if (PQresultStatus(res) == PGRES_TUPLES_OK) {
+                int nrows = PQntuples(res);
+                std::cerr << "[SEMANTIC]   Retrieved " << nrows << " atom coordinates from database\n";
+
+                // Build map: codepoint → 4D coordinates
+                std::map<uint32_t, std::array<double, 4>> codepoint_coords;
+
+                for (int r = 0; r < nrows; ++r) {
+                    uint32_t codepoint = static_cast<uint32_t>(std::stoll(PQgetvalue(res, r, 1)));
+                    std::array<double, 4> coords;
+                    coords[0] = std::stod(PQgetvalue(res, r, 3));  // x
+                    coords[1] = std::stod(PQgetvalue(res, r, 4));  // y
+                    coords[2] = std::stod(PQgetvalue(res, r, 5));  // z
+                    coords[3] = std::stod(PQgetvalue(res, r, 6));  // m
+                    codepoint_coords[codepoint] = coords;
+                }
+
+                // Create anchors for tokens with retrieved coordinates
+                for (size_t k = 0; k < single_char_codepoints.size(); ++k) {
+                    uint32_t cp = single_char_codepoints[k];
+                    auto it = codepoint_coords.find(cp);
+                    if (it != codepoint_coords.end()) {
+                        AnchorPoint anchor;
+                        anchor.token_index = single_char_indices[k];
+                        anchor.coords_4d = it->second;
+                        anchor.weight = 1.0;
+                        anchors.push_back(anchor);
+                    }
+                }
+
+                std::cerr << "[SEMANTIC]   Created " << anchors.size() << " anchor points for Laplacian constraints\n";
+            } else {
+                std::cerr << "[SEMANTIC]   WARNING: Failed to query atoms: "
+                          << PQerrorMessage(conn) << "\n";
+            }
+
+            PQclear(res);
+        }
+    }
+
+    // =========================================================================
+    // EXTRACT EMBEDDING AND ATTENTION RELATIONS
+    // =========================================================================
+
+    // CRITICAL: Build k-NN similarity graph from token embeddings
+    // This is the PRIMARY semantic relation extraction - connects tokens by learned similarity
+    std::cerr << "[SEMANTIC] Extracting token embedding relations (k-NN similarity graph)...\n";
+    extract_embedding_relations(conn, ctx, config);
+
+    // Extract attention-based semantic relations from Q/K/V projections
+    std::cerr << "[SEMANTIC] Extracting attention projection relations...\n";
+    insert_attention_relations(conn, ctx, config);
 
     // Extract temporal relations from position embeddings
     extract_temporal_relations(conn, ctx, config);
@@ -471,22 +665,56 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
     const TensorMeta* emb = nullptr;
     std::string emb_name;
 
+    // Dtype preference ranking (higher score = better for semantic precision)
+    auto dtype_score = [](const std::string& dtype) -> int {
+        if (dtype == "F64") return 50;
+        if (dtype == "F32") return 40;
+        if (dtype == "BF16") return 30;  // Better than FP16 for ML (wider range)
+        if (dtype == "F16") return 20;
+        if (dtype == "F8_E5M2") return 11; // E5M2: wider range, less precision
+        if (dtype == "F8_E4M3") return 10; // E4M3: narrower range, more precision
+        return 0;  // Unknown/unsupported dtype
+    };
+
     // First try: Use manifest's categorized extraction plans
+    // CRITICAL: Prefer highest precision tensor if multiple TOKEN_EMBEDDING exist
     if (ctx.manifest.has_value()) {
         std::cerr << "[SEMANTIC] Using config-driven tensor lookup (architecture: "
                   << architecture_to_string(ctx.manifest->architecture) << ")\n";
 
+        const TensorMeta* best_emb = nullptr;
+        std::string best_emb_name;
+        int best_score = -1;
+        std::vector<std::string> candidates;
+
+        // Scan ALL TOKEN_EMBEDDING tensors and select highest precision
         for (const auto& plan : ctx.manifest->extraction_plans) {
             if (plan.category == TensorCategory::TOKEN_EMBEDDING) {
                 auto it = ctx.tensors.find(plan.name);
                 if (it != ctx.tensors.end()) {
-                    emb = &it->second;
-                    emb_name = plan.name;
-                    std::cerr << "[SEMANTIC] Found TOKEN_EMBEDDING via manifest: " << plan.name
-                              << " [" << emb->shape[0] << " x " << emb->shape[1] << "]\n";
-                    break;
+                    int score = dtype_score(it->second.dtype);
+                    candidates.push_back(plan.name + ":" + it->second.dtype);
+                    if (score > best_score) {
+                        best_score = score;
+                        best_emb = &it->second;
+                        best_emb_name = plan.name;
+                    }
                 }
             }
+        }
+
+        if (best_emb) {
+            emb = best_emb;
+            emb_name = best_emb_name;
+            std::cerr << "[SEMANTIC] Candidates: [";
+            for (size_t i = 0; i < candidates.size(); ++i) {
+                std::cerr << candidates[i];
+                if (i + 1 < candidates.size()) std::cerr << ", ";
+            }
+            std::cerr << "]\n";
+            std::cerr << "[SEMANTIC] Selected: " << emb_name
+                      << " [" << emb->shape[0] << " x " << emb->shape[1] << "]"
+                      << " dtype=" << emb->dtype << " (precision_score=" << best_score << ")\n";
         }
     }
 
@@ -661,6 +889,14 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
         std::cerr << "[SEMANTIC] Hierarchy relations extracted\n";
     }
 
+    // =========================================================================
+    // PROJECT EMBEDDINGS TO 4D USING ANCHOR-CONSTRAINED LAPLACIAN EIGENMAPS
+    // =========================================================================
+
+    if (!project_and_update_embeddings(conn, ctx, config, anchors)) {
+        std::cerr << "[SEMANTIC] WARNING: Embedding projection failed\n";
+    }
+
     return true;
 }
 
@@ -668,7 +904,8 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
 // Project embeddings to 4D using Laplacian eigenmaps
 // ============================================================================
 
-bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
+bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const IngestConfig& config,
+                                   const std::vector<AnchorPoint>& anchors) {
     std::cerr << "============================================================\n";
     std::cerr << "[PROJECTION] LAPLACIAN EIGENMAP PROJECTION starting\n";
     std::cerr << "============================================================\n";
@@ -821,6 +1058,43 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
                 }
             }
             std::cerr << "  First two rows identical: " << (all_same ? "YES (DEGENERATE!)" : "NO (good)") << "\n";
+
+            // CRITICAL: Handle NaN/Inf values based on severity
+            double nan_ratio = static_cast<double>(nan_count) / (V * D);
+
+            if (nan_ratio > 0.5) {
+                // > 50% corrupt - tensor is completely unusable
+                std::cerr << "[PROJECTION] FATAL: " << emb_name << " has " << (nan_ratio * 100.0)
+                          << "% NaN/Inf values - tensor is corrupted\n";
+                std::cerr << "[PROJECTION] Possible causes:\n";
+                std::cerr << "  - Model file corruption\n";
+                std::cerr << "  - Wrong FP8 variant (E4M3 vs E5M2)\n";
+                std::cerr << "  - Incompatible quantization scheme\n";
+                std::cerr << "[PROJECTION] SKIPPING this tensor - use higher precision if available\n";
+                continue;
+            } else if (nan_ratio > 0.01) {
+                // 1-50% corrupt - may indicate quantization issues but recoverable
+                std::cerr << "[PROJECTION] WARNING: " << emb_name << " has " << (nan_ratio * 100.0)
+                          << "% NaN/Inf values\n";
+                std::cerr << "[PROJECTION] This is concerning for FP8 tensors - consider using F16/F32\n";
+                std::cerr << "[PROJECTION] Attempting to clean and continue (replacing NaN/Inf with 0)\n";
+
+                // Clean by replacing with zeros
+                for (size_t i = 0; i < E_flat.size(); ++i) {
+                    if (std::isnan(E_flat[i]) || std::isinf(E_flat[i])) {
+                        E_flat[i] = 0.0f;
+                    }
+                }
+            } else if (nan_count > 0) {
+                // < 1% corrupt - minor issue, clean and continue
+                std::cerr << "[PROJECTION] INFO: Cleaning " << nan_count << " NaN/Inf values ("
+                          << (nan_ratio * 100.0) << "%)\n";
+                for (size_t i = 0; i < E_flat.size(); ++i) {
+                    if (std::isnan(E_flat[i]) || std::isinf(E_flat[i])) {
+                        E_flat[i] = 0.0f;
+                    }
+                }
+            }
         }
 
         // Convert to vector<vector<float>> for LaplacianProjector
@@ -842,120 +1116,6 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
             }
         }
 
-        // Query anchor atoms from database
-        // Anchors are single-character tokens that already have 4D coordinates from SuperFibonacci + Hopf
-        std::cerr << "[PROJECTION] Querying anchor atoms from database...\n";
-        std::vector<AnchorPoint> anchors;
-
-        {
-            // Build SQL query to find single-character tokens that match atoms
-            std::string query =
-                "SELECT a.id, a.codepoint, a.value, "
-                "  ST_X(a.geom) as x, ST_Y(a.geom) as y, ST_Z(a.geom) as z, ST_M(a.geom) as m "
-                "FROM atom a "
-                "WHERE a.codepoint = ANY($1::integer[])";
-
-            // Collect codepoints for single-character tokens
-            std::vector<uint32_t> single_char_codepoints;
-            std::vector<size_t> single_char_indices;
-
-            for (size_t i = 0; i < V && i < ctx.vocab_tokens.size(); ++i) {
-                const std::string& token_text = ctx.vocab_tokens[i].text;
-
-                // Check if token is a single Unicode character
-                // Simple UTF-8 check: count characters
-                size_t char_count = 0;
-                for (size_t j = 0; j < token_text.size(); ) {
-                    unsigned char c = token_text[j];
-                    if (c < 0x80) j += 1;
-                    else if ((c & 0xE0) == 0xC0) j += 2;
-                    else if ((c & 0xF0) == 0xE0) j += 3;
-                    else if ((c & 0xF8) == 0xF0) j += 4;
-                    else j += 1;  // Invalid, skip
-                    char_count++;
-                }
-
-                if (char_count == 1) {
-                    // Decode the single character to get codepoint
-                    uint32_t codepoint = 0;
-                    const unsigned char* bytes = reinterpret_cast<const unsigned char*>(token_text.data());
-
-                    if (bytes[0] < 0x80) {
-                        codepoint = bytes[0];
-                    } else if ((bytes[0] & 0xE0) == 0xC0 && token_text.size() >= 2) {
-                        codepoint = ((bytes[0] & 0x1F) << 6) | (bytes[1] & 0x3F);
-                    } else if ((bytes[0] & 0xF0) == 0xE0 && token_text.size() >= 3) {
-                        codepoint = ((bytes[0] & 0x0F) << 12) | ((bytes[1] & 0x3F) << 6) | (bytes[2] & 0x3F);
-                    } else if ((bytes[0] & 0xF8) == 0xF0 && token_text.size() >= 4) {
-                        codepoint = ((bytes[0] & 0x07) << 18) | ((bytes[1] & 0x3F) << 12) |
-                                    ((bytes[2] & 0x3F) << 6) | (bytes[3] & 0x3F);
-                    }
-
-                    if (codepoint > 0 && codepoint <= 0x10FFFF) {
-                        single_char_codepoints.push_back(codepoint);
-                        single_char_indices.push_back(i);
-                    }
-                }
-            }
-
-            std::cerr << "[PROJECTION]   Found " << single_char_codepoints.size()
-                      << " single-character tokens in vocabulary\n";
-
-            if (!single_char_codepoints.empty()) {
-                // Build PostgreSQL array literal
-                std::ostringstream array_literal;
-                array_literal << "{";
-                for (size_t i = 0; i < single_char_codepoints.size(); ++i) {
-                    if (i > 0) array_literal << ",";
-                    array_literal << single_char_codepoints[i];
-                }
-                array_literal << "}";
-
-                std::string array_str = array_literal.str();
-                const char* params[1] = {array_str.c_str()};
-
-                PGresult* res = PQexecParams(conn, query.c_str(), 1, nullptr, params, nullptr, nullptr, 0);
-
-                if (PQresultStatus(res) == PGRES_TUPLES_OK) {
-                    int nrows = PQntuples(res);
-                    std::cerr << "[PROJECTION]   Retrieved " << nrows << " atom coordinates from database\n";
-
-                    // Build map: codepoint → 4D coordinates
-                    std::map<uint32_t, std::array<double, 4>> codepoint_coords;
-
-                    for (int r = 0; r < nrows; ++r) {
-                        uint32_t codepoint = static_cast<uint32_t>(std::stoll(PQgetvalue(res, r, 1)));
-                        std::array<double, 4> coords;
-                        coords[0] = std::stod(PQgetvalue(res, r, 3));  // x
-                        coords[1] = std::stod(PQgetvalue(res, r, 4));  // y
-                        coords[2] = std::stod(PQgetvalue(res, r, 5));  // z
-                        coords[3] = std::stod(PQgetvalue(res, r, 6));  // m
-                        codepoint_coords[codepoint] = coords;
-                    }
-
-                    // Create anchors for tokens with retrieved coordinates
-                    for (size_t k = 0; k < single_char_codepoints.size(); ++k) {
-                        uint32_t cp = single_char_codepoints[k];
-                        auto it = codepoint_coords.find(cp);
-                        if (it != codepoint_coords.end()) {
-                            AnchorPoint anchor;
-                            anchor.token_index = single_char_indices[k];
-                            anchor.coords_4d = it->second;
-                            anchor.weight = 1.0;
-                            anchors.push_back(anchor);
-                        }
-                    }
-
-                    std::cerr << "[PROJECTION]   Created " << anchors.size() << " anchor points\n";
-                } else {
-                    std::cerr << "[PROJECTION]   WARNING: Failed to query atoms: "
-                              << PQerrorMessage(conn) << "\n";
-                }
-
-                PQclear(res);
-            }
-        }
-
         // Configure Laplacian projector
         LaplacianConfig lap_config;
         lap_config.k_neighbors = 15;
@@ -967,6 +1127,16 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
         // RELAXED tolerance for large sparse matrices (>100K points)
         // Residuals ~1e-2 are acceptable for semantic embeddings
         lap_config.convergence_tol = (V > 100000) ? 1e-2 : 1e-3;
+
+        // CRITICAL: N×N Laplacian → N eigenvalues → (N-1) non-zero eigenvectors
+        // NOT about "5 points to define a 4D simplex" (affine geometry)
+        // This is pure linear algebra: need 4 eigenvectors for 4D spectral coordinates
+        if (V < 5) {
+            std::cerr << "[PROJECTION] Skipping " << emb_name << ": " << V << " nodes → max "
+                      << (V-1) << " non-zero eigenvectors (need 4 for spectral 4D)\n";
+            std::cerr << "[PROJECTION] (This is expected for utility tensors like token_type_embeddings)\n";
+            continue;
+        }
 
         std::cerr << "[PROJECTION] Projecting " << V << " embeddings to 4D using Laplacian eigenmaps...\n";
         auto proj_start = std::chrono::steady_clock::now();
@@ -985,25 +1155,112 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
             continue;
         }
 
-        // Prepare TokenData for database update
-        std::vector<hypercube::db::TokenData> tokens(V);
-        for (size_t i = 0; i < V; ++i) {
-            tokens[i].label = labels[i];
-            tokens[i].hash = ctx.vocab_tokens[i].comp.hash;  // Use existing hash
-            tokens[i].is_atom = false;  // These are compositions (tokens)
-            tokens[i].coords = result.coords[i];
-            tokens[i].hilbert_lo = result.hilbert_lo[i];
-            tokens[i].hilbert_hi = result.hilbert_hi[i];
+        // Calculate quality score to determine if geometry should be written
+        float quality_score = calculate_projection_quality("embeddings", emb->dtype, static_cast<int>(D), result.total_variance_explained);
+        std::cerr << "[PROJECTION] Quality score for " << emb_name << ": " << quality_score << "\n";
+
+        bool should_write_geometry = (quality_score > 2.0f);  // Threshold from task: >2.0 for minimal quality
+        size_t updated = 0;
+
+        if (should_write_geometry) {
+            // Prepare TokenData for database update
+            std::vector<hypercube::db::TokenData> tokens(V);
+            for (size_t i = 0; i < V; ++i) {
+                tokens[i].label = labels[i];
+                tokens[i].hash = ctx.vocab_tokens[i].comp.hash;  // Use existing hash
+                tokens[i].is_atom = false;  // These are compositions (tokens)
+                tokens[i].coords = result.coords[i];
+                tokens[i].hilbert_lo = result.hilbert_lo[i];
+                tokens[i].hilbert_hi = result.hilbert_hi[i];
+            }
+
+            // Update database with projected coordinates
+            std::cerr << "[PROJECTION] Quality sufficient (" << quality_score << " > 2.0), writing 4D coordinates to database...\n";
+            hypercube::db::PersistConfig persist_config;
+            persist_config.update_existing = true;
+            hypercube::db::ProjectionPersister persister(conn, persist_config);
+            updated = persister.persist(tokens);
+        } else {
+            std::cerr << "[PROJECTION] Quality insufficient (" << quality_score << " <= 2.0), skipping geometry write\n";
         }
 
-        // Update database with projected coordinates
-        std::cerr << "[PROJECTION] Updating database with projected 4D coordinates for " << emb_name << "...\n";
-        hypercube::db::PersistConfig persist_config;
-        persist_config.update_existing = true;
-        hypercube::db::ProjectionPersister persister(conn, persist_config);
-        size_t updated = persister.persist(tokens);
-
         std::cerr << "[PROJECTION] Updated " << updated << " token compositions with Laplacian-projected coordinates from " << emb_name << "\n";
+
+        // Insert projection metadata for quality tracking
+        if (result.total_variance_explained >= 0.01) {  // Only track successful projections
+            try {
+                // Get or create model ID
+                std::string get_model_query = "SELECT id FROM model WHERE name = $1";
+                const char* model_params[1] = {config.model_name.c_str()};
+                PGresult* model_res = PQexecParams(conn, get_model_query.c_str(), 1, nullptr, model_params, nullptr, nullptr, 0);
+
+                int64_t model_id = -1;
+                if (PQresultStatus(model_res) == PGRES_TUPLES_OK && PQntuples(model_res) > 0) {
+                    model_id = std::stoll(PQgetvalue(model_res, 0, 0));
+                }
+                PQclear(model_res);
+
+                if (model_id == -1) {
+                    // Model doesn't exist, create it
+                    std::string insert_model_query =
+                        "INSERT INTO model (name, source, embedding_dim) VALUES ($1, $2, $3) RETURNING id";
+                    const char* insert_params[3] = {
+                        config.model_name.c_str(),
+                        "ingestion",
+                        std::to_string(D).c_str()
+                    };
+                    PGresult* insert_res = PQexecParams(conn, insert_model_query.c_str(), 3, nullptr, insert_params, nullptr, nullptr, 0);
+                    if (PQresultStatus(insert_res) == PGRES_TUPLES_OK) {
+                        model_id = std::stoll(PQgetvalue(insert_res, 0, 0));
+                    }
+                    PQclear(insert_res);
+                }
+
+                if (model_id != -1) {
+                    // Insert projection metadata
+                    std::string insert_meta_query = R"SQL(
+                        INSERT INTO projection_metadata
+                            (model_id, tensor_name, role, dtype, dim, variance_explained, converged, geom_written)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                        ON CONFLICT (model_id, tensor_name) DO UPDATE SET
+                            variance_explained = EXCLUDED.variance_explained,
+                            converged = EXCLUDED.converged,
+                            geom_written = EXCLUDED.geom_written,
+                            updated_at = NOW()
+                    )SQL";
+
+                    std::string model_id_str = std::to_string(model_id);
+                    std::string variance_str = std::to_string(result.total_variance_explained);
+                    std::string converged_str = result.converged ? "true" : "false";
+                    std::string geom_written_str = should_write_geometry ? "true" : "false";
+
+                    const char* meta_params[8] = {
+                        model_id_str.c_str(),
+                        emb_name.c_str(),
+                        "embeddings",
+                        emb->dtype.c_str(),
+                        std::to_string(D).c_str(),
+                        variance_str.c_str(),
+                        converged_str.c_str(),
+                        geom_written_str.c_str()
+                    };
+
+                    PGresult* meta_res = PQexecParams(conn, insert_meta_query.c_str(), 8, nullptr, meta_params, nullptr, nullptr, 0);
+                    if (PQresultStatus(meta_res) == PGRES_COMMAND_OK) {
+                        std::cerr << "[PROJECTION] Inserted projection metadata for " << emb_name
+                                  << " (variance_explained=" << result.total_variance_explained
+                                  << ", converged=" << result.converged
+                                  << ", geom_written=" << (updated > 0) << ")\n";
+                    } else {
+                        std::cerr << "[PROJECTION] Failed to insert projection metadata: "
+                                  << PQerrorMessage(conn) << "\n";
+                    }
+                    PQclear(meta_res);
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "[PROJECTION] Error inserting projection metadata: " << e.what() << "\n";
+            }
+        }
     }
 
     return true;

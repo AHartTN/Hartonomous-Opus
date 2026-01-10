@@ -359,8 +359,7 @@ int cmd_test(int argc, char* argv[]) {
 
         // Test 1: BLAKE3 hashing
         try {
-            Blake3Hash hash;
-            hash.compute_from_string("test");
+            Blake3Hash hash = Blake3Hasher::hash("test");
             std::cout << "  ✓ BLAKE3 hashing works\n";
         } catch (...) {
             std::cerr << "  ✗ BLAKE3 hashing failed\n";
@@ -369,9 +368,9 @@ int cmd_test(int argc, char* argv[]) {
 
         // Test 2: Hilbert curve
         try {
-            HilbertCurve hilbert(10);  // 10-bit precision
-            uint64_t dist = hilbert.encode(5, 5, 5, 5);
-            std::cout << "  ✓ Hilbert curve encoding works (dist=" << dist << ")\n";
+            Point4D point{5U, 5U, 5U, 5U};
+            HilbertIndex idx = HilbertCurve::coords_to_index(point);
+            std::cout << "  ✓ Hilbert curve encoding works (idx=" << idx.hi << "," << idx.lo << ")\n";
         } catch (...) {
             std::cerr << "  ✗ Hilbert curve failed\n";
             failures++;
@@ -379,9 +378,8 @@ int cmd_test(int argc, char* argv[]) {
 
         // Test 3: AtomCalculator
         try {
-            AtomCalculator calc;
-            Point4D p = calc.map_codepoint_to_4d(65);  // 'A'
-            std::cout << "  ✓ AtomCalculator works (x=" << p.x << ")\n";
+            AtomRecord atom = AtomCalculator::compute_atom(65);  // 'A'
+            std::cout << "  ✓ AtomCalculator works (x=" << atom.coords.x << ")\n";
         } catch (...) {
             std::cerr << "  ✗ AtomCalculator failed\n";
             failures++;

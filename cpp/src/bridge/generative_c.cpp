@@ -6,6 +6,7 @@
 #include "hypercube/generative.hpp"
 #include "hypercube/coordinates.hpp"
 #include "hypercube/types.hpp"
+#include "hypercube/atom_calculator.hpp"
 
 #include <cstring>
 #include <algorithm>
@@ -297,8 +298,8 @@ GENERATIVE_C_API void geom_map_codepoint(
 ) {
     // Map Unicode codepoint to 4D coordinates using Hilbert curve
     // This creates a deterministic geometric embedding of Unicode
-    AtomCalculator calc;
-    Point4D p = calc.map_codepoint_to_4d(codepoint);
+    AtomRecord atom = AtomCalculator::compute_atom(codepoint);
+    Point4D p = atom.coords;
 
     // Convert to uint32 representation for C API
     // Map [-1,1] float range to [0, UINT32_MAX] uint32 range
