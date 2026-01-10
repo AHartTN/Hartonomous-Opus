@@ -97,11 +97,11 @@ Test-Result "PostGIS" ($gisVer -match "\d") "v$gisVer"
 Write-Host ""
 Write-Host "─── 3-Table Schema ────────────────────────────────────────" -ForegroundColor Blue
 
-# Get database stats using function
-$stats = SafeTrim (SQL "SELECT * FROM db_stats()")
-$statsArray = $stats -split '\|'
-$atomCount = [int]$statsArray[0]
-$compCount = [int]$statsArray[1]
+# Get database stats using direct queries
+$atomCountResult = SafeTrim (SQL "SELECT COUNT(*) FROM atom")
+$atomCount = if ($atomCountResult -match "^ERROR:") { 0 } else { [int]$atomCountResult }
+$compCountResult = SafeTrim (SQL "SELECT COUNT(*) FROM composition")
+$compCount = if ($compCountResult -match "^ERROR:") { 0 } else { [int]$compCountResult }
 
 # Table existence checks using information_schema
 $atomExists = (SafeTrim (SQL "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='atom'")) -eq "1"
@@ -126,9 +126,8 @@ Test-Result "Hilbert index (idx_atom_hilbert)" $hilbertIdx $(if($hilbertIdx){"ex
 Write-Host ""
 Write-Host "─── Atom Seeding ──────────────────────────────────────────" -ForegroundColor Blue
 
-$leafCount = SafeTrim (SQL "SELECT atoms FROM db_stats()")
-$leafInt = 0
-[int]::TryParse($leafCount, [ref]$leafInt) | Out-Null
+$leafCount = SafeTrim (SQL "SELECT COUNT(*) FROM atom")
+$leafInt = if ($leafCount -match "^ERROR:") { 0 } else { [int]$leafCount }
 $pass = $leafInt -gt 1100000
 Test-Result "Unicode leaf atoms" $pass "$($leafInt.ToString('N0')) codepoints (need >1.1M)"
 
@@ -165,9 +164,8 @@ Test-Result 'atom_knn(''A'', k=5)' (($knnCount -match '\d') -and ($knnCount -ne 
 Write-Host ""
 Write-Host "─── Compositions ──────────────────────────────────────────" -ForegroundColor Blue
 
-$compCount = SafeTrim (SQL "SELECT compositions FROM db_stats()")
-$compInt = 0
-[int]::TryParse($compCount, [ref]$compInt) | Out-Null
+$compCount = SafeTrim (SQL "SELECT COUNT(*) FROM composition")
+$compInt = if ($compCount -match "^ERROR:") { 0 } else { [int]$compCount }
 $maxDepth = SafeTrim (SQL "SELECT COALESCE(MAX(depth), 0) FROM composition")
 Test-Result "Compositions in DB" (-not $compSamplesError) "$($compInt.ToString('N0')) compositions, max depth=$maxDepth"
 
@@ -188,9 +186,8 @@ Write-Host ""
 Write-Host "─── Semantic Relations ────────────────────────────────────" -ForegroundColor Blue
 Write-Host "  (Edges from MiniLM embedding model - token similarity)" -ForegroundColor DarkGray
 
-$edgeCount = SafeTrim (SQL "SELECT relations FROM db_stats()")
-$edgeInt = 0
-[int]::TryParse($edgeCount, [ref]$edgeInt) | Out-Null
+$edgeCount = SafeTrim (SQL "SELECT COUNT(*) FROM relation")
+$edgeInt = if ($edgeCount -match "^ERROR:") { 0 } else { [int]$edgeCount }
 Test-Result "Total semantic edges" (($edgeInt -gt 0) -and -not $topEdgesError) "$($edgeInt.ToString('N0')) relationships in relation table"
 
 if ($edgeInt -gt 0) {

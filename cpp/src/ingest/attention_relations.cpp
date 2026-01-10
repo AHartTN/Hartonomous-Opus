@@ -948,11 +948,18 @@ static std::unordered_map<std::string, float> fetch_quality_scores(PGconn* conn,
 
     if (tensor_names.empty()) return quality_scores;
 
-    // Build IN clause for tensor names
+    // Build IN clause for tensor names (escape single quotes)
     std::string tensor_list;
     for (size_t i = 0; i < tensor_names.size(); ++i) {
         if (i > 0) tensor_list += ",";
-        tensor_list += "'" + tensor_names[i] + "'";
+        // Escape single quotes by doubling them
+        std::string escaped_name = tensor_names[i];
+        size_t pos = 0;
+        while ((pos = escaped_name.find("'", pos)) != std::string::npos) {
+            escaped_name.replace(pos, 1, "''");
+            pos += 2;
+        }
+        tensor_list += "'" + escaped_name + "'";
     }
 
     // Query projection_metadata for quality scores

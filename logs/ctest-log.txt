@@ -98,7 +98,7 @@ test 2
 2:   [OK] CV 38.2751% is within acceptable range (<= 200%) for semantic adjacency constraints
 2:   Distance uniformity: PASS
 2: Testing round-trip quantize/Hilbert...
-2:   Round-trip: 998/1000 passed
+2:   Round-trip: 997/1000 passed
 2:   Round-trip quantize/Hilbert: PASS
 2: Testing adjacency check...
 2:   Mean adjacency distance: 1.48567e+09
@@ -152,7 +152,7 @@ test 2
 2:   Optimization pipeline: PASS
 2: 
 2: All tests passed!
- 2/10 Test  #2: CoordinatesTest ..................   Passed    2.78 sec
+ 2/10 Test  #2: CoordinatesTest ..................   Passed    2.87 sec
 test 3
       Start  3: Blake3Test
 
@@ -316,8 +316,8 @@ test 4
 4: PASSED: BLAKE3 hash is deterministic (same input = same output)
 4: 
 4: === Test: Generation Performance ===
-4:   Generated 1112064 atoms in 714 ms
-4: PASSED: Generation completes in under 2 seconds (714 < 2000)
+4:   Generated 1112064 atoms in 691 ms
+4: PASSED: Generation completes in under 2 seconds (691 < 2000)
 4: 
 4: === Test: Atom Count ===
 4:   Total valid codepoints: 1112064
@@ -326,7 +326,7 @@ test 4
 4: ============================================
 4:   Results: 73 passed, 1 failed
 4: ============================================
- 4/10 Test  #4: SemanticTest .....................***Failed    2.86 sec
+ 4/10 Test  #4: SemanticTest .....................***Failed    2.67 sec
 test 5
       Start  5: ClusteringTest
 
@@ -397,7 +397,7 @@ test 5
 5: ===============================================================
 5:   2 tests failed, 5 passed
 5: ===============================================================
- 5/10 Test  #5: ClusteringTest ...................***Failed    0.07 sec
+ 5/10 Test  #5: ClusteringTest ...................***Failed    0.12 sec
 test 6
       Start  6: Laplacian4DTest
 
@@ -424,7 +424,7 @@ test 6
 6: [HNSWLIB]   Progress: 50/50 (100.0%) | 50000 pts/sec
 6: [HNSWLIB] Index built in 1 ms
 6: [HNSWLIB] Querying k-NN across 1 partition(s)...
-6: [HNSWLIB] k-NN queries completed in 105 ms
+6: [HNSWLIB] k-NN queries completed in 110 ms
 6: [HNSWLIB] Built k-NN graph with 248 edges
 6: 
 6: [1.5] Ensuring graph connectivity...
@@ -442,7 +442,7 @@ test 6
 6: [DEBUG] Graph connectivity: 50/50 nodes reachable from node 0
 6: [EIGEN] Using dense eigendecomposition for 50 points
 6: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
-6: [MKL] Eigendecomposition completed in 1 ms
+6: [MKL] Eigendecomposition completed in 0 ms
 6: [MKL] Found 5 eigenvalues
 6: [MKL] Eigenvalues: 0 0 0 0 1 ...
 6: 
@@ -471,7 +471,7 @@ test 6
 6: === Summary ===
 6: Passed: 8
 6: Failed: 0
- 6/10 Test  #6: Laplacian4DTest ..................   Passed    0.25 sec
+ 6/10 Test  #6: Laplacian4DTest ..................   Passed    0.27 sec
 test 7
       Start  7: IntegrationTest
 
@@ -523,7 +523,7 @@ test 8
 8: Connecting to hartonomous@localhost:5432/hypercube...
 8: Connection failed: connection to server at "localhost" (::1), port 5432 failed: FATAL:  database "hypercube" does not exist
 8: 
- 8/10 Test  #8: QueryAPITest .....................***Failed    0.13 sec
+ 8/10 Test  #8: QueryAPITest .....................***Failed    0.14 sec
 test 9
       Start  9: HypercubeTests
 
@@ -610,7 +610,7 @@ test 9
 9: [HNSWLIB]   Progress: 50/50 (100.0%) | 50000 pts/sec
 9: [HNSWLIB] Index built in 1 ms
 9: [HNSWLIB] Querying k-NN across 1 partition(s)...
-9: [HNSWLIB] k-NN queries completed in 102 ms
+9: [HNSWLIB] k-NN queries completed in 111 ms
 9: [HNSWLIB] Built k-NN graph with 124 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -650,7 +650,7 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 50 tokens to 4D hypercube
 9: Similarity graph edges: 124
-9: [       OK ] LaplacianTest.ProjectionOutput (106 ms)
+9: [       OK ] LaplacianTest.ProjectionOutput (114 ms)
 9: [ RUN      ] LaplacianTest.LocalityPreservation
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -661,9 +661,9 @@ test 9
 9: [HNSWLIB] Using SEQUENTIAL strategy for 30 points
 9: [HNSWLIB] Adding points to index...
 9: [HNSWLIB]   Progress: 30/30 (100.0%) | 30000 pts/sec
-9: [HNSWLIB] Index built in 1 ms
+9: [HNSWLIB] Index built in 0 ms
 9: [HNSWLIB] Querying k-NN across 1 partition(s)...
-9: [HNSWLIB] k-NN queries completed in 105 ms
+9: [HNSWLIB] k-NN queries completed in 107 ms
 9: [HNSWLIB] Built k-NN graph with 75 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -706,7 +706,7 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 30 tokens to 4D hypercube
 9: Similarity graph edges: 75
-9: [       OK ] LaplacianTest.LocalityPreservation (107 ms)
+9: [       OK ] LaplacianTest.LocalityPreservation (109 ms)
 9: [ RUN      ] LaplacianTest.Deterministic
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -719,58 +719,7 @@ test 9
 9: [HNSWLIB]   Progress: 20/20 (100.0%) | 20000 pts/sec
 9: [HNSWLIB] Index built in 0 ms
 9: [HNSWLIB] Querying k-NN across 1 partition(s)...
-9: [HNSWLIB] k-NN queries completed in 108 ms
-9: [HNSWLIB] Built k-NN graph with 28 edges
-9: 
-9: [1.5] Ensuring graph connectivity...
-9: 
-9: [2] Building normalized Laplacian...
-9: 
-9: [3] Finding 4 smallest non-zero eigenvectors...
-9: [DEBUG] Laplacian matrix size: 20x20
-9: [DEBUG] Degrees: min=0, max=2, zero_count=0
-9: [DEBUG] Laplacian diagonal: min=1, max=1
-9: [DEBUG] Laplacian is symmetric: YES
-9: [DEBUG] Graph connectivity: 20/20 nodes reachable from node 0
-9: [EIGEN] Using dense eigendecomposition for 20 points
-9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
-9: [MKL] Eigendecomposition completed in 1 ms
-9: [MKL] Found 5 eigenvalues
-9: [MKL] Eigenvalues: 0 0 0 0 0 ...
-9: 
-9: [4] Gram-Schmidt orthonormalization...
-9: [GS] Robust Double-Pass Gram-Schmidt on 4 columns
-9: [GS] Max off-diagonal dot product after correction: 0
-9: 
-9: [5] Normalizing to [0, 2^32-1]^4...
-9: [NORM] Coordinate ranges before normalization:
-9:   dim 0: [-0, 0]
-9:   dim 1: [-0, 0]
-9:   dim 2: [-0, 1]
-9:   dim 3: [-0, 0]
-9: [NORM] Normalized 20 points to [0, 2^32-1]^4
-9: 
-9: [6] Projecting to hypersphere...
-9: [SPHERE] Projecting 20 points onto hypersphere (parallel)...
-9: [SPHERE] Projection complete
-9: 
-9: [7] Computing Hilbert indices (parallel)...
-9: 
-9: === Projection Complete in 0 seconds ===
-9: Projected 20 tokens to 4D hypercube
-9: Similarity graph edges: 28
-9: 
-9: === Laplacian Eigenmap Projection to 4D ===
-9: Tokens: 20, Embedding dim: 16
-9: 
-9: [1] Building k-NN similarity graph (k=3)...
-9: [HNSWLIB] Building HNSW index for 20 points, dim=16
-9: [HNSWLIB] Using SEQUENTIAL strategy for 20 points
-9: [HNSWLIB] Adding points to index...
-9: [HNSWLIB]   Progress: 20/20 (100.0%) | 20000 pts/sec
-9: [HNSWLIB] Index built in 0 ms
-9: [HNSWLIB] Querying k-NN across 1 partition(s)...
-9: [HNSWLIB] k-NN queries completed in 104 ms
+9: [HNSWLIB] k-NN queries completed in 107 ms
 9: [HNSWLIB] Built k-NN graph with 28 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -810,7 +759,58 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 20 tokens to 4D hypercube
 9: Similarity graph edges: 28
-9: [       OK ] LaplacianTest.Deterministic (218 ms)
+9: 
+9: === Laplacian Eigenmap Projection to 4D ===
+9: Tokens: 20, Embedding dim: 16
+9: 
+9: [1] Building k-NN similarity graph (k=3)...
+9: [HNSWLIB] Building HNSW index for 20 points, dim=16
+9: [HNSWLIB] Using SEQUENTIAL strategy for 20 points
+9: [HNSWLIB] Adding points to index...
+9: [HNSWLIB]   Progress: 20/20 (100.0%) | 20000 pts/sec
+9: [HNSWLIB] Index built in 0 ms
+9: [HNSWLIB] Querying k-NN across 1 partition(s)...
+9: [HNSWLIB] k-NN queries completed in 105 ms
+9: [HNSWLIB] Built k-NN graph with 28 edges
+9: 
+9: [1.5] Ensuring graph connectivity...
+9: 
+9: [2] Building normalized Laplacian...
+9: 
+9: [3] Finding 4 smallest non-zero eigenvectors...
+9: [DEBUG] Laplacian matrix size: 20x20
+9: [DEBUG] Degrees: min=0, max=2, zero_count=0
+9: [DEBUG] Laplacian diagonal: min=1, max=1
+9: [DEBUG] Laplacian is symmetric: YES
+9: [DEBUG] Graph connectivity: 20/20 nodes reachable from node 0
+9: [EIGEN] Using dense eigendecomposition for 20 points
+9: [MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)
+9: [MKL] Eigendecomposition completed in 0 ms
+9: [MKL] Found 5 eigenvalues
+9: [MKL] Eigenvalues: 0 0 0 0 0 ...
+9: 
+9: [4] Gram-Schmidt orthonormalization...
+9: [GS] Robust Double-Pass Gram-Schmidt on 4 columns
+9: [GS] Max off-diagonal dot product after correction: 0
+9: 
+9: [5] Normalizing to [0, 2^32-1]^4...
+9: [NORM] Coordinate ranges before normalization:
+9:   dim 0: [-0, 0]
+9:   dim 1: [-0, 0]
+9:   dim 2: [-0, 1]
+9:   dim 3: [-0, 0]
+9: [NORM] Normalized 20 points to [0, 2^32-1]^4
+9: 
+9: [6] Projecting to hypersphere...
+9: [SPHERE] Projecting 20 points onto hypersphere (parallel)...
+9: [SPHERE] Projection complete
+9: 
+9: [7] Computing Hilbert indices (parallel)...
+9: 
+9: === Projection Complete in 0 seconds ===
+9: Projected 20 tokens to 4D hypercube
+9: Similarity graph edges: 28
+9: [       OK ] LaplacianTest.Deterministic (216 ms)
 9: [ RUN      ] LaplacianTest.SmallDataset
 9: 
 9: === Laplacian Eigenmap Projection to 4D ===
@@ -877,9 +877,9 @@ test 9
 9: [HNSWLIB] Using SEQUENTIAL strategy for 30 points
 9: [HNSWLIB] Adding points to index...
 9: [HNSWLIB]   Progress: 30/30 (100.0%) | 30000 pts/sec
-9: [HNSWLIB] Index built in 1 ms
+9: [HNSWLIB] Index built in 0 ms
 9: [HNSWLIB] Querying k-NN across 1 partition(s)...
-9: [HNSWLIB] k-NN queries completed in 106 ms
+9: [HNSWLIB] k-NN queries completed in 105 ms
 9: [HNSWLIB] Built k-NN graph with 80 edges
 9: 
 9: [1.5] Ensuring graph connectivity...
@@ -919,8 +919,8 @@ test 9
 9: === Projection Complete in 0 seconds ===
 9: Projected 30 tokens to 4D hypercube
 9: Similarity graph edges: 80
-9: [       OK ] LaplacianTest.SphericalProjection (108 ms)
-9: [----------] 5 tests from LaplacianTest (650 ms total)
+9: [       OK ] LaplacianTest.SphericalProjection (107 ms)
+9: [----------] 5 tests from LaplacianTest (657 ms total)
 9: 
 9: [----------] 9 tests from BackendTest
 9: [ RUN      ] BackendTest.CPUDetection
@@ -944,13 +944,13 @@ test 9
 9: [----------] 9 tests from BackendTest (0 ms total)
 9: 
 9: [----------] Global test environment tear-down
-9: [==========] 32 tests from 5 test suites ran. (656 ms total)
+9: [==========] 32 tests from 5 test suites ran. (663 ms total)
 9: [  PASSED  ] 31 tests.
 9: [  FAILED  ] 1 test, listed below:
 9: [  FAILED  ] CoordinatesTest.Uniqueness
 9: 
 9:  1 FAILED TEST
- 9/10 Test  #9: HypercubeTests ...................***Failed    0.77 sec
+ 9/10 Test  #9: HypercubeTests ...................***Failed    0.79 sec
 test 10
       Start 10: HypercubeSQLTests
 
@@ -971,7 +971,7 @@ test 10
 10: Database connection failed: invalid integer value "hartonomous" for connection option "port"
 10: 
 10: 
-10: [  SKIPPED ] SQLSchemaTest.CoreTablesExist (1 ms)
+10: [  SKIPPED ] SQLSchemaTest.CoreTablesExist (0 ms)
 10: [ RUN      ] SQLSchemaTest.ModelRegistryExists
 10: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/tests/gtest/test_sql_schema.cpp(44): Skipped
 10: Database connection failed: invalid integer value "hartonomous" for connection option "port"
@@ -1122,7 +1122,7 @@ test 10
 
 50% tests passed, 5 tests failed out of 10
 
-Total Test time (real) =   7.40 sec
+Total Test time (real) =   7.24 sec
 
 The following tests FAILED:
 	  4 - SemanticTest (Failed)

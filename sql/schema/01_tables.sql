@@ -147,6 +147,29 @@ VALUES (1, 0, 0)
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================================
+-- 8. RELATION_EVIDENCE: Detailed evidence for semantic relations
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS relation_evidence (
+    id                  BIGSERIAL PRIMARY KEY,
+    source_id           BYTEA NOT NULL,
+    target_id           BYTEA NOT NULL,
+    relation_type       CHAR(1) NOT NULL,
+    source_model        TEXT NOT NULL,
+    layer               INTEGER NOT NULL DEFAULT -1,
+    component           TEXT NOT NULL DEFAULT '',
+
+    -- Evidence aggregation
+    raw_weight          REAL NOT NULL,
+    normalized_weight   REAL NOT NULL,
+    rating              REAL NOT NULL DEFAULT 1500.0,  -- ELO rating starting point
+    observation_count   INTEGER NOT NULL DEFAULT 1,
+    last_updated        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE (source_id, target_id, relation_type, source_model, layer, component)
+);
+
+-- =============================================================================
 -- COMMENTS
 -- =============================================================================
 
@@ -154,6 +177,7 @@ COMMENT ON TABLE atom IS 'Unicode codepoints with 4D Laplacian-projected coordin
 COMMENT ON TABLE composition IS 'Token aggregations (BPE, words, phrases) with 4D centroids';
 COMMENT ON TABLE composition_child IS 'Ordered parent-child relationships for compositions';
 COMMENT ON TABLE relation IS 'Semantic edges forming the knowledge graph';
+COMMENT ON TABLE relation_evidence IS 'Detailed evidence and ratings for semantic relations';
 COMMENT ON TABLE model IS 'Registry of AI models used for embeddings';
 COMMENT ON TABLE bigram_stats IS 'Token co-occurrence counts and PMI scores';
 COMMENT ON TABLE unigram_stats IS 'Individual token frequency counts';

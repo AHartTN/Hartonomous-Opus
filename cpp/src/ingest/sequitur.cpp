@@ -45,14 +45,57 @@ struct Symbol {
     Point4D coords;         // 4D coordinates
     uint32_t depth;         // 0 = leaf, >0 = composition
     uint64_t atom_count;    // Total leaves in subtree
-    
+
     Rule* rule = nullptr;   // If non-terminal, points to the rule
-    
+
     // Doubly-linked list pointers for O(1) insertion/deletion
     Symbol* prev = nullptr;
     Symbol* next = nullptr;
-    
+
     bool is_terminal() const { return rule == nullptr; }
+};
+
+// Memory pool for efficient Symbol allocation
+class SymbolPool {
+private:
+    static constexpr size_t BLOCK_SIZE = 8192;  // Allocate in 8KB blocks
+    std::vector<std::unique_ptr<char[]>> blocks_;
+    std::vector<Symbol*> free_list_;
+    size_t next_offset_ = 0;
+    size_t current_block_ = 0;
+
+public:
+    Symbol* allocate() {
+        if (!free_list_.empty()) {
+            Symbol* sym = free_list_.back();
+            free_list_.pop_back();
+            return sym;
+        }
+
+        // Need to allocate new memory
+        if (current_block_ >= blocks_.size() || next_offset_ + sizeof(Symbol) > BLOCK_SIZE) {
+            blocks_.emplace_back(std::make_unique<char[]>(BLOCK_SIZE));
+            next_offset_ = 0;
+            current_block_ = blocks_.size() - 1;
+        }
+
+        Symbol* sym = reinterpret_cast<Symbol*>(&blocks_[current_block_][next_offset_]);
+        next_offset_ += sizeof(Symbol);
+        return sym;
+    }
+
+    void deallocate(Symbol* sym) {
+        // Reset the symbol to clean state
+        sym->hash = Blake3Hash{};
+        sym->coords = Point4D{0, 0, 0, 0};
+        sym->depth = 0;
+        sym->atom_count = 0;
+        sym->rule = nullptr;
+        sym->prev = nullptr;
+        sym->next = nullptr;
+
+        free_list_.push_back(sym);
+    }
 };
 
 // ============================================================================
@@ -105,20 +148,23 @@ struct Rule {
 class SequiturGrammar {
 public:
     Rule* start_rule = nullptr;  // S → ...
-    
+
     // All rules indexed by their hash
     std::unordered_map<Blake3Hash, std::unique_ptr<Rule>, Blake3HashHasher> rules;
-    
+
     // Digram index: maps each digram to the first symbol of its occurrence
     std::unordered_map<Digram, Symbol*, DigramHasher> digram_index;
-    
+
+    // Memory pool for efficient Symbol allocation/deallocation
+    SymbolPool symbol_pool_;
+
     // Recursion depth counter for debugging
     int recursion_depth = 0;
     static constexpr int MAX_RECURSION = 1000;
     
     // Create a new symbol for a terminal (atom)
     Symbol* make_terminal(const Blake3Hash& hash, const Point4D& coords) {
-        auto* sym = new Symbol();
+        Symbol* sym = symbol_pool_.allocate();
         sym->hash = hash;
         sym->coords = coords;
         sym->depth = 0;
@@ -126,10 +172,10 @@ public:
         sym->rule = nullptr;
         return sym;
     }
-    
+
     // Create a new symbol for a non-terminal (rule reference)
     Symbol* make_nonterminal(Rule* rule) {
-        auto* sym = new Symbol();
+        Symbol* sym = symbol_pool_.allocate();
         sym->hash = rule->hash;
         sym->coords = rule->centroid;
         sym->depth = rule->depth;
@@ -356,9 +402,9 @@ public:
         // Decrement ref counts on replaced non-terminals
         if (first->rule) first->rule->ref_count--;
         if (second->rule) second->rule->ref_count--;
-        
-        delete first;
-        delete second;
+
+        symbol_pool_.deallocate(first);
+        symbol_pool_.deallocate(second);
         
         // Register new digrams in hash table - but DON'T check for violations here!
         // The check will happen in the main loop after all substitutions are done
@@ -420,7 +466,7 @@ public:
             }
         }
         
-        delete sym;
+        symbol_pool_.deallocate(sym);
         
         // Remove the rule itself (but NOT its symbols - they're now in the main sequence)
         rule->first = nullptr;
@@ -506,14 +552,11 @@ public:
     }
     
     ~SequiturGrammar() {
-        // Clean up all symbols in all rules
+        // Note: Symbols are managed by the SymbolPool and will be cleaned up automatically
+        // when the pool goes out of scope. We only need to clear rule references.
         for (auto& [hash, rule] : rules) {
-            Symbol* s = rule->first;
-            while (s) {
-                Symbol* next_s = s->next;
-                delete s;
-                s = next_s;
-            }
+            rule->first = nullptr;
+            rule->last = nullptr;
         }
     }
 };

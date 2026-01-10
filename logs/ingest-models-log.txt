@@ -66,18 +66,23 @@ Threshold: 0.5
 [METADATA] Special tokens: 818
 [METADATA] Vocab tokens: 128000
 [METADATA] Loading 260 atoms (max codepoint: 65372 / 0xff5c)...
-[CACHE] Loaded 260 atoms for 260 unique codepoints in 8 ms
-[METADATA] Loaded 260 atoms
-[CONFIG-AST] Built 120 nodes, 77 relations
-[BPE-TREE] Built 128000 token compositions
-[BPE-TREE] Built 255482 merge relations
+Failed to load atoms: ERROR:  function get_atoms_by_codepoints(integer[]) does not exist
+LINE 1: SELECT * FROM get_atoms_by_codepoints(ARRAY[60,41,65372,105,...
+                      ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+[METADATA] Warning: Failed to load atom cache
+[METADATA] Loaded 0 atoms
+[CONFIG-AST] Built 0 nodes, 0 relations
+[BPE-TREE] Built 0 token compositions
+[BPE-TREE] Built 0 merge relations
 [SPECIAL] Built 818 special token nodes
-[METADATA] Total: 128896 compositions, 256377 relations
+[METADATA] Total: 0 compositions, 0 relations
 [STREAM] Dropping idx_comp_label to prevent corruption...
-[STREAM] Buffers: comp=21896KB, child=116947KB, rel=45820KB
+[STREAM] Buffers: comp=0KB, child=0KB, rel=0KB
 [STREAM] Merging into main tables...
-[STREAM] Child diagnostics: 855047 total, 855047 have parent comp, 855047 have atom child
-[STREAM] Inserted: 128896 compositions, 833212 children, 255789 relations
+[STREAM] Child diagnostics: 0 total, 0 have parent comp, 0 have atom child
+[STREAM] Inserted: 0 compositions, 0 children, 0 relations
 [STREAM] Recreating idx_comp_label...
 
 [4] Building tensor name hierarchy...
@@ -97,54 +102,54 @@ NOTICE:  table "tmp_hier_comp_child" does not exist, skipping
 [COMP] Inserting 128000 token compositions...
 [COMP] 128000 token compositions to insert
 [COMP] Building batch strings with 16 threads...
-  [BUILD] 128000/128000 tokens (247104/s)
+  [BUILD] 128000/128000 tokens (249513/s)
 
-[COMP] Built 81683KB compositions + 114284KB children in 518ms
+[COMP] Built 81683KB compositions + 114284KB children in 514ms
 [COMP] Streaming to database...
 [COMP] Dropping idx_comp_label to prevent corruption...
 [COMP] Creating temp tables...
 [COMP] Copying compositions to temp table...
-  [COPY] Batch 1/16 (5544KB)
-  [COPY] Batch 2/16 (4221KB)
-  [COPY] Batch 3/16 (3652KB)
-  [COPY] Batch 4/16 (5448KB)
-  [COPY] Batch 5/16 (5836KB)
-  [COPY] Batch 6/16 (5209KB)
-  [COPY] Batch 7/16 (5672KB)
-  [COPY] Batch 8/16 (4845KB)
-  [COPY] Batch 9/16 (6200KB)
-  [COPY] Batch 10/16 (4342KB)
-  [COPY] Batch 11/16 (5037KB)
-  [COPY] Batch 12/16 (4603KB)
-  [COPY] Batch 13/16 (5330KB)
-  [COPY] Batch 14/16 (5584KB)
-  [COPY] Batch 15/16 (5415KB)
-  [COPY] Batch 16/16 (4736KB)
+  [COPY] Batch 1/16 (6646KB)
+  [COPY] Batch 2/16 (5814KB)
+  [COPY] Batch 3/16 (5710KB)
+  [COPY] Batch 4/16 (5055KB)
+  [COPY] Batch 5/16 (3980KB)
+  [COPY] Batch 6/16 (4270KB)
+  [COPY] Batch 7/16 (2949KB)
+  [COPY] Batch 8/16 (6509KB)
+  [COPY] Batch 9/16 (5411KB)
+  [COPY] Batch 10/16 (6160KB)
+  [COPY] Batch 11/16 (6038KB)
+  [COPY] Batch 12/16 (3840KB)
+  [COPY] Batch 13/16 (5452KB)
+  [COPY] Batch 14/16 (5504KB)
+  [COPY] Batch 15/16 (4512KB)
+  [COPY] Batch 16/16 (3825KB)
 
 [COMP] Copying composition children to temp table...
-  [COPY] Batch 1/16 (7677KB)
-  [COPY] Batch 2/16 (5998KB)
-  [COPY] Batch 3/16 (5185KB)
-  [COPY] Batch 4/16 (7554KB)
-  [COPY] Batch 5/16 (8103KB)
-  [COPY] Batch 6/16 (7288KB)
-  [COPY] Batch 7/16 (7874KB)
-  [COPY] Batch 8/16 (6725KB)
-  [COPY] Batch 9/16 (8652KB)
-  [COPY] Batch 10/16 (6100KB)
-  [COPY] Batch 11/16 (7090KB)
-  [COPY] Batch 12/16 (6494KB)
-  [COPY] Batch 13/16 (7512KB)
-  [COPY] Batch 14/16 (7790KB)
-  [COPY] Batch 15/16 (7599KB)
-  [COPY] Batch 16/16 (6635KB)
+  [COPY] Batch 1/16 (9273KB)
+  [COPY] Batch 2/16 (7992KB)
+  [COPY] Batch 3/16 (7956KB)
+  [COPY] Batch 4/16 (7136KB)
+  [COPY] Batch 5/16 (5680KB)
+  [COPY] Batch 6/16 (6087KB)
+  [COPY] Batch 7/16 (4227KB)
+  [COPY] Batch 8/16 (9027KB)
+  [COPY] Batch 9/16 (7493KB)
+  [COPY] Batch 10/16 (8495KB)
+  [COPY] Batch 11/16 (8374KB)
+  [COPY] Batch 12/16 (5388KB)
+  [COPY] Batch 13/16 (7580KB)
+  [COPY] Batch 14/16 (7759KB)
+  [COPY] Batch 15/16 (6367KB)
+  [COPY] Batch 16/16 (5442KB)
 
 [COMP] Inserting into composition table...
 [COMP] Inserted 123539 compositions
 [COMP] Inserting into composition_child table...
-[COMP] Inserted 149 children
+[COMP] Inserted 814005 children
 [COMP] Recreating idx_comp_label...
-[COMP] Inserted 123539 compositions, 149 children in 8176ms
+[COMP] Inserted 123539 compositions, 814005 children in 12578ms
 
 [5.5] Projecting token embeddings to 4D semantic coordinates...
 ============================================================
@@ -193,7 +198,7 @@ NOTICE:  table "tmp_hier_comp_child" does not exist, skipping
 [LOAD_TENSOR] Reading 16777216 elements as F8_E4M3
 [LOAD_TENSOR] Successfully read 16777216 bytes (expected 16777216)
 [LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
-[PROJECTION] Loaded in 35ms
+[PROJECTION] Loaded in 33ms
 [PROJECTION] Embedding statistics (raw from safetensor):
   Tensor: model.layers.2.self_attn.kv_b_proj.weight [32768 x 512]
   Dtype: F8_E4M3, File offset: 3102461536

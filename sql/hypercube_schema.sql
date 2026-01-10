@@ -31,6 +31,10 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 \i functions/atoms/atom_centroid.sql
 \i functions/atoms/atom_exists.sql
 \i functions/atoms/atom_text.sql
+\i functions/atoms/atom_reconstruct_text.sql
+\i functions/atoms/atom_knn.sql
+\i functions/atoms/lookup.sql
+\i functions/atoms/atom_hilbert_range.sql
 
 -- Additional atom functions
 \i functions/atoms/atom_by_codepoint.sql
@@ -49,6 +53,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 \i functions/relations/attention.sql
 \i functions/relations/analogy.sql
 \i functions/relations/upsert_relation.sql
+\i functions/relations/edges.sql
 
 -- Query operations (user-facing)
 \i functions/queries/search_text.sql
@@ -56,6 +61,8 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 \i functions/queries/encode_prompt.sql
 \i functions/queries/score_candidates.sql
 \i functions/queries/generate_tokens.sql
+\i functions/queries/complete.sql
+\i functions/queries/vector_analogy.sql
 
 -- Statistics and reporting
 \i functions/stats/db_stats.sql
@@ -64,6 +71,10 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 -- 4. PROCEDURES: Complex multi-step operations (NO in-line SQL)
 -- =============================================================================
 \i procedures/ingestion/seed_atoms.sql
+\i procedures/maintenance/prune_all.sql
+\i procedures/maintenance/prune_projections_deduplication.sql
+\i procedures/maintenance/prune_projections_quality.sql
+\i procedures/maintenance/prune_relations_weight.sql
 
 -- =============================================================================
 -- 5. EXTENSIONS: PostgreSQL C extensions (low-level operations)

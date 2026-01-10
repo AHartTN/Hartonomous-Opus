@@ -1912,10 +1912,10 @@ static bool ensure_position_compositions_exist(PGconn* conn, const std::string& 
         CompositionRecord comp = AtomCalculator::compute_vocab_token(key);
         std::string hex_id = "\\x" + comp.hash.to_hex();
 
-        // Build centroid EWKB (simplified point)
-        std::string centroid = "010100002000000000000000000000000000000000000000000000000000000000000000";  // POINT(0 0 0 0)
+        // Build centroid using ST_MakePoint (4D point)
+        std::string centroid = "ST_SetSRID(ST_MakePoint(0, 0, 0, 0), 0)";
 
-        inserts.push_back("('" + hex_id + "', '" + key + "', 1, 1, 1, '" + centroid + "', 0, 0)");
+        inserts.push_back("('" + hex_id + "', '" + key + "', 1, 1, 1, " + centroid + ", 0, 0)");
     }
 
     if (!inserts.empty()) {
@@ -1948,10 +1948,10 @@ static bool ensure_visual_compositions_exist(PGconn* conn, const std::string& em
         CompositionRecord comp = AtomCalculator::compute_vocab_token(key);
         std::string hex_id = "\\x" + comp.hash.to_hex();
 
-        // Build centroid EWKB (simplified point)
-        std::string centroid = "010100002000000000000000000000000000000000000000000000000000000000000000";  // POINT(0 0 0 0)
+        // Build centroid using ST_MakePoint (4D point)
+        std::string centroid = "ST_SetSRID(ST_MakePoint(0, 0, 0, 0), 0)";
 
-        inserts.push_back("('" + hex_id + "', '" + key + "', 1, 1, 1, '" + centroid + "', 0, 0)");
+        inserts.push_back("('" + hex_id + "', '" + key + "', 1, 1, 1, " + centroid + ", 0, 0)");
     }
 
     if (!inserts.empty()) {
