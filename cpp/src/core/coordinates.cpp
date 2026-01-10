@@ -647,33 +647,62 @@ CodepointMapping CoordinateMapper::map_codepoint_full(uint32_t codepoint) noexce
         std::lock_guard<std::mutex> lock(collision_mutex);
         auto it = collision_table.find(coords);
         if (it != collision_table.end() && it->second != codepoint) {
-            // Collision detected - apply deterministic jitter
+            // Collision detected - apply deterministic jitter with retry loop
             Blake3Hash hash = Blake3Hasher::hash_codepoint(codepoint);
             uint64_t v0 = *reinterpret_cast<const uint64_t*>(hash.data());
+            uint64_t v1 = *reinterpret_cast<const uint64_t*>(hash.data() + 8);
 
-            // Jitter large enough to change quantization (quantum = 2.0/2^32 ≈ 4.66e-10)
-            // Use 1e-8 = ~21 quanta, ensuring collision resolution without geometry distortion
-            double eps = 1e-8;
-            double jitter[4] = {
-                (static_cast<double>((v0 >> 0) & 0xFF) / 255.0 - 0.5) * eps,
-                (static_cast<double>((v0 >> 8) & 0xFF) / 255.0 - 0.5) * eps,
-                (static_cast<double>((v0 >> 16) & 0xFF) / 255.0 - 0.5) * eps,
-                (static_cast<double>((v0 >> 24) & 0xFF) / 255.0 - 0.5) * eps
-            };
+            // Start with larger jitter to ensure quantization changes
+            // Quantum = 2.0/2^32 ≈ 4.66e-10, use 1e-7 = ~214 quanta minimum
+            double eps = 1e-7;
+            int attempt = 0;
+            const int MAX_ATTEMPTS = 100;
 
-            // Apply jitter and requantize
-            Point4F jittered = float_coords + Point4F(jitter[0], jitter[1], jitter[2], jitter[3]);
-            jittered = jittered.normalized();  // Keep on sphere
-            float_coords = jittered;  // Update canonical coords
+            while (attempt < MAX_ATTEMPTS) {
+                // Use different parts of hash for each attempt
+                uint64_t seed = v0 + attempt * v1;
+                double jitter[4] = {
+                    (static_cast<double>((seed >> 0) & 0xFF) / 255.0 - 0.5) * eps,
+                    (static_cast<double>((seed >> 8) & 0xFF) / 255.0 - 0.5) * eps,
+                    (static_cast<double>((seed >> 16) & 0xFF) / 255.0 - 0.5) * eps,
+                    (static_cast<double>((seed >> 24) & 0xFF) / 255.0 - 0.5) * eps
+                };
 
+                // Apply jitter and requantize
+                Point4F jittered = float_coords + Point4F(jitter[0], jitter[1], jitter[2], jitter[3]);
+                jittered = jittered.normalized();  // Keep on sphere
+
+                Point4D new_coords;
 #ifdef HAS_AVX
-            avx_quantize_point4f_to_point4d(jittered, coords);
+                avx_quantize_point4f_to_point4d(jittered, new_coords);
 #else
-            coords.x = quantize_unit_to_u32(jittered.x);
-            coords.y = quantize_unit_to_u32(jittered.y);
-            coords.z = quantize_unit_to_u32(jittered.z);
-            coords.m = quantize_unit_to_u32(jittered.m);
+                new_coords.x = quantize_unit_to_u32(jittered.x);
+                new_coords.y = quantize_unit_to_u32(jittered.y);
+                new_coords.z = quantize_unit_to_u32(jittered.z);
+                new_coords.m = quantize_unit_to_u32(jittered.m);
 #endif
+
+                // Check if this new coordinate is unique
+                auto check_it = collision_table.find(new_coords);
+                if (check_it == collision_table.end() || check_it->second == codepoint) {
+                    // Found unique coordinate!
+                    coords = new_coords;
+                    float_coords = jittered;
+                    break;
+                }
+
+                // Collision persists, increase jitter and retry
+                attempt++;
+                eps *= 1.5;  // Exponential backoff
+            }
+
+            if (attempt >= MAX_ATTEMPTS) {
+                // Fallback: use codepoint directly in coordinate calculation
+                coords.x ^= static_cast<uint32_t>(codepoint);
+                coords.y ^= static_cast<uint32_t>(codepoint >> 8);
+                coords.z ^= static_cast<uint32_t>(codepoint >> 16);
+                coords.m ^= static_cast<uint32_t>(codepoint >> 24);
+            }
         }
 
         // Record this mapping

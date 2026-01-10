@@ -373,7 +373,7 @@ static std::unordered_map<std::string, float> fetch_quality_scores(PGconn* conn,
         FROM projection_metadata pm
         JOIN model m ON m.id = pm.model_id
         WHERE m.name = ')SQL" + model_name + R"SQL('
-        AND pm.tensor_name IN (')SQL" + tensor_list + R"SQL(')
+        AND pm.tensor_name IN ()SQL" + tensor_list + R"SQL()
         AND pm.quality_score IS NOT NULL
     )SQL";
 

@@ -13,32 +13,32 @@ protected:
     PGconn* conn = nullptr;
     
     void SetUp() override {
-        auto get_env = [](const char* name) -> const char* {
+        auto get_env = [](const char* name) -> std::string {
 #if defined(_WIN32)
-            static thread_local std::string val;
             char* buf = nullptr;
             size_t len;
             if (_dupenv_s(&buf, &len, name) == 0 && buf != nullptr) {
-                val = buf;
+                std::string result = buf;
                 free(buf);
-                return val.c_str();
+                return result;
             }
-            return nullptr;
+            return "";
 #else
-            return std::getenv(name);
+            const char* val = std::getenv(name);
+            return val ? std::string(val) : "";
 #endif
         };
-        const char* db = get_env("HC_DB_NAME");
-        const char* user = get_env("HC_DB_USER");
-        const char* host = get_env("HC_DB_HOST");
-        const char* port = get_env("HC_DB_PORT");
-        const char* pass = get_env("HC_DB_PASS");
-        
-        std::string conninfo = "dbname=" + std::string(db ? db : "hypercube_test");
-        conninfo += " user=" + std::string(user ? user : "postgres");
-        conninfo += " host=" + std::string(host ? host : "localhost");
-        conninfo += " port=" + std::string(port ? port : "5432");
-        if (pass) conninfo += " password=" + std::string(pass);
+        std::string db = get_env("HC_DB_NAME");
+        std::string user = get_env("HC_DB_USER");
+        std::string host = get_env("HC_DB_HOST");
+        std::string port = get_env("HC_DB_PORT");
+        std::string pass = get_env("HC_DB_PASS");
+
+        std::string conninfo = "dbname=" + (!db.empty() ? db : "hypercube");
+        conninfo += " user=" + (!user.empty() ? user : "postgres");
+        conninfo += " host=" + (!host.empty() ? host : "localhost");
+        conninfo += " port=" + (!port.empty() ? port : "5432");
+        if (!pass.empty()) conninfo += " password=" + pass;
         
         conn = PQconnectdb(conninfo.c_str());
         if (PQstatus(conn) != CONNECTION_OK) {

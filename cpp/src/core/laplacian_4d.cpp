@@ -1363,7 +1363,17 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     // Configure Lanczos solver for -L
     lanczos::LanczosConfig lanczos_config;
     lanczos_config.num_eigenpairs = k + 1;  // k+1 to skip null space
-    lanczos_config.max_iterations = 500;
+    // Scale max_iterations with graph size: large graphs need more iterations
+    // For small graphs (<10k): 500 iterations
+    // For medium graphs (10k-50k): 1000 iterations
+    // For large graphs (>50k): 2000 iterations
+    if (V > 50000) {
+        lanczos_config.max_iterations = 2000;
+    } else if (V > 10000) {
+        lanczos_config.max_iterations = 1000;
+    } else {
+        lanczos_config.max_iterations = 500;
+    }
     lanczos_config.convergence_tol = config_.convergence_tol;  // Use tolerance from LaplacianConfig
     lanczos_config.use_shift_invert = false;  // Use direct Lanczos
     lanczos_config.num_threads = config_.num_threads;

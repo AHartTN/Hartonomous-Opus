@@ -617,9 +617,18 @@ static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const 
              rating, observation_count, raw_weight, normalized_weight)
         VALUES
     )SQL";
-    std::vector<std::string> values;
-
-    size_t hierarchy_edges = 0;
+    // Use map to deduplicate edges (multiple tensors share parent paths)
+    struct EdgeKey {
+        std::string parent_hex;
+        std::string child_hex;
+        int layer;
+        bool operator<(const EdgeKey& other) const {
+            if (parent_hex != other.parent_hex) return parent_hex < other.parent_hex;
+            if (child_hex != other.child_hex) return child_hex < other.child_hex;
+            return layer < other.layer;
+        }
+    };
+    std::map<EdgeKey, float> unique_edges;
 
     // Process each tensor to build parent-child relations
     for (const auto& [tensor_name, tensor] : ctx.tensors) {
@@ -666,13 +675,21 @@ static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const 
                 // Weight = 1.0 for direct hierarchy (strong relation)
                 float weight = 1.0f;
 
-                std::string val = "('" + parent_hex + "', '" + child_hex + "', 'H', '" +
-                                  config.model_name + "', " + std::to_string(layer) + ", 'hierarchy', 1500.0, 1, " +
-                                  std::to_string(weight) + ", " + std::to_string(weight) + ")";
-                values.push_back(val);
-                hierarchy_edges++;
+                EdgeKey key{parent_hex, child_hex, layer};
+                unique_edges[key] = weight;
             }
         }
+    }
+
+    // Convert unique edges to values for insertion
+    std::vector<std::string> values;
+    size_t hierarchy_edges = 0;
+    for (const auto& [key, weight] : unique_edges) {
+        std::string val = "('" + key.parent_hex + "', '" + key.child_hex + "', 'H', '" +
+                          config.model_name + "', " + std::to_string(key.layer) + ", 'hierarchy', 1500.0, 1, " +
+                          std::to_string(weight) + ", " + std::to_string(weight) + ")";
+        values.push_back(val);
+        hierarchy_edges++;
     }
 
     // Batch insert hierarchy relations
@@ -968,7 +985,7 @@ static std::unordered_map<std::string, float> fetch_quality_scores(PGconn* conn,
         FROM projection_metadata pm
         JOIN model m ON m.id = pm.model_id
         WHERE m.name = ')SQL" + model_name + R"SQL('
-        AND pm.tensor_name IN (')SQL" + tensor_list + R"SQL(')
+        AND pm.tensor_name IN ()SQL" + tensor_list + R"SQL()
         AND pm.quality_score IS NOT NULL
     )SQL";
 

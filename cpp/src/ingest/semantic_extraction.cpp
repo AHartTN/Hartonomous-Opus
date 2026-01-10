@@ -201,7 +201,7 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
             return {};
         }
         std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 1) << ")\n";
-        // PARALLEL F8_E4M3 conversion
+        // PARALLEL F8_E4M3FN conversion (E4M3 Finite, no infinities)
         #pragma omp parallel for schedule(static)
         for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
             uint8_t f8 = raw[i];
@@ -222,20 +222,31 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
                         shift++;
                     }
                     m &= 0x3;  // Remove leading 1
-                    f = (sign << 31) | ((1 + 127 - 7 - shift) << 23) | (m << 20);
+                    // FP32 exponent for subnormal: (127 - 7 - shift)
+                    f = (sign << 31) | ((121 - shift) << 23) | (m << 20);
                 }
-            } else if (exp == 15) {
-                // Infinity or NaN
-                if (mant == 0) {
-                    f = (sign << 31) | 0x7F800000;  // Infinity
-                } else {
-                    f = (sign << 31) | 0x7FC00000;  // NaN
-                }
+            } else if (exp == 15 && mant == 7) {
+                // NaN (the only NaN encoding in E4M3FN)
+                f = (sign << 31) | 0x7FC00000;  // Quiet NaN
             } else {
-                // Normalized number
-                f = (sign << 31) | ((exp + 127 - 7) << 23) | (mant << 20);
+                // Normalized number (including exp==15 with mant!=7, which are valid finite values)
+                // FP32 exponent = exp - 7 (E4M3 bias) + 127 (FP32 bias) = exp + 120
+                f = (sign << 31) | ((exp + 120) << 23) | (mant << 20);
             }
             std::memcpy(&data[i], &f, 4);
+        }
+    } else if (meta.dtype == "I64") {
+        std::vector<int64_t> raw(n);
+        f.read(reinterpret_cast<char*>(raw.data()), n * 8);
+        if (f.fail()) {
+            std::cerr << "[LOAD_TENSOR] ERROR: Read failed for I64 data!\n";
+            return {};
+        }
+        std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 8) << ")\n";
+        // PARALLEL I64 to float conversion
+        #pragma omp parallel for schedule(static)
+        for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
+            data[i] = static_cast<float>(raw[i]);
         }
     } else {
         std::cerr << "[LOAD_TENSOR] ERROR: Unknown dtype '" << meta.dtype << "'\n";
@@ -1220,12 +1231,13 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
                     // Insert projection metadata
                     std::string insert_meta_query = R"SQL(
                         INSERT INTO projection_metadata
-                            (model_id, tensor_name, role, dtype, dim, variance_explained, converged, geom_written)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                            (model_id, tensor_name, role, dtype, dim, variance_explained, converged, geom_written, quality_score)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                         ON CONFLICT (model_id, tensor_name) DO UPDATE SET
                             variance_explained = EXCLUDED.variance_explained,
                             converged = EXCLUDED.converged,
                             geom_written = EXCLUDED.geom_written,
+                            quality_score = EXCLUDED.quality_score,
                             updated_at = NOW()
                     )SQL";
 
@@ -1233,8 +1245,9 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
                     std::string variance_str = std::to_string(result.total_variance_explained);
                     std::string converged_str = result.converged ? "true" : "false";
                     std::string geom_written_str = should_write_geometry ? "true" : "false";
+                    std::string quality_str = std::to_string(quality_score);
 
-                    const char* meta_params[8] = {
+                    const char* meta_params[9] = {
                         model_id_str.c_str(),
                         emb_name.c_str(),
                         "embeddings",
@@ -1242,10 +1255,11 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
                         std::to_string(D).c_str(),
                         variance_str.c_str(),
                         converged_str.c_str(),
-                        geom_written_str.c_str()
+                        geom_written_str.c_str(),
+                        quality_str.c_str()
                     };
 
-                    PGresult* meta_res = PQexecParams(conn, insert_meta_query.c_str(), 8, nullptr, meta_params, nullptr, nullptr, 0);
+                    PGresult* meta_res = PQexecParams(conn, insert_meta_query.c_str(), 9, nullptr, meta_params, nullptr, nullptr, 0);
                     if (PQresultStatus(meta_res) == PGRES_COMMAND_OK) {
                         std::cerr << "[PROJECTION] Inserted projection metadata for " << emb_name
                                   << " (variance_explained=" << result.total_variance_explained
@@ -1409,9 +1423,18 @@ static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const 
              rating, observation_count, raw_weight, normalized_weight)
         VALUES
     )SQL";
-    std::vector<std::string> values;
-
-    size_t hierarchy_edges = 0;
+    // Use map to deduplicate edges (multiple tensors share parent paths)
+    struct EdgeKey {
+        std::string parent_hex;
+        std::string child_hex;
+        int layer;
+        bool operator<(const EdgeKey& other) const {
+            if (parent_hex != other.parent_hex) return parent_hex < other.parent_hex;
+            if (child_hex != other.child_hex) return child_hex < other.child_hex;
+            return layer < other.layer;
+        }
+    };
+    std::map<EdgeKey, float> unique_edges;
 
     // Process each tensor to build parent-child relations
     for (const auto& [tensor_name, tensor] : ctx.tensors) {
@@ -1458,13 +1481,21 @@ static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const 
                 // Weight = 1.0 for direct hierarchy (strong relation)
                 float weight = 1.0f;
 
-                std::string val = "('" + parent_hex + "', '" + child_hex + "', 'H', '" +
-                                  config.model_name + "', " + std::to_string(layer) + ", 'hierarchy', 1500.0, 1, " +
-                                  std::to_string(weight) + ", " + std::to_string(weight) + ")";
-                values.push_back(val);
-                hierarchy_edges++;
+                EdgeKey key{parent_hex, child_hex, layer};
+                unique_edges[key] = weight;
             }
         }
+    }
+
+    // Convert unique edges to values for insertion
+    std::vector<std::string> values;
+    size_t hierarchy_edges = 0;
+    for (const auto& [key, weight] : unique_edges) {
+        std::string val = "('" + key.parent_hex + "', '" + key.child_hex + "', 'H', '" +
+                          config.model_name + "', " + std::to_string(key.layer) + ", 'hierarchy', 1500.0, 1, " +
+                          std::to_string(weight) + ", " + std::to_string(weight) + ")";
+        values.push_back(val);
+        hierarchy_edges++;
     }
 
     // Batch insert hierarchy relations

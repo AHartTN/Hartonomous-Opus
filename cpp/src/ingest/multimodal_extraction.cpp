@@ -115,7 +115,7 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
         std::vector<uint8_t> raw(n);
         f.read(reinterpret_cast<char*>(raw.data()),
                static_cast<std::streamsize>(n * 1));
-        // PARALLEL F8_E4M3 conversion
+        // PARALLEL F8_E4M3FN conversion (E4M3 Finite, no infinities)
         #pragma omp parallel for schedule(static)
         for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
             uint8_t f8 = raw[static_cast<size_t>(i)];
@@ -136,20 +136,27 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
                         shift++;
                     }
                     m &= 0x3;  // Remove leading 1
-                    f = (sign << 31) | ((1 + 127 - 7 - shift) << 23) | (m << 20);
+                    // FP32 exponent for subnormal: (127 - 7 - shift)
+                    f = (sign << 31) | ((121 - shift) << 23) | (m << 20);
                 }
-            } else if (exp == 15) {
-                // Infinity or NaN
-                if (mant == 0) {
-                    f = (sign << 31) | 0x7F800000;  // Infinity
-                } else {
-                    f = (sign << 31) | 0x7FC00000;  // NaN
-                }
+            } else if (exp == 15 && mant == 7) {
+                // NaN (the only NaN encoding in E4M3FN)
+                f = (sign << 31) | 0x7FC00000;  // Quiet NaN
             } else {
-                // Normalized number
-                f = (sign << 31) | ((exp + 127 - 7) << 23) | (mant << 20);
+                // Normalized number (including exp==15 with mant!=7, which are valid finite values)
+                // FP32 exponent = exp - 7 (E4M3 bias) + 127 (FP32 bias) = exp + 120
+                f = (sign << 31) | ((exp + 120) << 23) | (mant << 20);
             }
             std::memcpy(&data[static_cast<size_t>(i)], &f, 4);
+        }
+    } else if (meta.dtype == "I64") {
+        std::vector<int64_t> raw(n);
+        f.read(reinterpret_cast<char*>(raw.data()),
+               static_cast<std::streamsize>(n * 8));
+        // PARALLEL I64 to float conversion
+        #pragma omp parallel for schedule(static)
+        for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
+            data[static_cast<size_t>(i)] = static_cast<float>(raw[static_cast<size_t>(i)]);
         }
     }
     return data;
