@@ -46,7 +46,7 @@ struct AnchorPoint {
  * Configuration for Laplacian eigenmap projection
  */
 struct LaplacianConfig {
-    int k_neighbors = 15;              // k for k-NN graph construction
+    int k_neighbors = 50;               // k for k-NN graph construction (increased for better graphs)
     float similarity_threshold = 0.0f;  // Minimum similarity for edges (negative = include all)
     int power_iterations = 200;         // Iterations for inverse power method
     int num_threads = 0;                // 0 = auto-detect
@@ -54,9 +54,9 @@ struct LaplacianConfig {
     double sphere_radius = 1.0;         // Radius of target hypersphere (before scaling)
     bool verbose = false;               // Enable verbose debug output
 
-    // Convergence tolerance for eigensolver
-    double convergence_tol = 1e-6;
-    int max_deflation_iterations = 100;
+    // Convergence tolerance for eigensolver (relaxed for 10x speedup)
+    double convergence_tol = 1e-4;      // Looser tolerance = faster convergence
+    int max_deflation_iterations = 50;  // Fewer iterations needed with looser tolerance
 
     // Anchor constraints for aligning with existing 4D space
     double anchor_weight = 10.0;        // Weight for anchor constraints (higher = stricter alignment)

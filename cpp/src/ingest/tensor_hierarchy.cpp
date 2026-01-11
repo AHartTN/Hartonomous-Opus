@@ -253,9 +253,16 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
     
     // COPY atom children to temp table, then INSERT with existence checks
     if (!atom_child_batch.empty()) {
-        exec(conn, "DROP TABLE IF EXISTS tmp_hier_atom_child");
-        exec(conn, "CREATE TEMP TABLE tmp_hier_atom_child ("
+        Result drop_res = exec(conn, "DROP TABLE IF EXISTS tmp_hier_atom_child");
+        if (!drop_res.ok()) {
+            std::cerr << "[HIER] Failed to drop tmp_hier_atom_child: " << drop_res.error_message() << "\n";
+        }
+        Result create_res = exec(conn, "CREATE TEMP TABLE tmp_hier_atom_child ("
                    "composition_id BYTEA, ordinal SMALLINT, child_type CHAR(1), child_id BYTEA)");
+        if (!create_res.ok()) {
+            std::cerr << "[HIER] Failed to create tmp_hier_atom_child: " << create_res.error_message() << "\n";
+            return false;
+        }
 
         Result copy_res = exec(conn, "COPY tmp_hier_atom_child FROM STDIN");
         if (!copy_res.ok()) {
@@ -288,14 +295,30 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
             std::cerr << "[HIER] Atom children insert failed: " << ins_res.error_message() << "\n";
             return false;
         }
-        std::cerr << "[HIER] Inserted " << atom_edges << " atom children\n";
+        // Calculate expected atom children count
+        size_t expected_atom_edges = 0;
+        for (const auto& [path, comp] : path_to_comp) {
+            expected_atom_edges += comp.children.size();
+        }
+        if (atom_edges == 0 && expected_atom_edges > 0) {
+            std::cerr << "[HIER] WARNING: No atom children inserted (expected " << expected_atom_edges << "), possible data integrity issue\n";
+        } else {
+            std::cerr << "[HIER] Inserted " << atom_edges << " atom children\n";
+        }
     }
 
     // COPY composition children to temp table, then INSERT with existence checks
     if (!child_batch.empty()) {
-        exec(conn, "DROP TABLE IF EXISTS tmp_hier_comp_child");
-        exec(conn, "CREATE TEMP TABLE tmp_hier_comp_child ("
+        Result drop_res = exec(conn, "DROP TABLE IF EXISTS tmp_hier_comp_child");
+        if (!drop_res.ok()) {
+            std::cerr << "[HIER] Failed to drop tmp_hier_comp_child: " << drop_res.error_message() << "\n";
+        }
+        Result create_res = exec(conn, "CREATE TEMP TABLE tmp_hier_comp_child ("
                    "composition_id BYTEA, ordinal SMALLINT, child_type CHAR(1), child_id BYTEA)");
+        if (!create_res.ok()) {
+            std::cerr << "[HIER] Failed to create tmp_hier_comp_child: " << create_res.error_message() << "\n";
+            return false;
+        }
 
         Result copy_res = exec(conn, "COPY tmp_hier_comp_child FROM STDIN");
         if (!copy_res.ok()) {
@@ -328,7 +351,12 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
             std::cerr << "[HIER] Comp children insert failed: " << ins_res.error_message() << "\n";
             return false;
         }
-        std::cerr << "[HIER] Inserted " << edges_inserted << " composition->composition edges\n";
+        // Expected edges is edge_count calculated earlier
+        if (edges_inserted == 0 && edge_count > 0) {
+            std::cerr << "[HIER] WARNING: No composition->composition edges inserted (expected " << edge_count << "), possible data integrity issue\n";
+        } else {
+            std::cerr << "[HIER] Inserted " << edges_inserted << " composition->composition edges\n";
+        }
     }
     
     // Update child counts on parent compositions

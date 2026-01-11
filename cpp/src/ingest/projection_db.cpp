@@ -177,16 +177,6 @@ void write_double_hex(std::string& out, double d) {
 
 // NOTE: escape_for_copy removed - use copy_escape() from db/operations.hpp
 
-// Escape single quotes for SQL string literals
-std::string sql_escape(const std::string& s) {
-    std::string result;
-    for (char c : s) {
-        if (c == '\'') result += "''";
-        else result += c;
-    }
-    return result;
-}
-
 } // anonymous namespace
 
 // =============================================================================

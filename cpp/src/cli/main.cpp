@@ -359,7 +359,7 @@ int cmd_test(int argc, char* argv[]) {
 
         // Test 1: BLAKE3 hashing
         try {
-            Blake3Hash hash = Blake3Hasher::hash("test");
+            Blake3Hasher::hash("test");
             std::cout << "  ✓ BLAKE3 hashing works\n";
         } catch (...) {
             std::cerr << "  ✗ BLAKE3 hashing failed\n";

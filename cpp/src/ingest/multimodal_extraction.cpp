@@ -669,6 +669,44 @@ size_t extract_multimodal_structures(
 
         std::cerr << "[MULTIMODAL] Deduplicated " << all_edges.size() << " -> " << deduped_edges.size() << " unique edges\n";
 
+        // First, ensure multimodal compositions exist
+        std::unordered_map<Blake3Hash, std::string, hypercube::Blake3HashHasher> multimodal_sources;
+        for (const auto& [key, edge] : deduped_edges) {
+            if (edge.source_type == 'C') {
+                std::string label = "multimodal:" + edge.component + ":" + std::to_string(edge.layer);
+                multimodal_sources[edge.source_id] = label;
+            }
+        }
+
+        if (!multimodal_sources.empty()) {
+            std::string comp_insert = "INSERT INTO composition (id, label, depth, child_count, atom_count, centroid, hilbert_lo, hilbert_hi) VALUES ";
+            std::vector<std::string> comp_values;
+
+            for (const auto& [hash, label] : multimodal_sources) {
+                std::string hex_id = "\\x" + hash.to_hex();
+                std::string centroid = "ST_SetSRID(ST_MakePoint(0, 0, 0, 0), 0)";  // Dummy centroid
+
+                comp_values.push_back("('" + hex_id + "', '" + label + "', 1, 0, 0, " + centroid + ", 0, 0)");
+            }
+
+            if (!comp_values.empty()) {
+                for (size_t i = 0; i < comp_values.size(); ++i) {
+                    if (i > 0) comp_insert += ", ";
+                    comp_insert += comp_values[i];
+                }
+                comp_insert += " ON CONFLICT (id) DO NOTHING";
+
+                PGresult* comp_res = PQexec(conn, comp_insert.c_str());
+                if (PQresultStatus(comp_res) != PGRES_COMMAND_OK) {
+                    std::cerr << "[MULTIMODAL] Failed to insert multimodal compositions: " << PQerrorMessage(conn) << "\n";
+                } else {
+                    int inserted = atoi(PQcmdTuples(comp_res));
+                    std::cerr << "[MULTIMODAL] Inserted " << inserted << " multimodal compositions\n";
+                }
+                PQclear(comp_res);
+            }
+        }
+
         // Use temp table then INSERT with existence checks
         PQexec(conn, "DROP TABLE IF EXISTS tmp_multimodal_rel");
         PQexec(conn, "CREATE TEMP TABLE tmp_multimodal_rel ("

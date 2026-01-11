@@ -4,6 +4,8 @@
 #include "hypercube/hilbert.hpp"
 #include <vector>
 #include <map>
+#include <unordered_map>
+#include <mutex>
 
 namespace hypercube {
 
@@ -180,6 +182,30 @@ public:
      * @return True if successful
      */
     static bool optimize_distribution(std::map<uint32_t, Point4F>& points);
+};
+
+/**
+ * Generate 64-bit semantic key for dense ranking
+ * Bit-packed by semantic gravity: Script (63-56), Category (55-48), Base (47-16), Variant (15-0)
+ */
+uint64_t get_semantic_key(uint32_t cp) noexcept;
+
+/**
+ * Dense registry for mapping codepoints to dense ranks
+ */
+class DenseRegistry {
+private:
+    static std::unordered_map<uint32_t, uint32_t> codepoint_to_rank;
+    static std::vector<uint32_t> rank_to_codepoint;
+    static bool initialized;
+    static std::mutex init_mutex;
+
+    static void initialize();
+
+public:
+    static uint32_t get_rank(uint32_t cp);
+    static uint32_t total_active();
+    static uint32_t get_codepoint(uint32_t rank);
 };
 
 } // namespace hypercube

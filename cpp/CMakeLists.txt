@@ -892,6 +892,13 @@ add_executable(test_semantic tests/test_semantic.cpp)
 target_link_libraries(test_semantic hypercube_core)
 add_test(NAME SemanticTest COMMAND test_semantic)
 
+add_executable(debug_semantic_order tests/debug_semantic_order.cpp)
+add_executable(test_vocab_parse tests/test_vocab_parse.cpp)
+target_include_directories(test_vocab_parse PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+target_link_libraries(debug_semantic_order hypercube_core)
+target_link_libraries(test_vocab_parse hypercube_core hypercube_c ${PostgreSQL_LIBRARIES} Threads::Threads)
+add_test(NAME DebugSemanticOrder COMMAND debug_semantic_order)
+
 
 
 add_executable(test_clustering tests/test_clustering.cpp)
@@ -901,6 +908,9 @@ add_test(NAME ClusteringTest COMMAND test_clustering)
 add_executable(test_laplacian_4d tests/test_laplacian_4d.cpp)
 target_link_libraries(test_laplacian_4d hypercube_core)
 add_test(NAME Laplacian4DTest COMMAND test_laplacian_4d)
+
+add_executable(test_eigen_solver_paths test_eigen_solver_paths.cpp)
+target_link_libraries(test_eigen_solver_paths hypercube_core)
 
 # ============================================================================
 # PostgreSQL Tools (require libpq client library)
@@ -1080,7 +1090,7 @@ endif()
 if(PostgreSQL_FOUND)
     add_executable(seed_atoms_parallel src/tools/seed_atoms_parallel.cpp)
     target_include_directories(seed_atoms_parallel PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    target_link_libraries(seed_atoms_parallel hypercube_core ${PostgreSQL_LIBRARIES} Threads::Threads)
+    target_link_libraries(seed_atoms_parallel hypercube_core hypercube_c ${PostgreSQL_LIBRARIES} Threads::Threads)
 
     # Fix Windows min/max macro conflicts
     if(WIN32)

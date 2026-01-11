@@ -404,12 +404,17 @@ inline bool parse_vocab(IngestContext& ctx, const fs::path& vocab_path) {
         while (true) {
             size_t i = idx.fetch_add(1);
             if (i >= total) break;
-            
+
+            // Log every 1000 tokens to track progress
+            if (i % 1000 == 0) {
+                std::cerr << "[VOCAB_WORKER] Processing token " << i << ": '" << lines[i].substr(0, 50) << "'" << std::endl;
+            }
+
             TokenInfo info;
             info.text = lines[i];
             info.comp = AtomCalculator::compute_vocab_token(lines[i]);
             ctx.vocab_tokens[i] = std::move(info);
-            
+
             completed.fetch_add(1);
         }
     };

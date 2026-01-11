@@ -309,11 +309,11 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
         if (!(line_ss >> source_type >> source_id_hex >> target_type >> target_id_hex >> weight_str >> embed_type)) continue;
 
         // Remove \\x prefix
-        if (source_id_hex.substr(0, 2) == "\\\\x") source_id_hex = source_id_hex.substr(2);
-        if (target_id_hex.substr(0, 2) == "\\\\x") target_id_hex = target_id_hex.substr(2);
+        if (source_id_hex.substr(0, 3) == "\\\\x") source_id_hex = source_id_hex.substr(3);
+        if (target_id_hex.substr(0, 3) == "\\\\x") target_id_hex = target_id_hex.substr(3);
 
-        std::string val = "('" + source_type + "', '\\x" + source_id_hex + "', '" + target_type + "', '\\x" + target_id_hex +
-                          "', 'E', " + weight_str + ", '" + config.model_name + "', 1, -1, '" + embed_type + "')";
+        std::string val = "('\\\\x" + source_id_hex + "', '\\\\x" + target_id_hex +
+                          "', 'E', '" + config.model_name + "', 1, '" + embed_type + "', 1500.0, 1, " + weight_str + ", " + weight_str + ")";
         values.push_back(val);
     }
 
@@ -327,8 +327,8 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
             batch_sql += values[j];
         }
         batch_sql += " ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
-                    "  weight = (relation.weight * relation.source_count + EXCLUDED.weight) / (relation.source_count + 1), "
-                    "  source_count = relation.source_count + 1";
+                    "  raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) / (relation_evidence.observation_count + 1), "
+                    "  observation_count = relation_evidence.observation_count + 1";
 
         Result res = exec(conn, batch_sql);
         if (res.ok()) {

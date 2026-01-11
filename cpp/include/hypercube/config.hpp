@@ -96,7 +96,7 @@ private:
 
         // Performance configuration
         set_if_env("perf.max_threads", "HC_MAX_THREADS", "0");  // 0 = auto-detect
-        set_if_env("perf.memory_limit_mb", "HC_MEMORY_LIMIT_MB", "1024");
+        set_if_env("perf.memory_limit_mb", "HC_MEMORY_LIMIT_MB", "32768");  // 32GB default for modern systems
 
         // Build/optimization flags
         set_if_env("build.has_mkl", "HC_HAS_MKL", "true");

@@ -1,0 +1,632 @@
+-- Building for: Ninja
+-- The CXX compiler identification is Clang 21.1.8 with GNU-like command-line
+-- The C compiler identification is Clang 21.1.8 with GNU-like command-line
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files/LLVM/bin/clang++.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: C:/Program Files/LLVM/bin/clang.exe - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - not found
+-- Check if compiler accepts -pthread
+-- Check if compiler accepts -pthread - no
+-- Found Threads: TRUE
+-- Found OpenMP_C: -fopenmp=libomp (found version "5.1")
+-- Found OpenMP_CXX: -fopenmp=libomp (found version "5.1")
+-- Found OpenMP: TRUE (found version "5.1")
+-- OpenMP: Found (version 5.1)
+--   OpenMP C++ flags: -fopenmp=libomp
+--   OpenMP C++ libraries: D:/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.50.35717/lib/x64/libomp.lib
+-- Detecting MKL...
+-- Using MKLROOT from environment: D:\Intel\oneAPI\mkl\latest
+-- MKL detection results:
+--   MKL_INCLUDE_DIR: D:/Intel/oneAPI/mkl/latest/include
+--   MKL_CORE_LIB: D:/Intel/oneAPI/mkl/latest/lib/mkl_core.lib
+--   MKL_INTL_LP64_LIB: D:/Intel/oneAPI/mkl/latest/lib/mkl_intel_lp64.lib
+--   MKL_THREAD_LIB: D:/Intel/oneAPI/mkl/latest/lib/mkl_intel_thread.lib
+--   MKL_IOMP5_LIB: D:/Intel/oneAPI/compiler/latest/lib/libiomp5md.lib
+--   MKL_IOMP5_DLL: D:/Intel/oneAPI/compiler/2025.3/bin/libiomp5md.dll
+-- SUCCESS: MKL detected - will use MKL BLAS operations (PARALLEL mode)
+-- Skipping Eigen3 (MKL is preferred)
+-- Compiler: Clang 21.1.8
+-- SIMD: Native architecture (march=native)
+-- PostgreSQL: PostgreSQL 18.1
+-- PostgreSQL server includes: D:/PostgreSQL/18/include/server
+-- PostgreSQL pkglibdir: D:/PostgreSQL/18/lib
+-- HNSWLIB: Found at D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib
+-- Found postgres.lib: D:/PostgreSQL/18/lib/postgres.lib
+-- Found PostgreSQL client library: optimized;D:/vcpkg/installed/x64-windows/lib/libpq.lib;debug;D:/vcpkg/installed/x64-windows/debug/lib/libpq.lib
+-- seed_atoms_parallel will be built
+-- Found Google Test: 
+-- 
+-- === Hypercube Build Configuration ===
+-- Build type: Release
+-- C++ compiler: Clang 21.1.8
+-- C compiler: Clang 21.1.8
+-- PostgreSQL extension: ON
+-- PostgreSQL tools: ON
+-- Intel MKL: ON
+-- HNSWLIB: ON
+-- Tests: ON (Google Test)
+-- 
+-- Configuring done (10.9s)
+-- Generating done (0.2s)
+-- Build files have been written to: D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+[1/92] Building CXX object CMakeFiles/hypercube_core.dir/src/core/hilbert.cpp.obj
+[2/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/geometry.cpp.obj
+[3/92] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.obj
+[4/92] Building CXX object CMakeFiles/hypercube_core.dir/src/util/utf8.cpp.obj
+[5/92] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.obj
+[6/92] Building CXX object CMakeFiles/hypercube_core.dir/src/core/atom_calculator.cpp.obj
+[7/92] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.obj
+[8/92] Building C object CMakeFiles/semantic_ops.dir/src/pg/semantic_ops_pg.c.obj
+[9/92] Building CXX object CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.obj
+[10/92] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.obj
+[11/92] Building C object CMakeFiles/hypercube_ops.dir/src/pg/hypercube_ops_pg.c.obj
+[12/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.obj
+[13/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.obj
+[14/92] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.obj
+[15/92] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.obj
+[16/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.obj
+[17/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.obj
+[18/92] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.obj
+[19/92] Building CXX object CMakeFiles/test_coordinates.dir/tests/test_coordinates.cpp.obj
+[20/92] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.obj
+[21/92] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.obj
+[22/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/projection_db.cpp.obj
+[23/92] Building CXX object CMakeFiles/test_eigen_solver_paths.dir/test_eigen_solver_paths.cpp.obj
+[24/92] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.obj
+[25/92] Building CXX object CMakeFiles/test_clustering.dir/tests/test_clustering.cpp.obj
+[26/92] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.obj
+[27/92] Building CXX object CMakeFiles/debug_semantic_order.dir/tests/debug_semantic_order.cpp.obj
+[28/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/parallel_cpe.cpp.obj
+[29/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.obj
+[30/92] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.obj
+[31/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.obj
+[32/92] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.obj
+[33/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_io.cpp:9:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:50:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[34/92] Building CXX object CMakeFiles/test_integration.dir/tests/test_integration.cpp.obj
+[35/92] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.obj
+[36/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/compositions.cpp:9:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:50:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[37/92] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_main.cpp.obj
+[38/92] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_blake3.cpp.obj
+[39/92] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.obj
+[40/92] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.obj
+[41/92] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_coordinates.cpp.obj
+[42/92] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_schema.cpp.obj
+[43/92] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.obj
+[44/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_hierarchy.cpp:9:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:50:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[45/92] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.obj
+[46/92] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.obj
+[47/92] Building CXX object CMakeFiles/test_vocab_parse.dir/tests/test_vocab_parse.cpp.obj
+[48/92] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_query_api.cpp.obj
+[49/92] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.obj
+[50/92] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.obj
+[51/92] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.obj
+[52/92] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.obj
+[53/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/multimodal_extraction.cpp:15:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:50:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[54/92] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.obj
+[55/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/embedding_relations.cpp:11:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:50:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[56/92] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:59:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[57/92] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.obj
+[58/92] Linking CXX executable vocab_extract.exe
+[59/92] Linking CXX static library hypercube_core.lib; Copying Intel OpenMP DLL to output directory
+[60/92] Linking CXX executable vocab_ingest.exe
+[61/92] Linking CXX executable model_discovery.exe
+[62/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:50:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[63/92] Linking CXX executable test_hilbert.exe
+[64/92] Linking CXX shared library embedding_c.dll
+[65/92] Linking CXX shared library generative_c.dll
+[66/92] Linking CXX shared library hypercube_c.dll
+[67/92] Linking CXX executable test_coordinates.exe
+[68/92] Linking CXX executable test_blake3.exe
+[69/92] Linking CXX executable debug_semantic_order.exe
+[70/92] Linking CXX executable test_clustering.exe
+[71/92] Linking CXX executable test_laplacian_4d.exe
+[72/92] Linking CXX executable test_eigen_solver_paths.exe
+[73/92] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/semantic_extraction.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/semantic_extraction.cpp:14:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:50:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[74/92] Linking CXX executable test_semantic.exe
+[75/92] Linking CXX executable test_query_api.exe
+[76/92] Linking CXX static library hypercube_ingest.lib
+[77/92] Linking CXX executable test_integration.exe
+[78/92] Linking CXX executable hypercube_tests.exe
+[79/92] Linking CXX executable hypercube_sql_tests.exe
+[80/92] Linking CXX executable extract_embeddings.exe
+[81/92] Linking C shared library hypercube.dll
+[82/92] Linking C shared library semantic_ops.dll
+[83/92] Linking C shared library hypercube_ops.dll
+[84/92] Linking C shared library embedding_ops.dll
+[85/92] Linking CXX executable test_vocab_parse.exe
+[86/92] Linking C shared library generative.dll
+[87/92] Linking CXX executable seed_atoms_parallel.exe
+[88/92] Linking CXX executable ingest.exe
+[89/92] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:39:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:50:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[90/92] Building CXX object CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.obj
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/tools/ingest_safetensor_modular.cpp:66:
+In file included from D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include\hypercube/ingest/db_operations.hpp:50:
+D:/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib\hnswlib/hnswlib.h:89:13: warning: unused function 'AVX512Capable' [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+1 warning generated.
+[91/92] Linking CXX executable hc.exe
+[92/92] Linking CXX executable ingest_safetensor.exe
+=== Parallel Partitioned Atom Seeder ===
+Connection: dbname=hypercube host=localhost port=5432 user=hartonomous password=hartonomous
+Partitions: 8
+Generators: 8
+Connection Pool: 8 connections
+
+[1/5] Initializing coordinate mapping...
+[1.5/5] Generating atoms (8 threads)...
+      Generated 1114112 atoms in 1254 ms
+[2/5] Partitioning by hash...
+Partition sizes: 139506 139838 138867 139265 139269 138313 139631 139423 
+      Partitioned in 28 ms
+[3/5] Preparing database...
+      Setup in 82 ms
+[4/5] Parallel COPY to atom table (8 connections)...
+Partition 0 build time: 614 ms
+Partition 7 build time: 756 ms
+Partition 0 total time: 931 ms, I/O: 317 ms, atoms: 139506, rate: 149845 atoms/sec
+Partition 3 build time: 744 ms
+Partition 2 build time: 801 ms
+Partition 4 build time: 767 ms
+Partition 5 build time: 741 ms
+Partition 6 build time: 743 ms
+Partition 7 total time: 1110 ms, I/O: 354 ms, atoms: 139423, rate: 125606 atoms/sec
+Partition 3 total time: 1173 ms, I/O: 429 ms, atoms: 139265, rate: 118725 atoms/sec
+Partition 2 total time: 1179 ms, I/O: 378 ms, atoms: 138867, rate: 117783 atoms/sec
+Partition 1 build time: 785 ms
+Partition 4 total time: 1228 ms, I/O: 461 ms, atoms: 139269, rate: 113411 atoms/sec
+Partition 5 total time: 1252 ms, I/O: 511 ms, atoms: 138313, rate: 110473 atoms/sec
+Partition 6 total time: 1302 ms, I/O: 559 ms, atoms: 139631, rate: 107243 atoms/sec
+Partition 1 total time: 1375 ms, I/O: 590 ms, atoms: 139838, rate: 101700 atoms/sec
+      Parallel COPY in 1376 ms
+[5/5] Building indexes...
+      Index build in 1919 ms
+
+=== Complete ===
+Total atoms: 1114112
+Total time: 4662 ms (4.662 s)
+Rate: 238977 atoms/sec
+[THREADING] OpenMP threads: 8
+[THREADING] MKL threads: 8 (dynamic=0)
+=== Universal Safetensor Ingester (Modular) ===
+Directory: D:\Repositories\Github\AHartTN\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf
+Model: sentence-transformers/all-MiniLM-L6-v2
+Threshold: 0.5
+
+[0] Parsing model manifest (config.json, architecture detection)...
+[MANIFEST] Parsed config for c9745ed1d9f207416be6d2e6f8de32d1f16199bf (BERT)
+[MANIFEST] Found 13 config atoms
+
+[1] Parsing tokenizer: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\tokenizer.json"
+[TOKENIZER] Loaded 0 BPE merges, 30522 vocab entries
+[1] Tokenizer parse result: OK
+[1] BPE merges loaded: 0
+[1] Vocab entries: 30522
+[2] Parsing vocab: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\vocab.txt"
+[VOCAB_WORKER] Processing token 0: '[PAD]'
+[VOCAB_WORKER] Processing token 1000: '"'
+[VOCAB_WORKER] Processing token 2000: 'to'
+[VOCAB_WORKER] Processing token 3000: 'paris'
+[VOCAB_WORKER] Processing token 4000: 'tears'
+[VOCAB_WORKER] Processing token 5000: 'knight'
+[VOCAB_WORKER] Processing token 6000: 'peninsula'
+[VOCAB_WORKER] Processing token 7000: 'licensed'
+[VOCAB_WORKER] Processing token 8000: 'mouse'
+[VOCAB_WORKER] Processing token 9000: 'screenplay'
+[VOCAB_WORKER] Processing token 10000: 'raven'
+[VOCAB_WORKER] Processing token 11000: 'tonnes'
+[VOCAB_WORKER] Processing token 12000: 'princes'
+[VOCAB_WORKER] Processing token 13000: 'osaka'
+[VOCAB_WORKER] Processing token 14000: 'liability'
+[VOCAB_WORKER] Processing token 15000: '##lip'
+[VOCAB_WORKER] Processing token 16000: 'kappa'
+[VOCAB_WORKER] Processing token 17000: 'hasan'
+[VOCAB_WORKER] Processing token 18000: 'belts'
+[VOCAB_WORKER] Processing token 19000: '##leader'
+[VOCAB_WORKER] Processing token 20000: 'chunk'
+[VOCAB_WORKER] Processing token 21000: 'colton'
+[VOCAB_WORKER] Processing token 22000: 'artworks'
+[VOCAB_WORKER] Processing token 23000: 'radiated'
+[VOCAB_WORKER] Processing token 24000: 'plank'
+[VOCAB_WORKER] Processing token 25000: 'fielder'
+[VOCAB_WORKER] Processing token 26000: 'fide'
+[VOCAB_WORKER] Processing token 27000: 'selector'
+[VOCAB_WORKER] Processing token 28000: 'statehood'
+[VOCAB_WORKER] Processing token 29000: 'gunners'
+[VOCAB_WORKER] Processing token 30000: '##ßäî'
+
+[VOCAB] Loaded 30522 tokens in 512ms
+[2] Vocab parse result: OK
+[2] Vocab tokens loaded: 30522
+
+[2.5] Parsing model metadata (config, tokenizer, special tokens)...
+
+=== Parsing Model Metadata: c9745ed1d9f207416be6d2e6f8de32d1f16199bf ===
+[CONFIG] Parsed 21 config atoms, model_type=bert, vocab_size=30522
+[TOKENIZER] Loaded 5 special tokens, 0 BPE merges, 30522 vocab entries
+[METADATA] Total: 21 config atoms, 30522 vocab tokens, 0 merges, 5 special tokens
+[3] Parsing 1 safetensor files...
+  Parsing: "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Opus\\test-data\\embedding_models\\models--sentence-transformers--all-MiniLM-L6-v2\\snapshots\\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\\model.safetensors"
+[INFO] Found 104 tensors
+[DEBUG] Tensor names:
+  encoder.layer.1.attention.self.key.bias [1D,384] F32
+  embeddings.LayerNorm.bias [1D,384] F32
+  encoder.layer.2.intermediate.dense.bias [1D,1536] F32
+  embeddings.position_ids [2D,1,512] I64
+  embeddings.word_embeddings.weight [2D,30522,384] F32
+  encoder.layer.2.intermediate.dense.weight [2D,1536,384] F32
+  encoder.layer.1.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.1.attention.self.key.weight [2D,384,384] F32
+  encoder.layer.1.attention.output.LayerNorm.bias [1D,384] F32
+  embeddings.LayerNorm.weight [1D,384] F32
+  encoder.layer.3.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.0.attention.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.3.attention.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.0.attention.output.dense.bias [1D,384] F32
+  embeddings.position_embeddings.weight [2D,512,384] F32
+  embeddings.token_type_embeddings.weight [2D,2,384] F32
+  encoder.layer.0.attention.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.0.attention.output.dense.weight [2D,384,384] F32
+  encoder.layer.0.attention.self.key.bias [1D,384] F32
+  encoder.layer.0.intermediate.dense.weight [2D,1536,384] F32
+  encoder.layer.0.attention.self.key.weight [2D,384,384] F32
+  encoder.layer.1.attention.self.value.bias [1D,384] F32
+  encoder.layer.0.attention.self.query.bias [1D,384] F32
+  encoder.layer.1.attention.self.value.weight [2D,384,384] F32
+  encoder.layer.0.attention.self.query.weight [2D,384,384] F32
+  encoder.layer.1.intermediate.dense.bias [1D,1536] F32
+  encoder.layer.0.attention.self.value.bias [1D,384] F32
+  encoder.layer.1.intermediate.dense.weight [2D,1536,384] F32
+  encoder.layer.0.attention.self.value.weight [2D,384,384] F32
+  encoder.layer.3.attention.self.query.weight [2D,384,384] F32
+  encoder.layer.0.intermediate.dense.bias [1D,1536] F32
+  encoder.layer.3.intermediate.dense.weight [2D,1536,384] F32
+  encoder.layer.3.attention.self.key.bias [1D,384] F32
+  encoder.layer.0.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.3.attention.self.key.weight [2D,384,384] F32
+  encoder.layer.0.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.0.output.dense.bias [1D,384] F32
+  encoder.layer.0.output.dense.weight [2D,384,1536] F32
+  encoder.layer.1.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.1.attention.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.1.output.dense.bias [1D,384] F32
+  encoder.layer.5.attention.self.query.bias [1D,384] F32
+  encoder.layer.5.attention.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.1.attention.output.dense.bias [1D,384] F32
+  encoder.layer.2.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.2.attention.output.dense.bias [1D,384] F32
+  encoder.layer.1.output.dense.weight [2D,384,1536] F32
+  encoder.layer.5.attention.self.query.weight [2D,384,384] F32
+  encoder.layer.5.attention.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.1.attention.output.dense.weight [2D,384,384] F32
+  encoder.layer.1.attention.self.query.bias [1D,384] F32
+  encoder.layer.2.attention.self.query.bias [1D,384] F32
+  encoder.layer.1.attention.self.query.weight [2D,384,384] F32
+  encoder.layer.2.attention.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.2.attention.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.2.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.2.attention.self.key.bias [1D,384] F32
+  encoder.layer.2.attention.output.dense.weight [2D,384,384] F32
+  encoder.layer.2.attention.self.key.weight [2D,384,384] F32
+  encoder.layer.2.attention.self.query.weight [2D,384,384] F32
+  encoder.layer.2.attention.self.value.bias [1D,384] F32
+  encoder.layer.2.attention.self.value.weight [2D,384,384] F32
+  encoder.layer.2.output.dense.bias [1D,384] F32
+  encoder.layer.2.output.dense.weight [2D,384,1536] F32
+  encoder.layer.3.attention.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.3.attention.output.dense.bias [1D,384] F32
+  encoder.layer.3.attention.output.dense.weight [2D,384,384] F32
+  encoder.layer.3.attention.self.query.bias [1D,384] F32
+  encoder.layer.3.attention.self.value.bias [1D,384] F32
+  encoder.layer.4.attention.self.value.bias [1D,384] F32
+  encoder.layer.3.attention.self.value.weight [2D,384,384] F32
+  encoder.layer.3.intermediate.dense.bias [1D,1536] F32
+  encoder.layer.3.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.3.output.dense.bias [1D,384] F32
+  encoder.layer.3.output.dense.weight [2D,384,1536] F32
+  encoder.layer.4.attention.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.4.attention.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.4.attention.output.dense.bias [1D,384] F32
+  encoder.layer.4.attention.output.dense.weight [2D,384,384] F32
+  encoder.layer.4.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.4.attention.self.key.bias [1D,384] F32
+  encoder.layer.4.attention.self.key.weight [2D,384,384] F32
+  encoder.layer.4.attention.self.query.bias [1D,384] F32
+  encoder.layer.4.attention.self.query.weight [2D,384,384] F32
+  encoder.layer.4.attention.self.value.weight [2D,384,384] F32
+  encoder.layer.4.intermediate.dense.bias [1D,1536] F32
+  encoder.layer.4.intermediate.dense.weight [2D,1536,384] F32
+  encoder.layer.4.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.4.output.dense.bias [1D,384] F32
+  encoder.layer.4.output.dense.weight [2D,384,1536] F32
+  encoder.layer.5.attention.output.dense.bias [1D,384] F32
+  encoder.layer.5.attention.output.dense.weight [2D,384,384] F32
+  encoder.layer.5.attention.self.key.bias [1D,384] F32
+  encoder.layer.5.attention.self.key.weight [2D,384,384] F32
+  encoder.layer.5.attention.self.value.bias [1D,384] F32
+  encoder.layer.5.attention.self.value.weight [2D,384,384] F32
+  encoder.layer.5.intermediate.dense.bias [1D,1536] F32
+  encoder.layer.5.intermediate.dense.weight [2D,1536,384] F32
+  encoder.layer.5.output.LayerNorm.bias [1D,384] F32
+  encoder.layer.5.output.LayerNorm.weight [1D,384] F32
+  encoder.layer.5.output.dense.bias [1D,384] F32
+  encoder.layer.5.output.dense.weight [2D,384,1536] F32
+  pooler.dense.bias [1D,384] F32
+  pooler.dense.weight [2D,384,384] F32
+[3.1] Categorizing tensors for extraction...
+[INFO] Created 104 extraction plans
+
++--------------------------------------------------------------+
+|              MODEL MANIFEST SUMMARY                          |
++--------------------------------------------------------------+
+  Model: sentence-transformers/all-MiniLM-L6-v2
+  Architecture: BERT
+  Path: D:\Repositories\Github\AHartTN\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf
++--------------------------------------------------------------+
+  DIMENSIONS:
+    Vocab Size: 30522
+    Model Dim (d_model): 384
+    Layers: 6
+    Attention Heads: 12
+    FFN Dim: 1536
++--------------------------------------------------------------+
+  TENSORS BY CATEGORY:
+    Embeddings:    4 (eigenmap extraction)
+    Attention:     18 (relation extraction)
+    FFN:           0 (skipped)
+    Normalization: 13 (skipped)
+    Convolution:   0 (skipped)
+    Detection:     0 (eigenmap extraction)
+    Other:         19
+    TOTAL:         104
++--------------------------------------------------------------+
+  METADATA FOR INGESTION:
+    Config atoms:    13
+    Tokenizer atoms: 0
+    BPE merges:      0 (composition edges)
+    Vocab entries:   0
++--------------------------------------------------------------+
+
+[DB] Connecting to database with conninfo: dbname=hypercube user=hartonomous host=localhost port=5432
+[DB] Database connection successful
+
+[3.5] Inserting model metadata as content...
+
+=== Inserting Model Metadata: c9745ed1d9f207416be6d2e6f8de32d1f16199bf ===
+[METADATA] Type: bert
+[METADATA] Config atoms: 21
+[METADATA] BPE merges: 0
+[METADATA] Special tokens: 5
+[METADATA] Vocab tokens: 30522
+[METADATA] Loading 1012 atoms (max codepoint: 65374 / 0xff5e)...
+[CACHE] Loaded 1012 atoms for 1012 unique codepoints in 10 ms
+[METADATA] Loaded 1012 atoms
+[CONFIG-AST] Built 42 nodes, 22 relations
+[BPE-TREE] Built 30522 token compositions
+[BPE-TREE] Built 0 merge relations
+[SPECIAL] Built 5 special token nodes
+[METADATA] Total: 30556 compositions, 27 relations
+[STREAM] Dropping idx_comp_label to prevent corruption...
+[STREAM] Buffers: comp=5098KB, child=27089KB, rel=5KB
+NOTICE:  table "tmp_meta_comp" does not exist, skipping
+NOTICE:  table "tmp_meta_child" does not exist, skipping
+NOTICE:  table "tmp_meta_rel" does not exist, skipping
+[STREAM] Merging into main tables...
+[STREAM] Child diagnostics: 198112 total, 198112 have parent comp, 198112 have atom child
+[STREAM] Inserted: 30556 compositions, 198112 children, 27 relations
+[STREAM] Recreating idx_comp_label...
+
+[4] Building tensor name hierarchy...
+[HIER] Building tensor hierarchy from 104 tensors
+[HIER] Found 33 unique codepoints in tensor names
+[HIER] Validated 33 atoms exist
+[HIER] Found 197 unique hierarchy nodes
+[HIER] Built 197 compositions with atom children
+[HIER] Built 194 composition->composition edges
+[HIER] Inserted/updated 197 hierarchy compositions
+NOTICE:  table "tmp_hier_atom_child" does not exist, skipping
+[HIER] Inserted 6904 atom children
+NOTICE:  table "tmp_hier_comp_child" does not exist, skipping
+[HIER] Inserted 194 composition->composition edges
+
+[5] Inserting token compositions...
+[COMP] Inserting 30522 token compositions...
+[COMP] 30522 token compositions to insert
+[COMP] Building batch strings with 16 threads...
+  [BUILD] 30522/30522 tokens (59847/s)
+
+[COMP] Built 19219KB compositions + 27031KB children in 510ms
+[COMP] Streaming to database...
+[COMP] Dropping idx_comp_label to prevent corruption...
+[COMP] Creating temp tables...
+NOTICE:  table "tmp_comp" does not exist, skipping
+NOTICE:  table "tmp_comp_child" does not exist, skipping
+[COMP] Copying compositions to temp table...
+  [COPY] Batch 1/16 (1790KB)
+  [COPY] Batch 2/16 (1060KB)
+  [COPY] Batch 3/16 (1328KB)
+  [COPY] Batch 4/16 (1279KB)
+  [COPY] Batch 5/16 (1120KB)
+  [COPY] Batch 6/16 (1006KB)
+  [COPY] Batch 7/16 (1654KB)
+  [COPY] Batch 8/16 (1120KB)
+  [COPY] Batch 9/16 (1487KB)
+  [COPY] Batch 10/16 (1411KB)
+  [COPY] Batch 11/16 (1261KB)
+  [COPY] Batch 12/16 (1295KB)
+  [COPY] Batch 13/16 (1024KB)
+  [COPY] Batch 14/16 (790KB)
+  [COPY] Batch 15/16 (1024KB)
+  [COPY] Batch 16/16 (561KB)
+
+[COMP] Copying composition children to temp table...
+  [COPY] Batch 1/16 (2520KB)
+  [COPY] Batch 2/16 (1504KB)
+  [COPY] Batch 3/16 (1871KB)
+  [COPY] Batch 4/16 (1799KB)
+  [COPY] Batch 5/16 (1582KB)
+  [COPY] Batch 6/16 (1426KB)
+  [COPY] Batch 7/16 (2304KB)
+  [COPY] Batch 8/16 (1552KB)
+  [COPY] Batch 9/16 (2079KB)
+  [COPY] Batch 10/16 (1985KB)
+  [COPY] Batch 11/16 (1787KB)
+  [COPY] Batch 12/16 (1828KB)
+  [COPY] Batch 13/16 (1444KB)
+  [COPY] Batch 14/16 (1109KB)
+  [COPY] Batch 15/16 (1447KB)
+  [COPY] Batch 16/16 (788KB)
+
+[COMP] Inserting into composition table...
+[COMP] Inserted 30522 compositions
+[COMP] Inserting into composition_child table...
+[COMP] Inserted 997 children
+[COMP] Recreating idx_comp_label...
+[COMP] Inserted 30522 compositions, 997 children in 2047ms
+
+[5.5] Projecting token embeddings to 4D semantic coordinates...
+[5.5] Vocab tokens available: 30522
+[5.5] Tensors available: 104
+[5.5] Starting Laplacian projection...
+============================================================
+[PROJECTION] LAPLACIAN EIGENMAP PROJECTION starting
+============================================================
+[PROJECTION] Using config-driven tensor lookup
+[PROJECTION] Scanning 104 extraction plans...
+[PROJECTION]   Candidate 1: embeddings.word_embeddings.weight [30522 x 384] - AVAILABLE
+[PROJECTION] >>> WILL PROJECT: embeddings.word_embeddings.weight
+[PROJECTION]   Candidate 2: embeddings.token_type_embeddings.weight [2 x 384] - AVAILABLE
+[PROJECTION] >>> WILL PROJECT: embeddings.token_type_embeddings.weight
+[PROJECTION] Processing embedding: embeddings.word_embeddings.weight
+[PROJECTION] Loading 30522 x 384 embeddings...
+[LOAD_TENSOR] Opening file: D:\Repositories\Github\AHartTN\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf\model.safetensors
+[LOAD_TENSOR] Seeking to offset: 796672
+[LOAD_TENSOR] Reading 11720448 elements as F32
+[LOAD_TENSOR] Successfully read 46881792 bytes (expected 46881792)
+[LOAD_TENSOR] Non-zero values in first 100 elements: 100/100
+[PROJECTION] Loaded in 38ms
+[PROJECTION] Embedding statistics (raw from safetensor):
+  Tensor: embeddings.word_embeddings.weight [30522 x 384]
+  Dtype: F32, File offset: 796672
+  Min: -5.073242e-01, Max: 1.049400e+00
+  Mean: 1.204355e-05, StdDev: 5.562442e-02
+  Zeros: 3 (2.6e-05%)
+  NaNs: 0
+  First embedding (token 0): [2.3026e-02, -7.4234e-03, -2.4521e-02, 4.4067e-02, -2.1561e-02, 4.9896e-03, -1.5884e-02, -1.8692e-02, 5.4703e-03, 2.3071e-02, ...]
+  Second embedding (token 1): [2.8458e-02, -9.9258e-03, -2.6657e-02, 3.8513e-02, -2.8595e-02, 1.0262e-02, -2.8320e-02, -3.2196e-02, 2.5177e-02, , ...]
+  First two rows identical: NO (good)
+[PROJECTION] Projecting 30522 embeddings to 4D using Laplacian eigenmaps...
+
+=== Laplacian Eigenmap Projection to 4D ===
+Tokens: 30522, Embedding dim: 384
+
+[1] Building k-NN similarity graph (k=15)...
+[HNSWLIB] Building HNSW index for 30522 points, dim=384
+[HNSWLIB] Using SEQUENTIAL strategy for 30522 points
+[HNSWLIB] Adding points to index...
+[HNSWLIB]   Progress: 1526/30522 (5.0%) | 13873 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 3052/30522 (10.0%) | 12770 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 4578/30522 (15.0%) | 10926 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 6104/30522 (20.0%) | 9333 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 7630/30522 (25.0%) | 8293 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 9156/30522 (30.0%) | 7480 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 10682/30522 (35.0%) | 6936 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 12208/30522 (40.0%) | 6392 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 13734/30522 (45.0%) | 6037 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 15260/30522 (50.0%) | 5650 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 16786/30522 (55.0%) | 5314 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 18312/30522 (60.0%) | 5061 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 19838/30522 (65.0%) | 4815 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 21364/30522 (70.0%) | 4617 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 22890/30522 (75.0%) | 4446 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 24416/30522 (80.0%) | 4292 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 25942/30522 (85.0%) | 4153 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 27468/30522 (90.0%) | 4027 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 28994/30522 (95.0%) | 3921 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 30520/30522 (100.0%) | 3945 pts/sec | ETA: 0m
+[HNSWLIB]   Progress: 30522/30522 (100.0%) | 3945 pts/sec
+[HNSWLIB] Index built in 7758 ms
+[HNSWLIB] Querying k-NN across 1 partition(s)...
+[HNSWLIB] k-NN queries completed in 2939 ms
+[HNSWLIB] Built k-NN graph with 219316 edges
+
+[1.5] Ensuring graph connectivity...
+[CONNECT] Found 17 disconnected components - adding edges
+[CONNECT] Graph is now connected (1 component)
+[CONNECT] Added 16 inter-component edges
+
+[2] Building normalized Laplacian...
+
+[3] Finding 4 smallest non-zero eigenvectors...
+[DEBUG] Laplacian matrix size: 30522x30522
+[DEBUG] Degrees: min=0, max=261, zero_count=0
+[DEBUG] Laplacian diagonal: min=1, max=1
+[DEBUG] Laplacian is symmetric: YES
+[DEBUG] Graph connectivity: 30522/30522 nodes reachable from node 0
+[EIGEN] Using MKL dense eigendecomposition for 30522 points
+[MKL] Using Intel MKL DSYEVR (optimized for Intel CPUs)

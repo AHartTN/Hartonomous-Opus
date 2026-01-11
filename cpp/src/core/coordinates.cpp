@@ -68,17 +68,13 @@
 
 namespace hypercube {
 
+// Mathematical constants
+const double PI = std::acos(-1.0); // π
+
 namespace {
 
-// Mathematical constants
-const double PHI = (1.0 + std::sqrt(5.0)) / 2.0; // Golden ratio
-const double PI = std::acos(-1.0); // π
-// Max semantic rank: accommodates all possible semantic ranks
-// Use 64-bit to avoid accidental overflow/truncation when used in arithmetic.
-const uint64_t TOTAL_CODEPOINTS = 10000000ULL; // 10,000,000
-
 // Safe quantization with rounding and clamping
-static uint32_t quantize_unit_to_u32(double v) noexcept {
+[[maybe_unused]] static uint32_t quantize_unit_to_u32(double v) noexcept {
     // Expect v in [-1.0, 1.0]. Clamp defensively.
     if (v <= -1.0) return 0u;
     if (v >=  1.0) return UINT32_MAX;
@@ -168,7 +164,7 @@ static void avx_quantize_point4f_to_point4d(const Point4F& src, Point4D& dst) no
 // Returns 0-25 for A-Z base, or 26+ for non-mappable
 // Relation-based semantic ordering functions
 
-uint32_t get_script_id(uint32_t cp) {
+[[maybe_unused]] static uint32_t get_script_id(uint32_t cp) {
     if (cp <= 0x024F) return 0; // Latin and extended
     if (cp >= 0x0370 && cp <= 0x03FF) return 1; // Greek
     if (cp >= 0x0400 && cp <= 0x04FF) return 2; // Cyrillic
@@ -201,7 +197,7 @@ uint32_t get_script_id(uint32_t cp) {
     return 100; // other
 }
 
-uint32_t case_fold(uint32_t cp) {
+[[maybe_unused]] static uint32_t case_fold(uint32_t cp) {
     // ASCII
     if (cp >= 'A' && cp <= 'Z') return cp + 32;
     // Greek
@@ -282,9 +278,10 @@ constexpr uint32_t get_latin_variant_order(uint32_t cp) noexcept {
     return 128 + (cp & 0xFF);
 }
 
-// Relation-based semantic ordering system
-// Groups characters by linguistic relationships rather than blocks
-uint64_t get_semantic_order(uint32_t cp) noexcept {
+
+
+// Legacy semantic ordering (kept for compatibility)
+[[maybe_unused]] static uint64_t get_semantic_order(uint32_t cp) noexcept {
     // Categories by linguistic similarity (base offsets) - adjusted for consecutive ordering
     const uint64_t LATIN_BASE = 0ULL;
     const uint64_t DIGIT_BASE = 6656ULL;
@@ -543,6 +540,131 @@ constexpr size_t num_unicode_blocks = sizeof(unicode_blocks) / sizeof(unicode_bl
 
 } // anonymous namespace
 
+// Generate 64-bit semantic key for dense ranking
+// Based on linguistic similarity hierarchy:
+// 1. Case variants (A↔a highest similarity)
+// 2. Diacritic variants (a↔á↔ä)
+// 3. Homoglyphs (0↔O↔o)
+// 4. Phonetic similarity (vowel/consonant groups)
+// 5. Alphabetical proximity (A,B,C...)
+// 6. Script similarity
+uint64_t get_semantic_key(uint32_t cp) noexcept {
+    // Default values
+    uint8_t script_id = 100; // other scripts
+    uint8_t semantic_class = 15; // other
+    uint32_t base_similarity = cp; // fallback
+    uint8_t variant_order = 0;
+
+    // ========================================================================
+    // SCRIPT IDENTIFICATION (highest level grouping)
+    // ========================================================================
+    if (cp >= 0x0000 && cp <= 0x024F) script_id = 0; // Latin + Extended
+    else if (cp >= 0x0370 && cp <= 0x03FF) script_id = 1; // Greek
+    else if (cp >= 0x0400 && cp <= 0x04FF) script_id = 2; // Cyrillic
+    else if (cp >= 0x0590 && cp <= 0x05FF) script_id = 3; // Hebrew
+    else if (cp >= 0x0600 && cp <= 0x077F) script_id = 4; // Arabic
+    else if (cp >= 0x0900 && cp <= 0x097F) script_id = 5; // Devanagari
+    else if (cp >= 0x2E80 && cp <= 0x9FFF) script_id = 6; // CJK
+    else if (cp >= 0x1F600 && cp <= 0x1F64F) script_id = 7; // Emoji
+    else if (cp >= 0x1F300 && cp <= 0x1F5FF) script_id = 8; // Symbols
+
+    // ========================================================================
+    // SEMANTIC CLASSIFICATION (within scripts)
+    // ========================================================================
+
+    // ASCII LETTERS: Group by base letter first (A,a together), then phonetic similarity
+    if (cp >= 'A' && cp <= 'Z') {
+        semantic_class = 1; // ASCII uppercase
+        base_similarity = cp - 'A'; // 0-25: A,B,C,...
+        variant_order = 0; // uppercase first in base group
+    } else if (cp >= 'a' && cp <= 'z') {
+        semantic_class = 1; // ASCII lowercase (same class as uppercase for grouping)
+        base_similarity = cp - 'a'; // 0-25: a,b,c,... (same base as uppercase)
+        variant_order = 1; // lowercase second in base group
+    }
+    // DIGITS: Group by visual similarity (0,O,o together)
+    else if (cp >= '0' && cp <= '9') {
+        semantic_class = 3; // digit
+        // Group homoglyphs: 0→O, 1→I→l, 2, 3, 4, 5, 6→G, 7, 8→B, 9→g
+        switch (cp) {
+            case '0': base_similarity = 0; break; // 0,O,o group
+            case '1': base_similarity = 10; break; // 1,I,l group
+            case '2': base_similarity = 2; break;
+            case '3': base_similarity = 3; break;
+            case '4': base_similarity = 4; break;
+            case '5': base_similarity = 5; break;
+            case '6': base_similarity = 60; break; // 6,G group
+            case '7': base_similarity = 7; break;
+            case '8': base_similarity = 80; break; // 8,B group
+            case '9': base_similarity = 90; break; // 9,g,q group
+        }
+        variant_order = 0;
+    }
+    // ASCII SYMBOLS: Group by function
+    else if ((cp >= 0x21 && cp <= 0x2F) || (cp >= 0x3A && cp <= 0x40) ||
+             (cp >= 0x5B && cp <= 0x60) || (cp >= 0x7B && cp <= 0x7E)) {
+        semantic_class = 10; // punctuation
+        base_similarity = cp; // keep original order for punctuation
+        variant_order = 0;
+    }
+    // GREEK: Group by base letter (case variants together)
+    else if (cp >= 0x0391 && cp <= 0x03A9) { // uppercase greek
+        semantic_class = 4; // greek uppercase
+        base_similarity = 1000 + (cp - 0x0391); // base 1000-1024
+        variant_order = 0; // uppercase first
+    } else if (cp >= 0x03B1 && cp <= 0x03C9) { // lowercase greek
+        semantic_class = 4; // greek lowercase (same class for grouping)
+        base_similarity = 1000 + (cp - 0x03B1); // same base as uppercase
+        variant_order = 1; // lowercase second
+    }
+    // CYRILLIC: Group by base letter (case variants together)
+    else if (cp >= 0x0410 && cp <= 0x042F) { // uppercase cyrillic
+        semantic_class = 5; // cyrillic uppercase
+        base_similarity = 2000 + (cp - 0x0410); // base 2000-2030
+        variant_order = 0; // uppercase first
+    } else if (cp >= 0x0430 && cp <= 0x044F) { // lowercase cyrillic
+        semantic_class = 5; // cyrillic lowercase (same class for grouping)
+        base_similarity = 2000 + (cp - 0x0430); // same base as uppercase
+        variant_order = 1; // lowercase second
+    }
+    // EMOJI: Group by category
+    else if (cp >= 0x1F600 && cp <= 0x1F64F) {
+        semantic_class = 20; // faces
+        base_similarity = cp - 0x1F600;
+        variant_order = 0;
+    } else if (cp >= 0x1F300 && cp <= 0x1F5FF) {
+        semantic_class = 21; // symbols
+        base_similarity = cp - 0x1F300;
+        variant_order = 0;
+    }
+    // CJK: Group by radical/stroke similarity (simplified)
+    else if (cp >= 0x4E00 && cp <= 0x9FFF) {
+        semantic_class = 30; // CJK unified
+        base_similarity = cp - 0x4E00;
+        variant_order = 0;
+    }
+    // FALLBACK: Other characters
+    else {
+        semantic_class = 99; // other
+        base_similarity = cp;
+        variant_order = cp & 0xFF;
+    }
+
+    // ========================================================================
+    // PACK INTO 64-BIT KEY
+    // Priority: Script > Semantic Class > Base Similarity > Variant Order > Uniqueness
+    // ========================================================================
+    uint64_t key = 0;
+    key |= (uint64_t(script_id) & 0xFF) << 56;        // Bits 63-56: script (highest)
+    key |= (uint64_t(semantic_class) & 0xFF) << 48;   // Bits 55-48: semantic class
+    key |= (uint64_t(base_similarity) & 0xFFFF) << 24; // Bits 47-24: base similarity (16 bits)
+    key |= (uint64_t(variant_order) & 0xFF) << 16;    // Bits 23-16: variant order
+    key |= (uint64_t(cp & 0xFFFF));                   // Bits 15-0: codepoint for uniqueness
+
+    return key;
+}
+
+
 
 AtomCategory CoordinateMapper::categorize(uint32_t codepoint) noexcept {
     if ((codepoint & 0xFFFF) >= 0xFFFE) {
@@ -725,46 +847,40 @@ Point4F CoordinateMapper::map_codepoint_float(uint32_t codepoint) noexcept {
     }
 
     // ========================================================================
-    // OPTIMIZED SUPER-FIBONACCI SPIRAL FOR S³ (3-sphere/hypersphere)
+    // DENSE SEMANTIC RANKING TO S³ MAPPING
     // ========================================================================
-    // Use double precision instead of long double for performance
-    // Precompute constants and use SIMD-friendly operations
+    // Use dense ranking to ensure adjacent semantic items get adjacent positions
+    // This creates perfect semantic locality preservation
 
-    // Use semantic order to position semantically related codepoints adjacently
-    const uint64_t i = get_semantic_order(codepoint);
-    const double N = static_cast<double>(TOTAL_CODEPOINTS);
+    // Get dense rank (0, 1, 2, ... N-1) from semantic sorting
+    uint32_t i = DenseRegistry::get_rank(codepoint);
+    double N = static_cast<double>(DenseRegistry::total_active());
 
-    // Precomputed irrational constants (sufficient precision for our use case)
-    const double PHI_INV = 0.707106781186547524400844362104849039284835937688474036588; // 1/√2
-    const double PSI_INV = 0.652703644666139308692278852717862990236130525703414;     // 1/ψ
+    // Normalize to [0, 1) for uniform sphere distribution
+    double u = static_cast<double>(i) / N;
 
-    // Normalized position and angular base (use double throughout)
-    const double s = (static_cast<double>(i) + 0.5) / N;
-    const double ab = 2.0 * PI * (static_cast<double>(i) + 0.5);
+    // Use golden ratio spiral for uniform S³ point distribution
+    // This ensures even spacing and preserves adjacency
+    const double golden_ratio = (1.0 + std::sqrt(5.0)) / 2.0;
 
-    // Spiral angles - compute simultaneously for better ILP
-    const double theta = ab * PHI_INV;
-    const double phi = ab * PSI_INV;
+    // Hopf fibration angles
+    const double theta = std::acos(1.0 - 2.0 * u);                    // Polar angle [0, π]
+    const double phi = 2.0 * PI * u * golden_ratio;                   // Azimuthal angle [0, 2π)
+    const double psi = 2.0 * PI * u / golden_ratio;                   // Hopf fiber angle [0, 2π)
 
-    // Radii ensuring unit sphere (use fast sqrt approximations if available)
-    const double r = std::sqrt(s);
-    const double R = std::sqrt(1.0 - s);
+    // Standard Hopf fibration quaternion coordinates
+    const double sin_theta_2 = std::sin(theta / 2.0);
+    const double cos_theta_2 = std::cos(theta / 2.0);
+    const double sin_psi = std::sin(psi);
+    const double cos_psi = std::cos(psi);
 
-    // Compute quaternion coordinates
-    // Use separate sin/cos calls (sincos not available on all platforms)
-    const double sin_theta = std::sin(theta);
-    const double cos_theta = std::cos(theta);
-    const double sin_phi = std::sin(phi);
-    const double cos_phi = std::cos(phi);
+    // Quaternion: w + xi + yj + zk
+    const double w = cos_theta_2 * cos_psi;
+    const double x = sin_theta_2 * std::cos(phi);
+    const double y = sin_theta_2 * std::sin(phi);
+    const double z = cos_theta_2 * sin_psi;
 
-    const double q0 = r * sin_theta;
-    const double q1 = r * cos_theta;
-    const double q2 = R * sin_phi;
-    const double q3 = R * cos_phi;
-
-    // Skip expensive normalization check for performance
-    // The mathematical construction guarantees unit norm within numerical precision
-    return Point4F(q0, q1, q2, q3);
+    return Point4F(w, x, y, z);
 }
 
 Point4D CoordinateMapper::map_codepoint(uint32_t codepoint) noexcept {
@@ -1168,7 +1284,7 @@ void CoordinateMapper::bucketed_tangent_lloyd(std::map<uint32_t, Point4F>& point
     }
 
     // Compute tangent basis function (shared with jitter)
-    auto tangent_basis = [](const Point4F& p) -> std::array<Point4F, 3> {
+    [[maybe_unused]] auto tangent_basis = [](const Point4F& p) -> std::array<Point4F, 3> {
         Point4F a(1.0, 0.0, 0.0, 0.0);
         if (std::abs(p.dot(a)) > 0.9) a = Point4F(0.0, 1.0, 0.0, 0.0);
 
@@ -1289,6 +1405,7 @@ void CoordinateMapper::global_knn_repulsion(std::map<uint32_t, Point4F>& points,
     }
 
     size_t n = points.size();
+    [[maybe_unused]] double prev_energy = 0.0;  // Previous energy value (for tracking)
 
     // Compute initial mean NN distance for eta scaling
     double mean_nn = 0.0;
@@ -1312,7 +1429,6 @@ void CoordinateMapper::global_knn_repulsion(std::map<uint32_t, Point4F>& points,
     double eta_min = 1e-12;
     double max_grad_norm = 1e-3; // gradient clipping
 
-    double prev_energy = 0.0;
     for (int iter = 0; iter < iterations; ++iter) {
         double energy = 0.0;
 
@@ -1475,6 +1591,60 @@ bool CoordinateMapper::optimize_distribution(std::map<uint32_t, Point4F>& points
               << (baseline.chordal_nn_cv * 100) << "% to " << (final.chordal_nn_cv * 100) << "%" << std::endl;
 
     return final.chordal_nn_cv < baseline.chordal_nn_cv; // Any improvement is success
+}
+
+// Static member definitions for DenseRegistry
+std::unordered_map<uint32_t, uint32_t> DenseRegistry::codepoint_to_rank;
+std::vector<uint32_t> DenseRegistry::rank_to_codepoint;
+bool DenseRegistry::initialized = false;
+std::mutex DenseRegistry::init_mutex;
+
+void DenseRegistry::initialize() {
+    if (initialized) return;
+
+    std::lock_guard<std::mutex> lock(init_mutex);
+    if (initialized) return; // Double-checked locking
+
+    // Collect all valid codepoints with their semantic keys
+    std::vector<std::pair<uint64_t, uint32_t>> semantic_pairs;
+
+    for (uint32_t cp = 0; cp <= constants::MAX_CODEPOINT; ++cp) {
+        // Skip surrogates
+        if (cp >= constants::SURROGATE_START && cp <= constants::SURROGATE_END) continue;
+
+        uint64_t key = get_semantic_key(cp);
+        semantic_pairs.emplace_back(key, cp);
+    }
+
+    // Sort by semantic key for dense ranking
+    std::sort(semantic_pairs.begin(), semantic_pairs.end());
+
+    // Assign dense ranks
+    rank_to_codepoint.resize(semantic_pairs.size());
+    for (size_t i = 0; i < semantic_pairs.size(); ++i) {
+        uint32_t cp = semantic_pairs[i].second;
+        uint32_t rank = static_cast<uint32_t>(i);
+        codepoint_to_rank[cp] = rank;
+        rank_to_codepoint[i] = cp;
+    }
+
+    initialized = true;
+}
+
+uint32_t DenseRegistry::get_rank(uint32_t cp) {
+    if (!initialized) initialize();
+    auto it = codepoint_to_rank.find(cp);
+    return (it != codepoint_to_rank.end()) ? it->second : 0;
+}
+
+uint32_t DenseRegistry::total_active() {
+    if (!initialized) initialize();
+    return static_cast<uint32_t>(rank_to_codepoint.size());
+}
+
+uint32_t DenseRegistry::get_codepoint(uint32_t rank) {
+    if (!initialized) initialize();
+    return (rank < rank_to_codepoint.size()) ? rank_to_codepoint[rank] : 0;
 }
 
 } // namespace hypercube

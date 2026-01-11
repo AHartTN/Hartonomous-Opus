@@ -395,7 +395,7 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
     // Bounding box prediction head
     if (lower_name.find("bbox_predictor") != std::string::npos ||
         lower_name.find("bbox_embed") != std::string::npos ||
-        lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos) {
+        (lower_name.find("bbox") != std::string::npos && lower_name.find("pred") != std::string::npos)) {
         return TensorCategory::BBOX_HEAD;
     }
 
@@ -519,8 +519,8 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
     if (lower_name.find("neck") != std::string::npos ||
         lower_name.find("lateral") != std::string::npos ||
         lower_name.find("fpn") != std::string::npos ||
-        lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos ||
-        lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos) {
+        (lower_name.find("p") != std::string::npos && lower_name.find("conv") != std::string::npos) ||
+        (lower_name.find("reduce") != std::string::npos && lower_name.find("conv") != std::string::npos)) {
         return TensorCategory::DETECTION_NECK;
     }
 
@@ -724,7 +724,7 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
     // =========================================================================
     if (lower_name.find("buffer") != std::string::npos ||
         lower_name.find("cache") != std::string::npos ||
-        lower_name.find("mask") != std::string::npos && shape.size() == 1) {
+        (lower_name.find("mask") != std::string::npos && shape.size() == 1)) {
         return TensorCategory::QUANTIZATION_SCALE;  // Skip
     }
 

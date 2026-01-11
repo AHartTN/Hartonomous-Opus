@@ -142,29 +142,29 @@ try {
         }
         Write-Host " OK" -ForegroundColor Green
 
-        # ====================================================================
-        # C++ EXTENSIONS (idempotent - uses CREATE EXTENSION IF NOT EXISTS)
-        # Load in dependency order to avoid failures
-        # ====================================================================
-        Write-Host "[5/6] Loading extensions..." -ForegroundColor Cyan
-        # DEPENDENCY ORDER: base → ops → specialized
-        $extensions = @(
-            "hypercube",        # Base: BLAKE3, Hilbert, coordinates
-            "hypercube_ops",    # Depends on: hypercube
-            "embedding_ops",    # Depends on: hypercube
-            "semantic_ops",     # Depends on: hypercube, embedding_ops
-            "generative"        # Depends on: semantic_ops, embedding_ops
-        )
+        # # ====================================================================
+        # # C++ EXTENSIONS (idempotent - uses CREATE EXTENSION IF NOT EXISTS)
+        # # Load in dependency order to avoid failures
+        # # ====================================================================
+        # Write-Host "[5/6] Loading extensions..." -ForegroundColor Cyan
+        # # DEPENDENCY ORDER: base → ops → specialized
+        # $extensions = @(
+        #     "hypercube",        # Base: BLAKE3, Hilbert, coordinates
+        #     "hypercube_ops",    # Depends on: hypercube
+        #     "embedding_ops",    # Depends on: hypercube
+        #     "semantic_ops",     # Depends on: hypercube, embedding_ops
+        #     "generative"        # Depends on: semantic_ops, embedding_ops
+        # )
         
-        foreach ($ext in $extensions) {
-            Write-Host "      $ext..." -NoNewline
-            $extResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "CREATE EXTENSION IF NOT EXISTS $ext;" 2>&1
-            if ($LASTEXITCODE -eq 0 -and -not ($extResult -and ($extResult -match "^ERROR:" -or $extResult -match "^psql:"))) {
-                Write-Host " OK" -ForegroundColor Green
-            } else {
-                Write-Host " not available" -ForegroundColor Yellow
-            }
-        }
+        # foreach ($ext in $extensions) {
+        #     Write-Host "      $ext..." -NoNewline
+        #     $extResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "CREATE EXTENSION IF NOT EXISTS $ext;" 2>&1
+        #     if ($LASTEXITCODE -eq 0 -and -not ($extResult -and ($extResult -match "^ERROR:" -or $extResult -match "^psql:"))) {
+        #         Write-Host " OK" -ForegroundColor Green
+        #     } else {
+        #         Write-Host " not available" -ForegroundColor Yellow
+        #     }
+        # }
     } else {
         Write-Host "[3/6] Skipping database check (-SeedOnly)" -ForegroundColor DarkGray
         Write-Host "[4/6] Skipping schema (-SeedOnly)" -ForegroundColor DarkGray

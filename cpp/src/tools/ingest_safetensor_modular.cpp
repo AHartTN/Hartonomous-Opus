@@ -211,13 +211,22 @@ int main(int argc, char* argv[]) {
     // Parse tokenizer first (need vocab for token lookups)
     if (!tokenizer_path.empty()) {
         std::cerr << "[1] Parsing tokenizer: " << tokenizer_path << "\n";
-        parse_tokenizer(ctx, tokenizer_path);
+        bool tokenizer_ok = parse_tokenizer(ctx, tokenizer_path);
+        std::cerr << "[1] Tokenizer parse result: " << (tokenizer_ok ? "OK" : "FAILED") << "\n";
+        std::cerr << "[1] BPE merges loaded: " << ctx.bpe_merges.size() << "\n";
+        std::cerr << "[1] Vocab entries: " << ctx.vocab.size() << "\n";
+    } else {
+        std::cerr << "[1] No tokenizer found\n";
     }
     
     // Parse vocab.txt if available (BERT-style models)
     if (!vocab_path.empty()) {
         std::cerr << "[2] Parsing vocab: " << vocab_path << "\n";
-        parse_vocab(ctx, vocab_path);
+        bool vocab_ok = parse_vocab(ctx, vocab_path);
+        std::cerr << "[2] Vocab parse result: " << (vocab_ok ? "OK" : "FAILED") << "\n";
+        std::cerr << "[2] Vocab tokens loaded: " << ctx.vocab_tokens.size() << "\n";
+    } else {
+        std::cerr << "[2] No vocab.txt found\n";
     }
     
     // === NEW: Parse ALL model metadata (config, tokenizer, vocab as first-class content) ===
@@ -259,8 +268,16 @@ int main(int argc, char* argv[]) {
         std::cerr << "[ERROR] No tensors found!\n";
         return 1;
     }
-    
+
     std::cerr << "[INFO] Found " << ctx.tensors.size() << " tensors\n";
+
+    // Log tensor names for debugging
+    std::cerr << "[DEBUG] Tensor names:\n";
+    for (const auto& [name, meta] : ctx.tensors) {
+        std::cerr << "  " << name << " [" << meta.shape.size() << "D";
+        for (size_t s : meta.shape) std::cerr << "," << s;
+        std::cerr << "] " << meta.dtype << "\n";
+    }
     
     // Categorize tensors in manifest for extraction planning
     if (ctx.manifest.has_value()) {
@@ -275,12 +292,14 @@ int main(int argc, char* argv[]) {
     }
     
     // Connect to database
+    std::cerr << "[DB] Connecting to database with conninfo: " << config.conninfo << "\n";
     PGconn* conn = PQconnectdb(config.conninfo.c_str());
     if (PQstatus(conn) != CONNECTION_OK) {
-        std::cerr << "Connection failed: " << PQerrorMessage(conn) << "\n";
+        std::cerr << "[DB] Connection failed: " << PQerrorMessage(conn) << "\n";
         PQfinish(conn);
         return 1;
     }
+    std::cerr << "[DB] Database connection successful\n";
     
     // === INSERT MODEL METADATA AS FIRST-CLASS CONTENT ===
     // All metadata (config, tokenizer, vocab) becomes atoms/compositions/relations
@@ -305,8 +324,16 @@ int main(int argc, char* argv[]) {
 
     // Step 5.5: Project embeddings to 4D using Laplacian eigenmaps and update compositions
     std::cerr << "\n[5.5] Projecting token embeddings to 4D semantic coordinates...\n";
+    std::cerr << "[5.5] Vocab tokens available: " << ctx.vocab_tokens.size() << "\n";
+    std::cerr << "[5.5] Tensors available: " << ctx.tensors.size() << "\n";
+
     if (!ctx.vocab_tokens.empty()) {
+        std::cerr << "[5.5] Starting Laplacian projection...\n";
+        auto projection_start = std::chrono::steady_clock::now();
         ingest::db::project_and_update_embeddings(conn, ctx, config);
+        auto projection_end = std::chrono::steady_clock::now();
+        auto projection_ms = std::chrono::duration_cast<std::chrono::milliseconds>(projection_end - projection_start).count();
+        std::cerr << "[5.5] Laplacian projection completed in " << projection_ms << "ms\n";
     } else {
         std::cerr << "[PROJECTION] No vocab tokens loaded, skipping Laplacian projection\n";
     }

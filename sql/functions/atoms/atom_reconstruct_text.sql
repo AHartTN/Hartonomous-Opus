@@ -6,7 +6,7 @@
 
 -- Reconstruct text from a composition by walking its children (recursive)
 CREATE OR REPLACE FUNCTION atom_reconstruct_text(p_id BYTEA)
-RETURNS TEXT AS $
+RETURNS TEXT AS $$
 DECLARE
     v_result TEXT := '';
     v_is_atom BOOLEAN;
@@ -44,4 +44,4 @@ BEGIN
 
     RETURN v_result;
 END;
-$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql STABLE;

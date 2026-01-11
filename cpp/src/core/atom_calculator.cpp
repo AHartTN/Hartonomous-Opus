@@ -7,6 +7,7 @@
 #include "hypercube/atom_calculator.hpp"
 #include "hypercube/util/utf8.hpp"
 #include <cstring>
+#include <iostream>
 
 namespace hypercube {
 
@@ -81,7 +82,7 @@ CompositionRecord AtomCalculator::compute_composition(
     }
     
     // Compute composition hash: BLAKE3(ord_0 || hash_0 || ord_1 || hash_1 || ...)
-    rec.hash = Blake3Hasher::hash_children_ordered(std::span<const Blake3Hash>(rec.children.data(), rec.children.size()));
+    rec.hash = Blake3Hasher::hash_children_ordered(rec.children);
     
     // Compute centroid as average of child coordinates
     rec.centroid = CoordinateMapper::centroid(rec.child_coords);
@@ -108,8 +109,23 @@ std::vector<uint32_t> AtomCalculator::decode_utf8(const std::string& text) noexc
 CompositionRecord AtomCalculator::compute_vocab_token(
     const std::string& token_text
 ) noexcept {
-    auto codepoints = decode_utf8(token_text);
-    return compute_composition(codepoints);
+    try {
+        auto codepoints = decode_utf8(token_text);
+
+        if (codepoints.empty()) {
+            return CompositionRecord{};
+        }
+
+        auto result = compute_composition(codepoints);
+
+        return result;
+    } catch (const std::exception& e) {
+        // Silent on exceptions - tokens may be malformed
+        return CompositionRecord{};
+    } catch (...) {
+        // Silent on unknown exceptions
+        return CompositionRecord{};
+    }
 }
 
 } // namespace hypercube

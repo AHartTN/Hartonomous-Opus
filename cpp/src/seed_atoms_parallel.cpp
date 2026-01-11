@@ -31,7 +31,7 @@ using namespace hypercube;
 using namespace hypercube::db;
 
 // Configuration
-static constexpr int NUM_PARTITIONS = 12;
+static constexpr int NUM_PARTITIONS = 1;
 static constexpr int NUM_GENERATORS = 8;
 
 struct AtomRecord {

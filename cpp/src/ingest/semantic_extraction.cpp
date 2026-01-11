@@ -979,7 +979,8 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
 
     // Process each embedding tensor that was selected
     for (const auto& [emb, emb_name] : embeddings_to_project) {
-        std::cerr << "[PROJECTION] Processing embedding: " << emb_name << "\n";
+        try {
+            std::cerr << "[PROJECTION] Processing embedding: " << emb_name << "\n";
 
         size_t V = static_cast<size_t>(emb->shape[0]);
         size_t D = static_cast<size_t>(emb->shape[1]);
@@ -1215,10 +1216,11 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
                     // Model doesn't exist, create it
                     std::string insert_model_query =
                         "INSERT INTO model (name, source, embedding_dim) VALUES ($1, $2, $3) RETURNING id";
+                    std::string dim_str = std::to_string(D);
                     const char* insert_params[3] = {
                         config.model_name.c_str(),
                         "ingestion",
-                        std::to_string(D).c_str()
+                        dim_str.c_str()
                     };
                     PGresult* insert_res = PQexecParams(conn, insert_model_query.c_str(), 3, nullptr, insert_params, nullptr, nullptr, 0);
                     if (PQresultStatus(insert_res) == PGRES_TUPLES_OK) {
@@ -1246,13 +1248,14 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
                     std::string converged_str = result.converged ? "true" : "false";
                     std::string geom_written_str = should_write_geometry ? "true" : "false";
                     std::string quality_str = std::to_string(quality_score);
+                    std::string dim_str = std::to_string(D);
 
                     const char* meta_params[9] = {
                         model_id_str.c_str(),
                         emb_name.c_str(),
                         "embeddings",
                         emb->dtype.c_str(),
-                        std::to_string(D).c_str(),
+                        dim_str.c_str(),
                         variance_str.c_str(),
                         converged_str.c_str(),
                         geom_written_str.c_str(),
@@ -1274,6 +1277,9 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
             } catch (const std::exception& e) {
                 std::cerr << "[PROJECTION] Error inserting projection metadata: " << e.what() << "\n";
             }
+        }
+        } catch (const std::exception& e) {
+            std::cerr << "[PROJECTION] Error processing embedding: " << e.what() << "\n";
         }
     }
 

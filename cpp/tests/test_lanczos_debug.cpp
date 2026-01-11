@@ -7,8 +7,8 @@ using namespace hypercube;
 int main() {
     std::cout << "=== Testing Laplacian Projection with Diagnostics ===\n\n";
 
-    // Create small test dataset: 100 points in 32D
-    const size_t n = 100;
+    // Create test dataset large enough to trigger Lanczos: 3000 points in 32D
+    const size_t n = 3000;
     const size_t dim = 32;
 
     std::mt19937 rng(42);

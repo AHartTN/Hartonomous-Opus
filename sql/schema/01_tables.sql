@@ -101,6 +101,8 @@ CREATE TABLE IF NOT EXISTS projection_metadata (
     model_id BIGINT NOT NULL REFERENCES model(id) ON DELETE CASCADE,
     tensor_name TEXT NOT NULL,
 
+    UNIQUE (model_id, tensor_name),
+
     -- Tensor characteristics
     role TEXT NOT NULL CHECK (role IN ('embeddings', 'attention', 'ffn', 'other')),
     dtype TEXT NOT NULL,
@@ -168,6 +170,27 @@ CREATE TABLE IF NOT EXISTS relation_evidence (
 
     UNIQUE (source_id, target_id, relation_type, source_model, layer, component)
 );
+
+-- =============================================================================
+-- 9. RELATION_CONSENSUS: ELO-aggregated relation consensus
+-- =============================================================================
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS relation_consensus AS
+SELECT
+    source_id,
+    target_id,
+    relation_type,
+
+    AVG(rating) as avg_rating,
+    STDDEV(rating) as rating_stddev,
+    TANH((AVG(rating) - 1500.0) / 400.0) as consensus_weight,
+    1.0 / (1.0 + COALESCE(STDDEV(rating), 0) / 400.0) as confidence,
+
+    COUNT(*) as num_models,
+    SUM(observation_count) as total_observations
+
+FROM relation_evidence
+GROUP BY source_id, target_id, relation_type;
 
 -- =============================================================================
 -- COMMENTS

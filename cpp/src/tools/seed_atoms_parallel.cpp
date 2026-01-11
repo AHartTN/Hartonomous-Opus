@@ -20,12 +20,9 @@
 #include <future>
 #include <libpq-fe.h>
 
+#include "hypercube_c.h"
 #include "hypercube/types.hpp"
-#include "hypercube/hilbert.hpp"
-#include "hypercube/coordinates.hpp"
-#include "hypercube/blake3.hpp"
 #include "hypercube/db/connection.hpp"
-#include "hypercube/thread_pool.hpp"
 
 using namespace hypercube;
 
@@ -57,39 +54,41 @@ void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) 
     // PostGIS GEOMETRY stores float64, which can exactly represent all uint32 values
     // (double has 53-bit mantissa, uint32 is 32-bit)
     // Store uint32 coordinates DIRECTLY as double - NO reinterpretation as int32
-    
+
     for (uint32_t cp = start; cp < end; ++cp) {
         // Seed ALL codepoints including surrogates, as tokenizers may produce them
         // if (cp >= constants::SURROGATE_START && cp <= constants::SURROGATE_END) {
         //     continue;
         // }
-        
-        // Use map_codepoint_full to get coords AND hilbert in one call
-        // This avoids the redundant Hilbert encode that was killing performance
-        CodepointMapping mapping = CoordinateMapper::map_codepoint_full(cp);
-        
+
+        // Use C API functions for coordinate mapping
+        hc_point4d_t coords = hc_map_codepoint(cp);
+        hc_hash_t hash = hc_blake3_codepoint(cp);
+        hc_hilbert_t hilbert = hc_coords_to_hilbert(coords);
+        hc_category_t category = hc_categorize(cp);
+
         AtomRecord rec;
-        rec.hash = Blake3Hasher::hash_codepoint(cp);
+        std::memcpy(rec.hash.bytes.data(), hash.bytes, 32);
         rec.codepoint = static_cast<int32_t>(cp);
-        rec.category = CoordinateMapper::categorize(cp);
-        
+        rec.category = static_cast<AtomCategory>(category);
+
         // Store uint32 coordinates as int32 (bit-preserving cast)
         // This preserves the full 32-bit value - no information loss
-        std::memcpy(&rec.coord_x, &mapping.coords.x, sizeof(rec.coord_x));
-        std::memcpy(&rec.coord_y, &mapping.coords.y, sizeof(rec.coord_y));
-        std::memcpy(&rec.coord_z, &mapping.coords.z, sizeof(rec.coord_z));
-        std::memcpy(&rec.coord_m, &mapping.coords.m, sizeof(rec.coord_m));
-        
+        rec.coord_x = coords.x;
+        rec.coord_y = coords.y;
+        rec.coord_z = coords.z;
+        rec.coord_m = coords.m;
+
         // Store as double for PostGIS - DIRECT from uint32, no int32 reinterpretation
         // This ensures CENTER (2^31) is stored as 2147483648.0, not as negative
-        rec.x = static_cast<double>(mapping.coords.x);
-        rec.y = static_cast<double>(mapping.coords.y);
-        rec.z = static_cast<double>(mapping.coords.z);
-        rec.m = static_cast<double>(mapping.coords.m);
-        
-        rec.hilbert_lo = mapping.hilbert.lo;
-        rec.hilbert_hi = mapping.hilbert.hi;
-        
+        rec.x = static_cast<double>(coords.x);
+        rec.y = static_cast<double>(coords.y);
+        rec.z = static_cast<double>(coords.z);
+        rec.m = static_cast<double>(coords.m);
+
+        rec.hilbert_lo = hilbert.lo;
+        rec.hilbert_hi = hilbert.hi;
+
         out.push_back(rec);
     }
 }
@@ -329,14 +328,20 @@ int main(int argc, char* argv[]) {
 
     auto start_time = std::chrono::high_resolution_clock::now();
     
-    // === STEP 1: Generate atoms in parallel ===
-    std::cerr << "[1/5] Generating atoms (" << NUM_GENERATORS << " threads)...\n";
+    // === STEP 1: Initialize coordinate mapping (single-threaded) ===
+    std::cerr << "[1/5] Initializing coordinate mapping...\n";
+    // Force initialization of static data structures before parallel execution
+    // This prevents race conditions in DenseRegistry and other static initialization
+    hc_map_codepoint(0);  // Initialize coordinate mapping system
+
+    // === STEP 1.5: Generate atoms in parallel ===
+    std::cerr << "[1.5/5] Generating atoms (" << NUM_GENERATORS << " threads)...\n";
     std::vector<std::vector<AtomRecord>> thread_results(NUM_GENERATORS);
     std::vector<std::thread> threads;
-    
+
     uint32_t total_codepoints = constants::MAX_CODEPOINT + 1;
     uint32_t chunk_size = (total_codepoints + NUM_GENERATORS - 1) / NUM_GENERATORS;
-    
+
     for (int t = 0; t < NUM_GENERATORS; ++t) {
         uint32_t t_start = t * chunk_size;
         uint32_t t_end = std::min(t_start + chunk_size, total_codepoints);

@@ -141,11 +141,10 @@ void test_abs_distance() {
     assert(dist1 == dist2);
     assert(dist1.lo == 50);
     assert(dist1.hi == 2);
+    (void)dist1; (void)dist2; // Suppress unused warnings in release builds
 
     // Test with zero
-    HilbertIndex zero(0, 0);
-    HilbertIndex dist_zero = HilbertIndex::abs_distance(a, a);
-    assert(dist_zero.lo == 0 && dist_zero.hi == 0);
+    assert(HilbertIndex::abs_distance(a, a).lo == 0 && HilbertIndex::abs_distance(a, a).hi == 0);
 
     std::cout << "  Abs distance: PASS" << std::endl;
 }
@@ -182,6 +181,7 @@ void test_index_to_raw_coords() {
     Point4D point(1000000, 2000000, 3000000, 4000000);
     HilbertIndex idx = HilbertCurve::coords_to_index(point);
     Point4D raw_coords = HilbertCurve::index_to_raw_coords(idx);
+    (void)raw_coords;  // Mark as used for assertions
 
     // raw_coords should be corner-origin: point XOR CENTER_TO_CORNER
     constexpr uint32_t CENTER_TO_CORNER = 0x80000000U;
@@ -207,6 +207,8 @@ void test_bit_ordering_consistency() {
 
     HilbertIndex i1 = HilbertCurve::coords_to_index(p1);
     HilbertIndex i2 = HilbertCurve::coords_to_index(p2);
+    (void)i1;  // Mark as used for assertions
+    (void)i2;  // Mark as used for assertions
 
     // Should be close but not necessarily consecutive due to Hilbert curve properties
     // Just verify roundtrip

@@ -60,22 +60,18 @@ void test_case_pairs() {
     };
     
     double max_case_distance = 0;
-    double total_case_distance = 0;
-    
+
     for (const auto& [upper, lower] : case_pairs) {
         Point4D pu = CoordinateMapper::map_codepoint(upper);
         Point4D pl = CoordinateMapper::map_codepoint(lower);
         double d = distance(pu, pl);
-        
-        std::cout << "  " << upper << "/" << lower << " distance: " 
+
+        std::cout << "  " << upper << "/" << lower << " distance: "
                   << std::scientific << std::setprecision(2) << d << std::endl;
-        
+
         max_case_distance = std::max(max_case_distance, d);
-        total_case_distance += d;
     }
-    
-    double avg_case_distance = total_case_distance / case_pairs.size();
-    
+
     // The key property: case pairs should be RELATIVELY close
     // Absolute thresholds don't make sense with semantic ordering
     // Relative comparisons are tested in cross-base distance test

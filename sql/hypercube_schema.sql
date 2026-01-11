@@ -11,6 +11,11 @@
 -- =============================================================================
 -- Required PostgreSQL extensions
 CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS hypercube; -- # Base: BLAKE3, Hilbert, coordinates
+CREATE EXTENSION IF NOT EXISTS hypercube_ops; -- # Depends on: hypercube
+CREATE EXTENSION IF NOT EXISTS embedding_ops; -- # Depends on: hypercube
+CREATE EXTENSION IF NOT EXISTS semantic_ops; --# Depends on: hypercube, embedding_ops
+CREATE EXTENSION IF NOT EXISTS generative; --# Depends on: semantic_ops, embedding_ops
 
 -- =============================================================================
 -- 2. SCHEMA: Tables, indexes, constraints

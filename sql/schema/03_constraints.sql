@@ -16,3 +16,11 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Function to refresh relation consensus materialized view
+CREATE OR REPLACE FUNCTION refresh_relation_consensus()
+RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW relation_consensus;
+END;
+$$ LANGUAGE plpgsql;

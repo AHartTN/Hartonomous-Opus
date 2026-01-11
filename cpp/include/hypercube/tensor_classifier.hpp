@@ -186,7 +186,8 @@ TensorComponent TensorClassifier::classify_by_shape(const TensorShape& shape,
 
     // 2D tensors
     if (shape.ndims() == 2) {
-        int64_t d0 = shape[0], d1 = shape[1];
+        int64_t d0 = shape[0];
+        [[maybe_unused]] int64_t d1 = shape[1];
 
         // Square matrices - attention projections
         if (is_square_matrix(shape)) {

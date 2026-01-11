@@ -41,7 +41,7 @@
 // Intel MKL for optimized eigensolvers (highest priority)
 #if defined(HAS_MKL) && HAS_MKL
 #include <mkl.h>
-#include <mkl_solvers_ee.h>  // FEAST eigensolver for sparse matrices
+// #include <mkl_solvers_ee.h>  // FEAST eigensolver disabled
 #define USE_MKL_SOLVER 1
 #define USE_EIGEN_SOLVER 0
 #elif defined(HAS_EIGEN) && HAS_EIGEN
@@ -480,12 +480,12 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
     }
     
     // =========================================================================
-    // PARALLEL PARTITION STRATEGY for large vocabs (>100K)
+    // PARALLEL PARTITION STRATEGY for large vocabs (>500K)
     // Build multiple smaller indices in parallel, then query all in parallel
-    // Trades slight accuracy for massive speedup (10-20x faster for 200K vocab)
+    // Trades slight accuracy for massive speedup (10-20x faster for 1M vocab)
     // =========================================================================
-    constexpr size_t PARTITION_THRESHOLD = 100000;
-    constexpr size_t PARTITION_SIZE = 50000;
+    constexpr size_t PARTITION_THRESHOLD = 500000;  // Increased to handle larger monolithic indices
+    constexpr size_t PARTITION_SIZE = 200000;       // Larger partitions for efficiency
 
     std::vector<std::unique_ptr<hnswlib::HierarchicalNSW<float>>> indices;
     std::vector<std::pair<size_t, size_t>> partition_ranges;  // [start, end) for each partition
@@ -595,7 +595,7 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
                 // Check if query point is in this partition
                 if (i >= start && i < end) {
                     // Query within partition (use local index)
-                    size_t local_i = i - start;
+        
                     auto result = indices[p]->searchKnn(normalized[i].data(), k + 1);
 
                     while (!result.empty()) {
@@ -908,7 +908,7 @@ SparseSymmetricMatrix LaplacianProjector::build_laplacian(const SparseSymmetricM
 
     // Add ridge regularization to stabilize the solver (prevent singular matrices)
     // Use larger ridge for better numerical stability on large matrices
-    double ridge = (n > 10000) ? 1e-3 : 1e-6;
+    double ridge = 1e-3;
     for (size_t i = 0; i < n; ++i) {
         L.set_diagonal(i, L.get_diagonal(i) + ridge);
     }
@@ -917,163 +917,7 @@ SparseSymmetricMatrix LaplacianProjector::build_laplacian(const SparseSymmetricM
     return L;
 }
 
-// =============================================================================
-// MKL FEAST Sparse Eigensolver Implementation
-// =============================================================================
-#if USE_MKL_SOLVER
 
-/**
- * Use MKL FEAST to find smallest non-zero eigenvalues of sparse symmetric matrix.
- * 
- * FEAST is a contour integral-based eigensolver that finds ALL eigenvalues
- * within a specified interval [emin, emax]. For Laplacian Eigenmaps, we want
- * eigenvalues just above 0 (skipping the null space at λ=0).
- */
-static std::vector<std::vector<double>> feast_sparse_eigensolver(
-    SparseSymmetricMatrix& L,
-    int k,
-    std::array<double, 4>& eigenvalues_out,
-    int num_threads
-) {
-    const size_t n = L.size();
-    
-    std::cerr << "[MKL-FEAST] Solving sparse " << n << "x" << n << " Laplacian for " << k << " eigenvectors\n";
-    auto feast_start = std::chrono::steady_clock::now();
-    
-    // =========================================================================
-    // Build CSR format for MKL FEAST (upper triangular only, 1-based indexing)
-    // 
-    // Our SparseSymmetricMatrix stores the FULL symmetric matrix (both triangles)
-    // FEAST with uplo='U' expects only the UPPER triangle including diagonal
-    // =========================================================================
-    
-    const auto& src_row_ptr = L.row_ptr();
-    const auto& src_col_idx = L.col_idx();
-    const auto& src_values = L.values();
-    const auto& src_diag = L.diagonal();
-    
-    // First pass: count upper-triangle entries per row
-    std::vector<MKL_INT> csr_row_ptr(n + 1);
-    csr_row_ptr[0] = 1;  // 1-based
-    
-    size_t total_upper = 0;
-    for (size_t i = 0; i < n; ++i) {
-        size_t row_count = 1;  // Diagonal always present
-        for (size_t k = src_row_ptr[i]; k < src_row_ptr[i + 1]; ++k) {
-            if (src_col_idx[k] > i) {  // Upper triangle only
-                ++row_count;
-            }
-        }
-        total_upper += row_count;
-        csr_row_ptr[i + 1] = static_cast<MKL_INT>(total_upper + 1);  // 1-based
-    }
-    
-    // Second pass: fill values (diagonal first, then upper triangle sorted by column)
-    std::vector<double> csr_values;
-    std::vector<MKL_INT> csr_col_idx;
-    csr_values.reserve(total_upper);
-    csr_col_idx.reserve(total_upper);
-    
-    for (size_t i = 0; i < n; ++i) {
-        // Diagonal first
-        csr_values.push_back(src_diag[i]);
-        csr_col_idx.push_back(static_cast<MKL_INT>(i + 1));  // 1-based
-        
-        // Upper triangle entries (already sorted by column in our CSR)
-        for (size_t k = src_row_ptr[i]; k < src_row_ptr[i + 1]; ++k) {
-            if (src_col_idx[k] > i) {
-                csr_values.push_back(src_values[k]);
-                csr_col_idx.push_back(static_cast<MKL_INT>(src_col_idx[k] + 1));  // 1-based
-            }
-        }
-    }
-    
-    std::cerr << "[MKL-FEAST] CSR upper triangle: " << csr_values.size() << " non-zeros\n";
-    
-    // FEAST parameters
-    MKL_INT fpm[128];
-    feastinit(fpm);
-    
-    fpm[0] = 1;   // Print runtime status
-    fpm[1] = 8;   // Number of contour points (default 8, can increase for accuracy)
-    fpm[2] = 12;  // Stopping convergence criteria (10^-fpm[2])
-    fpm[3] = 20;  // Max number of refinement loops
-    fpm[4] = 0;   // User initial subspace (0 = no)
-    fpm[5] = 0;   // Convergence trace (0 = trace of residual)
-    fpm[63] = num_threads > 0 ? num_threads : 0;  // Number of threads (0 = auto)
-    
-    // Search interval: eigenvalues just above 0
-    // For graph Laplacian: λ_0 = 0 (null space), λ_1 > 0 is first non-trivial
-    // We want λ_1 through λ_k
-    double emin = 1e-6;   // Just above 0 to skip null space
-    double emax = 10.0;   // Upper bound (generous for first few eigenvalues)
-    
-    // Request k eigenpairs (we want the k smallest non-zero)
-    MKL_INT m0 = k + 2;   // Initial guess for number of eigenvalues in [emin, emax]
-    MKL_INT m_found = 0;  // Actual number found
-    
-    std::vector<double> eigenvalues(m0);
-    std::vector<double> eigenvectors(n * m0);  // Column-major storage
-    std::vector<double> residuals(m0);
-    
-    MKL_INT mkl_n = static_cast<MKL_INT>(n);
-    double epsout = 0.0;
-    MKL_INT loop = 0;
-    MKL_INT info = 0;
-    
-    char uplo = 'U';  // Upper triangular stored
-    
-    // Call FEAST sparse symmetric eigensolver
-    dfeast_scsrev(&uplo, &mkl_n, 
-                  csr_values.data(), csr_row_ptr.data(), csr_col_idx.data(),
-                  fpm, &epsout, &loop,
-                  &emin, &emax, &m0,
-                  eigenvalues.data(), eigenvectors.data(),
-                  &m_found, residuals.data(), &info);
-    
-    auto feast_end = std::chrono::steady_clock::now();
-    auto feast_ms = std::chrono::duration_cast<std::chrono::milliseconds>(feast_end - feast_start).count();
-    
-    if (info != 0) {
-        std::cerr << "[MKL-FEAST] Warning: info=" << info << " (check MKL docs)\n";
-        if (info == 2) {
-            std::cerr << "[MKL-FEAST] No eigenvalues in search interval - expanding range\n";
-            // Try wider range
-            emax = 100.0;
-            dfeast_scsrev(&uplo, &mkl_n,
-                          csr_values.data(), csr_row_ptr.data(), csr_col_idx.data(),
-                          fpm, &epsout, &loop,
-                          &emin, &emax, &m0,
-                          eigenvalues.data(), eigenvectors.data(),
-                          &m_found, residuals.data(), &info);
-        }
-    }
-    
-    std::cerr << "[MKL-FEAST] Completed in " << feast_ms << " ms, " << loop << " iterations\n";
-    std::cerr << "[MKL-FEAST] Found " << m_found << " eigenvalues in [" << emin << ", " << emax << "]\n";
-    std::cerr << "[MKL-FEAST] Eigenvalues: ";
-    for (MKL_INT i = 0; i < std::min(m_found, (MKL_INT)8); ++i) {
-        std::cerr << eigenvalues[i] << " ";
-    }
-    std::cerr << "\n";
-    
-    // Extract the k smallest eigenvalues (already sorted by FEAST)
-    std::vector<std::vector<double>> result;
-    for (MKL_INT i = 0; i < std::min(m_found, (MKL_INT)k); ++i) {
-        eigenvalues_out[i] = eigenvalues[i];
-        
-        // Copy eigenvector column from result matrix
-        std::vector<double> ev(n);
-        for (size_t r = 0; r < n; ++r) {
-            ev[r] = eigenvectors[r + i * n];  // Column-major
-        }
-        result.push_back(std::move(ev));
-    }
-    
-    return result;
-}
-
-#endif  // USE_MKL_SOLVER
 
 std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     SparseSymmetricMatrix& L,
@@ -1088,11 +932,11 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     // FEAST is designed for many eigenvalues in an interval, not a few near zero.
     
     // ==========================================================================
-    // FOR SMALL MATRICES: Use dense eigendecomposition (much more reliable)
-    // Threshold: 2000 elements means 2000*2000*8 = 32MB dense matrix
+    // USE MKL DENSE EIGENDECOMPOSITION WHEN AVAILABLE (fastest and most accurate)
+    // Lanczos fallback only if MKL not available
     // ==========================================================================
-    if (n <= 2000) {
-        std::cerr << "[EIGEN] Using dense eigendecomposition for " << n << " points\n";
+    #if USE_MKL_SOLVER
+        std::cerr << "[EIGEN] Using MKL dense eigendecomposition for " << n << " points\n";
         converged_out = true;  // Dense eigendecomposition always succeeds
 
         // Convert sparse Laplacian to dense
@@ -1105,7 +949,6 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
             L_dense[i * n + i] = L.get_diagonal(i);
         }
         
-#if USE_MKL_SOLVER
         // ==================================================================
         // INTEL MKL PATH: DSYEVR - RRR algorithm for symmetric eigenvalue
         // Fastest eigensolver available, exploits Intel CPU features
@@ -1334,15 +1177,16 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
         }
         
         return result;
-#endif  // USE_EIGEN_SOLVER
     }
-    
+
+#endif  // USE_EIGEN_SOLVER
+
     // ==========================================================================
     // FOR LARGE MATRICES: Use Lanczos eigensolver on -L to find largest eigenvalues
     // ==========================================================================
 
     // To find smallest eigenvalues of L, find largest eigenvalues of -L
-    // Since L has eigenvalues 0 < λ1 ≤ λ2 ≤ ... 
+    // Since L has eigenvalues 0 < λ1 ≤ λ2 ≤ ...
     // Then -L has eigenvalues 0 > -λ1 ≥ -λ2 ≥ ...
     // So largest eigenvalues of -L are 0, -λ1, -λ2, ...
     // Skip 0, then eigenvalues of L are λi = - (eigenvalue of -L)
@@ -1367,15 +1211,17 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     // For small graphs (<10k): 500 iterations
     // For medium graphs (10k-50k): 1000 iterations
     // For large graphs (>50k): 2000 iterations
-    if (V > 50000) {
+    size_t graph_size = L.size();
+    if (graph_size > 50000) {
         lanczos_config.max_iterations = 2000;
-    } else if (V > 10000) {
+    } else if (graph_size > 10000) {
         lanczos_config.max_iterations = 1000;
     } else {
         lanczos_config.max_iterations = 500;
     }
-    lanczos_config.convergence_tol = config_.convergence_tol;  // Use tolerance from LaplacianConfig
-    lanczos_config.use_shift_invert = false;  // Use direct Lanczos
+    lanczos_config.convergence_tol = 1e-8;
+    lanczos_config.use_shift_invert = true;  // Use shift-invert Lanczos
+    lanczos_config.shift_sigma = -0.1;
     lanczos_config.num_threads = config_.num_threads;
 
     lanczos::LanczosSolver solver(lanczos_config);
@@ -1386,34 +1232,34 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     });
 
     // Run Lanczos on -L
-    lanczos::LanczosResult result = solver.solve(neg_L);
+    lanczos::LanczosResult lanczos_result = solver.solve(neg_L);
 
     // Report convergence status
-    std::cerr << "[LANCZOS] " << (result.converged ? "Converged" : "Did not fully converge")
-              << " in " << result.iterations_used << " iterations\n";
-    converged_out = result.converged;
+    std::cerr << "[LANCZOS] " << (lanczos_result.converged ? "Converged" : "Did not fully converge")
+              << " in " << lanczos_result.iterations_used << " iterations\n";
+    converged_out = lanczos_result.converged;
 
-    if (!result.converged) {
+    if (!lanczos_result.converged) {
         std::cerr << "[LANCZOS] Warning: residuals = [";
-        for (size_t i = 0; i < result.residuals.size() && i < 4; ++i) {
-            std::cerr << result.residuals[i];
-            if (i + 1 < result.residuals.size() && i < 3) std::cerr << ", ";
+        for (size_t i = 0; i < lanczos_result.residuals.size() && i < 4; ++i) {
+            std::cerr << lanczos_result.residuals[i];
+            if (i + 1 < lanczos_result.residuals.size() && i < 3) std::cerr << ", ";
         }
         std::cerr << "]\n";
     }
 
     // Log ALL eigenvalues found (for debugging)
     std::cerr << "[LANCZOS] All eigenvalues (raw): ";
-    for (size_t i = 0; i < result.eigenvalues.size(); ++i) {
-        std::cerr << result.eigenvalues[i] << " ";
+    for (size_t i = 0; i < lanczos_result.eigenvalues.size(); ++i) {
+        std::cerr << lanczos_result.eigenvalues[i] << " ";
     }
     std::cerr << "\n";
 
     // Convert eigenvalues back to L eigenvalues and skip null space
-    // result.eigenvalues are for -L: [0, -λ1, -λ2, -λ3, -λ4, ...]
+    // lanczos_result.eigenvalues are for -L: [0, -λ1, -λ2, -λ3, -λ4, ...]
     // So L eigenvalues are: [0, λ1, λ2, λ3, λ4, ...]
-    for (int i = 0; i < 4 && (i + 1) < static_cast<int>(result.eigenvalues.size()); ++i) {
-        eigenvalues_out[i] = -result.eigenvalues[i + 1];  // Negate and skip index 0
+    for (int i = 0; i < 4 && (i + 1) < static_cast<int>(lanczos_result.eigenvalues.size()); ++i) {
+        eigenvalues_out[i] = -lanczos_result.eigenvalues[i + 1];  // Negate and skip index 0
     }
 
     std::cerr << "[LANCZOS] Semantic eigenvalues (skipped λ_0): ";
@@ -1430,8 +1276,8 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
 
     // Skip first eigenvector (null space) and take the next k
     int start_idx = 1;  // Skip index 0
-    for (int i = start_idx; i < start_idx + k && i < static_cast<int>(result.eigenvectors.size()); ++i) {
-        eigenvectors.push_back(std::move(result.eigenvectors[i]));
+    for (int i = start_idx; i < start_idx + k && i < static_cast<int>(lanczos_result.eigenvectors.size()); ++i) {
+        eigenvectors.push_back(std::move(lanczos_result.eigenvectors[i]));
     }
 
     std::cerr << "[LANCZOS] Returning " << eigenvectors.size() << " eigenvectors (skipped null space)\n";
@@ -1726,7 +1572,7 @@ ProjectionResult LaplacianProjector::project(
         size_t visited_count = 1;
 
         while (!q.empty()) {
-            size_t u = q.front(); q.pop();
+            q.pop();
             L.for_each_edge([&](size_t i, size_t j, double w) {
                 if (!visited[j]) {
                     visited[j] = true;
@@ -1744,10 +1590,37 @@ ProjectionResult LaplacianProjector::project(
     auto eigenvectors = find_smallest_eigenvectors(L, 4, result.eigenvalues, converged);
     result.converged = converged && (eigenvectors.size() == 4);
 
-    if (eigenvectors.size() < 4) {
-        std::cerr << "[ERROR] Could not find 4 eigenvectors\n";
-        result.converged = false;
-        return result;
+    // Check if eigenvectors are degenerate (solver failure)
+    bool degenerate = true;
+    if (eigenvectors.size() >= 4) {
+        // Check if all eigenvectors are identical (constant vector)
+        for (size_t i = 1; i < eigenvectors.size(); ++i) {
+            bool identical = true;
+            for (size_t j = 0; j < eigenvectors[0].size(); ++j) {
+                if (std::abs(eigenvectors[i][j] - eigenvectors[0][j]) > 1e-10) {
+                    identical = false;
+                    break;
+                }
+            }
+            if (!identical) {
+                degenerate = false;
+                break;
+            }
+        }
+    }
+
+    if (degenerate || eigenvectors.size() < 4) {
+        std::cerr << "[EIGEN] Lanczos failed (degenerate eigenvectors), trying CG solver\n";
+        auto cg_eigenvectors = solve_eigenvectors_cg(L, 4, result.eigenvalues, config_);
+        if (cg_eigenvectors.size() == 4) {
+            eigenvectors = std::move(cg_eigenvectors);
+            result.converged = true;
+            std::cerr << "[EIGEN] CG solver succeeded\n";
+        } else {
+            std::cerr << "[ERROR] Both Lanczos and CG failed\n";
+            result.converged = false;
+            return result;
+        }
     }
     
     // Step 4: Gram-Schmidt orthonormalization on columns

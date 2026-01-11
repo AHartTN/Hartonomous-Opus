@@ -249,6 +249,7 @@ void test_determinism() {
     Point4D coords1 = CoordinateMapper::map_codepoint(test_cp);
     Point4D coords2 = CoordinateMapper::map_codepoint(test_cp);
     assert(coords1.x == coords2.x && coords1.y == coords2.y && coords1.z == coords2.z && coords1.m == coords2.m);
+    (void)coords1; (void)coords2; // Mark as used for assertions
 
     std::cout << "  Determinism: PASS" << std::endl;
 }
@@ -261,6 +262,7 @@ void test_no_nan_overflow() {
 
     for (uint32_t cp : test_cps) {
         Point4D coords = CoordinateMapper::map_codepoint(cp);
+        (void)coords; // Mark as used for assertions
 
         // Check no NaN
         assert(!std::isnan(static_cast<double>(coords.x)));
@@ -405,6 +407,7 @@ void test_quantization_invariants() {
     for (double v = -1.0; v <= 1.0; v += 0.01) {
         uint32_t q1 = quantize_unit_to_u32(v);
         uint32_t q2 = quantize_unit_to_u32(v + 0.001);
+        (void)q1; (void)q2; // Mark as used for assertions
         if (v + 0.001 <= 1.0) {
             // Should be non-decreasing
             assert(q1 <= q2);
@@ -531,9 +534,11 @@ void test_roundtrip_quantize_hilbert() {
         CodepointMapping mapping = CoordinateMapper::map_codepoint_full(cp);
         Point4D coords = mapping.coords;
         HilbertIndex hilbert = mapping.hilbert;
+        (void)hilbert; // Mark as used
 
         // Round-trip through Hilbert
         HilbertIndex hilbert2 = HilbertCurve::coords_to_index(coords);
+        (void)hilbert2; // Mark as used for assertions
         Point4D coords_recovered = HilbertCurve::index_to_coords(hilbert);
 
         // Assert exact equality
@@ -788,6 +793,7 @@ void test_surrogate_handling() {
         assert(coords.z == 0x80000000U);
         assert(coords.m == 0x80000000U);
         assert(mapping.hilbert.lo == 0 && mapping.hilbert.hi == 0);
+        (void)coords; (void)expected_x; // Mark as used for assertions
     }
 
     // Verify no collision with normal codepoints (sample check)
@@ -803,6 +809,7 @@ void test_surrogate_handling() {
     Point4D normal = CoordinateMapper::map_codepoint('A');
     uint64_t normal_key = (static_cast<uint64_t>(normal.x) << 32) | normal.y;
     assert(seen_coords.find(normal_key) == seen_coords.end());
+    (void)normal_key; // Mark as used for assertions
 
     std::cout << "  Surrogate handling: PASS" << std::endl;
 }
