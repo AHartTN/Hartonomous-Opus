@@ -100,7 +100,7 @@ if [ "$SEED_ONLY" = false ]; then
     echo "[3/5] Applying schema..."
 
     echo -n "      hypercube_schema.sql..."
-    if hc_psql -v ON_ERROR_STOP=1 -f "$HC_PROJECT_ROOT/sql/hypercube_schema.sql" >/dev/null 2>&1; then
+    if (cd "$HC_PROJECT_ROOT" && hc_psql -v ON_ERROR_STOP=1 -f "sql/hypercube_schema.sql") >/dev/null 2>&1; then
         echo " OK"
     else
         echo " FAILED"

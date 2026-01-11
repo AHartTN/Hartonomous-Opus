@@ -25,6 +25,7 @@ enum class Feature {
     AVX512VL = 1 << 4,  // AVX-512 Vector Length
     FMA3 = 1 << 5,      // Fused Multiply-Add 3
     BMI2 = 1 << 6,      // Bit Manipulation Instructions 2
+    AVX_VNNI = 1 << 7,  // AVX-512 Vector Neural Network Instructions
 };
 
 /**
@@ -89,6 +90,14 @@ inline bool has_fma3() {
 }
 
 /**
+ * Check if AVX_VNNI is supported
+ */
+inline bool has_avx_vnni() {
+    auto leaf7 = cpuid(7, 0);
+    return (leaf7.ebx & (1 << 11)) != 0;  // AVX_VNNI bit
+}
+
+/**
  * Get CPU vendor string
  */
 inline std::string get_cpu_vendor() {
@@ -109,6 +118,7 @@ inline uint32_t get_supported_features() {
     if (has_avx2()) features |= static_cast<uint32_t>(Feature::AVX2);
     if (has_avx512f()) features |= static_cast<uint32_t>(Feature::AVX512F);
     if (has_fma3()) features |= static_cast<uint32_t>(Feature::FMA3);
+    if (has_avx_vnni()) features |= static_cast<uint32_t>(Feature::AVX_VNNI);
 
     // Additional AVX-512 features (only if AVX512F is supported)
     if (features & static_cast<uint32_t>(Feature::AVX512F)) {
@@ -146,6 +156,7 @@ inline std::string get_cpu_info() {
     if (features & static_cast<uint32_t>(Feature::AVX512VL)) info += "AVX512VL ";
     if (features & static_cast<uint32_t>(Feature::FMA3)) info += "FMA3 ";
     if (features & static_cast<uint32_t>(Feature::BMI2)) info += "BMI2 ";
+    if (features & static_cast<uint32_t>(Feature::AVX_VNNI)) info += "AVX_VNNI ";
 
     return info;
 }

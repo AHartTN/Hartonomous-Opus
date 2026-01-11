@@ -912,11 +912,19 @@ add_test(NAME Laplacian4DTest COMMAND test_laplacian_4d)
 add_executable(test_eigen_solver_paths test_eigen_solver_paths.cpp)
 target_link_libraries(test_eigen_solver_paths hypercube_core)
 
+add_executable(test_cpu_features tests/test_cpu_features.cpp)
+target_link_libraries(test_cpu_features hypercube_core)
+
+add_executable(test_int8_quantization tests/test_int8_quantization.cpp)
+target_link_libraries(test_int8_quantization hypercube_core)
+
 # ============================================================================
 # PostgreSQL Tools (require libpq client library)
 # ============================================================================
 
 # Try to find libpq via vcpkg or system
+# Prefer system libpq over Windows installations
+set(PostgreSQL_ROOT "/usr")
 find_package(PostgreSQL QUIET)
 if(PostgreSQL_FOUND)
     message(STATUS "Found PostgreSQL client library: ${PostgreSQL_LIBRARIES}")
@@ -1178,6 +1186,19 @@ else()
     message(STATUS "Google Test not found - skipping test suite")
     message(STATUS "To enable tests: vcpkg install gtest:x64-windows")
 endif()
+
+# ============================================================================
+# Runtime Environment Optimization for AVX/AVX_VNNI
+# ============================================================================
+
+message(STATUS "Runtime Environment Setup for AVX Optimization:")
+message(STATUS "  Set these in your ~/.bashrc or runtime environment:")
+message(STATUS "  export OMP_PROC_BIND=true")
+message(STATUS "  export OMP_PLACES=cores")
+message(STATUS "  export MKL_DEBUG_CPU_TYPE=5  # Force AVX2 code path")
+message(STATUS "")
+message(STATUS "  This ensures optimal thread scheduling and MKL path selection.")
+message(STATUS "")
 
 # ============================================================================
 # Summary

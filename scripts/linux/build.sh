@@ -16,12 +16,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env.sh"
 
 # ============================================================================
-# SOURCE INTEL ONEAPI ENVIRONMENT
+# INTEL ONEAPI ENVIRONMENT ALREADY SOURCED BY env.sh
 # ============================================================================
-
-if [ -f "/opt/intel/oneapi/setvars.sh" ]; then
-    source /opt/intel/oneapi/setvars.sh > /dev/null 2>&1
-fi
 
 CLEAN=false
 INSTALL=false
@@ -80,14 +76,19 @@ if command -v ninja &> /dev/null; then
     cmake_args+=("-G" "Ninja")
 fi
 
-cmake "${cmake_args[@]}" .. > /dev/null 2>&1
+if [ ! -f "CMakeCache.txt" ]; then
+    echo "Configuring with CMake..."
+    cmake "${cmake_args[@]}" .. > /dev/null 2>&1
+else
+    echo "Build already configured, skipping CMake configuration..."
+fi
 
 echo "Building with $HC_PARALLEL_JOBS parallel jobs..."
 
 START_TIME=$(date +%s)
 
 # Build using cmake (works with both Ninja and Make)
-cmake --build . --config Release --parallel "$HC_PARALLEL_JOBS" 2>&1 | grep -E "^\[|Built|error:|Linking"
+cmake --build . --config Release --parallel "$HC_PARALLEL_JOBS" 2>&1 | grep -E "^\[|Built|error:|Linking" || true
 
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
