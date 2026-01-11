@@ -1,0 +1,27 @@
+Hartonomous environment loaded
+  Database: hypercube @ localhost:5432
+  User:     hartonomous
+  Project:  /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus
+
+=== Hypercube Database Setup ===
+  Database: hypercube @ localhost:5432
+  User: hartonomous
+
+[1/5] Testing PostgreSQL connection... OK
+[2/5] Checking database... exists
+[3/5] Applying schema...
+      hypercube_schema.sql... OK
+[4/5] Loading extensions...
+      hypercube... OK
+      hypercube_ops... OK
+      semantic_ops... OK
+      embedding_ops... OK
+      generative... OK
+[5/5] Checking atoms... 1114112 atoms (already seeded)
+
+=== Database Ready ===
+
+  Atoms:        1114112
+  Compositions: 31151
+  Relations:    0
+

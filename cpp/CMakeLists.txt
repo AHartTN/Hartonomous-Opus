@@ -1,25 +1,35 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.24)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 project(hypercube VERSION 1.0.0 LANGUAGES CXX C)
 
 # ============================================================================
-# Build Architecture:
-#   1. hypercube_core   - Pure C++ library (no PostgreSQL headers)
-#   2. hypercube_c      - C API bridge (extern "C" wrappers)
-#   3. hypercube        - PostgreSQL extension (pure C, links hypercube_c)
-#   4. semantic_ops     - PostgreSQL extension (pure C, links hypercube_c)
-#   5. hypercube (CLI)  - Unified command-line tool
-#
-# This architecture solves the PostgreSQL header incompatibility with C++20
-# by ensuring that PostgreSQL headers are only included in pure C files.
+# Enterprise-Grade Build Configuration
 # ============================================================================
 
-set(CMAKE_CXX_STANDARD 20)
+# Modern C++ standards
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+
+# Build optimization
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Default to Release build
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+# Enable comprehensive warnings and treat as errors in Debug
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    if(MSVC)
+        add_compile_options(/W4 /WX)
+    else()
+        add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()
 
 # RPATH settings - use install path even during build
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
@@ -35,327 +45,102 @@ endif()
 find_package(Threads REQUIRED)
 
 # ============================================================================
-# OpenMP - CRITICAL for parallel k-NN and matrix operations
+# Modern Dependency Management with FetchContent
 # ============================================================================
-find_package(OpenMP)
+
+include(FetchContent)
+
+# OpenMP for parallel operations
+find_package(OpenMP REQUIRED)
 if(OpenMP_CXX_FOUND)
     message(STATUS "OpenMP: Found (version ${OpenMP_CXX_VERSION})")
-    message(STATUS "  OpenMP C++ flags: ${OpenMP_CXX_FLAGS}")
-    message(STATUS "  OpenMP C++ libraries: ${OpenMP_CXX_LIBRARIES}")
-    set(HAS_OPENMP ON)
 else()
-    message(WARNING "OpenMP: NOT FOUND - parallel operations will be single-threaded!")
-    message(WARNING "  For MSVC: OpenMP should be available with /openmp flag")
-    message(WARNING "  For GCC/Clang: Install libomp-dev or similar")
-    set(HAS_OPENMP OFF)
+    message(FATAL_ERROR "OpenMP is required for parallel operations")
 endif()
 
-# ============================================================================
-# Intel MKL for Optimal Performance on Intel CPUs
-# ============================================================================
-# Priority: MKL > Eigen > Custom Jacobi
-
-# MKL detection - comprehensive search
-set(MKL_ROOT "D:/Intel/oneAPI/mkl/latest" CACHE PATH "Path to Intel MKL")
-
-# Try to find MKL in common locations
-message(STATUS "Detecting MKL...")
-
-# Check for MKL environment variables first
-if(DEFINED ENV{MKLROOT})
-    set(MKL_ROOT "$ENV{MKLROOT}")
-    message(STATUS "Using MKLROOT from environment: ${MKL_ROOT}")
-endif()
-
-# Standard MKL search paths
-set(MKL_SEARCH_PATHS
-    "${MKL_ROOT}"
-    "${MKL_ROOT}/include"
-    "D:/Intel/oneAPI/mkl/2025.3"
-    "D:/Intel/oneAPI/mkl/latest"
-    "C:/Program Files (x86)/Intel/oneAPI/mkl/latest"
-    "C:/Program Files/Intel/oneAPI/mkl/latest"
-    "C:/Intel/MKL"
-    "C:/Intel/oneAPI/mkl"
-    "/opt/intel/mkl"
-    "/opt/intel/oneapi/mkl/latest"
+# HNSWLIB for approximate nearest neighbors
+FetchContent_Declare(
+    hnswlib
+    GIT_REPOSITORY https://github.com/nmslib/hnswlib.git
+    GIT_TAG v0.8.0
 )
+FetchContent_MakeAvailable(hnswlib)
 
-# Try pkg-config first (Linux/Unix)
-find_package(PkgConfig QUIET)
-if(PKG_CONFIG_FOUND)
-    pkg_check_modules(MKL QUIET mkl-dynamic-lp64-seq)
-    if(MKL_FOUND)
-        set(HAS_MKL ON)
-        set(MKL_INCLUDE_DIRS ${MKL_INCLUDE_DIRS})
-        set(MKL_LIBRARIES ${MKL_LIBRARIES})
-        message(STATUS "Found MKL via pkg-config")
-    endif()
-endif()
+# Intel MKL (optional, preferred for performance)
+find_package(MKL QUIET)
+if(MKL_FOUND)
+    message(STATUS "Intel MKL: Found - using optimized BLAS operations")
+    set(HAS_MKL ON)
+else()
+    message(STATUS "Intel MKL: Not found - using Eigen3 fallback")
+    set(HAS_MKL OFF)
 
-# Manual detection if pkg-config failed
-if(NOT HAS_MKL)
-    # MKL 2025.3 specific paths
-    find_path(MKL_INCLUDE_DIR mkl.h
-        PATHS 
-            ${MKL_ROOT}
-            /opt/intel/oneapi/mkl/2025.3
-        PATH_SUFFIXES include
-        NO_DEFAULT_PATH
-    )
-    
-    if(NOT MKL_INCLUDE_DIR)
-        find_path(MKL_INCLUDE_DIR mkl.h
-            PATHS ${MKL_SEARCH_PATHS}
-            PATH_SUFFIXES include
-        )
-    endif()
-
-    find_library(MKL_CORE_LIB
-        NAMES mkl_core mkl_core_dll
-        PATHS 
-            ${MKL_ROOT}
-            /opt/intel/oneapi/mkl/2025.3
-        PATH_SUFFIXES lib
-        NO_DEFAULT_PATH
-    )
-    
-    if(NOT MKL_CORE_LIB)
-        find_library(MKL_CORE_LIB
-            NAMES mkl_core mkl_core_dll
-            PATHS ${MKL_SEARCH_PATHS}
-            PATH_SUFFIXES lib lib/intel64 lib/ia32
-        )
-    endif()
-
-    find_library(MKL_INTL_LP64_LIB
-        NAMES mkl_intel_lp64 mkl_intel_lp64_dll
-        PATHS 
-            ${MKL_ROOT}
-            /opt/intel/oneapi/mkl/2025.3
-        PATH_SUFFIXES lib
-        NO_DEFAULT_PATH
-    )
-    
-    if(NOT MKL_INTL_LP64_LIB)
-        find_library(MKL_INTL_LP64_LIB
-            NAMES mkl_intel_lp64 mkl_intel_lp64_dll
-            PATHS ${MKL_SEARCH_PATHS}
-            PATH_SUFFIXES lib lib/intel64 lib/ia32
-        )
-    endif()
-
-    # Find the threading layer instead of sequential
-    find_library(MKL_THREAD_LIB
-        NAMES mkl_intel_thread mkl_intel_thread_dll
-        PATHS 
-            ${MKL_ROOT}
-            /opt/intel/oneapi/mkl/2025.3
-        PATH_SUFFIXES lib
-        NO_DEFAULT_PATH
-    )
-    
-    if(NOT MKL_THREAD_LIB)
-        find_library(MKL_THREAD_LIB
-            NAMES mkl_intel_thread mkl_intel_thread_dll
-            PATHS ${MKL_SEARCH_PATHS}
-            PATH_SUFFIXES lib lib/intel64 lib/ia32
-        )
-    endif()
-
-    # Find the Intel OpenMP library (required for the threading layer)
-    find_library(MKL_IOMP5_LIB
-        NAMES libiomp5md libiomp5md.dll
-        PATHS ${MKL_SEARCH_PATHS} "D:/Intel/oneAPI/compiler/latest/lib"
-        PATH_SUFFIXES lib lib/intel64 lib/ia32
-        DOC "Intel OpenMP library"
-    )
-
-    # Find MKL DLLs (for copying to output directory on Windows)
-    if(WIN32)
-        find_file(MKL_CORE_DLL
-            NAMES mkl_core.dll
-            PATHS ${MKL_SEARCH_PATHS} "D:/Intel/oneAPI/mkl/latest/bin" "D:/Intel/oneAPI/mkl/latest/redist/intel64_win/mkl"
-            PATH_SUFFIXES bin redist/intel64_win/mkl
-            DOC "MKL core DLL"
-        )
-        find_file(MKL_INTL_LP64_DLL
-            NAMES mkl_intel_lp64.dll
-            PATHS ${MKL_SEARCH_PATHS} "D:/Intel/oneAPI/mkl/latest/bin" "D:/Intel/oneAPI/mkl/latest/redist/intel64_win/mkl"
-            PATH_SUFFIXES bin redist/intel64_win/mkl
-            DOC "MKL interface DLL"
-        )
-        find_file(MKL_THREAD_DLL
-            NAMES mkl_intel_thread.dll
-            PATHS ${MKL_SEARCH_PATHS} "D:/Intel/oneAPI/mkl/latest/bin" "D:/Intel/oneAPI/mkl/latest/redist/intel64_win/mkl"
-            PATH_SUFFIXES bin redist/intel64_win/mkl
-            DOC "MKL threading DLL"
-        )
-        find_file(MKL_IOMP5_DLL
-            NAMES libiomp5md.dll
-            PATHS ${MKL_SEARCH_PATHS} "D:/Intel/oneAPI/compiler/latest/bin" "D:/Intel/oneAPI/compiler/latest/redist/intel64_win/compiler"
-            PATH_SUFFIXES bin redist/intel64_win/compiler
-            DOC "Intel OpenMP DLL"
-        )
-    endif()
-
-    message(STATUS "MKL detection results:")
-    message(STATUS "  MKL_INCLUDE_DIR: ${MKL_INCLUDE_DIR}")
-    message(STATUS "  MKL_CORE_LIB: ${MKL_CORE_LIB}")
-    message(STATUS "  MKL_INTL_LP64_LIB: ${MKL_INTL_LP64_LIB}")
-    message(STATUS "  MKL_THREAD_LIB: ${MKL_THREAD_LIB}")
-    message(STATUS "  MKL_IOMP5_LIB: ${MKL_IOMP5_LIB}")
-    message(STATUS "  MKL_IOMP5_DLL: ${MKL_IOMP5_DLL}")
-
-    if(MKL_INCLUDE_DIR AND MKL_CORE_LIB AND MKL_INTL_LP64_LIB AND MKL_THREAD_LIB AND (NOT WIN32 OR MKL_IOMP5_DLL))
-        set(MKL_FOUND TRUE)
-        set(MKL_INCLUDE_DIRS ${MKL_INCLUDE_DIR})
-        set(MKL_LIBRARIES ${MKL_INTL_LP64_LIB} ${MKL_THREAD_LIB} ${MKL_CORE_LIB} ${MKL_IOMP5_LIB})
-        set(HAS_MKL ON)
-        message(STATUS "SUCCESS: MKL detected - will use MKL BLAS operations (PARALLEL mode)")
-    else()
-        set(MKL_FOUND FALSE)
-        set(HAS_MKL OFF)
-        message(STATUS "MKL not found - will use Eigen or SIMD fallbacks")
-        if(NOT MKL_INCLUDE_DIR)
-            message(STATUS "  Missing: MKL header (mkl.h) - check MKLROOT or installation")
-        endif()
-        if(NOT MKL_CORE_LIB)
-            message(STATUS "  Missing: MKL core library - check library paths")
-        endif()
-        if(NOT MKL_INTL_LP64_LIB)
-            message(STATUS "  Missing: MKL interface library - check library paths")
-        endif()
-        if(NOT MKL_THREAD_LIB)
-            message(STATUS "  Missing: MKL threading library - check library paths")
-        endif()
-        if(NOT MKL_IOMP5_LIB)
-            message(STATUS "  Missing: Intel OpenMP library - check library paths")
-        endif()
-        if(WIN32 AND NOT MKL_IOMP5_DLL)
-            message(STATUS "  Missing: Intel OpenMP DLL - check bin paths")
-        endif()
-    endif()
-endif()
-# if(MKL_FOUND)
-#     message(STATUS "Found Intel MKL: ${MKL_ROOT}")
-#     set(HAS_MKL ON)
-# else()
-#     # Try finding MKL via environment variable
-#     if(DEFINED ENV{MKLROOT})
-#         set(MKL_ROOT "$ENV{MKLROOT}")
-#         find_path(MKL_INCLUDE_DIR mkl.h HINTS "${MKL_ROOT}/include")
-#         find_library(MKL_CORE_LIB mkl_core HINTS "${MKL_ROOT}/lib/intel64")
-#         if(MKL_INCLUDE_DIR AND MKL_CORE_LIB)
-#             message(STATUS "Found Intel MKL (via MKLROOT): ${MKL_ROOT}")
-#             set(HAS_MKL ON)
-#         endif()
-#     endif()
-# endif()
-
-if(NOT HAS_MKL)
-    message(STATUS "Intel MKL not found - trying Eigen3")
-endif()
-
-# ============================================================================
-# Eigen3 for Optimized Linear Algebra (eigensolvers, BLAS)
-# ============================================================================
-set(HAS_EIGEN OFF)
-if(NOT HAS_MKL)
+    # Eigen3 as fallback
     find_package(Eigen3 QUIET)
     if(Eigen3_FOUND)
-        message(STATUS "Found Eigen3 via find_package: ${EIGEN3_INCLUDE_DIR}")
+        message(STATUS "Eigen3: Found via system package")
         set(HAS_EIGEN ON)
-        set(Eigen3_INCLUDE_DIR ${EIGEN3_INCLUDE_DIR})
     else()
-        # Try multiple paths including vcpkg, conda, system installations
-        find_path(EIGEN3_INCLUDE_DIR Eigen/Core
-            HINTS
-            "D:/eigen3/eigen-3.4.0"
-            "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-windows/include"
-            "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x64-linux/include"
-            "${CMAKE_CURRENT_SOURCE_DIR}/../vcpkg_installed/x86-windows/include"
-            "C:/vcpkg/installed/x64-windows/include"
-            "C:/vcpkg/installed/x86-windows/include"
-            "C:/miniconda/envs/*/include"
-            "C:/anaconda/envs/*/include"
-            "C:/Program Files/Eigen3/include"
-            "C:/Program Files (x86)/Eigen3/include"
-            "$ENV{CONDA_PREFIX}/include"
-            "/usr/include/eigen3"
-            "/usr/local/include/eigen3"
-            "/opt/homebrew/include/eigen3"
-            "/opt/local/include/eigen3"
+        # Fetch Eigen3 if not found system-wide
+        FetchContent_Declare(
+            eigen
+            GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+            GIT_TAG 3.4.0
         )
-        if(EIGEN3_INCLUDE_DIR)
-            message(STATUS "SUCCESS: Found Eigen3 manually: ${EIGEN3_INCLUDE_DIR}")
-            set(HAS_EIGEN ON)
-            set(Eigen3_INCLUDE_DIR ${EIGEN3_INCLUDE_DIR})
-        else()
-            message(STATUS "Eigen3 not found - using SIMD/vector fallbacks")
-            message(STATUS "  Checked paths include:")
-            message(STATUS "    - vcpkg installations")
-            message(STATUS "    - conda environments")
-            message(STATUS "    - Program Files")
-            message(STATUS "    - System paths (/usr/include/eigen3, etc.)")
-            message(STATUS "  Set EIGEN3_INCLUDE_DIR manually if Eigen3 is installed elsewhere")
-            set(HAS_EIGEN OFF)
-        endif()
+        FetchContent_MakeAvailable(eigen)
+        set(HAS_EIGEN ON)
+        message(STATUS "Eigen3: Fetched and built from source")
     endif()
-else()
-    message(STATUS "Skipping Eigen3 (MKL is preferred)")
 endif()
 
 # ============================================================================
-# Compiler Detection and Flags
+# Compiler Optimization and SIMD Detection
 # ============================================================================
 
+# Detect SIMD capabilities
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-march=native" COMPILER_SUPPORTS_MARCH_NATIVE)
+
+if(COMPILER_SUPPORTS_MARCH_NATIVE)
+    set(HAS_AVX ON)
+    message(STATUS "SIMD: Native architecture optimizations enabled")
+else()
+    set(HAS_AVX OFF)
+    message(STATUS "SIMD: Native architecture not supported, using generic optimizations")
+endif()
+
+# Common optimization flags
 if(MSVC)
-    # MSVC compiler
-    message(STATUS "Compiler: MSVC ${CMAKE_CXX_COMPILER_VERSION}")
-    # Use AVX2 for broader compatibility (AVX-512 can cause issues on some CPUs)
-    set(AVX_FLAG "/arch:AVX2")
-    message(STATUS "SIMD: AVX2 enabled")
-    set(HAS_AVX ON)
-    # Enable optimizations
-    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG /W3 /EHsc ${AVX_FLAG} /fp:precise /GL /Oi /Ot /permissive- /DNOMINMAX")
-    set(CMAKE_CXX_FLAGS_DEBUG "/Od /DDEBUG /W3 /Zi /EHsc /permissive- /DNOMINMAX")
-    set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG /W3 ${AVX_FLAG} /fp:precise /GL /Oi /Ot")
-    set(CMAKE_C_FLAGS_DEBUG "/Od /DDEBUG /W3 /Zi")
-    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
+    set(COMPILER_OPT_FLAGS "/O2 /DNDEBUG /fp:precise")
+    set(COMPILER_DEBUG_FLAGS "/Od /DDEBUG /Zi")
+    set(COMPILER_WARNING_FLAGS "/W3 /EHsc /permissive- /DNOMINMAX")
+    set(COMPILER_AVX_FLAGS "/arch:AVX2")
     add_compile_options(/wd4244 /wd4267 /wd4996 /wd4005 /wd4200)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    message(STATUS "Compiler: Clang ${CMAKE_CXX_COMPILER_VERSION}")
-    # Clang on Windows needs explicit AVX flags
-    if(WIN32)
-        # Use native for best performance on current CPU
-        set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra -march=native -mtune=native -ffast-math")
-        set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra -march=native")
-        set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra -march=native -mtune=native -ffast-math")
-        set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra -march=native")
-        message(STATUS "SIMD: Native architecture (march=native)")
-        set(HAS_AVX ON)
-    else()
-        set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra -march=native")
-        set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra -fsanitize=address,undefined")
-        set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG -Wall -Wextra -march=native")
-        set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
-        set(HAS_AVX ON)
-        message(STATUS "SIMD: Native architecture (march=native)")
-    endif()
-    add_compile_options(-Wno-unused-parameter -Wno-sign-compare)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    message(STATUS "Compiler: GCC ${CMAKE_CXX_COMPILER_VERSION}")
-    # Enable native arch (detects AVX2/AVX-512), fast-math, loop unrolling
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -mtune=native -DNDEBUG -Wall -Wextra -ffast-math -funroll-loops -ftree-vectorize")
-    set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra -fsanitize=address,undefined")
-    set(CMAKE_C_FLAGS_RELEASE "-O3 -march=native -mtune=native -DNDEBUG -Wall -Wextra -ffast-math -funroll-loops -ftree-vectorize")
-    set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG -Wall -Wextra")
-    message(STATUS "SIMD: Native architecture (march=native)")
-    set(HAS_AVX ON)
 else()
-    message(WARNING "Unknown compiler: ${CMAKE_CXX_COMPILER_ID}")
+    set(COMPILER_OPT_FLAGS "-O3 -DNDEBUG -ffast-math")
+    set(COMPILER_DEBUG_FLAGS "-g -O0 -DDEBUG")
+    set(COMPILER_WARNING_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare")
+    set(COMPILER_AVX_FLAGS "-march=native")
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(COMPILER_DEBUG_FLAGS "${COMPILER_DEBUG_FLAGS} -fsanitize=address,undefined")
+    endif()
 endif()
+
+# Apply flags based on build type
+set(CMAKE_CXX_FLAGS_RELEASE "${COMPILER_OPT_FLAGS} ${COMPILER_WARNING_FLAGS}")
+set(CMAKE_C_FLAGS_RELEASE "${COMPILER_OPT_FLAGS}")
+set(CMAKE_CXX_FLAGS_DEBUG "${COMPILER_DEBUG_FLAGS} ${COMPILER_WARNING_FLAGS}")
+set(CMAKE_C_FLAGS_DEBUG "${COMPILER_DEBUG_FLAGS}")
+
+if(HAS_AVX)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${COMPILER_AVX_FLAGS}")
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${COMPILER_AVX_FLAGS}")
+endif()
+
+message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "SIMD support: ${HAS_AVX}")
 
 # ============================================================================
 # PostgreSQL Configuration
@@ -380,7 +165,7 @@ else()
 endif()
 
 # ============================================================================
-# 1. Core C++ Library (no PostgreSQL dependencies)
+# Core C++ Library (Enterprise-Grade Architecture)
 # ============================================================================
 
 add_library(hypercube_core STATIC
@@ -392,88 +177,50 @@ add_library(hypercube_core STATIC
     src/core/atom_calculator.cpp
     src/core/laplacian_4d.cpp
     src/core/lanczos.cpp
+    src/core/semantic_ordering.cpp
 )
 
-target_include_directories(hypercube_core PUBLIC 
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+target_include_directories(hypercube_core PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
-# Add HNSWLIB for fast approximate nearest neighbors
-set(HNSWLIB_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/hnswlib")
-if(EXISTS "${HNSWLIB_INCLUDE_DIR}/hnswlib/hnswlib.h")
-    message(STATUS "HNSWLIB: Found at ${HNSWLIB_INCLUDE_DIR}")
-    set(HAS_HNSWLIB TRUE)
-else()
-    message(STATUS "HNSWLIB: Not found - using brute-force k-NN")
-    set(HAS_HNSWLIB FALSE)
-endif()
+# Dependencies
+target_link_libraries(hypercube_core
+    PUBLIC OpenMP::OpenMP_CXX
+    PRIVATE Threads::Threads
+)
 
-# Add Eigen include directory if available
-if(HAS_EIGEN)
-    target_include_directories(hypercube_core PUBLIC ${EIGEN3_INCLUDE_DIR})
-    target_compile_definitions(hypercube_core PUBLIC HAS_EIGEN=1)
-endif()
-
-# Add HNSWLIB include directory if available
-if(HAS_HNSWLIB)
-    target_include_directories(hypercube_core PUBLIC ${HNSWLIB_INCLUDE_DIR})
+# HNSWLIB integration
+if(TARGET hnswlib)
+    target_link_libraries(hypercube_core PRIVATE hnswlib)
     target_compile_definitions(hypercube_core PUBLIC HAS_HNSWLIB=1)
+else()
+    target_compile_definitions(hypercube_core PUBLIC HAS_HNSWLIB=0)
 endif()
 
-# Fix Windows min/max macro conflicts with HNSWLIB
+# Linear algebra backend
+if(HAS_MKL)
+    target_link_libraries(hypercube_core PUBLIC MKL::MKL)
+    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1 HAS_EIGEN=0)
+elseif(HAS_EIGEN)
+    if(TARGET Eigen3::Eigen)
+        target_link_libraries(hypercube_core PUBLIC Eigen3::Eigen)
+    else()
+        target_include_directories(hypercube_core PUBLIC ${EIGEN3_INCLUDE_DIR})
+    endif()
+    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0 HAS_EIGEN=1)
+else()
+    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0 HAS_EIGEN=0)
+endif()
+
+# SIMD capabilities
+target_compile_definitions(hypercube_core PUBLIC HAS_AVX=$<BOOL:${HAS_AVX}>)
+
+# Platform-specific definitions
 if(WIN32)
     target_compile_definitions(hypercube_core PRIVATE NOMINMAX)
 endif()
-
-# Configure Intel MKL if available
-if(HAS_MKL)
-    target_include_directories(hypercube_core PUBLIC ${MKL_INCLUDE_DIRS})
-    
-    # Add library directories
-    if(MKL_LIBRARY_DIRS)
-        link_directories(${MKL_LIBRARY_DIRS})
-    endif()
-    
-    target_link_libraries(hypercube_core PUBLIC ${MKL_LIBRARIES})
-    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1)
-
-    # Copy Intel OpenMP DLL to output directory on Windows
-    if(WIN32 AND MKL_IOMP5_DLL)
-        add_custom_command(TARGET hypercube_core POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${MKL_IOMP5_DLL}"
-                "$<TARGET_FILE_DIR:hypercube_core>"
-            COMMENT "Copying Intel OpenMP DLL to output directory"
-        )
-    endif()
-else()
-    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0)
-endif()
-
-# Link OpenMP if available (and not using Intel OpenMP already)
-if(HAS_OPENMP AND NOT USE_INTEL_OMP)
-    target_link_libraries(hypercube_core PUBLIC OpenMP::OpenMP_CXX)
-    target_compile_definitions(hypercube_core PUBLIC HAS_OPENMP=1)
-elseif(USE_INTEL_OMP)
-    # Using Intel OpenMP, so we have OpenMP support
-    target_compile_definitions(hypercube_core PUBLIC HAS_OPENMP=1)
-else()
-    target_compile_definitions(hypercube_core PUBLIC HAS_OPENMP=0)
-endif()
-
-# Add AVX compile definition if available
-if(HAS_AVX)
-    target_compile_definitions(hypercube_core PUBLIC HAS_AVX=1)
-else()
-    target_compile_definitions(hypercube_core PUBLIC HAS_AVX=0)
-endif()
-
-# Link to coordinates.cpp
-target_sources(hypercube_core PRIVATE src/core/coordinates.cpp)
-
-target_link_libraries(hypercube_core
-    PRIVATE Threads::Threads
-)
 
 # ============================================================================
 # 2. C API Bridge Library (C++ implementation, C interface)
@@ -956,11 +703,12 @@ if(PostgreSQL_FOUND)
         ${PostgreSQL_INCLUDE_DIRS}
         ${MKL_INCLUDE_DIRS}
     )
-    if(HAS_HNSWLIB)
-        target_include_directories(hypercube_ingest PRIVATE ${HNSWLIB_INCLUDE_DIR})
+    if(TARGET hnswlib)
+        target_link_libraries(hypercube_ingest PRIVATE hnswlib)
+        target_include_directories(hypercube_ingest PRIVATE ${hnswlib_SOURCE_DIR})
         target_compile_definitions(hypercube_ingest PRIVATE HAS_HNSWLIB=1)
     endif()
-    target_link_libraries(hypercube_ingest
+    target_link_libraries(hypercube_ingest PRIVATE
         hypercube_core
         ${PostgreSQL_LIBRARIES}
         Threads::Threads
@@ -978,11 +726,12 @@ if(PostgreSQL_FOUND)
     # Modular safetensor ingester (replaces archived monolith)
     add_executable(ingest_safetensor src/tools/ingest_safetensor_modular.cpp)
     target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    if(HAS_HNSWLIB)
-        target_include_directories(ingest_safetensor PRIVATE ${HNSWLIB_INCLUDE_DIR})
+    if(TARGET hnswlib)
+        target_link_libraries(ingest_safetensor PRIVATE hnswlib)
+        target_include_directories(ingest_safetensor PRIVATE ${hnswlib_SOURCE_DIR})
         target_compile_definitions(ingest_safetensor PRIVATE HAS_HNSWLIB=1)
     endif()
-    target_link_libraries(ingest_safetensor hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
+    target_link_libraries(ingest_safetensor PRIVATE hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
 
     # Fix Windows min/max macro conflicts with HNSWLIB
     if(WIN32)
@@ -1010,7 +759,7 @@ if(PostgreSQL_FOUND)
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${PostgreSQL_INCLUDE_DIRS}
     )
-    target_link_libraries(hypercube_cli
+    target_link_libraries(hypercube_cli PRIVATE
         hypercube_core
         hypercube_ingest
         ${PostgreSQL_LIBRARIES}
@@ -1025,9 +774,10 @@ if(PostgreSQL_FOUND)
         target_compile_definitions(hypercube_cli PRIVATE HAS_EIGEN=1)
         target_include_directories(hypercube_cli PRIVATE ${EIGEN3_INCLUDE_DIR})
     endif()
-    if(HAS_HNSWLIB)
+    if(TARGET hnswlib)
+        target_link_libraries(hypercube_cli PRIVATE hnswlib)
+        target_include_directories(hypercube_cli PRIVATE ${hnswlib_SOURCE_DIR})
         target_compile_definitions(hypercube_cli PRIVATE HAS_HNSWLIB=1)
-        target_include_directories(hypercube_cli PRIVATE ${HNSWLIB_INCLUDE_DIR})
     endif()
 
     # Set output name to just "hypercube" (conflicts with extension on some systems)

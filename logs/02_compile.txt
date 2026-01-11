@@ -1,0 +1,585 @@
+[1/97] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.o
+[2/97] Building C object CMakeFiles/semantic_ops.dir/src/pg/semantic_ops_pg.c.o
+[3/97] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.o
+[4/97] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.o
+[5/97] Building CXX object CMakeFiles/test_cpu_features.dir/tests/test_cpu_features.cpp.o
+[6/97] Building C object CMakeFiles/hypercube_ops.dir/src/pg/hypercube_ops_pg.c.o
+[7/97] Building CXX object CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.o
+[8/97] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.o
+[9/97] Building CXX object CMakeFiles/hypercube_core.dir/src/util/utf8.cpp.o
+[10/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/geometry.cpp.o
+[11/97] Building CXX object CMakeFiles/test_eigen_solver_paths.dir/test_eigen_solver_paths.cpp.o
+[12/97] Building CXX object CMakeFiles/test_clustering.dir/tests/test_clustering.cpp.o
+[13/97] Building CXX object CMakeFiles/hypercube_core.dir/src/core/hilbert.cpp.o
+[14/97] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.o
+[15/97] Building CXX object CMakeFiles/hypercube_core.dir/src/core/atom_calculator.cpp.o
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/atom_calculator.cpp:7:
+In constructor ‘constexpr hypercube::CompositionRecord::CompositionRecord(hypercube::CompositionRecord&&)’,
+    inlined from ‘static hypercube::CompositionRecord hypercube::AtomCalculator::compute_composition(const std::vector<unsigned int>&)’ at /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/atom_calculator.cpp:31:16:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/atom_calculator.hpp:44:8: warning: ‘rec.hypercube::CompositionRecord::depth’ may be used uninitialized [-Wmaybe-uninitialized]
+   44 | struct CompositionRecord {
+      |        ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/atom_calculator.cpp: In static member function ‘static hypercube::CompositionRecord hypercube::AtomCalculator::compute_composition(const std::vector<unsigned int>&)’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/atom_calculator.cpp:28:23: note: ‘rec.hypercube::CompositionRecord::depth’ was declared here
+   28 |     CompositionRecord rec;
+      |                       ^~~
+In constructor ‘constexpr hypercube::CompositionRecord::CompositionRecord(hypercube::CompositionRecord&&)’,
+    inlined from ‘static hypercube::CompositionRecord hypercube::AtomCalculator::compute_composition(const std::vector<unsigned int>&)’ at /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/atom_calculator.cpp:31:16:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/atom_calculator.hpp:44:8: warning: ‘rec.hypercube::CompositionRecord::atom_count’ may be used uninitialized [-Wmaybe-uninitialized]
+   44 | struct CompositionRecord {
+      |        ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/atom_calculator.cpp: In static member function ‘static hypercube::CompositionRecord hypercube::AtomCalculator::compute_composition(const std::vector<unsigned int>&)’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/atom_calculator.cpp:28:23: note: ‘rec.hypercube::CompositionRecord::atom_count’ was declared here
+   28 |     CompositionRecord rec;
+      |                       ^~~
+[16/97] Building CXX object CMakeFiles/hypercube_core.dir/src/core/semantic_ordering.cpp.o
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/semantic_ordering.cpp: In static member function ‘static uint64_t hypercube::SemanticOrdering::compute_semantic_key(uint32_t)’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/semantic_ordering.cpp:80:19: warning: comparison of unsigned expression in ‘>= 0’ is always true [-Wtype-limits]
+   80 |     if (codepoint >= 0x0000 && codepoint <= 0x024F) script_id = 0; // Latin + Extended
+      |         ~~~~~~~~~~^~~~~~~~~
+[17/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.o
+[18/97] Building CXX object CMakeFiles/debug_semantic_order.dir/tests/debug_semantic_order.cpp.o
+[19/97] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.o
+[20/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.o
+[21/97] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.o
+[22/97] Building CXX object CMakeFiles/test_coordinates.dir/tests/test_coordinates.cpp.o
+[23/97] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.o
+[24/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.o
+[25/97] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.o
+[26/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.o
+[27/97] Building CXX object CMakeFiles/test_vocab_parse.dir/tests/test_vocab_parse.cpp.o
+[28/97] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.o
+[29/97] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.o
+[30/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/parallel_cpe.cpp.o
+[31/97] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.o
+[32/97] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_main.cpp.o
+[33/97] Building CXX object CMakeFiles/test_integration.dir/tests/test_integration.cpp.o
+[34/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.o
+[35/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/projection_db.cpp.o
+[36/97] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.o
+[37/97] Linking CXX executable vocab_extract
+[38/97] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.o
+[39/97] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.o
+[40/97] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_main.cpp.o
+[41/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.o
+[42/97] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_coordinates.cpp.o
+[43/97] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_hilbert.cpp.o
+[44/97] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_blake3.cpp.o
+[45/97] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.o
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp: In function ‘uint64_t hypercube::get_semantic_key(uint32_t)’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/coordinates.cpp:561:12: warning: comparison of unsigned expression in ‘>= 0’ is always true [-Wtype-limits]
+  561 |     if (cp >= 0x0000 && cp <= 0x024F) script_id = 0; // Latin + Extended
+      |         ~~~^~~~~~~~~
+[46/97] Linking CXX executable vocab_ingest
+[47/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.o
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/ingest/db_operations.hpp:50,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_io.cpp:9:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+[48/97] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.o
+[49/97] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_schema.cpp.o
+[50/97] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_backend.cpp.o
+[51/97] Building CXX object CMakeFiles/hypercube_tests.dir/tests/gtest/test_laplacian.cpp.o
+[52/97] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.o
+[53/97] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_functions.cpp.o
+[54/97] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.o
+[55/97] Building CXX object CMakeFiles/hypercube_sql_tests.dir/tests/gtest/test_sql_query_api.cpp.o
+[56/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.o
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/ingest/db_operations.hpp:50,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/compositions.cpp:9:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+[57/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.o
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/ingest/db_operations.hpp:50,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/tensor_hierarchy.cpp:9:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+[58/97] Linking CXX executable model_discovery
+[59/97] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.o
+[60/97] Building CXX object CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.o
+FAILED: CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.o 
+/usr/bin/c++ -DHAS_AVX=1 -DHAS_EIGEN=0 -DHAS_HNSWLIB=1 -DHAS_MKL=1 -I/usr/include/postgresql -I/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src -I/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include -isystem /opt/intel/oneapi/mkl/2025.3/include -O3 -DNDEBUG -ffast-math -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare -march=native -std=c++23 -fPIE -fopenmp -DMKL_ILP64 -m64 -MD -MT CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.o -MF CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.o.d -o CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.o -c /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/tools/ingest_safetensor_modular.cpp
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/tools/ingest_safetensor_modular.cpp:69:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:37:13: error: redefinition of ‘void cpuid(int32_t*, int32_t, int32_t)’
+   37 | static void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
+      |             ^~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/ingest/db_operations.hpp:50,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/tools/ingest_safetensor_modular.cpp:66:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:37:13: note: ‘void cpuid(int32_t*, int32_t, int32_t)’ previously defined here
+   37 | static void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
+      |             ^~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:40:17: error: redefinition of ‘uint64_t xgetbv(unsigned int)’
+   40 | static uint64_t xgetbv(unsigned int index) {
+      |                 ^~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:40:17: note: ‘uint64_t xgetbv(unsigned int)’ previously defined here
+   40 | static uint64_t xgetbv(unsigned int index) {
+      |                 ^~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:62:13: error: redefinition of ‘bool AVXCapable()’
+   62 | static bool AVXCapable() {
+      |             ^~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:62:13: note: ‘bool AVXCapable()’ previously defined here
+   62 | static bool AVXCapable() {
+      |             ^~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:89:13: error: redefinition of ‘bool AVX512Capable()’
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: note: ‘bool AVX512Capable()’ previously defined here
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:128:7: error: redefinition of ‘class hnswlib::BaseFilterFunctor’
+  128 | class BaseFilterFunctor {
+      |       ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:128:7: note: previous definition of ‘class hnswlib::BaseFilterFunctor’
+  128 | class BaseFilterFunctor {
+      |       ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:135:7: error: redefinition of ‘class hnswlib::BaseSearchStopCondition<dist_t>’
+  135 | class BaseSearchStopCondition {
+      |       ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:135:7: note: previous definition of ‘class hnswlib::BaseSearchStopCondition<dist_t>’
+  135 | class BaseSearchStopCondition {
+      |       ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:153:7: error: redefinition of ‘class hnswlib::pairGreater<T>’
+  153 | class pairGreater {
+      |       ^~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:153:7: note: previous definition of ‘class hnswlib::pairGreater<T>’
+  153 | class pairGreater {
+      |       ^~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:161:13: error: redefinition of ‘template<class T> void hnswlib::writeBinaryPOD(std::ostream&, const T&)’
+  161 | static void writeBinaryPOD(std::ostream &out, const T &podRef) {
+      |             ^~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:161:13: note: ‘template<class T> void hnswlib::writeBinaryPOD(std::ostream&, const T&)’ previously declared here
+  161 | static void writeBinaryPOD(std::ostream &out, const T &podRef) {
+      |             ^~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:166:13: error: redefinition of ‘template<class T> void hnswlib::readBinaryPOD(std::istream&, T&)’
+  166 | static void readBinaryPOD(std::istream &in, T &podRef) {
+      |             ^~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:166:13: note: ‘template<class T> void hnswlib::readBinaryPOD(std::istream&, T&)’ previously declared here
+  166 | static void readBinaryPOD(std::istream &in, T &podRef) {
+      |             ^~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:174:7: error: redefinition of ‘class hnswlib::SpaceInterface<MTYPE>’
+  174 | class SpaceInterface {
+      |       ^~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:174:7: note: previous definition of ‘class hnswlib::SpaceInterface<MTYPE>’
+  174 | class SpaceInterface {
+      |       ^~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:187:7: error: redefinition of ‘class hnswlib::AlgorithmInterface<dist_t>’
+  187 | class AlgorithmInterface {
+      |       ^~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:187:7: note: previous definition of ‘class hnswlib::AlgorithmInterface<dist_t>’
+  187 | class AlgorithmInterface {
+      |       ^~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:205:1: error: redefinition of ‘std::vector<std::pair<dist_t, long unsigned int> > hnswlib::AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void*, size_t, hnswlib::BaseFilterFunctor*) const’
+  205 | AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void* query_data, size_t k,
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:205:1: note: ‘virtual std::vector<std::pair<dist_t, long unsigned int> > hnswlib::AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void*, size_t, hnswlib::BaseFilterFunctor*) const’ previously declared here
+  205 | AlgorithmInterface<dist_t>::searchKnnCloserFirst(const void* query_data, size_t k,
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:224:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:7:1: error: redefinition of ‘float hnswlib::L2Sqr(const void*, const void*, const void*)’
+    7 | L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:224:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:7:1: note: ‘float hnswlib::L2Sqr(const void*, const void*, const void*)’ previously defined here
+    7 | L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:61:1: error: redefinition of ‘float hnswlib::L2SqrSIMD16ExtAVX(const void*, const void*, const void*)’
+   61 | L2SqrSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:61:1: note: ‘float hnswlib::L2SqrSIMD16ExtAVX(const void*, const void*, const void*)’ previously defined here
+   61 | L2SqrSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:98:1: error: redefinition of ‘float hnswlib::L2SqrSIMD16ExtSSE(const void*, const void*, const void*)’
+   98 | L2SqrSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:98:1: note: ‘float hnswlib::L2SqrSIMD16ExtSSE(const void*, const void*, const void*)’ previously defined here
+   98 | L2SqrSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:147:24: error: redefinition of ‘float (* hnswlib::L2SqrSIMD16Ext)(const void*, const void*, const void*)’
+  147 | static DISTFUNC<float> L2SqrSIMD16Ext = L2SqrSIMD16ExtSSE;
+      |                        ^~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:147:24: note: ‘float (* hnswlib::L2SqrSIMD16Ext)(const void*, const void*, const void*)’ previously defined here
+  147 | static DISTFUNC<float> L2SqrSIMD16Ext = L2SqrSIMD16ExtSSE;
+      |                        ^~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:150:1: error: redefinition of ‘float hnswlib::L2SqrSIMD16ExtResiduals(const void*, const void*, const void*)’
+  150 | L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:150:1: note: ‘float hnswlib::L2SqrSIMD16ExtResiduals(const void*, const void*, const void*)’ previously defined here
+  150 | L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:166:1: error: redefinition of ‘float hnswlib::L2SqrSIMD4Ext(const void*, const void*, const void*)’
+  166 | L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:166:1: note: ‘float hnswlib::L2SqrSIMD4Ext(const void*, const void*, const void*)’ previously defined here
+  166 | L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:193:1: error: redefinition of ‘float hnswlib::L2SqrSIMD4ExtResiduals(const void*, const void*, const void*)’
+  193 | L2SqrSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:193:1: note: ‘float hnswlib::L2SqrSIMD4ExtResiduals(const void*, const void*, const void*)’ previously defined here
+  193 | L2SqrSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:208:7: error: redefinition of ‘class hnswlib::L2Space’
+  208 | class L2Space : public SpaceInterface<float> {
+      |       ^~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:208:7: note: previous definition of ‘class hnswlib::L2Space’
+  208 | class L2Space : public SpaceInterface<float> {
+      |       ^~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:256:1: error: redefinition of ‘int hnswlib::L2SqrI4x(const void*, const void*, const void*)’
+  256 | L2SqrI4x(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
+      | ^~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:256:1: note: ‘int hnswlib::L2SqrI4x(const void*, const void*, const void*)’ previously defined here
+  256 | L2SqrI4x(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
+      | ^~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:280:12: error: redefinition of ‘int hnswlib::L2SqrI(const void*, const void*, const void*)’
+  280 | static int L2SqrI(const void* __restrict pVect1, const void* __restrict pVect2, const void* __restrict qty_ptr) {
+      |            ^~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:280:12: note: ‘int hnswlib::L2SqrI(const void*, const void*, const void*)’ previously defined here
+  280 | static int L2SqrI(const void* __restrict pVect1, const void* __restrict pVect2, const void* __restrict qty_ptr) {
+      |            ^~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:294:7: error: redefinition of ‘class hnswlib::L2SpaceI’
+  294 | class L2SpaceI : public SpaceInterface<int> {
+      |       ^~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_l2.h:294:7: note: previous definition of ‘class hnswlib::L2SpaceI’
+  294 | class L2SpaceI : public SpaceInterface<int> {
+      |       ^~~~~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:225:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:7:1: error: redefinition of ‘float hnswlib::InnerProduct(const void*, const void*, const void*)’
+    7 | InnerProduct(const void *pVect1, const void *pVect2, const void *qty_ptr) {
+      | ^~~~~~~~~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:225:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:7:1: note: ‘float hnswlib::InnerProduct(const void*, const void*, const void*)’ previously defined here
+    7 | InnerProduct(const void *pVect1, const void *pVect2, const void *qty_ptr) {
+      | ^~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:17:1: error: redefinition of ‘float hnswlib::InnerProductDistance(const void*, const void*, const void*)’
+   17 | InnerProductDistance(const void *pVect1, const void *pVect2, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:17:1: note: ‘float hnswlib::InnerProductDistance(const void*, const void*, const void*)’ previously defined here
+   17 | InnerProductDistance(const void *pVect1, const void *pVect2, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:25:1: error: redefinition of ‘float hnswlib::InnerProductSIMD4ExtAVX(const void*, const void*, const void*)’
+   25 | InnerProductSIMD4ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:25:1: note: ‘float hnswlib::InnerProductSIMD4ExtAVX(const void*, const void*, const void*)’ previously defined here
+   25 | InnerProductSIMD4ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:72:1: error: redefinition of ‘float hnswlib::InnerProductDistanceSIMD4ExtAVX(const void*, const void*, const void*)’
+   72 | InnerProductDistanceSIMD4ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:72:1: note: ‘float hnswlib::InnerProductDistanceSIMD4ExtAVX(const void*, const void*, const void*)’ previously defined here
+   72 | InnerProductDistanceSIMD4ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:81:1: error: redefinition of ‘float hnswlib::InnerProductSIMD4ExtSSE(const void*, const void*, const void*)’
+   81 | InnerProductSIMD4ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:81:1: note: ‘float hnswlib::InnerProductSIMD4ExtSSE(const void*, const void*, const void*)’ previously defined here
+   81 | InnerProductSIMD4ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:137:1: error: redefinition of ‘float hnswlib::InnerProductDistanceSIMD4ExtSSE(const void*, const void*, const void*)’
+  137 | InnerProductDistanceSIMD4ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:137:1: note: ‘float hnswlib::InnerProductDistanceSIMD4ExtSSE(const void*, const void*, const void*)’ previously defined here
+  137 | InnerProductDistanceSIMD4ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:211:1: error: redefinition of ‘float hnswlib::InnerProductSIMD16ExtAVX(const void*, const void*, const void*)’
+  211 | InnerProductSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:211:1: note: ‘float hnswlib::InnerProductSIMD16ExtAVX(const void*, const void*, const void*)’ previously defined here
+  211 | InnerProductSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:247:1: error: redefinition of ‘float hnswlib::InnerProductDistanceSIMD16ExtAVX(const void*, const void*, const void*)’
+  247 | InnerProductDistanceSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:247:1: note: ‘float hnswlib::InnerProductDistanceSIMD16ExtAVX(const void*, const void*, const void*)’ previously defined here
+  247 | InnerProductDistanceSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:256:1: error: redefinition of ‘float hnswlib::InnerProductSIMD16ExtSSE(const void*, const void*, const void*)’
+  256 | InnerProductSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:256:1: note: ‘float hnswlib::InnerProductSIMD16ExtSSE(const void*, const void*, const void*)’ previously defined here
+  256 | InnerProductSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:301:1: error: redefinition of ‘float hnswlib::InnerProductDistanceSIMD16ExtSSE(const void*, const void*, const void*)’
+  301 | InnerProductDistanceSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:301:1: note: ‘float hnswlib::InnerProductDistanceSIMD16ExtSSE(const void*, const void*, const void*)’ previously defined here
+  301 | InnerProductDistanceSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:308:24: error: redefinition of ‘float (* hnswlib::InnerProductSIMD16Ext)(const void*, const void*, const void*)’
+  308 | static DISTFUNC<float> InnerProductSIMD16Ext = InnerProductSIMD16ExtSSE;
+      |                        ^~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:308:24: note: ‘float (* hnswlib::InnerProductSIMD16Ext)(const void*, const void*, const void*)’ previously defined here
+  308 | static DISTFUNC<float> InnerProductSIMD16Ext = InnerProductSIMD16ExtSSE;
+      |                        ^~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:309:24: error: redefinition of ‘float (* hnswlib::InnerProductSIMD4Ext)(const void*, const void*, const void*)’
+  309 | static DISTFUNC<float> InnerProductSIMD4Ext = InnerProductSIMD4ExtSSE;
+      |                        ^~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:309:24: note: ‘float (* hnswlib::InnerProductSIMD4Ext)(const void*, const void*, const void*)’ previously defined here
+  309 | static DISTFUNC<float> InnerProductSIMD4Ext = InnerProductSIMD4ExtSSE;
+      |                        ^~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:310:24: error: redefinition of ‘float (* hnswlib::InnerProductDistanceSIMD16Ext)(const void*, const void*, const void*)’
+  310 | static DISTFUNC<float> InnerProductDistanceSIMD16Ext = InnerProductDistanceSIMD16ExtSSE;
+      |                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:310:24: note: ‘float (* hnswlib::InnerProductDistanceSIMD16Ext)(const void*, const void*, const void*)’ previously defined here
+  310 | static DISTFUNC<float> InnerProductDistanceSIMD16Ext = InnerProductDistanceSIMD16ExtSSE;
+      |                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:311:24: error: redefinition of ‘float (* hnswlib::InnerProductDistanceSIMD4Ext)(const void*, const void*, const void*)’
+  311 | static DISTFUNC<float> InnerProductDistanceSIMD4Ext = InnerProductDistanceSIMD4ExtSSE;
+      |                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:311:24: note: ‘float (* hnswlib::InnerProductDistanceSIMD4Ext)(const void*, const void*, const void*)’ previously defined here
+  311 | static DISTFUNC<float> InnerProductDistanceSIMD4Ext = InnerProductDistanceSIMD4ExtSSE;
+      |                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:314:1: error: redefinition of ‘float hnswlib::InnerProductDistanceSIMD16ExtResiduals(const void*, const void*, const void*)’
+  314 | InnerProductDistanceSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:314:1: note: ‘float hnswlib::InnerProductDistanceSIMD16ExtResiduals(const void*, const void*, const void*)’ previously defined here
+  314 | InnerProductDistanceSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:327:1: error: redefinition of ‘float hnswlib::InnerProductDistanceSIMD4ExtResiduals(const void*, const void*, const void*)’
+  327 | InnerProductDistanceSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:327:1: note: ‘float hnswlib::InnerProductDistanceSIMD4ExtResiduals(const void*, const void*, const void*)’ previously defined here
+  327 | InnerProductDistanceSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:342:7: error: redefinition of ‘class hnswlib::InnerProductSpace’
+  342 | class InnerProductSpace : public SpaceInterface<float> {
+      |       ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/space_ip.h:342:7: note: previous definition of ‘class hnswlib::InnerProductSpace’
+  342 | class InnerProductSpace : public SpaceInterface<float> {
+      |       ^~~~~~~~~~~~~~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:226:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/stop_condition.h:10:7: error: redefinition of ‘class hnswlib::BaseMultiVectorSpace<DOCIDTYPE>’
+   10 | class BaseMultiVectorSpace : public SpaceInterface<float> {
+      |       ^~~~~~~~~~~~~~~~~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:226:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/stop_condition.h:10:7: note: previous definition of ‘class hnswlib::BaseMultiVectorSpace<DOCIDTYPE>’
+   10 | class BaseMultiVectorSpace : public SpaceInterface<float> {
+      |       ^~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/stop_condition.h:19:7: error: redefinition of ‘class hnswlib::MultiVectorL2Space<DOCIDTYPE>’
+   19 | class MultiVectorL2Space : public BaseMultiVectorSpace<DOCIDTYPE> {
+      |       ^~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/stop_condition.h:19:7: note: previous definition of ‘class hnswlib::MultiVectorL2Space<DOCIDTYPE>’
+   19 | class MultiVectorL2Space : public BaseMultiVectorSpace<DOCIDTYPE> {
+      |       ^~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/stop_condition.h:78:7: error: redefinition of ‘class hnswlib::MultiVectorInnerProductSpace<DOCIDTYPE>’
+   78 | class MultiVectorInnerProductSpace : public BaseMultiVectorSpace<DOCIDTYPE> {
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/stop_condition.h:78:7: note: previous definition of ‘class hnswlib::MultiVectorInnerProductSpace<DOCIDTYPE>’
+   78 | class MultiVectorInnerProductSpace : public BaseMultiVectorSpace<DOCIDTYPE> {
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/stop_condition.h:147:7: error: redefinition of ‘class hnswlib::MultiVectorSearchStopCondition<DOCIDTYPE, dist_t>’
+  147 | class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/stop_condition.h:147:7: note: previous definition of ‘class hnswlib::MultiVectorSearchStopCondition<DOCIDTYPE, dist_t>’
+  147 | class MultiVectorSearchStopCondition : public BaseSearchStopCondition<dist_t> {
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/stop_condition.h:219:7: error: redefinition of ‘class hnswlib::EpsilonSearchStopCondition<dist_t>’
+  219 | class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/stop_condition.h:219:7: note: previous definition of ‘class hnswlib::EpsilonSearchStopCondition<dist_t>’
+  219 | class EpsilonSearchStopCondition : public BaseSearchStopCondition<dist_t> {
+      |       ^~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:227:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/bruteforce.h:10:7: error: redefinition of ‘class hnswlib::BruteforceSearch<dist_t>’
+   10 | class BruteforceSearch : public AlgorithmInterface<dist_t> {
+      |       ^~~~~~~~~~~~~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:227:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/bruteforce.h:10:7: note: previous definition of ‘class hnswlib::BruteforceSearch<dist_t>’
+   10 | class BruteforceSearch : public AlgorithmInterface<dist_t> {
+      |       ^~~~~~~~~~~~~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswalg.h:3,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:228:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/visited_list_pool.h:10:7: error: redefinition of ‘class hnswlib::VisitedList’
+   10 | class VisitedList {
+      |       ^~~~~~~~~~~
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:3,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:228:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/visited_list_pool.h:10:7: note: previous definition of ‘class hnswlib::VisitedList’
+   10 | class VisitedList {
+      |       ^~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/visited_list_pool.h:38:7: error: redefinition of ‘class hnswlib::VisitedListPool’
+   38 | class VisitedListPool {
+      |       ^~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/visited_list_pool.h:38:7: note: previous definition of ‘class hnswlib::VisitedListPool’
+   38 | class VisitedListPool {
+      |       ^~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswalg.h:18:7: error: redefinition of ‘class hnswlib::HierarchicalNSW<dist_t>’
+   18 | class HierarchicalNSW : public AlgorithmInterface<dist_t> {
+      |       ^~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:18:7: note: previous definition of ‘class hnswlib::HierarchicalNSW<dist_t>’
+   18 | class HierarchicalNSW : public AlgorithmInterface<dist_t> {
+      |       ^~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:327:1: warning: ‘float hnswlib::InnerProductDistanceSIMD4ExtResiduals(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  327 | InnerProductDistanceSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:314:1: warning: ‘float hnswlib::InnerProductDistanceSIMD16ExtResiduals(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  314 | InnerProductDistanceSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:301:1: warning: ‘float hnswlib::InnerProductDistanceSIMD16ExtSSE(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  301 | InnerProductDistanceSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:256:1: warning: ‘float hnswlib::InnerProductSIMD16ExtSSE(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  256 | InnerProductSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:247:1: warning: ‘float hnswlib::InnerProductDistanceSIMD16ExtAVX(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  247 | InnerProductDistanceSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:211:1: warning: ‘float hnswlib::InnerProductSIMD16ExtAVX(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  211 | InnerProductSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:137:1: warning: ‘float hnswlib::InnerProductDistanceSIMD4ExtSSE(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  137 | InnerProductDistanceSIMD4ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:81:1: warning: ‘float hnswlib::InnerProductSIMD4ExtSSE(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+   81 | InnerProductSIMD4ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:72:1: warning: ‘float hnswlib::InnerProductDistanceSIMD4ExtAVX(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+   72 | InnerProductDistanceSIMD4ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:25:1: warning: ‘float hnswlib::InnerProductSIMD4ExtAVX(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+   25 | InnerProductSIMD4ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:17:1: warning: ‘float hnswlib::InnerProductDistance(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+   17 | InnerProductDistance(const void *pVect1, const void *pVect2, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_ip.h:7:1: warning: ‘float hnswlib::InnerProduct(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+    7 | InnerProduct(const void *pVect1, const void *pVect2, const void *qty_ptr) {
+      | ^~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:280:12: warning: ‘int hnswlib::L2SqrI(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  280 | static int L2SqrI(const void* __restrict pVect1, const void* __restrict pVect2, const void* __restrict qty_ptr) {
+      |            ^~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:256:1: warning: ‘int hnswlib::L2SqrI4x(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  256 | L2SqrI4x(const void *__restrict pVect1, const void *__restrict pVect2, const void *__restrict qty_ptr) {
+      | ^~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:193:1: warning: ‘float hnswlib::L2SqrSIMD4ExtResiduals(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  193 | L2SqrSIMD4ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:166:1: warning: ‘float hnswlib::L2SqrSIMD4Ext(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  166 | L2SqrSIMD4Ext(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:150:1: warning: ‘float hnswlib::L2SqrSIMD16ExtResiduals(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+  150 | L2SqrSIMD16ExtResiduals(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:98:1: warning: ‘float hnswlib::L2SqrSIMD16ExtSSE(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+   98 | L2SqrSIMD16ExtSSE(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:61:1: warning: ‘float hnswlib::L2SqrSIMD16ExtAVX(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+   61 | L2SqrSIMD16ExtAVX(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/space_l2.h:7:1: warning: ‘float hnswlib::L2Sqr(const void*, const void*, const void*)’ defined but not used [-Wunused-function]
+    7 | L2Sqr(const void *pVect1v, const void *pVect2v, const void *qty_ptr) {
+      | ^~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:62:13: warning: ‘bool AVXCapable()’ defined but not used [-Wunused-function]
+   62 | static bool AVXCapable() {
+      |             ^~~~~~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:40:17: warning: ‘uint64_t xgetbv(unsigned int)’ defined but not used [-Wunused-function]
+   40 | static uint64_t xgetbv(unsigned int index) {
+      |                 ^~~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hnswlib/hnswlib/hnswlib.h:37:13: warning: ‘void cpuid(int32_t*, int32_t, int32_t)’ defined but not used [-Wunused-function]
+   37 | static void cpuid(int32_t cpuInfo[4], int32_t eax, int32_t ecx) {
+      |             ^~~~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+[61/97] Building CXX object CMakeFiles/test_int8_quantization.dir/tests/test_int8_quantization.cpp.o
+[62/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.o
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:228,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/ingest/db_operations.hpp:50,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/embedding_relations.cpp:11:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h: In instantiation of ‘std::priority_queue<std::pair<dist_t, long unsigned int> > hnswlib::HierarchicalNSW<dist_t>::searchKnn(const void*, size_t, hnswlib::BaseFilterFunctor*) const [with dist_t = float; typename std::vector<std::pair<dist_t, long unsigned int> >::value_type = std::pair<float, long unsigned int>; size_t = long unsigned int]’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/embedding_relations.cpp:203:45:   required from here
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:1292:30: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+ 1292 |                     if (cand < 0 || cand > max_elements_)
+      |                         ~~~~~^~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h: In instantiation of ‘hnswlib::tableint hnswlib::HierarchicalNSW<dist_t>::addPoint(const void*, hnswlib::labeltype, int) [with dist_t = float; hnswlib::tableint = unsigned int; hnswlib::labeltype = long unsigned int]’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:962:21:   required from ‘void hnswlib::HierarchicalNSW<dist_t>::addPoint(const void*, hnswlib::labeltype, bool) [with dist_t = float; hnswlib::labeltype = long unsigned int]’
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/embedding_relations.cpp:187:30:   required from here
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:1228:38: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+ 1228 |                             if (cand < 0 || cand > max_elements_)
+      |                                 ~~~~~^~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+[63/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.o
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:228,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/ingest/db_operations.hpp:50,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/multimodal_extraction.cpp:15:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h: In instantiation of ‘std::priority_queue<std::pair<dist_t, long unsigned int> > hnswlib::HierarchicalNSW<dist_t>::searchKnn(const void*, size_t, hnswlib::BaseFilterFunctor*) const [with dist_t = float; typename std::vector<std::pair<dist_t, long unsigned int> >::value_type = std::pair<float, long unsigned int>; size_t = long unsigned int]’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/multimodal_extraction.cpp:284:95:   required from here
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:1292:30: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+ 1292 |                     if (cand < 0 || cand > max_elements_)
+      |                         ~~~~~^~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h: In instantiation of ‘hnswlib::tableint hnswlib::HierarchicalNSW<dist_t>::addPoint(const void*, hnswlib::labeltype, int) [with dist_t = float; hnswlib::tableint = unsigned int; hnswlib::labeltype = long unsigned int]’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:962:21:   required from ‘void hnswlib::HierarchicalNSW<dist_t>::addPoint(const void*, hnswlib::labeltype, bool) [with dist_t = float; hnswlib::labeltype = long unsigned int]’
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/multimodal_extraction.cpp:577:28:   required from here
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:1228:38: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+ 1228 |                             if (cand < 0 || cand > max_elements_)
+      |                                 ~~~~~^~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+[64/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.o
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:228,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/ingest/db_operations.hpp:50,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:14:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h: In instantiation of ‘std::priority_queue<std::pair<dist_t, long unsigned int> > hnswlib::HierarchicalNSW<dist_t>::searchKnn(const void*, size_t, hnswlib::BaseFilterFunctor*) const [with dist_t = float; typename std::vector<std::pair<dist_t, long unsigned int> >::value_type = std::pair<float, long unsigned int>; size_t = long unsigned int]’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:289:40:   required from here
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:1292:30: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+ 1292 |                     if (cand < 0 || cand > max_elements_)
+      |                         ~~~~~^~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h: In instantiation of ‘hnswlib::tableint hnswlib::HierarchicalNSW<dist_t>::addPoint(const void*, hnswlib::labeltype, int) [with dist_t = float; hnswlib::tableint = unsigned int; hnswlib::labeltype = long unsigned int]’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:962:21:   required from ‘void hnswlib::HierarchicalNSW<dist_t>::addPoint(const void*, hnswlib::labeltype, bool) [with dist_t = float; hnswlib::labeltype = long unsigned int]’
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/attention_relations.cpp:250:25:   required from here
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:1228:38: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+ 1228 |                             if (cand < 0 || cand > max_elements_)
+      |                                 ~~~~~^~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+[65/97] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.o
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:228,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:59:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h: In instantiation of ‘std::priority_queue<std::pair<dist_t, long unsigned int> > hnswlib::HierarchicalNSW<dist_t>::searchKnn(const void*, size_t, hnswlib::BaseFilterFunctor*) const [with dist_t = float; typename std::vector<std::pair<dist_t, long unsigned int> >::value_type = std::pair<float, long unsigned int>; size_t = long unsigned int]’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:599:56:   required from here
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:1292:30: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+ 1292 |                     if (cand < 0 || cand > max_elements_)
+      |                         ~~~~~^~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h: In instantiation of ‘hnswlib::tableint hnswlib::HierarchicalNSW<dist_t>::addPoint(const void*, hnswlib::labeltype, int) [with dist_t = float; hnswlib::tableint = unsigned int; hnswlib::labeltype = long unsigned int]’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:962:21:   required from ‘void hnswlib::HierarchicalNSW<dist_t>::addPoint(const void*, hnswlib::labeltype, bool) [with dist_t = float; hnswlib::labeltype = long unsigned int]’
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/core/laplacian_4d.cpp:520:41:   required from here
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:1228:38: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+ 1228 |                             if (cand < 0 || cand > max_elements_)
+      |                                 ~~~~~^~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+[66/97] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/semantic_extraction.cpp.o
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:228,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/ingest/db_operations.hpp:50,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/semantic_extraction.cpp:14:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h: In instantiation of ‘std::priority_queue<std::pair<dist_t, long unsigned int> > hnswlib::HierarchicalNSW<dist_t>::searchKnn(const void*, size_t, hnswlib::BaseFilterFunctor*) const [with dist_t = float; typename std::vector<std::pair<dist_t, long unsigned int> >::value_type = std::pair<float, long unsigned int>; size_t = long unsigned int]’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/semantic_extraction.cpp:360:40:   required from here
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:1292:30: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+ 1292 |                     if (cand < 0 || cand > max_elements_)
+      |                         ~~~~~^~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h: In instantiation of ‘hnswlib::tableint hnswlib::HierarchicalNSW<dist_t>::addPoint(const void*, hnswlib::labeltype, int) [with dist_t = float; hnswlib::tableint = unsigned int; hnswlib::labeltype = long unsigned int]’:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:962:21:   required from ‘void hnswlib::HierarchicalNSW<dist_t>::addPoint(const void*, hnswlib::labeltype, bool) [with dist_t = float; hnswlib::labeltype = long unsigned int]’
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/ingest/semantic_extraction.cpp:329:21:   required from here
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswalg.h:1228:38: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+ 1228 |                             if (cand < 0 || cand > max_elements_)
+      |                                 ~~~~~^~~
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+[67/97] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.o
+In file included from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/include/hypercube/ingest/db_operations.hpp:50,
+                 from /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/src/cli/main.cpp:39:
+/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build/_deps/hnswlib-src/hnswlib/hnswlib.h:89:13: warning: ‘bool AVX512Capable()’ defined but not used [-Wunused-function]
+   89 | static bool AVX512Capable() {
+      |             ^~~~~~~~~~~~~
+ninja: build stopped: subcommand failed.

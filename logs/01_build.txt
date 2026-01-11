@@ -1,0 +1,55 @@
+-- The CXX compiler identification is GNU 13.3.0
+-- The C compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Found OpenMP_C: -fopenmp (found version "4.5")
+-- Found OpenMP_CXX: -fopenmp (found version "4.5")
+-- Found OpenMP: TRUE (found version "4.5")
+-- OpenMP: Found (version 4.5)
+-- Intel MKL: Found - using optimized BLAS operations
+-- Performing Test COMPILER_SUPPORTS_MARCH_NATIVE
+-- Performing Test COMPILER_SUPPORTS_MARCH_NATIVE - Success
+-- SIMD: Native architecture optimizations enabled
+-- Compiler: GNU 13.3.0
+-- Build type: Release
+-- C++ standard: 23
+-- SIMD support: ON
+-- PostgreSQL: PostgreSQL 18.1 (Ubuntu 18.1-1.pgdg24.04+2)
+-- PostgreSQL server includes: /usr/include/postgresql/18/server
+-- PostgreSQL pkglibdir: /usr/lib/postgresql/18/lib
+-- Found PostgreSQL client library: /usr/lib/x86_64-linux-gnu/libpq.so
+-- seed_atoms_parallel will be built
+-- Found Google Test: 
+-- Runtime Environment Setup for AVX Optimization:
+--   Set these in your ~/.bashrc or runtime environment:
+--   export OMP_PROC_BIND=true
+--   export OMP_PLACES=cores
+--   export MKL_DEBUG_CPU_TYPE=5  # Force AVX2 code path
+-- 
+--   This ensures optimal thread scheduling and MKL path selection.
+-- 
+-- 
+-- === Hypercube Build Configuration ===
+-- Build type: Release
+-- C++ compiler: GNU 13.3.0
+-- C compiler: GNU 13.3.0
+-- PostgreSQL extension: ON
+-- PostgreSQL tools: ON
+-- Intel MKL: ON
+-- k-NN: Brute-force
+-- Tests: ON (Google Test)
+-- 
+-- Configuring done (38.3s)
+-- Generating done (0.7s)
+-- Build files have been written to: /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
