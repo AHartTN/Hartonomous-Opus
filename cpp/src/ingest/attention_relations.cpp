@@ -60,20 +60,8 @@ static constexpr float MIN_SIMILARITY = 0.5f;
 static constexpr bool ENABLE_HNSW_CACHE = true;
 
 // ============================================================================
-// HNSW CACHE HELPERS
+// HNSW CACHE HELPERS (DISABLED - HNSWLib not available)
 // ============================================================================
-
-static std::string get_cache_path(const std::string& model_name, size_t n, size_t dim) {
-    // Create a unique cache key from model name, vector count, and dimension
-    std::hash<std::string> hasher;
-    size_t h = hasher(model_name) ^ (n * 31) ^ (dim * 17);
-    
-    // Use system temp directory
-    std::filesystem::path cache_dir = std::filesystem::temp_directory_path() / "hypercube_hnsw_cache";
-    std::filesystem::create_directories(cache_dir);
-    
-    return (cache_dir / (std::to_string(h) + ".hnsw")).string();
-}
 
 static bool extract_merge_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
 static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config);
@@ -216,8 +204,10 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
     std::vector<std::vector<std::tuple<size_t, size_t, float>>> thread_edges(num_threads);
     
 #ifdef HAS_HNSWLIB
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
     auto hnsw_start = std::chrono::steady_clock::now();
-    
+
     // Use inner product space (normalized vectors = cosine similarity)
     hnswlib::InnerProductSpace space(static_cast<size_t>(embed_dim));
     

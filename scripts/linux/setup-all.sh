@@ -46,9 +46,7 @@ done
 START_TIME=$(date +%s)
 
 echo ""
-echo "╔══════════════════════════════════════════════════════════════════╗"
-echo "║       HARTONOMOUS HYPERCUBE - FULL SETUP PIPELINE                ║"
-echo "╚══════════════════════════════════════════════════════════════════╝"
+echo "Hartonomous Hypercube - Full Setup Pipeline"
 echo ""
 echo "  Database: $HC_DB_NAME @ $HC_DB_HOST:$HC_DB_PORT"
 echo "  Project:  $HC_PROJECT_ROOT"
@@ -58,45 +56,37 @@ echo ""
 # STEP 1: CLEAN
 # ============================================================================
 if [ "$SKIP_CLEAN" = false ]; then
-    echo "┌──────────────────────────────────────────────────────────────────┐"
-    echo "│ STEP 1/5: CLEANING BUILD ARTIFACTS                               │"
-    echo "└──────────────────────────────────────────────────────────────────┘"
-    
+    echo "Step 1/5: Cleaning Build Artifacts"
+
     "$SCRIPT_DIR/clean.sh"
     echo ""
 else
-    echo "── Skipping clean (--skip-clean) ──"
+    echo "Skipping clean (--skip-clean)"
 fi
 
 # ============================================================================
 # STEP 2: BUILD
 # ============================================================================
 if [ "$SKIP_BUILD" = false ]; then
-    echo "┌──────────────────────────────────────────────────────────────────┐"
-    echo "│ STEP 2/5: BUILDING C/C++ COMPONENTS                              │"
-    echo "└──────────────────────────────────────────────────────────────────┘"
-    
+    echo "Step 2/5: Building C/C++ Components"
+
     "$SCRIPT_DIR/build.sh"
     echo ""
 else
-    echo "── Skipping build (--skip-build) ──"
+    echo "Skipping build (--skip-build)"
 fi
 
 # ============================================================================
 # STEP 3: DATABASE SETUP (idempotent unless --reset specified)
 # ============================================================================
 if [ "$RESET" = true ]; then
-    echo "┌──────────────────────────────────────────────────────────────────┐"
-    echo "│ STEP 3/5: DATABASE SETUP (GREENFIELD - DESTRUCTIVE)              │"
-    echo "└──────────────────────────────────────────────────────────────────┘"
+    echo "Step 3/5: Database Setup (Greenfield - Destructive)"
     echo ""
     echo "!!! --reset flag specified. Database will be dropped and recreated !!!"
     echo ""
     "$SCRIPT_DIR/setup-db.sh" --reset
 else
-    echo "┌──────────────────────────────────────────────────────────────────┐"
-    echo "│ STEP 3/5: DATABASE SETUP (SAFE - PRESERVING DATA)                │"
-    echo "└──────────────────────────────────────────────────────────────────┘"
+    echo "Step 3/5: Database Setup (Safe - Preserving Data)"
     "$SCRIPT_DIR/setup-db.sh"
 fi
 echo ""
@@ -105,31 +95,27 @@ echo ""
 # STEP 4: INGEST TEST DATA
 # ============================================================================
 if [ "$SKIP_INGEST" = false ]; then
-    echo "┌──────────────────────────────────────────────────────────────────┐"
-    echo "│ STEP 4/5: INGESTING TEST DATA                                    │"
-    echo "└──────────────────────────────────────────────────────────────────┘"
-    
+    echo "Step 4/5: Ingesting Test Data"
+
     "$SCRIPT_DIR/ingest-testdata.sh" || {
         echo "Warning: Ingestion had issues (continuing anyway)"
     }
     echo ""
 else
-    echo "── Skipping ingest (--skip-ingest) ──"
+    echo "Skipping ingest (--skip-ingest)"
 fi
 
 # ============================================================================
 # STEP 5: RUN FULL TEST SUITE
 # ============================================================================
 if [ "$SKIP_TESTS" = false ]; then
-    echo "┌──────────────────────────────────────────────────────────────────┐"
-    echo "│ STEP 5/5: RUNNING TEST SUITE                                     │"
-    echo "└──────────────────────────────────────────────────────────────────┘"
-    
+    echo "Step 5/5: Running Test Suite"
+
     "$SCRIPT_DIR/test.sh"
     TEST_EXIT=$?
     echo ""
 else
-    echo "── Skipping tests (--skip-tests) ──"
+    echo "Skipping tests (--skip-tests)"
     TEST_EXIT=0
 fi
 
@@ -140,9 +126,7 @@ END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 
 echo ""
-echo "╔══════════════════════════════════════════════════════════════════╗"
-echo "║                      PIPELINE COMPLETE                           ║"
-echo "╚══════════════════════════════════════════════════════════════════╝"
+echo "Pipeline Complete"
 echo ""
 echo "  Duration: ${DURATION} seconds"
 echo ""
@@ -159,9 +143,9 @@ echo "    Relations:    $FINAL_RELS"
 
 echo ""
 if [ $TEST_EXIT -eq 0 ]; then
-    echo "  ✓ All systems operational!"
+    echo "  All systems operational!"
 else
-    echo "  ⚠ Some tests failed (exit code: $TEST_EXIT)"
+    echo "  Some tests failed (exit code: $TEST_EXIT)"
 fi
 echo ""
 

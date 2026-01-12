@@ -82,6 +82,17 @@ inline bool has_avx512f() {
 }
 
 /**
+ * Runtime AVX512 capability check - prevents illegal instruction exceptions
+ */
+inline bool avx512_supported() {
+#ifdef DISABLE_AVX512
+    return false;
+#else
+    return has_avx512f();
+#endif
+}
+
+/**
  * Check if FMA3 is supported
  */
 inline bool has_fma3() {
@@ -116,7 +127,7 @@ inline uint32_t get_supported_features() {
     uint32_t features = 0;
 
     if (has_avx2()) features |= static_cast<uint32_t>(Feature::AVX2);
-    if (has_avx512f()) features |= static_cast<uint32_t>(Feature::AVX512F);
+    if (avx512_supported()) features |= static_cast<uint32_t>(Feature::AVX512F);
     if (has_fma3()) features |= static_cast<uint32_t>(Feature::FMA3);
     if (has_avx_vnni()) features |= static_cast<uint32_t>(Feature::AVX_VNNI);
 
@@ -157,6 +168,11 @@ inline std::string get_cpu_info() {
     if (features & static_cast<uint32_t>(Feature::FMA3)) info += "FMA3 ";
     if (features & static_cast<uint32_t>(Feature::BMI2)) info += "BMI2 ";
     if (features & static_cast<uint32_t>(Feature::AVX_VNNI)) info += "AVX_VNNI ";
+
+    // Add runtime safety note
+    if (!avx512_supported() && has_avx512f()) {
+        info += "\nNote: AVX512 disabled at compile-time for compatibility";
+    }
 
     return info;
 }

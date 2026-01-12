@@ -66,7 +66,10 @@
 #include "hypercube/ingest/db_operations.hpp"
 
 #ifdef HAS_HNSWLIB
-#include "hnswlib/hnswlib/hnswlib.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#include <hnswlib/hnswlib.h>
+#pragma GCC diagnostic pop
 #endif
 
 // OpenMP for parallel processing

@@ -160,13 +160,22 @@ struct Point4F {
         return std::acos(cos_theta);
     }
 
-    // Addition and scalar multiplication for updates
+    // Addition, subtraction and scalar multiplication for updates
     Point4F operator+(const Point4F& other) const noexcept {
         return Point4F(x + other.x, y + other.y, z + other.z, m + other.m);
     }
 
+    Point4F operator-(const Point4F& other) const noexcept {
+        return Point4F(x - other.x, y - other.y, z - other.z, m - other.m);
+    }
+
     Point4F operator*(double s) const noexcept {
         return Point4F(x * s, y * s, z * s, m * s);
+    }
+
+    // Euclidean norm
+    double norm() const noexcept {
+        return std::sqrt(x*x + y*y + z*z + m*m);
     }
 };
 

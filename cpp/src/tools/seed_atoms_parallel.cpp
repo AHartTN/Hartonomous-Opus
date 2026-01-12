@@ -23,6 +23,7 @@
 #include "hypercube_c.h"
 #include "hypercube/types.hpp"
 #include "hypercube/db/connection.hpp"
+#include "hypercube/cpu_features.hpp"
 
 using namespace hypercube;
 
@@ -49,47 +50,76 @@ struct AtomRecord {
 
 // Generate atoms for a codepoint range
 void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) {
-    out.reserve(end - start);
-    // COORDINATE CONVENTION: uint32 with CENTER at 2^31 = 2147483648
-    // PostGIS GEOMETRY stores float64, which can exactly represent all uint32 values
-    // (double has 53-bit mantissa, uint32 is 32-bit)
-    // Store uint32 coordinates DIRECTLY as double - NO reinterpretation as int32
+    uint32_t range_size = end - start;
+    out.reserve(out.size() + range_size);
 
-    for (uint32_t cp = start; cp < end; ++cp) {
-        // Seed ALL codepoints including surrogates, as tokenizers may produce them
-        // if (cp >= constants::SURROGATE_START && cp <= constants::SURROGATE_END) {
-        //     continue;
-        // }
+    // Check CPU features for SIMD optimization info
+    bool has_avx2 = cpu_features::has_feature(cpu_features::Feature::AVX2);
+    bool has_avx512 = cpu_features::has_feature(cpu_features::Feature::AVX512F);
 
-        // Use C API functions for coordinate mapping
-        hc_point4d_t coords = hc_map_codepoint(cp);
-        hc_hash_t hash = hc_blake3_codepoint(cp);
-        hc_hilbert_t hilbert = hc_coords_to_hilbert(coords);
-        hc_category_t category = hc_categorize(cp);
+    // Use batch processing for better SIMD utilization
+    // Process in chunks that fit SIMD registers efficiently
+    const size_t BATCH_SIZE = has_avx512 ? 512 : (has_avx2 ? 256 : 64);
 
-        AtomRecord rec;
-        std::memcpy(rec.hash.bytes.data(), hash.bytes, 32);
-        rec.codepoint = static_cast<int32_t>(cp);
-        rec.category = static_cast<AtomCategory>(category);
+    std::vector<uint32_t> codepoints;
+    codepoints.reserve(BATCH_SIZE);
 
-        // Store uint32 coordinates as int32 (bit-preserving cast)
-        // This preserves the full 32-bit value - no information loss
-        rec.coord_x = coords.x;
-        rec.coord_y = coords.y;
-        rec.coord_z = coords.z;
-        rec.coord_m = coords.m;
+    for (uint32_t cp = start; cp < end; ) {
+        // Collect batch of codepoints
+        codepoints.clear();
+        uint32_t batch_end = std::min(end, static_cast<uint32_t>(cp + BATCH_SIZE));
+        for (uint32_t c = cp; c < batch_end; ++c) {
+            codepoints.push_back(c);
+        }
 
-        // Store as double for PostGIS - DIRECT from uint32, no int32 reinterpretation
-        // This ensures CENTER (2^31) is stored as 2147483648.0, not as negative
-        rec.x = static_cast<double>(coords.x);
-        rec.y = static_cast<double>(coords.y);
-        rec.z = static_cast<double>(coords.z);
-        rec.m = static_cast<double>(coords.m);
+        size_t batch_count = codepoints.size();
+        if (batch_count == 0) break;
 
-        rec.hilbert_lo = hilbert.lo;
-        rec.hilbert_hi = hilbert.hi;
+        // Use batch API functions for SIMD acceleration
+        std::vector<hc_point4d_t> coords(batch_count);
+        std::vector<hc_hash_t> hashes(batch_count);
+        std::vector<hc_hilbert_t> hilberts(batch_count);
 
-        out.push_back(rec);
+        // Batch coordinate mapping
+        hc_map_codepoints_batch(codepoints.data(), batch_count, coords.data());
+
+        // Batch hashing
+        hc_hash_codepoints_batch(codepoints.data(), batch_count, hashes.data());
+
+        // Batch Hilbert computation
+        hc_coords_to_hilbert_batch(coords.data(), batch_count, hilberts.data());
+
+        // Convert to AtomRecord structures
+        for (size_t i = 0; i < batch_count; ++i) {
+            uint32_t current_cp = codepoints[i];
+            hc_category_t category = hc_categorize(current_cp);
+
+            AtomRecord rec;
+            std::memcpy(rec.hash.bytes.data(), hashes[i].bytes, 32);
+            rec.codepoint = static_cast<int32_t>(current_cp);
+            rec.category = static_cast<AtomCategory>(category);
+
+            // Store uint32 coordinates as int32 (bit-preserving cast)
+            // This preserves the full 32-bit value - no information loss
+            rec.coord_x = coords[i].x;
+            rec.coord_y = coords[i].y;
+            rec.coord_z = coords[i].z;
+            rec.coord_m = coords[i].m;
+
+            // Store as double for PostGIS - DIRECT from uint32, no int32 reinterpretation
+            // This ensures CENTER (2^31) is stored as 2147483648.0, not as negative
+            rec.x = static_cast<double>(coords[i].x);
+            rec.y = static_cast<double>(coords[i].y);
+            rec.z = static_cast<double>(coords[i].z);
+            rec.m = static_cast<double>(coords[i].m);
+
+            rec.hilbert_lo = hilberts[i].lo;
+            rec.hilbert_hi = hilberts[i].hi;
+
+            out.push_back(rec);
+        }
+
+        cp = batch_end;
     }
 }
 
@@ -324,7 +354,26 @@ int main(int argc, char* argv[]) {
     std::cerr << "Connection: " << conninfo << "\n";
     std::cerr << "Partitions: " << NUM_PARTITIONS << "\n";
     std::cerr << "Generators: " << NUM_GENERATORS << "\n";
-    std::cerr << "Connection Pool: " << NUM_PARTITIONS << " connections\n\n";
+    std::cerr << "Connection Pool: " << NUM_PARTITIONS << " connections\n";
+
+    // CPU feature detection and SIMD optimization info
+    std::cerr << "CPU Features: " << cpu_features::get_cpu_info();
+    bool has_avx2 = cpu_features::has_feature(cpu_features::Feature::AVX2);
+    bool has_avx512 = cpu_features::has_feature(cpu_features::Feature::AVX512F);
+    bool has_avx_vnni = cpu_features::has_feature(cpu_features::Feature::AVX_VNNI);
+
+    if (has_avx512) {
+        std::cerr << "SIMD: AVX-512 enabled (512-codepoint batch processing)\n";
+    } else if (has_avx2) {
+        std::cerr << "SIMD: AVX2 enabled (256-codepoint batch processing)\n";
+    } else {
+        std::cerr << "SIMD: Scalar processing (64-codepoint batch processing)\n";
+    }
+
+    if (has_avx_vnni) {
+        std::cerr << "VNNI: AVX-VNNI available for enhanced integer operations\n";
+    }
+    std::cerr << "\n";
 
     auto start_time = std::chrono::high_resolution_clock::now();
     

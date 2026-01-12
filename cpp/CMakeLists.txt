@@ -58,13 +58,24 @@ else()
     message(FATAL_ERROR "OpenMP is required for parallel operations")
 endif()
 
-# HNSWLIB for approximate nearest neighbors
-FetchContent_Declare(
-    hnswlib
-    GIT_REPOSITORY https://github.com/nmslib/hnswlib.git
-    GIT_TAG v0.8.0
-)
-FetchContent_MakeAvailable(hnswlib)
+# HNSWLIB disabled - causes AVX512 issues
+
+# Eigen3 (required for linear algebra)
+find_package(Eigen3 QUIET)
+if(Eigen3_FOUND)
+    message(STATUS "Eigen3: Found via system package")
+    set(HAS_EIGEN ON)
+else()
+    # Fetch Eigen3 if not found system-wide
+    FetchContent_Declare(
+        eigen
+        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+        GIT_TAG 3.4.0
+    )
+    FetchContent_MakeAvailable(eigen)
+    set(HAS_EIGEN ON)
+    message(STATUS "Eigen3: Fetched and built from source")
+endif()
 
 # Intel MKL (optional, preferred for performance)
 find_package(MKL QUIET)
@@ -72,41 +83,166 @@ if(MKL_FOUND)
     message(STATUS "Intel MKL: Found - using optimized BLAS operations")
     set(HAS_MKL ON)
 else()
-    message(STATUS "Intel MKL: Not found - using Eigen3 fallback")
+    message(STATUS "Intel MKL: Not found - using Eigen3 built-in BLAS")
     set(HAS_MKL OFF)
-
-    # Eigen3 as fallback
-    find_package(Eigen3 QUIET)
-    if(Eigen3_FOUND)
-        message(STATUS "Eigen3: Found via system package")
-        set(HAS_EIGEN ON)
-    else()
-        # Fetch Eigen3 if not found system-wide
-        FetchContent_Declare(
-            eigen
-            GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-            GIT_TAG 3.4.0
-        )
-        FetchContent_MakeAvailable(eigen)
-        set(HAS_EIGEN ON)
-        message(STATUS "Eigen3: Fetched and built from source")
-    endif()
 endif()
 
 # ============================================================================
 # Compiler Optimization and SIMD Detection
 # ============================================================================
 
-# Detect SIMD capabilities
+# Detect SIMD capabilities at configure time
 include(CheckCXXCompilerFlag)
+
+# Check for native architecture support
 check_cxx_compiler_flag("-march=native" COMPILER_SUPPORTS_MARCH_NATIVE)
 
-if(COMPILER_SUPPORTS_MARCH_NATIVE)
-    set(HAS_AVX ON)
-    message(STATUS "SIMD: Native architecture optimizations enabled")
+# Try to run a test program to detect CPU features at configure time
+try_run(
+    CPU_FEATURES_RUN_RESULT
+    CPU_FEATURES_COMPILE_RESULT
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpu_features_test.cpp
+    CMAKE_FLAGS -DCMAKE_CXX_STANDARD=23
+    RUN_OUTPUT_VARIABLE CPU_FEATURES_OUTPUT
+)
+
+if(CPU_FEATURES_COMPILE_RESULT AND CPU_FEATURES_RUN_RESULT EQUAL 0)
+    # Parse the output to get feature flags
+    string(REGEX MATCH "AVX2:([01])" AVX2_MATCH ${CPU_FEATURES_OUTPUT})
+    string(REGEX MATCH "AVX512F:([01])" AVX512F_MATCH ${CPU_FEATURES_OUTPUT})
+    string(REGEX MATCH "AVX512DQ:([01])" AVX512DQ_MATCH ${CPU_FEATURES_OUTPUT})
+    string(REGEX MATCH "AVX512BW:([01])" AVX512BW_MATCH ${CPU_FEATURES_OUTPUT})
+    string(REGEX MATCH "AVX512VL:([01])" AVX512VL_MATCH ${CPU_FEATURES_OUTPUT})
+    string(REGEX MATCH "FMA3:([01])" FMA3_MATCH ${CPU_FEATURES_OUTPUT})
+    string(REGEX MATCH "AVX_VNNI:([01])" AVX_VNNI_MATCH ${CPU_FEATURES_OUTPUT})
+    string(REGEX MATCH "BMI2:([01])" BMI2_MATCH ${CPU_FEATURES_OUTPUT})
+
+    # Extract the actual values from regex groups
+    if(AVX2_MATCH)
+        string(REGEX REPLACE "AVX2:([01])" "\\1" AVX2_VALUE ${AVX2_MATCH})
+        if(AVX2_VALUE STREQUAL "1")
+            set(HAS_AVX2 ON)
+            message(STATUS "CPU Feature: AVX2 detected")
+        endif()
+    endif()
+
+    if(AVX512F_MATCH)
+        string(REGEX REPLACE "AVX512F:([01])" "\\1" AVX512F_VALUE ${AVX512F_MATCH})
+        if(AVX512F_VALUE STREQUAL "1")
+            set(HAS_AVX512F ON)
+            message(STATUS "CPU Feature: AVX-512 Foundation detected")
+        endif()
+    endif()
+
+    if(AVX512DQ_MATCH)
+        string(REGEX REPLACE "AVX512DQ:([01])" "\\1" AVX512DQ_VALUE ${AVX512DQ_MATCH})
+        if(AVX512DQ_VALUE STREQUAL "1")
+            set(HAS_AVX512DQ ON)
+            message(STATUS "CPU Feature: AVX-512 Doubleword/Quadword detected")
+        endif()
+    endif()
+
+    if(AVX512BW_MATCH)
+        string(REGEX REPLACE "AVX512BW:([01])" "\\1" AVX512BW_VALUE ${AVX512BW_MATCH})
+        if(AVX512BW_VALUE STREQUAL "1")
+            set(HAS_AVX512BW ON)
+            message(STATUS "CPU Feature: AVX-512 Byte/Word detected")
+        endif()
+    endif()
+
+    if(AVX512VL_MATCH)
+        string(REGEX REPLACE "AVX512VL:([01])" "\\1" AVX512VL_VALUE ${AVX512VL_MATCH})
+        if(AVX512VL_VALUE STREQUAL "1")
+            set(HAS_AVX512VL ON)
+            message(STATUS "CPU Feature: AVX-512 Vector Length detected")
+        endif()
+    endif()
+
+    if(FMA3_MATCH)
+        string(REGEX REPLACE "FMA3:([01])" "\\1" FMA3_VALUE ${FMA3_MATCH})
+        if(FMA3_VALUE STREQUAL "1")
+            set(HAS_FMA3 ON)
+            message(STATUS "CPU Feature: FMA3 detected")
+        endif()
+    endif()
+
+    if(AVX_VNNI_MATCH)
+        string(REGEX REPLACE "AVX_VNNI:([01])" "\\1" AVX_VNNI_VALUE ${AVX_VNNI_MATCH})
+        if(AVX_VNNI_VALUE STREQUAL "1")
+            set(HAS_AVX_VNNI ON)
+            message(STATUS "CPU Feature: AVX-VNNI detected")
+        endif()
+    endif()
+
+    if(BMI2_MATCH)
+        string(REGEX REPLACE "BMI2:([01])" "\\1" BMI2_VALUE ${BMI2_MATCH})
+        if(BMI2_VALUE STREQUAL "1")
+            set(HAS_BMI2 ON)
+            message(STATUS "CPU Feature: BMI2 detected")
+        endif()
+    endif()
 else()
-    set(HAS_AVX OFF)
-    message(STATUS "SIMD: Native architecture not supported, using generic optimizations")
+    # Fallback: Use compiler flag detection when runtime test fails
+    message(STATUS "CPU feature runtime detection failed - using compiler-based detection")
+    if(COMPILER_SUPPORTS_MARCH_NATIVE)
+        set(HAS_AVX ON)
+        message(STATUS "SIMD: Using -march=native (fallback detection)")
+    endif()
+    # Fallback to compiler flag detection
+    if(COMPILER_SUPPORTS_MARCH_NATIVE)
+        set(HAS_AVX ON)
+        message(STATUS "SIMD: Using -march=native (fallback detection)")
+    else()
+        set(HAS_AVX OFF)
+        message(STATUS "SIMD: Generic optimizations only")
+    endif()
+endif()
+
+# Set HAS_AVX for backward compatibility
+if(HAS_AVX2 OR HAS_AVX512F)
+    set(HAS_AVX ON)
+endif()
+
+# ============================================================================
+# AVX512 Warning Suppression and Feature-Specific Compilation
+# ============================================================================
+
+# Check if compiler supports AVX512 flags
+check_cxx_compiler_flag("-mavx512f" COMPILER_SUPPORTS_AVX512F)
+check_cxx_compiler_flag("-mavx512dq" COMPILER_SUPPORTS_AVX512DQ)
+check_cxx_compiler_flag("-mavx512bw" COMPILER_SUPPORTS_AVX512BW)
+check_cxx_compiler_flag("-mavx512vl" COMPILER_SUPPORTS_AVX512VL)
+check_cxx_compiler_flag("-mavx512vnni" COMPILER_SUPPORTS_AVX512VNNI)
+
+# Set feature-specific flags only if both CPU and compiler support them
+if(HAS_AVX512F AND COMPILER_SUPPORTS_AVX512F)
+    set(AVX512F_FLAG "-mavx512f")
+    message(STATUS "AVX-512F: Enabled (CPU + compiler support)")
+else()
+    set(AVX512F_FLAG "")
+    if(NOT HAS_AVX512F)
+        message(STATUS "AVX-512F: Disabled (CPU does not support)")
+    elseif(NOT COMPILER_SUPPORTS_AVX512F)
+        message(STATUS "AVX-512F: Disabled (compiler does not support)")
+    endif()
+endif()
+
+# Additional AVX512 features
+if(HAS_AVX512F AND COMPILER_SUPPORTS_AVX512DQ)
+    set(AVX512DQ_FLAG "-mavx512dq")
+endif()
+
+if(HAS_AVX512F AND COMPILER_SUPPORTS_AVX512BW)
+    set(AVX512BW_FLAG "-mavx512bw")
+endif()
+
+if(HAS_AVX512F AND COMPILER_SUPPORTS_AVX512VL)
+    set(AVX512VL_FLAG "-mavx512vl")
+endif()
+
+if(HAS_AVX512F AND HAS_AVX_VNNI AND COMPILER_SUPPORTS_AVX512VNNI)
+    set(AVX512VNNI_FLAG "-mavx512vnni")
 endif()
 
 # Common optimization flags
@@ -120,7 +256,8 @@ else()
     set(COMPILER_OPT_FLAGS "-O3 -DNDEBUG -ffast-math")
     set(COMPILER_DEBUG_FLAGS "-g -O0 -DDEBUG")
     set(COMPILER_WARNING_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-sign-compare")
-    set(COMPILER_AVX_FLAGS "-march=native")
+    # Start with AVX2 as baseline, add AVX512 features conditionally
+    set(COMPILER_AVX_FLAGS "-mavx2 -mfma")
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(COMPILER_DEBUG_FLAGS "${COMPILER_DEBUG_FLAGS} -fsanitize=address,undefined")
     endif()
@@ -132,14 +269,62 @@ set(CMAKE_C_FLAGS_RELEASE "${COMPILER_OPT_FLAGS}")
 set(CMAKE_CXX_FLAGS_DEBUG "${COMPILER_DEBUG_FLAGS} ${COMPILER_WARNING_FLAGS}")
 set(CMAKE_C_FLAGS_DEBUG "${COMPILER_DEBUG_FLAGS}")
 
-if(HAS_AVX)
+# Apply SIMD flags based on detected CPU capabilities
+if(HAS_AVX2)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${COMPILER_AVX_FLAGS}")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${COMPILER_AVX_FLAGS}")
+
+    # Add AVX512 flags only if supported by both CPU and compiler
+    # This prevents macro redefinition warnings by not enabling AVX512 at all when CPU doesn't support it
+    if(HAS_AVX512F AND AVX512F_FLAG)
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${AVX512F_FLAG}")
+        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${AVX512F_FLAG}")
+    endif()
+    if(HAS_AVX512DQ AND AVX512DQ_FLAG)
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${AVX512DQ_FLAG}")
+        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${AVX512DQ_FLAG}")
+    endif()
+    if(HAS_AVX512BW AND AVX512BW_FLAG)
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${AVX512BW_FLAG}")
+        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${AVX512BW_FLAG}")
+    endif()
+    if(HAS_AVX512VL AND AVX512VL_FLAG)
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${AVX512VL_FLAG}")
+        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${AVX512VL_FLAG}")
+    endif()
+    if(HAS_AVX_VNNI AND AVX512VNNI_FLAG)
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${AVX512VNNI_FLAG}")
+        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${AVX512VNNI_FLAG}")
+    endif()
 endif()
 
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
+if(HAS_AVX2)
+    message(STATUS "CPU Features: AVX2 detected")
+endif()
+if(HAS_AVX512F)
+    message(STATUS "CPU Features: AVX-512 Foundation detected")
+endif()
+if(HAS_AVX512DQ)
+    message(STATUS "CPU Features: AVX-512 Doubleword/Quadword detected")
+endif()
+if(HAS_AVX512BW)
+    message(STATUS "CPU Features: AVX-512 Byte/Word detected")
+endif()
+if(HAS_AVX512VL)
+    message(STATUS "CPU Features: AVX-512 Vector Length detected")
+endif()
+if(HAS_FMA3)
+    message(STATUS "CPU Features: FMA3 detected")
+endif()
+if(HAS_AVX_VNNI)
+    message(STATUS "CPU Features: AVX-VNNI detected")
+endif()
+if(HAS_BMI2)
+    message(STATUS "CPU Features: BMI2 detected")
+endif()
 message(STATUS "SIMD support: ${HAS_AVX}")
 
 # ============================================================================
@@ -178,6 +363,7 @@ add_library(hypercube_core STATIC
     src/core/laplacian_4d.cpp
     src/core/lanczos.cpp
     src/core/semantic_ordering.cpp
+    src/core/superfibonacci.cpp
 )
 
 target_include_directories(hypercube_core PUBLIC
@@ -191,31 +377,50 @@ target_link_libraries(hypercube_core
     PRIVATE Threads::Threads
 )
 
-# HNSWLIB integration
-if(TARGET hnswlib)
-    target_link_libraries(hypercube_core PRIVATE hnswlib)
-    target_compile_definitions(hypercube_core PUBLIC HAS_HNSWLIB=1)
-else()
-    target_compile_definitions(hypercube_core PUBLIC HAS_HNSWLIB=0)
-endif()
+# HNSWLIB integration - disabled for now to avoid AVX512 issues
+# TODO: Fix HNSWLib AVX512 detection to respect CPU capabilities
 
 # Linear algebra backend
+if(TARGET Eigen3::Eigen)
+    target_link_libraries(hypercube_core PUBLIC Eigen3::Eigen)
+else()
+    target_include_directories(hypercube_core PUBLIC ${EIGEN3_INCLUDE_DIR})
+endif()
+target_compile_definitions(hypercube_core PUBLIC HAS_EIGEN=1)
+
+# MKL for optimized BLAS operations
 if(HAS_MKL)
     target_link_libraries(hypercube_core PUBLIC MKL::MKL)
-    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1 HAS_EIGEN=0)
-elseif(HAS_EIGEN)
-    if(TARGET Eigen3::Eigen)
-        target_link_libraries(hypercube_core PUBLIC Eigen3::Eigen)
-    else()
-        target_include_directories(hypercube_core PUBLIC ${EIGEN3_INCLUDE_DIR})
-    endif()
-    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0 HAS_EIGEN=1)
+    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1)
 else()
-    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0 HAS_EIGEN=0)
+    target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0)
 endif()
 
-# SIMD capabilities
-target_compile_definitions(hypercube_core PUBLIC HAS_AVX=$<BOOL:${HAS_AVX}>)
+# SIMD capabilities - detailed feature detection
+target_compile_definitions(hypercube_core PUBLIC
+    HAS_AVX=$<BOOL:${HAS_AVX}>
+    HAS_AVX2=$<BOOL:${HAS_AVX2}>
+    HAS_AVX512F=$<BOOL:${HAS_AVX512F}>
+    HAS_FMA3=$<BOOL:${HAS_FMA3}>
+    HAS_AVX_VNNI=$<BOOL:${HAS_AVX_VNNI}>
+)
+
+# AVX512 features are now handled at the compiler flag level
+# No need to undefine macros since we don't enable AVX512 flags when CPU doesn't support them
+if(NOT HAS_AVX512F)
+    target_compile_definitions(hypercube_core PRIVATE
+        # Disable AVX512 code paths at compile time
+        DISABLE_AVX512
+        DISABLE_AVX512F
+        DISABLE_AVX512DQ
+        DISABLE_AVX512BW
+        DISABLE_AVX512VL
+        DISABLE_AVX512VNNI
+    )
+    message(STATUS "AVX-512: All AVX-512 features disabled (not supported by CPU)")
+else()
+    message(STATUS "AVX-512: CPU supports AVX-512 - features enabled where available")
+endif()
 
 # Platform-specific definitions
 if(WIN32)
@@ -665,6 +870,10 @@ target_link_libraries(test_cpu_features hypercube_core)
 add_executable(test_int8_quantization tests/test_int8_quantization.cpp)
 target_link_libraries(test_int8_quantization hypercube_core)
 
+add_executable(test_unicode_seeding tests/test_unicode_seeding.cpp)
+target_link_libraries(test_unicode_seeding hypercube_core)
+add_test(NAME UnicodeSeedingTest COMMAND test_unicode_seeding)
+
 # ============================================================================
 # PostgreSQL Tools (require libpq client library)
 # ============================================================================
@@ -703,11 +912,7 @@ if(PostgreSQL_FOUND)
         ${PostgreSQL_INCLUDE_DIRS}
         ${MKL_INCLUDE_DIRS}
     )
-    if(TARGET hnswlib)
-        target_link_libraries(hypercube_ingest PRIVATE hnswlib)
-        target_include_directories(hypercube_ingest PRIVATE ${hnswlib_SOURCE_DIR})
-        target_compile_definitions(hypercube_ingest PRIVATE HAS_HNSWLIB=1)
-    endif()
+    # HNSWLib disabled
     target_link_libraries(hypercube_ingest PRIVATE
         hypercube_core
         ${PostgreSQL_LIBRARIES}
@@ -726,11 +931,7 @@ if(PostgreSQL_FOUND)
     # Modular safetensor ingester (replaces archived monolith)
     add_executable(ingest_safetensor src/tools/ingest_safetensor_modular.cpp)
     target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    if(TARGET hnswlib)
-        target_link_libraries(ingest_safetensor PRIVATE hnswlib)
-        target_include_directories(ingest_safetensor PRIVATE ${hnswlib_SOURCE_DIR})
-        target_compile_definitions(ingest_safetensor PRIVATE HAS_HNSWLIB=1)
-    endif()
+    # HNSWLib disabled
     target_link_libraries(ingest_safetensor PRIVATE hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
 
     # Fix Windows min/max macro conflicts with HNSWLIB
@@ -767,18 +968,13 @@ if(PostgreSQL_FOUND)
     )
 
     # Add backend detection defines
+    target_compile_definitions(hypercube_cli PRIVATE HAS_EIGEN=1)
     if(HAS_MKL)
         target_compile_definitions(hypercube_cli PRIVATE HAS_MKL=1)
+    else()
+        target_compile_definitions(hypercube_cli PRIVATE HAS_MKL=0)
     endif()
-    if(HAS_EIGEN)
-        target_compile_definitions(hypercube_cli PRIVATE HAS_EIGEN=1)
-        target_include_directories(hypercube_cli PRIVATE ${EIGEN3_INCLUDE_DIR})
-    endif()
-    if(TARGET hnswlib)
-        target_link_libraries(hypercube_cli PRIVATE hnswlib)
-        target_include_directories(hypercube_cli PRIVATE ${hnswlib_SOURCE_DIR})
-        target_compile_definitions(hypercube_cli PRIVATE HAS_HNSWLIB=1)
-    endif()
+    # HNSWLib disabled
 
     # Set output name to just "hypercube" (conflicts with extension on some systems)
     set_target_properties(hypercube_cli PROPERTIES OUTPUT_NAME "hc")
@@ -889,17 +1085,13 @@ if(GTest_FOUND)
     )
     
     # Add backend defines
+    target_compile_definitions(hypercube_tests PRIVATE HAS_EIGEN=1)
     if(HAS_MKL)
         target_compile_definitions(hypercube_tests PRIVATE HAS_MKL=1)
+    else()
+        target_compile_definitions(hypercube_tests PRIVATE HAS_MKL=0)
     endif()
-    if(HAS_EIGEN)
-        target_compile_definitions(hypercube_tests PRIVATE HAS_EIGEN=1)
-        target_include_directories(hypercube_tests PRIVATE ${EIGEN3_INCLUDE_DIR})
-    endif()
-    if(HAS_HNSWLIB)
-        target_compile_definitions(hypercube_tests PRIVATE HAS_HNSWLIB=1)
-        target_include_directories(hypercube_tests PRIVATE ${HNSWLIB_INCLUDE_DIR})
-    endif()
+    # HNSWLib disabled
     
     add_test(NAME HypercubeTests COMMAND hypercube_tests)
     # Increase stack size to prevent crashes (MSVC only)
@@ -965,18 +1157,13 @@ if(PostgreSQL_FOUND)
 else()
     message(STATUS "PostgreSQL tools: OFF (libpq not found)")
 endif()
+message(STATUS "Eigen3: ON")
 if(HAS_MKL)
     message(STATUS "Intel MKL: ON")
-elseif(HAS_EIGEN)
-    message(STATUS "Eigen3: ON")
 else()
-    message(STATUS "Linear algebra: Jacobi (fallback)")
+    message(STATUS "Intel MKL: OFF")
 endif()
-if(HAS_HNSWLIB)
-    message(STATUS "HNSWLIB: ON")
-else()
-    message(STATUS "k-NN: Brute-force")
-endif()
+message(STATUS "k-NN: Brute-force (HNSWLib disabled)")
 if(GTest_FOUND)
     message(STATUS "Tests: ON (Google Test)")
 else()

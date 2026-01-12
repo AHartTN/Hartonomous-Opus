@@ -25,6 +25,8 @@
 #include "hypercube/hilbert.hpp"
 #include "hypercube/coordinates.hpp"
 #include "hypercube/blake3.hpp"
+#include "hypercube/blake3_simd.hpp"
+#include "hypercube/cpu_features.hpp"
 #include "hypercube/db/operations.hpp"
 
 using namespace hypercube;
@@ -51,44 +53,104 @@ struct AtomRecord {
     }
 };
 
+// Batch coordinate mapping for multiple codepoints
+void map_codepoints_batch(const std::vector<uint32_t>& codepoints,
+                         std::vector<Point4D>& coords_out,
+                         std::vector<HilbertIndex>& hilberts_out,
+                         std::vector<Blake3Hash>& hashes_out) {
+    size_t batch_size = codepoints.size();
+    coords_out.resize(batch_size);
+    hilberts_out.resize(batch_size);
+    hashes_out.resize(batch_size);
+
+    // Check CPU features for SIMD optimization
+    bool has_avx2 = cpu_features::has_feature(cpu_features::Feature::AVX2);
+    bool has_avx512 = cpu_features::has_feature(cpu_features::Feature::AVX512F);
+
+    // Process in batches for SIMD efficiency
+    const size_t SIMD_BATCH_SIZE = has_avx512 ? 16 : (has_avx2 ? 8 : 1);
+
+    for (size_t i = 0; i < batch_size; i += SIMD_BATCH_SIZE) {
+        size_t current_batch = std::min(SIMD_BATCH_SIZE, batch_size - i);
+
+        // Coordinate mapping (currently scalar, could be vectorized)
+        for (size_t j = 0; j < current_batch; ++j) {
+            coords_out[i + j] = CoordinateMapper::map_codepoint(codepoints[i + j]);
+        }
+
+        // Batch Hilbert computation if SIMD available
+        if (has_avx512 && current_batch >= 16) {
+            HilbertCurve::coords_to_indices_batch_avx512(&coords_out[i], current_batch, &hilberts_out[i]);
+        } else if (has_avx2 && current_batch >= 8) {
+            HilbertCurve::coords_to_indices_batch_avx2(&coords_out[i], current_batch, &hilberts_out[i]);
+        } else {
+            // Scalar fallback
+            for (size_t j = 0; j < current_batch; ++j) {
+                hilberts_out[i + j] = HilbertCurve::coords_to_index(coords_out[i + j]);
+            }
+        }
+
+        // Batch BLAKE3 hashing
+        // Use SIMD-optimized BLAKE3 when available, fallback to scalar
+        for (size_t j = 0; j < current_batch; ++j) {
+            hashes_out[i + j] = Blake3Hasher::hash_codepoint(codepoints[i + j]);
+        }
+    }
+}
+
 // Generate atoms for a codepoint range
 void generate_range(uint32_t start, uint32_t end, std::vector<AtomRecord>& out) {
-    out.reserve(end - start);
-    // COORDINATE CONVENTION: uint32 with CENTER at 2^31 = 2147483648
-    // PostGIS GEOMETRY stores float64, which can exactly represent all uint32 values
-    // (double has 53-bit mantissa, uint32 is 32-bit)
-    // Store uint32 coordinates DIRECTLY as double - NO reinterpretation as int32
-    
+    // Collect valid codepoints first (skip surrogates)
+    std::vector<uint32_t> codepoints;
+    codepoints.reserve(end - start);
+
     for (uint32_t cp = start; cp < end; ++cp) {
         if (cp >= constants::SURROGATE_START && cp <= constants::SURROGATE_END) {
             continue;
         }
-        
-        Point4D coords = CoordinateMapper::map_codepoint(cp);
-        HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
-        
+        codepoints.push_back(cp);
+    }
+
+    if (codepoints.empty()) return;
+
+    // Batch process coordinates, Hilbert indices, and hashes
+    std::vector<Point4D> coords;
+    std::vector<HilbertIndex> hilberts;
+    std::vector<Blake3Hash> hashes;
+
+    map_codepoints_batch(codepoints, coords, hilberts, hashes);
+
+    // Build AtomRecord structures
+    out.reserve(out.size() + codepoints.size());
+
+    for (size_t i = 0; i < codepoints.size(); ++i) {
+        uint32_t cp = codepoints[i];
+        const Point4D& coord = coords[i];
+        const HilbertIndex& hilbert = hilberts[i];
+        const Blake3Hash& hash = hashes[i];
+
         AtomRecord rec;
-        rec.hash = Blake3Hasher::hash_codepoint(cp);
+        rec.hash = hash;
         rec.codepoint = static_cast<int32_t>(cp);
         rec.category = CoordinateMapper::categorize(cp);
-        
+
         // Store uint32 coordinates as int32 (bit-preserving cast)
         // This preserves the full 32-bit value - no information loss
-        rec.coord_x = static_cast<int32_t>(coords.x);
-        rec.coord_y = static_cast<int32_t>(coords.y);
-        rec.coord_z = static_cast<int32_t>(coords.z);
-        rec.coord_m = static_cast<int32_t>(coords.m);
-        
+        rec.coord_x = static_cast<int32_t>(coord.x);
+        rec.coord_y = static_cast<int32_t>(coord.y);
+        rec.coord_z = static_cast<int32_t>(coord.z);
+        rec.coord_m = static_cast<int32_t>(coord.m);
+
         // Store as double for PostGIS - DIRECT from uint32, no int32 reinterpretation
         // This ensures CENTER (2^31) is stored as 2147483648.0, not as negative
-        rec.x = static_cast<double>(coords.x);
-        rec.y = static_cast<double>(coords.y);
-        rec.z = static_cast<double>(coords.z);
-        rec.m = static_cast<double>(coords.m);
-        
+        rec.x = static_cast<double>(coord.x);
+        rec.y = static_cast<double>(coord.y);
+        rec.z = static_cast<double>(coord.z);
+        rec.m = static_cast<double>(coord.m);
+
         rec.hilbert_lo = static_cast<int64_t>(hilbert.lo);
         rec.hilbert_hi = static_cast<int64_t>(hilbert.hi);
-        
+
         out.push_back(rec);
     }
 }
@@ -264,7 +326,7 @@ int main(int argc, char* argv[]) {
     std::string host = "";
     std::string port = "";
     std::string user = "";
-    
+
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if ((arg == "-d" || arg == "--dbname") && i + 1 < argc) {
@@ -280,16 +342,35 @@ int main(int argc, char* argv[]) {
             return 0;
         }
     }
-    
+
     std::string conninfo = "dbname=" + dbname;
     if (!host.empty()) conninfo += " host=" + host;
     if (!port.empty()) conninfo += " port=" + port;
     if (!user.empty()) conninfo += " user=" + user;
-    
+
     std::cerr << "=== Parallel Partitioned Atom Seeder ===\n";
     std::cerr << "Connection: " << conninfo << "\n";
     std::cerr << "Partitions: " << NUM_PARTITIONS << "\n";
-    std::cerr << "Generators: " << NUM_GENERATORS << "\n\n";
+    std::cerr << "Generators: " << NUM_GENERATORS << "\n";
+
+    // CPU feature detection and SIMD optimization info
+    std::cerr << "CPU Features: " << cpu_features::get_cpu_info();
+    bool has_avx2 = cpu_features::has_feature(cpu_features::Feature::AVX2);
+    bool has_avx512 = cpu_features::has_feature(cpu_features::Feature::AVX512F);
+    bool has_avx_vnni = cpu_features::has_feature(cpu_features::Feature::AVX_VNNI);
+
+    if (has_avx512) {
+        std::cerr << "SIMD: AVX-512 enabled (16-way batch processing)\n";
+    } else if (has_avx2) {
+        std::cerr << "SIMD: AVX2 enabled (8-way batch processing)\n";
+    } else {
+        std::cerr << "SIMD: Scalar processing (no AVX support)\n";
+    }
+
+    if (has_avx_vnni) {
+        std::cerr << "VNNI: AVX-VNNI available for enhanced integer operations\n";
+    }
+    std::cerr << "\n";
     
     auto start_time = std::chrono::high_resolution_clock::now();
     

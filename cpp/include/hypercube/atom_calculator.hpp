@@ -48,8 +48,11 @@ struct CompositionRecord {
     std::vector<Blake3Hash> children;   // Child hashes in order
     std::vector<Point4D> child_coords;  // Child coordinates for LINESTRINGZM
     std::vector<uint32_t> child_depths; // Child depths (0=atom, >0=composition)
-    uint32_t depth;
-    uint64_t atom_count;
+    uint32_t depth = 0;
+    uint64_t atom_count = 0;
+
+    // Default constructor for safe initialization
+    CompositionRecord() = default;
 };
 
 /**

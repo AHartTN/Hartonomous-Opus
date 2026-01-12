@@ -10,6 +10,17 @@
 namespace hypercube {
 
 /**
+ * Types of text compositions for centroid calculation
+ */
+enum class CompositionType {
+    ATOM,           // Single codepoint
+    WORD,           // Lexical unit
+    PHRASE,         // Syntactic phrase
+    SENTENCE,       // Complete sentence
+    MULTIMODAL      // Mixed text/emoji/symbols
+};
+
+/**
  * Combined result of codepoint mapping - coords AND hilbert index
  * Avoids redundant Hilbert encode/decode roundtrip
  */
@@ -182,6 +193,55 @@ public:
      * @return True if successful
      */
     static bool optimize_distribution(std::map<uint32_t, Point4F>& points);
+
+    /**
+     * Apply semantic-aware jitter that preserves case variant proximity
+     */
+    static void apply_semantic_aware_jitter(std::map<uint32_t, Point4F>& points,
+                                            double epsilon = 1e-7);
+
+    /**
+     * Perform geodesic repulsion optimization using Riemannian gradients
+     */
+    static void geodesic_repulsion_optimization(std::map<uint32_t, Point4F>& points,
+                                               size_t k = 32, double eta = 0.001, int iterations = 8);
+
+    /**
+     * Perform adaptive tangent space optimization with convergence criteria
+     */
+    static void adaptive_tangent_optimization(std::map<uint32_t, Point4F>& points,
+                                            size_t k = 48, double eta = 0.01, int iterations = 6);
+
+    /**
+     * Perform convergence-driven optimization targeting specific CV
+     */
+    static void convergence_driven_optimization(std::map<uint32_t, Point4F>& points,
+                                               double target_cv = 0.30);
+
+    /**
+     * Calculate composition centroid with interior positioning
+     * @param atoms Vector of atom coordinates
+     * @param type Type of composition
+     * @return Centroid point (interior for complex compositions)
+     */
+    static Point4F compute_composition_centroid(const std::vector<Point4F>& atoms,
+                                               CompositionType type) noexcept;
+
+    /**
+     * Compute complexity factor for composition positioning
+     * @param atoms Vector of atom coordinates
+     * @param type Type of composition
+     * @return Complexity factor (0.0 to 3.0)
+     */
+    static double compute_complexity_factor(const std::vector<Point4F>& atoms,
+                                           CompositionType type) noexcept;
+
+    /**
+     * Estimate codepoint from coordinates (reverse lookup approximation)
+     * @param coords Point coordinates
+     * @return Estimated codepoint
+     */
+    static uint32_t estimate_codepoint_from_coords(const Point4F& coords) noexcept;
 };
 
 /**

@@ -8,7 +8,7 @@
 #include <cstring>
 
 #if defined(__x86_64__) || defined(_M_X64)
-  #if defined(__AVX512F__) && defined(__AVX512VL__)
+  #if defined(HAS_AVX512F) && HAS_AVX512F && defined(HAS_AVX512VL) && HAS_AVX512VL
     #define BLAKE3_USE_AVX512 1
   #endif
   #if defined(__AVX2__)

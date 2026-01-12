@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj": {}
+    "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj": {}
   },
   "projects": {
-    "/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj": {
+    "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
+        "projectUniqueName": "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
         "projectName": "HypercubeGenerativeApi",
-        "projectPath": "/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
+        "projectPath": "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
         "packagesPath": "/home/ahart/.nuget/packages/",
-        "outputPath": "/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/csharp/HypercubeGenerativeApi/obj/",
+        "outputPath": "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/home/ahart/.nuget/NuGet/NuGet.Config"
@@ -107,7 +107,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/10.0.100/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/10.0.101/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

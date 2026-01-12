@@ -31,9 +31,7 @@ if [ ! -d "$TEST_DATA_DIR" ]; then
     exit 1
 fi
 
-echo "╔══════════════════════════════════════════════════════════════════╗"
-echo "║              HYPERCUBE TEST DATA INGESTION                        ║"
-echo "╚══════════════════════════════════════════════════════════════════╝"
+echo "Hypercube Test Data Ingestion"
 echo ""
 echo "Source: $TEST_DATA_DIR"
 echo ""
@@ -46,19 +44,17 @@ SAFETENSOR_INGESTER="$HC_BUILD_DIR/ingest_safetensor"
 DB_ARGS="-d $HC_DB_NAME -U $HC_DB_USER -h $HC_DB_HOST"
 
 get_comp_count() {
-    hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth > 0" 2>/dev/null | tr -d '[:space:]'
+    hc_psql -tAc "SELECT COUNT(*) FROM composition" 2>/dev/null | tr -d '[:space:]'
 }
 
 get_edge_count() {
-    hc_psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 1 AND atom_count = 2" 2>/dev/null | tr -d '[:space:]'
+    hc_psql -tAc "SELECT COUNT(*) FROM relation" 2>/dev/null | tr -d '[:space:]'
 }
 
 # ============================================================================
 # STEP 1: FIND MODEL PACKAGE
 # ============================================================================
-echo "┌──────────────────────────────────────────────────────────────────┐"
-echo "│ STEP 1: LOCATING MODEL PACKAGE                                   │"
-echo "└──────────────────────────────────────────────────────────────────┘"
+echo "Step 1: Locating Model Package"
 
 MODEL_SNAPSHOT=""
 VOCAB_FILE=""
@@ -75,23 +71,21 @@ if [ -d "$MODEL_DIR" ]; then
         MODEL_FILE=$(find "$MODEL_SNAPSHOT" -name "*.safetensors" 2>/dev/null | head -1)
         
         echo "  Model snapshot: $MODEL_SNAPSHOT"
-        [ -f "$VOCAB_FILE" ] && echo "  ✓ vocab.txt found ($(wc -l < "$VOCAB_FILE") tokens)"
-        [ -f "$TOKENIZER_FILE" ] && echo "  ✓ tokenizer.json found"
-        [ -f "$MODEL_FILE" ] && echo "  ✓ $(basename "$MODEL_FILE") found ($(du -h "$MODEL_FILE" | cut -f1))"
+        [ -f "$VOCAB_FILE" ] && echo "  vocab.txt found ($(wc -l < "$VOCAB_FILE") tokens)"
+        [ -f "$TOKENIZER_FILE" ] && echo "  tokenizer.json found"
+        [ -f "$MODEL_FILE" ] && echo "  $(basename "$MODEL_FILE") found ($(du -h "$MODEL_FILE" | cut -f1))"
     else
-        echo "  ⚠ No model snapshot found in $MODEL_DIR"
+        echo "  No model snapshot found in $MODEL_DIR"
     fi
 else
-    echo "  ⚠ No embedding_models directory"
+    echo "  No embedding_models directory"
 fi
 echo ""
 
 # ============================================================================
 # STEP 2: INGEST VOCABULARY (Token Compositions)
 # ============================================================================
-echo "┌──────────────────────────────────────────────────────────────────┐"
-echo "│ STEP 2: INGESTING VOCABULARY (Token Compositions)                │"
-echo "└──────────────────────────────────────────────────────────────────┘"
+echo "Step 2: Ingesting Vocabulary (Token Compositions)"
 
 if [ -f "$VOCAB_FILE" ] && [ -x "$INGESTER" ]; then
     BEFORE_COUNT=$(get_comp_count)
@@ -107,16 +101,14 @@ if [ -f "$VOCAB_FILE" ] && [ -x "$INGESTER" ]; then
     
     echo "  → +$NEW_COMPS compositions in ${DURATION}s"
 else
-    echo "  ⚠ Skipping vocabulary (file or ingester not found)"
+    echo "  Skipping vocabulary (file or ingester not found)"
 fi
 echo ""
 
 # ============================================================================
 # STEP 3: EXTRACT SEMANTIC EDGES FROM MODEL WEIGHTS
 # ============================================================================
-echo "┌──────────────────────────────────────────────────────────────────┐"
-echo "│ STEP 3: EXTRACTING SEMANTIC EDGES (Embedding Similarities)       │"
-echo "└──────────────────────────────────────────────────────────────────┘"
+echo "Step 3: Extracting Semantic Edges (Embedding Similarities)"
 
 if [ -f "$MODEL_FILE" ] && [ -x "$EMBEDDING_EXTRACTOR" ]; then
     BEFORE_EDGES=$(get_edge_count)
@@ -138,16 +130,14 @@ elif [ -f "$MODEL_FILE" ] && [ -x "$SAFETENSOR_INGESTER" ]; then
     echo "  Using safetensor ingester..."
     $SAFETENSOR_INGESTER $DB_ARGS -t 0.7 "$(dirname "$MODEL_FILE")" 2>&1 | grep -E "^\[|edges" | head -10
 else
-    echo "  ⚠ Skipping model weights (file or extractor not found)"
+    echo "  Skipping model weights (file or extractor not found)"
 fi
 echo ""
 
 # ============================================================================
 # STEP 4: INGEST TEXT CONTENT (Moby Dick, etc.)
 # ============================================================================
-echo "┌──────────────────────────────────────────────────────────────────┐"
-echo "│ STEP 4: INGESTING TEXT CONTENT                                   │"
-echo "└──────────────────────────────────────────────────────────────────┘"
+echo "Step 4: Ingesting Text Content"
 
 if [ -x "$INGESTER" ]; then
     for file in "$TEST_DATA_DIR"/*.txt; do
@@ -171,24 +161,21 @@ if [ -x "$INGESTER" ]; then
         echo "    → +$NEW_COMPS compositions (${DURATION}s)"
     done
 else
-    echo "  ⚠ ingest tool not found - run build.sh first"
+    echo "  ingest tool not found - run build.sh first"
 fi
 echo ""
 
 # ============================================================================
 # SUMMARY
 # ============================================================================
-echo "╔══════════════════════════════════════════════════════════════════╗"
-echo "║                     INGESTION COMPLETE                            ║"
-echo "╚══════════════════════════════════════════════════════════════════╝"
+echo "Ingestion Complete"
 echo ""
 
 hc_psql -c "
-SELECT 
-    COUNT(*) FILTER (WHERE depth = 0) as \"Leaf Atoms\",
-    COUNT(*) FILTER (WHERE depth > 0 AND atom_count > 2) as \"Compositions\",
-    COUNT(*) FILTER (WHERE depth = 1 AND atom_count = 2) as \"Semantic Edges\",
-    MAX(depth) as \"Max Depth\",
-    pg_size_pretty(pg_total_relation_size('atom')) as \"Total Size\"
-FROM atom;
+SELECT
+    (SELECT COUNT(*) FROM atom) as \"Leaf Atoms\",
+    (SELECT COUNT(*) FROM composition) as \"Compositions\",
+    (SELECT COUNT(*) FROM relation) as \"Semantic Edges\",
+    (SELECT MAX(depth) FROM composition) as \"Max Depth\",
+    pg_size_pretty(pg_total_relation_size('atom') + pg_total_relation_size('composition') + pg_total_relation_size('relation')) as \"Total Size\";
 "

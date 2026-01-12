@@ -30,9 +30,7 @@
 #include <Eigen/Dense>
 #endif
 
-#ifdef __AVX2__
-#include <immintrin.h>
-#endif
+#include "hypercube/simd_intrinsics.hpp"
 
 namespace hypercube {
 namespace lanczos {
@@ -49,7 +47,7 @@ double dot(const double* a, const double* b, size_t n) {
 #elif defined(HAS_EIGEN)
     return Eigen::Map<const Eigen::VectorXd>(a, n).dot(Eigen::Map<const Eigen::VectorXd>(b, n));
 #else
-#ifdef __AVX512F__
+#if defined(HAS_AVX512F) && HAS_AVX512F
     __m512d sum = _mm512_setzero_pd();
     size_t i = 0;
     for (; i + 8 <= n; i += 8) {
@@ -145,7 +143,7 @@ void axpy(double a, const double* x, double* y, size_t n) {
 #ifdef HAS_MKL
     cblas_daxpy(static_cast<int>(n), a, x, 1, y, 1);
 #else
-#ifdef __AVX512F__
+#if defined(HAS_AVX512F) && HAS_AVX512F
     __m512d va = _mm512_set1_pd(a);
     size_t i = 0;
     for (; i + 8 <= n; i += 8) {
@@ -196,7 +194,7 @@ void scale(double a, std::vector<double>& v) {
 #ifdef HAS_MKL
     cblas_dscal(static_cast<int>(v.size()), a, v.data(), 1);
 #else
-#ifdef __AVX512F__
+#if defined(HAS_AVX512F) && HAS_AVX512F
     __m512d va = _mm512_set1_pd(a);
     size_t i = 0;
     for (; i + 8 <= v.size(); i += 8) {

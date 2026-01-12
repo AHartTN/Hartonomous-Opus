@@ -16,10 +16,72 @@
 #include <stack>
 #include <queue>
 #include <unordered_set>
+#include <iostream>
 
-#if defined(__AVX2__)
-#include <immintrin.h>
+#include "hypercube/simd_intrinsics.hpp"
+
+// SIMD intrinsics are included via the wrapper header
+// AVX512 support is controlled at the compiler flag level
+
+// CPU feature validation at runtime
+static void validate_cpu_features() {
+    static bool validated = false;
+    if (validated) return;
+
+    // Check CPUID support first
+    uint32_t eax, ebx, ecx, edx;
+    __asm__ volatile(
+        "cpuid"
+        : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+        : "a"(1), "c"(0)
+    );
+    bool cpuid_supported = (edx & (1 << 21)) != 0;
+
+    if (!cpuid_supported) {
+        std::cerr << "WARNING: CPUID not supported - cannot validate CPU features at runtime" << std::endl;
+        validated = true;
+        return;
+    }
+
+    // Check AVX512 support at runtime
+    __asm__ volatile(
+        "cpuid"
+        : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+        : "a"(7), "c"(0)
+    );
+    bool runtime_avx512f = (ebx & (1 << 16)) != 0;
+    bool runtime_avx2 = (ebx & (1 << 5)) != 0;
+
+#if defined(HAS_AVX512F) && HAS_AVX512F
+    // Compile-time says AVX512F is supported
+    if (!runtime_avx512f) {
+        std::cerr << "ERROR: Compile-time AVX512F detection mismatch! "
+                  << "Compiled with AVX512F support but CPU does not have it. "
+                  << "This may cause runtime crashes or incorrect results." << std::endl;
+    }
+#else
+    // Compile-time says AVX512F is NOT supported
+    if (runtime_avx512f) {
+        std::cerr << "INFO: CPU supports AVX512F but compiled without it. "
+                  << "Consider recompiling for optimal performance." << std::endl;
+    }
 #endif
+
+    // Also validate AVX2
+#if defined(HAS_AVX2) && HAS_AVX2
+    if (!runtime_avx2) {
+        std::cerr << "ERROR: Compile-time AVX2 detection mismatch! "
+                  << "Compiled with AVX2 support but CPU does not have it." << std::endl;
+    }
+#endif
+
+    validated = true;
+}
+
+// Initialize validation on first use
+struct CpuFeatureValidator {
+    CpuFeatureValidator() { validate_cpu_features(); }
+} g_validator;
 
 namespace hypercube {
 namespace ops {

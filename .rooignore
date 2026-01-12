@@ -1,0 +1,6 @@
+# .rooignore
+build/
+external/
+.git/
+**/*.points
+**/*.json

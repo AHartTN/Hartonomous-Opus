@@ -46,9 +46,7 @@
 #include "hypercube/laplacian_4d.hpp"
 
 // HNSWLIB for k-NN
-#ifdef HAS_HNSWLIB
-#include <hnswlib/hnswlib.h>
-#endif
+// HNSWLib disabled
 
 namespace hypercube {
 namespace ingest {

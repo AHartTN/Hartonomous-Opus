@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "TETOPzJBEtE=",
+  "dgSpecHash": "QFriCw0CtZ8=",
   "success": true,
-  "projectFilePath": "/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
+  "projectFilePath": "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
   "expectedPackageFiles": [
     "/home/ahart/.nuget/packages/microsoft.aspnetcore.openapi/8.0.0/microsoft.aspnetcore.openapi.8.0.0.nupkg.sha512",
     "/home/ahart/.nuget/packages/microsoft.extensions.apidescription.server/6.0.5/microsoft.extensions.apidescription.server.6.0.5.nupkg.sha512",
@@ -45,9 +45,9 @@
       "code": "NU1903",
       "level": "Warning",
       "message": "Package 'Npgsql' 8.0.0 has a known high severity vulnerability, https://github.com/advisories/GHSA-x9vc-6hfv-hg8c",
-      "projectPath": "/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
+      "projectPath": "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
       "warningLevel": 1,
-      "filePath": "/mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
+      "filePath": "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
       "libraryId": "Npgsql",
       "targetGraphs": [
         "net8.0"

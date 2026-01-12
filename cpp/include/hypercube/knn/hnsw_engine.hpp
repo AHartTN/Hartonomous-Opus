@@ -14,7 +14,7 @@
 #include <optional>
 #include <unordered_map>
 
-#include "hnswlib/hnswlib.h"
+// HNSWLib disabled
 
 #include "hypercube/thread_pool.hpp"
 #include "hypercube/util/vector_ops.hpp"

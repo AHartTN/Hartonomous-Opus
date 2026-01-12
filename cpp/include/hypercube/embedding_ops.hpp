@@ -35,7 +35,7 @@ namespace embedding {
 // Horizontal Sum Helpers
 // =============================================================================
 
-#if defined(__AVX512F__)
+#if defined(HAS_AVX512F) && HAS_AVX512F
 inline float hsum_avx512(__m512 v) noexcept {
     __m256 lo = _mm512_castps512_ps256(v);
     __m256 hi = _mm512_extractf32x8_ps(v, 1);
@@ -74,7 +74,7 @@ inline float hsum_sse(__m128 v) noexcept {
 // AVX-512 Implementations (16 floats/op)
 // =============================================================================
 
-#if defined(__AVX512F__)
+#if defined(HAS_AVX512F) && HAS_AVX512F
 inline double cosine_similarity_avx512(const float* a, const float* b, size_t n) noexcept {
     __m512 dot_sum = _mm512_setzero_ps();
     __m512 norm_a_sum = _mm512_setzero_ps();
@@ -107,7 +107,7 @@ inline double cosine_similarity_avx512(const float* a, const float* b, size_t n)
 
 inline double l2_distance_avx512(const float* a, const float* b, size_t n) noexcept {
     __m512 sum = _mm512_setzero_ps();
-    
+
     size_t i = 0;
     for (; i + 16 <= n; i += 16) {
         __m512 va = _mm512_loadu_ps(&a[i]);
@@ -115,14 +115,14 @@ inline double l2_distance_avx512(const float* a, const float* b, size_t n) noexc
         __m512 diff = _mm512_sub_ps(va, vb);
         sum = _mm512_fmadd_ps(diff, diff, sum);
     }
-    
+
     float result = hsum_avx512(sum);
-    
+
     for (; i < n; ++i) {
         float diff = a[i] - b[i];
         result += diff * diff;
     }
-    
+
     return std::sqrt(result);
 }
 
@@ -146,7 +146,7 @@ inline void vector_sub_avx512(const float* a, const float* b, float* result, siz
     for (; i < n; ++i) result[i] = a[i] - b[i];
 }
 
-inline void analogy_target_avx512(const float* a, const float* b, const float* c, 
+inline void analogy_target_avx512(const float* a, const float* b, const float* c,
                                    float* result, size_t n) noexcept {
     size_t i = 0;
     for (; i + 16 <= n; i += 16) {
@@ -385,7 +385,7 @@ inline void analogy_target_scalar(const float* a, const float* b, const float* c
 inline double cosine_similarity(const float* a, const float* b, size_t n) noexcept {
     const auto level = Backend::simd_level();
     
-#if defined(__AVX512F__)
+#if defined(HAS_AVX512F) && HAS_AVX512F
     if (level >= SIMDLevel::AVX512) {
         return cosine_similarity_avx512(a, b, n);
     }
@@ -409,7 +409,7 @@ inline double cosine_similarity(const float* a, const float* b, size_t n) noexce
 inline double l2_distance(const float* a, const float* b, size_t n) noexcept {
     const auto level = Backend::simd_level();
     
-#if defined(__AVX512F__)
+#if defined(HAS_AVX512F) && HAS_AVX512F
     if (level >= SIMDLevel::AVX512) {
         return l2_distance_avx512(a, b, n);
     }
@@ -433,7 +433,7 @@ inline double l2_distance(const float* a, const float* b, size_t n) noexcept {
 inline void vector_add(const float* a, const float* b, float* result, size_t n) noexcept {
     const auto level = Backend::simd_level();
     
-#if defined(__AVX512F__)
+#if defined(HAS_AVX512F) && HAS_AVX512F
     if (level >= SIMDLevel::AVX512) {
         vector_add_avx512(a, b, result, n);
         return;
@@ -460,7 +460,7 @@ inline void vector_add(const float* a, const float* b, float* result, size_t n) 
 inline void vector_sub(const float* a, const float* b, float* result, size_t n) noexcept {
     const auto level = Backend::simd_level();
     
-#if defined(__AVX512F__)
+#if defined(HAS_AVX512F) && HAS_AVX512F
     if (level >= SIMDLevel::AVX512) {
         vector_sub_avx512(a, b, result, n);
         return;
@@ -489,7 +489,7 @@ inline void analogy_target(const float* a, const float* b, const float* c,
                             float* result, size_t n) noexcept {
     const auto level = Backend::simd_level();
     
-#if defined(__AVX512F__)
+#if defined(HAS_AVX512F) && HAS_AVX512F
     if (level >= SIMDLevel::AVX512) {
         analogy_target_avx512(a, b, c, result, n);
         return;

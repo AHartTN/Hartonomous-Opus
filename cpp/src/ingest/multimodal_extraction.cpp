@@ -40,7 +40,10 @@
 #endif
 
 #ifdef HAS_HNSWLIB
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
 #include <hnswlib/hnswlib.h>
+#pragma GCC diagnostic pop
 #endif
 
 namespace hypercube {
@@ -277,7 +280,7 @@ size_t extract_object_queries(
             const float* row = data.data() + idx * dim;
             Blake3Hasher::Incremental hasher;
             hasher.update(std::string_view(reinterpret_cast<const char*>(row), dim * sizeof(float)));
-            Blake3Hash hash = hasher.finalize();
+            // NOTE: hash computed but not used (HNSWLib disabled)
 
 #ifdef HAS_HNSWLIB
             // Find similar tokens
@@ -355,7 +358,7 @@ size_t extract_positional_encodings(
             const float* row = data.data() + idx * dim;
             Blake3Hasher::Incremental hasher;
             hasher.update(std::string_view(reinterpret_cast<const char*>(row), dim * sizeof(float)));
-            Blake3Hash hash = hasher.finalize();
+            // NOTE: hash computed but not used (HNSWLib disabled)
 
 #ifdef HAS_HNSWLIB
             auto result = static_cast<hnswlib::HierarchicalNSW<float>*>(token_hnsw)->searchKnn(row, K_NEIGHBORS + 1);
@@ -418,7 +421,7 @@ size_t extract_moe_routers(
             const float* row = data.data() + idx * d_model;
             Blake3Hasher::Incremental hasher;
             hasher.update(std::string_view(reinterpret_cast<const char*>(row), d_model * sizeof(float)));
-            Blake3Hash hash = hasher.finalize();
+            // NOTE: hash computed but not used (HNSWLib disabled)
 
 #ifdef HAS_HNSWLIB
             auto result = static_cast<hnswlib::HierarchicalNSW<float>*>(token_hnsw)->searchKnn(row, K_NEIGHBORS + 1);
@@ -439,6 +442,71 @@ size_t extract_moe_routers(
         }
 
         std::cerr << "[MULTIMODAL] Extracted " << total_edges << " router relations\n";
+    }
+
+    return total_edges;
+}
+
+// ============================================================================
+// Extract Universal Digital Content Modalities
+// ============================================================================
+
+size_t extract_universal_modality(
+    PGconn* conn,
+    IngestContext& ctx,
+    const std::vector<TensorExtractionPlan>& plans,
+    void* token_hnsw,
+    const std::vector<size_t>& valid_token_indices,
+    std::vector<RelationEdge>& edges,
+    const std::string& modality_name
+) {
+    size_t total_edges = 0;
+
+    for (const auto& plan : plans) {
+        auto it = ctx.tensors.find(plan.name);
+        if (it == ctx.tensors.end()) continue;
+
+        const TensorMeta& meta = it->second;
+        if (meta.shape.size() != 2) continue;
+
+        size_t num_items = static_cast<size_t>(meta.shape[0]);
+        size_t dim = static_cast<size_t>(meta.shape[1]);
+
+        std::cerr << "[MULTIMODAL] Extracting " << num_items
+                  << " " << modality_name << " relations from " << plan.name << " [" << dim << "d]\n";
+
+        std::vector<float> data = load_tensor(meta);
+        if (data.empty()) continue;
+
+        auto valid = normalize_and_get_valid(data.data(), num_items, dim);
+
+        for (size_t idx : valid) {
+            const float* row = data.data() + idx * dim;
+            Blake3Hasher::Incremental hasher;
+            hasher.update(std::string_view(reinterpret_cast<const char*>(row), dim * sizeof(float)));
+            Blake3Hash hash = hasher.finalize();
+            (void)hash; // Suppress unused variable warning
+
+#ifdef HAS_HNSWLIB
+            // Find similar tokens using HNSW
+            auto result = static_cast<hnswlib::HierarchicalNSW<float>*>(token_hnsw)->searchKnn(row, K_NEIGHBORS + 1);
+            while (!result.empty()) {
+                auto [dist, j] = result.top();
+                result.pop();
+
+                float sim = dist;  // Inner product similarity
+                if (sim >= MIN_SIMILARITY) {
+                    size_t tok_idx = valid_token_indices[j];
+                    const auto& comp = ctx.vocab_tokens[tok_idx].comp;
+                    char target_type = (comp.children.size() <= 1) ? 'A' : 'C';
+                    edges.push_back({hash, 'C', comp.hash, target_type, sim, plan.layer_idx, modality_name});
+                    total_edges++;
+                }
+            }
+#endif
+        }
+
+        std::cerr << "[MULTIMODAL] Extracted " << total_edges << " " << modality_name << " relations\n";
     }
 
     return total_edges;
@@ -482,7 +550,7 @@ size_t extract_class_heads(
             const float* row = data.data() + idx * dim;
             Blake3Hasher::Incremental hasher;
             hasher.update(std::string_view(reinterpret_cast<const char*>(row), dim * sizeof(float)));
-            Blake3Hash hash = hasher.finalize();
+            // NOTE: hash computed but not used (HNSWLib disabled)
 
 #ifdef HAS_HNSWLIB
             auto result = static_cast<hnswlib::HierarchicalNSW<float>*>(token_hnsw)->searchKnn(row, K_NEIGHBORS + 1);
@@ -586,6 +654,13 @@ size_t extract_multimodal_structures(
     std::vector<TensorExtractionPlan> positional_plans;
     std::vector<TensorExtractionPlan> moe_router_plans;
     std::vector<TensorExtractionPlan> class_head_plans;
+    std::vector<TensorExtractionPlan> chemical_plans;
+    std::vector<TensorExtractionPlan> dna_plans;
+    std::vector<TensorExtractionPlan> music_notes_plans;
+    std::vector<TensorExtractionPlan> music_audio_plans;
+    std::vector<TensorExtractionPlan> math_symbols_plans;
+    std::vector<TensorExtractionPlan> math_expressions_plans;
+    std::vector<TensorExtractionPlan> generic_modality_plans;
 
     for (const auto& plan : manifest.extraction_plans) {
         switch (plan.category) {
@@ -601,6 +676,27 @@ size_t extract_multimodal_structures(
                 break;
             case TensorCategory::CLASS_HEAD:
                 class_head_plans.push_back(plan);
+                break;
+            case TensorCategory::CHEMICAL_STRUCTURES:
+                chemical_plans.push_back(plan);
+                break;
+            case TensorCategory::DNA_SEQUENCES:
+                dna_plans.push_back(plan);
+                break;
+            case TensorCategory::MUSIC_NOTES:
+                music_notes_plans.push_back(plan);
+                break;
+            case TensorCategory::MUSIC_AUDIO:
+                music_audio_plans.push_back(plan);
+                break;
+            case TensorCategory::MATH_SYMBOLS:
+                math_symbols_plans.push_back(plan);
+                break;
+            case TensorCategory::MATH_EXPRESSIONS:
+                math_expressions_plans.push_back(plan);
+                break;
+            case TensorCategory::GENERIC_MODALITY:
+                generic_modality_plans.push_back(plan);
                 break;
             default:
                 break;
@@ -630,6 +726,49 @@ size_t extract_multimodal_structures(
         std::cerr << "[MULTIMODAL] Processing " << class_head_plans.size()
                   << " class head tensors\n";
         total += extract_class_heads(conn, ctx, class_head_plans, token_hnsw_ptr, valid_token_indices, all_edges);
+    }
+
+    // Extract universal digital content modalities
+    if (!chemical_plans.empty()) {
+        std::cerr << "[MULTIMODAL] Processing " << chemical_plans.size()
+                  << " chemical structure tensors\n";
+        total += extract_universal_modality(conn, ctx, chemical_plans, token_hnsw_ptr, valid_token_indices, all_edges, "CHEMICAL");
+    }
+
+    if (!dna_plans.empty()) {
+        std::cerr << "[MULTIMODAL] Processing " << dna_plans.size()
+                  << " DNA sequence tensors\n";
+        total += extract_universal_modality(conn, ctx, dna_plans, token_hnsw_ptr, valid_token_indices, all_edges, "DNA");
+    }
+
+    if (!music_notes_plans.empty()) {
+        std::cerr << "[MULTIMODAL] Processing " << music_notes_plans.size()
+                  << " music notation tensors\n";
+        total += extract_universal_modality(conn, ctx, music_notes_plans, token_hnsw_ptr, valid_token_indices, all_edges, "MUSIC_NOTES");
+    }
+
+    if (!music_audio_plans.empty()) {
+        std::cerr << "[MULTIMODAL] Processing " << music_audio_plans.size()
+                  << " music audio tensors\n";
+        total += extract_universal_modality(conn, ctx, music_audio_plans, token_hnsw_ptr, valid_token_indices, all_edges, "MUSIC_AUDIO");
+    }
+
+    if (!math_symbols_plans.empty()) {
+        std::cerr << "[MULTIMODAL] Processing " << math_symbols_plans.size()
+                  << " math symbol tensors\n";
+        total += extract_universal_modality(conn, ctx, math_symbols_plans, token_hnsw_ptr, valid_token_indices, all_edges, "MATH_SYMBOLS");
+    }
+
+    if (!math_expressions_plans.empty()) {
+        std::cerr << "[MULTIMODAL] Processing " << math_expressions_plans.size()
+                  << " math expression tensors\n";
+        total += extract_universal_modality(conn, ctx, math_expressions_plans, token_hnsw_ptr, valid_token_indices, all_edges, "MATH_EXPRESSIONS");
+    }
+
+    if (!generic_modality_plans.empty()) {
+        std::cerr << "[MULTIMODAL] Processing " << generic_modality_plans.size()
+                  << " generic modality tensors\n";
+        total += extract_universal_modality(conn, ctx, generic_modality_plans, token_hnsw_ptr, valid_token_indices, all_edges, "GENERIC_MODALITY");
     }
 
     if (!all_edges.empty()) {

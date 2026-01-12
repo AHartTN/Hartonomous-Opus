@@ -111,7 +111,19 @@ enum class TensorCategory {
     
     // Quantization artifacts
     QUANTIZATION_SCALE,
-    QUANTIZATION_ZERO_POINT
+    QUANTIZATION_ZERO_POINT,
+
+    // =========================================================================
+    // UNIVERSAL DIGITAL CONTENT MODALITIES - irreducible atoms
+    // =========================================================================
+    // These represent fundamental "character sets" for different data types
+    CHEMICAL_STRUCTURES,      // SMILES, molecular formulas, chemical notation
+    DNA_SEQUENCES,           // Nucleotide sequences, genetic data
+    MUSIC_NOTES,             // Musical notation, MIDI events
+    MUSIC_AUDIO,             // Audio features, spectrograms
+    MATH_SYMBOLS,            // Mathematical symbols, operators
+    MATH_EXPRESSIONS,        // LaTeX, MathML expressions
+    GENERIC_MODALITY         // Extensible for any digital content type
 };
 
 inline std::string category_to_string(TensorCategory cat) {
@@ -171,7 +183,16 @@ inline std::string category_to_string(TensorCategory cat) {
         // Quantization
         case TensorCategory::QUANTIZATION_SCALE: return "QUANTIZATION_SCALE";
         case TensorCategory::QUANTIZATION_ZERO_POINT: return "QUANTIZATION_ZERO_POINT";
-        
+
+        // Universal Digital Content Modalities
+        case TensorCategory::CHEMICAL_STRUCTURES: return "CHEMICAL_STRUCTURES";
+        case TensorCategory::DNA_SEQUENCES: return "DNA_SEQUENCES";
+        case TensorCategory::MUSIC_NOTES: return "MUSIC_NOTES";
+        case TensorCategory::MUSIC_AUDIO: return "MUSIC_AUDIO";
+        case TensorCategory::MATH_SYMBOLS: return "MATH_SYMBOLS";
+        case TensorCategory::MATH_EXPRESSIONS: return "MATH_EXPRESSIONS";
+        case TensorCategory::GENERIC_MODALITY: return "GENERIC_MODALITY";
+
         default: return "UNKNOWN";
     }
 }
@@ -736,6 +757,68 @@ inline TensorCategory ModelManifest::classify_tensor(const std::string& name,
         return TensorCategory::LAYER_NORM;  // Treat as normalization
     }
 
+    // =========================================================================
+    // 16. UNIVERSAL DIGITAL CONTENT MODALITIES
+    // =========================================================================
+    // These represent fundamental "character sets" for different data types
+    // Pattern matching for chemical structures
+    if (lower_name.find("smiles") != std::string::npos ||
+        lower_name.find("molecule") != std::string::npos ||
+        lower_name.find("chemical") != std::string::npos ||
+        lower_name.find("compound") != std::string::npos) {
+        return TensorCategory::CHEMICAL_STRUCTURES;
+    }
+
+    // DNA/RNA/genetic sequences
+    if (lower_name.find("dna") != std::string::npos ||
+        lower_name.find("rna") != std::string::npos ||
+        lower_name.find("nucleotide") != std::string::npos ||
+        lower_name.find("genetic") != std::string::npos ||
+        lower_name.find("sequence") != std::string::npos) {
+        return TensorCategory::DNA_SEQUENCES;
+    }
+
+    // Musical notation and MIDI
+    if (lower_name.find("midi") != std::string::npos ||
+        lower_name.find("note") != std::string::npos ||
+        lower_name.find("pitch") != std::string::npos ||
+        lower_name.find("chord") != std::string::npos ||
+        lower_name.find("melody") != std::string::npos) {
+        return TensorCategory::MUSIC_NOTES;
+    }
+
+    // Audio features and spectrograms
+    if (lower_name.find("audio") != std::string::npos ||
+        lower_name.find("spectrogram") != std::string::npos ||
+        lower_name.find("mfcc") != std::string::npos ||
+        lower_name.find("waveform") != std::string::npos ||
+        lower_name.find("sound") != std::string::npos) {
+        return TensorCategory::MUSIC_AUDIO;
+    }
+
+    // Mathematical symbols
+    if (lower_name.find("math") != std::string::npos ||
+        lower_name.find("symbol") != std::string::npos ||
+        lower_name.find("operator") != std::string::npos ||
+        lower_name.find("equation") != std::string::npos) {
+        return TensorCategory::MATH_SYMBOLS;
+    }
+
+    // Mathematical expressions (LaTeX, MathML)
+    if (lower_name.find("latex") != std::string::npos ||
+        lower_name.find("mathml") != std::string::npos ||
+        lower_name.find("expression") != std::string::npos ||
+        lower_name.find("formula") != std::string::npos) {
+        return TensorCategory::MATH_EXPRESSIONS;
+    }
+
+    // Generic modality (fallback for any digital content)
+    if (lower_name.find("modality") != std::string::npos ||
+        lower_name.find("content") != std::string::npos ||
+        lower_name.find("data") != std::string::npos) {
+        return TensorCategory::GENERIC_MODALITY;
+    }
+
     return TensorCategory::UNKNOWN;
 }
 
@@ -876,13 +959,27 @@ inline void ModelManifest::categorize_tensor(const std::string& name,
             break;
             
         // =====================================================================
+        // UNIVERSAL DIGITAL CONTENT MODALITIES
+        // =====================================================================
+        case TensorCategory::CHEMICAL_STRUCTURES:
+        case TensorCategory::DNA_SEQUENCES:
+        case TensorCategory::MUSIC_NOTES:
+        case TensorCategory::MUSIC_AUDIO:
+        case TensorCategory::MATH_SYMBOLS:
+        case TensorCategory::MATH_EXPRESSIONS:
+        case TensorCategory::GENERIC_MODALITY:
+            plan.extract_embeddings = true;  // Extract semantic manifolds for all modalities
+            embedding_tensors++;
+            break;
+
+        // =====================================================================
         // SKIP
         // =====================================================================
         case TensorCategory::QUANTIZATION_SCALE:
         case TensorCategory::QUANTIZATION_ZERO_POINT:
             plan.skip = true;
             break;
-            
+
         default:
             plan.extract_statistics = true;
             other_tensors++;

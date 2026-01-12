@@ -56,7 +56,10 @@
 
 // HNSWLIB for fast k-NN (O(n log n) vs O(n²) brute force)
 #if defined(HAS_HNSWLIB) && HAS_HNSWLIB
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
 #include <hnswlib/hnswlib.h>
+#pragma GCC diagnostic pop
 #define USE_HNSWLIB 1
 #else
 #define USE_HNSWLIB 0

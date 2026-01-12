@@ -1,5 +1,5 @@
--- The CXX compiler identification is GNU 13.3.0
--- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 11.4.0
+-- The C compiler identification is GNU 11.4.0
 -- Detecting CXX compiler ABI info
 -- Detecting CXX compiler ABI info - done
 -- Check for working CXX compiler: /usr/bin/c++ - skipped
@@ -17,20 +17,39 @@
 -- Found OpenMP_CXX: -fopenmp (found version "4.5")
 -- Found OpenMP: TRUE (found version "4.5")
 -- OpenMP: Found (version 4.5)
+-- Eigen3: Found via system package
 -- Intel MKL: Found - using optimized BLAS operations
 -- Performing Test COMPILER_SUPPORTS_MARCH_NATIVE
 -- Performing Test COMPILER_SUPPORTS_MARCH_NATIVE - Success
--- SIMD: Native architecture optimizations enabled
--- Compiler: GNU 13.3.0
+-- CPU Feature: AVX2 detected
+-- CPU Feature: AVX-VNNI detected
+-- CPU Feature: BMI2 detected
+-- Performing Test COMPILER_SUPPORTS_AVX512F
+-- Performing Test COMPILER_SUPPORTS_AVX512F - Success
+-- Performing Test COMPILER_SUPPORTS_AVX512DQ
+-- Performing Test COMPILER_SUPPORTS_AVX512DQ - Success
+-- Performing Test COMPILER_SUPPORTS_AVX512BW
+-- Performing Test COMPILER_SUPPORTS_AVX512BW - Success
+-- Performing Test COMPILER_SUPPORTS_AVX512VL
+-- Performing Test COMPILER_SUPPORTS_AVX512VL - Success
+-- Performing Test COMPILER_SUPPORTS_AVX512VNNI
+-- Performing Test COMPILER_SUPPORTS_AVX512VNNI - Success
+-- AVX-512F: Disabled (CPU does not support)
+-- Compiler: GNU 11.4.0
 -- Build type: Release
 -- C++ standard: 23
+-- CPU Features: AVX2 detected
+-- CPU Features: AVX-VNNI detected
+-- CPU Features: BMI2 detected
 -- SIMD support: ON
--- PostgreSQL: PostgreSQL 18.1 (Ubuntu 18.1-1.pgdg24.04+2)
+-- PostgreSQL: PostgreSQL 18.1 (Ubuntu 18.1-1.pgdg22.04+2)
 -- PostgreSQL server includes: /usr/include/postgresql/18/server
 -- PostgreSQL pkglibdir: /usr/lib/postgresql/18/lib
+-- AVX-512: All AVX-512 features disabled (not supported by CPU)
 -- Found PostgreSQL client library: /usr/lib/x86_64-linux-gnu/libpq.so
 -- seed_atoms_parallel will be built
--- Found Google Test: 
+-- Google Test not found - skipping test suite
+-- To enable tests: vcpkg install gtest:x64-windows
 -- Runtime Environment Setup for AVX Optimization:
 --   Set these in your ~/.bashrc or runtime environment:
 --   export OMP_PROC_BIND=true
@@ -42,14 +61,15 @@
 -- 
 -- === Hypercube Build Configuration ===
 -- Build type: Release
--- C++ compiler: GNU 13.3.0
--- C compiler: GNU 13.3.0
+-- C++ compiler: GNU 11.4.0
+-- C compiler: GNU 11.4.0
 -- PostgreSQL extension: ON
 -- PostgreSQL tools: ON
+-- Eigen3: ON
 -- Intel MKL: ON
--- k-NN: Brute-force
--- Tests: ON (Google Test)
+-- k-NN: Brute-force (HNSWLib disabled)
+-- Tests: OFF
 -- 
--- Configuring done (38.3s)
--- Generating done (0.7s)
--- Build files have been written to: /mnt/d/Repositories/Github/AHartTN/Hartonomous-Opus/cpp/build
+-- Configuring done (1.6s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/ahart/Projects/Hartonomous-Opus/cpp/build

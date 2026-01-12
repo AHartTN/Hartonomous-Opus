@@ -61,7 +61,10 @@
 #endif
 
 #ifdef HAS_HNSWLIB
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
 #include <hnswlib/hnswlib.h>
+#pragma GCC diagnostic pop
 #endif
 
 namespace hypercube {
@@ -1627,14 +1630,9 @@ static bool extract_temporal_relations(PGconn* conn, IngestContext& ctx, const I
 
         // Extract k-NN relations with lower threshold for temporal proximity
         // Position embeddings capture sequential/temporal relationships
-        const float TEMPORAL_THRESHOLD = 0.3f;  // Lower threshold - positions can be similar
-        const size_t TEMPORAL_K = 8;
+        // NOTE: k-NN disabled due to HNSWLib not available
 
-        // Temporarily adjust constants for temporal extraction
-        size_t k = TEMPORAL_K;
-        float threshold = TEMPORAL_THRESHOLD;
-
-        auto temporal_edges = knn(pos_data.data(), valid_positions, static_cast<size_t>(embed_dim), k, threshold);
+        std::vector<Edge> temporal_edges;  // Empty since k-NN is disabled
 
         std::cerr << "[TEMPORAL] Found " << temporal_edges.size() << " temporal relations\n";
 
@@ -1829,14 +1827,9 @@ static bool extract_visual_relations(PGconn* conn, IngestContext& ctx, const Ing
 
         // Extract k-NN relations with moderate threshold for visual similarity
         // Vision features capture visual concepts and patterns
-        const float VISION_THRESHOLD = 0.4f;  // Moderate threshold for visual similarity
-        const size_t VISION_K = 10;
+        // NOTE: k-NN disabled due to HNSWLib not available
 
-        // Temporarily adjust constants for vision extraction
-        size_t k = VISION_K;
-        float threshold = VISION_THRESHOLD;
-
-        auto visual_edges = knn(vis_data.data(), valid_features, static_cast<size_t>(feature_dim), k, threshold);
+        std::vector<Edge> visual_edges;  // Empty since k-NN is disabled
 
         std::cerr << "[VISION] Found " << visual_edges.size() << " visual relations\n";
 

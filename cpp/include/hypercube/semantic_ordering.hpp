@@ -57,7 +57,7 @@ public:
      * @param codepoint Unicode codepoint
      * @return 64-bit semantic key
      */
-    static uint64_t get_semantic_key(uint32_t codepoint);
+    static uint64_t get_semantic_key(uint32_t codepoint) noexcept;
 
 private:
     static std::unordered_map<uint32_t, uint32_t> codepoint_to_rank_;
@@ -66,13 +66,13 @@ private:
     static std::mutex init_mutex_;
 
     static void initialize();
-    static uint64_t compute_semantic_key(uint32_t codepoint);
+    static uint64_t compute_semantic_key(uint32_t codepoint) noexcept;
 };
 
 /**
  * Legacy function for backward compatibility
  * @deprecated Use SemanticOrdering::get_semantic_key() instead
  */
-uint64_t get_semantic_key(uint32_t cp);
+uint64_t get_semantic_key(uint32_t cp) noexcept;
 
 } // namespace hypercube</xai:function_call">The file cpp/include/hypercube/semantic_ordering.hpp was created successfully.

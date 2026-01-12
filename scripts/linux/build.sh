@@ -103,7 +103,7 @@ echo ""
 echo "Executables:"
 for exe in hc seed_atoms_parallel ingest ingest_safetensor extract_embeddings vocab_ingest vocab_extract; do
     if [ -f "$exe" ]; then
-        echo "  ✓ $exe"
+        echo "  $exe"
     fi
 done
 
@@ -111,7 +111,7 @@ echo ""
 echo "Extensions:"
 for ext in hypercube semantic_ops hypercube_ops embedding_ops generative; do
     if [ -f "$ext.so" ]; then
-        echo "  ✓ $ext.so"
+        echo "  $ext.so"
     fi
 done
 
@@ -119,7 +119,7 @@ echo ""
 echo "Core Libraries:"
 for lib in libhypercube_c.so libhypercube_core.a libhypercube_ingest.a; do
     if [ -f "$lib" ]; then
-        echo "  ✓ $lib"
+        echo "  $lib"
     fi
 done
 

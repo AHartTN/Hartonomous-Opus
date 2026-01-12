@@ -1,0 +1,164 @@
+Hartonomous environment loaded
+  Database: hypercube @ localhost:5432
+  User:     hartonomous
+  Project:  /home/ahart/Projects/Hartonomous-Opus
+
+╔══════════════════════════════════════════════════════════════════╗
+║       HARTONOMOUS HYPERCUBE - FULL SETUP PIPELINE                ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  Database: hypercube @ localhost:5432
+  Project:  /home/ahart/Projects/Hartonomous-Opus
+
+┌──────────────────────────────────────────────────────────────────┐
+│ STEP 1/5: CLEANING BUILD ARTIFACTS                               │
+└──────────────────────────────────────────────────────────────────┘
+=== Cleaning Build Artifacts ===
+Removing: /home/ahart/Projects/Hartonomous-Opus/cpp/build
+Clean complete
+
+┌──────────────────────────────────────────────────────────────────┐
+│ STEP 2/5: BUILDING C/C++ COMPONENTS                              │
+└──────────────────────────────────────────────────────────────────┘
+
+============================================================
+ Hartonomous Hypercube - Build
+============================================================
+
+Configuration:
+  Build Type:     Release
+  Parallel Jobs:  12
+  Project Root:   /home/ahart/Projects/Hartonomous-Opus
+
+Intel MKL:        /opt/intel/oneapi/mkl/2025.3
+
+Configuring with CMake...
+Configuring with CMake...
+Building with 12 parallel jobs...
+[1/85] Building C object CMakeFiles/semantic_ops.dir/src/pg/semantic_ops_pg.c.o
+[2/85] Building C object CMakeFiles/hypercube.dir/src/pg/hypercube_pg.c.o
+[3/85] Building CXX object CMakeFiles/hypercube_core.dir/src/util/utf8.cpp.o
+[4/85] Building C object CMakeFiles/hypercube_ops.dir/src/pg/hypercube_ops_pg.c.o
+[5/85] Building CXX object CMakeFiles/hypercube_core.dir/src/core/hilbert.cpp.o
+[6/85] Building C object CMakeFiles/embedding_ops.dir/src/pg/embedding_ops_pg.c.o
+[7/85] Building CXX object CMakeFiles/hypercube_core.dir/src/core/blake3_pg.cpp.o
+[8/85] Building C object CMakeFiles/generative.dir/src/pg/generative_pg.c.o
+[9/85] Building CXX object CMakeFiles/hypercube_core.dir/src/core/semantic_ordering.cpp.o
+[10/85] Building CXX object CMakeFiles/hypercube_core.dir/src/core/atom_calculator.cpp.o
+[11/85] Building CXX object CMakeFiles/test_hilbert.dir/tests/test_hilbert.cpp.o
+[12/85] Building CXX object CMakeFiles/test_blake3.dir/tests/test_blake3.cpp.o
+[13/85] Building CXX object CMakeFiles/hypercube_c.dir/src/bridge/hypercube_c.cpp.o
+[14/85] Building CXX object CMakeFiles/embedding_c.dir/src/bridge/embedding_c.cpp.o
+[15/85] Building CXX object CMakeFiles/test_semantic.dir/tests/test_semantic.cpp.o
+[16/85] Building CXX object CMakeFiles/test_clustering.dir/tests/test_clustering.cpp.o
+[17/85] Building CXX object CMakeFiles/hypercube_core.dir/src/core/ops.cpp.o
+[18/85] Building CXX object CMakeFiles/debug_semantic_order.dir/tests/debug_semantic_order.cpp.o
+[19/85] Building CXX object CMakeFiles/test_cpu_features.dir/tests/test_cpu_features.cpp.o
+[20/85] Building CXX object CMakeFiles/test_coordinates.dir/tests/test_coordinates.cpp.o
+[21/85] Building CXX object CMakeFiles/generative_c.dir/src/bridge/generative_c.cpp.o
+[22/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/geometry.cpp.o
+[23/85] Building CXX object CMakeFiles/test_eigen_solver_paths.dir/test_eigen_solver_paths.cpp.o
+[24/85] Building CXX object CMakeFiles/test_vocab_parse.dir/tests/test_vocab_parse.cpp.o
+[25/85] Building CXX object CMakeFiles/hypercube_core.dir/src/core/coordinates.cpp.o
+[26/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/atom_cache.cpp.o
+[27/85] Building CXX object CMakeFiles/hypercube_core.dir/src/core/lanczos.cpp.o
+[28/85] Building CXX object CMakeFiles/test_laplacian_4d.dir/tests/test_laplacian_4d.cpp.o
+[29/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/db/insert.cpp.o
+[30/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/universal.cpp.o
+[31/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/cpe.cpp.o
+[32/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/parallel_cpe.cpp.o
+[33/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/projection_db.cpp.o
+[34/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/sequitur.cpp.o
+[35/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/pmi_contraction.cpp.o
+[36/85] Building CXX object CMakeFiles/hypercube_core.dir/src/core/laplacian_4d.cpp.o
+[37/85] Linking CXX static library libhypercube_core.a
+[38/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_io.cpp.o
+[39/85] Linking CXX shared library hypercube_c.so
+[40/85] Linking C shared library hypercube.so
+[41/85] Linking CXX shared library embedding_c.so
+[42/85] Linking C shared library semantic_ops.so
+[43/85] Linking C shared library embedding_ops.so
+[44/85] Linking C shared library hypercube_ops.so
+[45/85] Linking CXX shared library generative_c.so
+[46/85] Linking CXX executable test_hilbert
+[47/85] Linking C shared library generative.so
+[48/85] Linking CXX executable test_coordinates
+[49/85] Linking CXX executable test_blake3
+[50/85] Linking CXX executable test_semantic
+[51/85] Linking CXX executable debug_semantic_order
+[52/85] Linking CXX executable test_vocab_parse
+[53/85] Linking CXX executable test_clustering
+[54/85] Linking CXX executable test_laplacian_4d
+[55/85] Linking CXX executable test_eigen_solver_paths
+[56/85] Linking CXX executable test_cpu_features
+[57/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/compositions.cpp.o
+[58/85] Building CXX object CMakeFiles/ingest.dir/src/ingest/main.cpp.o
+[59/85] Building CXX object CMakeFiles/test_int8_quantization.dir/tests/test_int8_quantization.cpp.o
+[60/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/tensor_hierarchy.cpp.o
+[61/85] Linking CXX executable test_int8_quantization
+[62/85] Building CXX object CMakeFiles/vocab_extract.dir/src/ingest/vocab_extract.cpp.o
+[63/85] Linking CXX executable vocab_extract
+[64/85] Building CXX object CMakeFiles/test_query_api.dir/tests/test_query_api.cpp.o
+[65/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/embedding_relations.cpp.o
+[66/85] Linking CXX executable test_query_api
+[67/85] Building CXX object CMakeFiles/test_integration.dir/tests/test_integration.cpp.o
+[68/85] Linking CXX executable test_integration
+[69/85] Building CXX object CMakeFiles/extract_embeddings.dir/src/tools/extract_embeddings.cpp.o
+[70/85] Building CXX object CMakeFiles/vocab_ingest.dir/src/ingest/vocab_ingest.cpp.o
+[71/85] Linking CXX executable extract_embeddings
+[72/85] Linking CXX executable vocab_ingest
+[73/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/multimodal_extraction.cpp.o
+[74/85] Building CXX object CMakeFiles/seed_atoms_parallel.dir/src/tools/seed_atoms_parallel.cpp.o
+[75/85] Linking CXX executable seed_atoms_parallel
+[76/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/attention_relations.cpp.o
+[77/85] Building CXX object CMakeFiles/model_discovery.dir/src/ingest/model_discovery.cpp.o
+[78/85] Linking CXX executable model_discovery
+[79/85] Building CXX object CMakeFiles/hypercube_ingest.dir/src/ingest/semantic_extraction.cpp.o
+[80/85] Linking CXX static library libhypercube_ingest.a
+[81/85] Linking CXX executable ingest
+[82/85] Building CXX object CMakeFiles/ingest_safetensor.dir/src/tools/ingest_safetensor_modular.cpp.o
+[83/85] Linking CXX executable ingest_safetensor
+[84/85] Building CXX object CMakeFiles/hypercube_cli.dir/src/cli/main.cpp.o
+[85/85] Linking CXX executable hc
+
+============================================================
+ BUILD COMPLETE
+ Time: 28s
+============================================================
+
+Executables:
+  ✓ hc
+  ✓ seed_atoms_parallel
+  ✓ ingest
+  ✓ ingest_safetensor
+  ✓ extract_embeddings
+  ✓ vocab_ingest
+  ✓ vocab_extract
+
+Extensions:
+  ✓ hypercube.so
+  ✓ semantic_ops.so
+  ✓ hypercube_ops.so
+  ✓ embedding_ops.so
+  ✓ generative.so
+
+Core Libraries:
+  ✓ libhypercube_core.a
+  ✓ libhypercube_ingest.a
+
+Next steps:
+  ./scripts/linux/setup-db.sh       # Setup database schema
+  ./scripts/linux/ingest.sh <path>  # Ingest a model
+
+┌──────────────────────────────────────────────────────────────────┐
+│ STEP 3/5: DATABASE SETUP (SAFE - PRESERVING DATA)                │
+└──────────────────────────────────────────────────────────────────┘
+
+=== Hypercube Database Setup ===
+  Database: hypercube @ localhost:5432
+  User: hartonomous
+
+[1/5] Testing PostgreSQL connection... OK
+[2/5] Checking database... creating... CREATED
+[3/5] Applying schema...
+      hypercube_schema.sql... FAILED
