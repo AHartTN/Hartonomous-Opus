@@ -929,28 +929,29 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     bool& converged_out
 ) {
     const size_t n = L.size();
-    
+
     // FEAST DISABLED: for Laplacians of this size (n≈30k, k=4)
     // classic sparse Lanczos is faster and simpler.
     // FEAST is designed for many eigenvalues in an interval, not a few near zero.
-    
+
     // ==========================================================================
     // USE MKL DENSE EIGENDECOMPOSITION WHEN AVAILABLE (fastest and most accurate)
     // Lanczos fallback only if MKL not available
     // ==========================================================================
+
+    // Convert sparse Laplacian to dense for MKL/Eigen solvers
+    std::vector<double> L_dense(n * n, 0.0);
+    L.for_each_edge([&](size_t i, size_t j, double w) {
+        L_dense[i * n + j] = w;
+    });
+    // Add diagonals
+    for (size_t i = 0; i < n; ++i) {
+        L_dense[i * n + i] = L.get_diagonal(i);
+    }
+
     #if USE_MKL_SOLVER
         std::cerr << "[EIGEN] Using MKL dense eigendecomposition for " << n << " points\n";
         converged_out = true;  // Dense eigendecomposition always succeeds
-
-        // Convert sparse Laplacian to dense
-        std::vector<double> L_dense(n * n, 0.0);
-        L.for_each_edge([&](size_t i, size_t j, double w) {
-            L_dense[i * n + j] = w;
-        });
-        // Add diagonals
-        for (size_t i = 0; i < n; ++i) {
-            L_dense[i * n + i] = L.get_diagonal(i);
-        }
         
         // ==================================================================
         // INTEL MKL PATH: DSYEVR - RRR algorithm for symmetric eigenvalue
@@ -1227,15 +1228,15 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     lanczos_config.shift_sigma = -0.1;
     lanczos_config.num_threads = config_.num_threads;
 
-    lanczos::LanczosSolver solver(lanczos_config);
+    lanczos::LanczosSolver lanczos_solver(lanczos_config);
 
     // Set up progress callback
-    solver.set_progress_callback([this](const std::string& stage, int current, int total) {
+    lanczos_solver.set_progress_callback([this](const std::string& stage, int current, int total) {
         report_progress(stage, static_cast<size_t>(current), static_cast<size_t>(total));
     });
 
     // Run Lanczos on -L
-    lanczos::LanczosResult lanczos_result = solver.solve(neg_L);
+    lanczos::LanczosResult lanczos_result = lanczos_solver.solve(neg_L);
 
     // Report convergence status
     std::cerr << "[LANCZOS] " << (lanczos_result.converged ? "Converged" : "Did not fully converge")
@@ -1274,17 +1275,17 @@ std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
     // Return eigenvectors, SKIPPING index 0 (null space constant vector)
     // The Lanczos solver returns eigenvalues sorted smallest-to-largest
     // For Laplacian: λ_0 = 0 (constant), λ_1..λ_k are the semantic eigenvectors
-    std::vector<std::vector<double>> eigenvectors;
-    eigenvectors.reserve(k);
+    std::vector<std::vector<double>> lanczos_eigenvectors;
+    lanczos_eigenvectors.reserve(k);
 
     // Skip first eigenvector (null space) and take the next k
     int start_idx = 1;  // Skip index 0
     for (int i = start_idx; i < start_idx + k && i < static_cast<int>(lanczos_result.eigenvectors.size()); ++i) {
-        eigenvectors.push_back(std::move(lanczos_result.eigenvectors[i]));
+        lanczos_eigenvectors.push_back(std::move(lanczos_result.eigenvectors[i]));
     }
 
-    std::cerr << "[LANCZOS] Returning " << eigenvectors.size() << " eigenvectors (skipped null space)\n";
-    return eigenvectors;
+    std::cerr << "[LANCZOS] Returning " << lanczos_eigenvectors.size() << " eigenvectors (skipped null space)\n";
+    return lanczos_eigenvectors;
 }
 
 void LaplacianProjector::gram_schmidt_columns(std::vector<std::vector<double>>& Y) {

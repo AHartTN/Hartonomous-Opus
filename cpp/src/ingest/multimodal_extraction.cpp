@@ -234,10 +234,10 @@ static std::vector<size_t> normalize_and_get_valid(
 // ============================================================================
 
 size_t extract_object_queries(
-    PGconn* conn,
+    PGconn* /*conn*/,
     IngestContext& ctx,
     const std::vector<TensorExtractionPlan>& plans,
-    void* token_hnsw,
+    void* /*token_hnsw*/,
     const std::vector<size_t>& valid_token_indices,
     std::vector<RelationEdge>& edges
 ) {
@@ -312,10 +312,10 @@ size_t extract_object_queries(
 // ============================================================================
 
 size_t extract_positional_encodings(
-    PGconn* conn,
+    PGconn* /*conn*/,
     IngestContext& ctx,
     const std::vector<TensorExtractionPlan>& plans,
-    void* token_hnsw,
+    void* /*token_hnsw*/,
     const std::vector<size_t>& valid_token_indices,
     std::vector<RelationEdge>& edges
 ) {
@@ -387,10 +387,10 @@ size_t extract_positional_encodings(
 // ============================================================================
 
 size_t extract_moe_routers(
-    PGconn* conn,
+    PGconn* /*conn*/,
     IngestContext& ctx,
     const std::vector<TensorExtractionPlan>& plans,
-    void* token_hnsw,
+    void* /*token_hnsw*/,
     const std::vector<size_t>& valid_token_indices,
     std::vector<RelationEdge>& edges
 ) {
@@ -452,10 +452,10 @@ size_t extract_moe_routers(
 // ============================================================================
 
 size_t extract_universal_modality(
-    PGconn* conn,
+    PGconn* /*conn*/,
     IngestContext& ctx,
     const std::vector<TensorExtractionPlan>& plans,
-    void* token_hnsw,
+    void* /*token_hnsw*/,
     const std::vector<size_t>& valid_token_indices,
     std::vector<RelationEdge>& edges,
     const std::string& modality_name
@@ -517,10 +517,10 @@ size_t extract_universal_modality(
 // ============================================================================
 
 size_t extract_class_heads(
-    PGconn* conn,
+    PGconn* /*conn*/,
     IngestContext& ctx,
     const std::vector<TensorExtractionPlan>& plans,
-    void* token_hnsw,
+    void* /*token_hnsw*/,
     const std::vector<size_t>& valid_token_indices,
     std::vector<RelationEdge>& edges
 ) {

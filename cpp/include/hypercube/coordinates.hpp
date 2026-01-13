@@ -194,11 +194,7 @@ public:
      */
     static bool optimize_distribution(std::map<uint32_t, Point4F>& points);
 
-    /**
-     * Apply semantic-aware jitter that preserves case variant proximity
-     */
-    static void apply_semantic_aware_jitter(std::map<uint32_t, Point4F>& points,
-                                            double epsilon = 1e-7);
+
 
     /**
      * Perform geodesic repulsion optimization using Riemannian gradients
@@ -249,23 +245,5 @@ public:
  * Bit-packed by semantic gravity: Script (63-56), Category (55-48), Base (47-16), Variant (15-0)
  */
 uint64_t get_semantic_key(uint32_t cp) noexcept;
-
-/**
- * Dense registry for mapping codepoints to dense ranks
- */
-class DenseRegistry {
-private:
-    static std::unordered_map<uint32_t, uint32_t> codepoint_to_rank;
-    static std::vector<uint32_t> rank_to_codepoint;
-    static bool initialized;
-    static std::mutex init_mutex;
-
-    static void initialize();
-
-public:
-    static uint32_t get_rank(uint32_t cp);
-    static uint32_t total_active();
-    static uint32_t get_codepoint(uint32_t rank);
-};
 
 } // namespace hypercube

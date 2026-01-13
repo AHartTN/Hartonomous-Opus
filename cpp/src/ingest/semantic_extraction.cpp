@@ -105,7 +105,7 @@ static bool ensure_visual_compositions_exist(PGconn* conn, const std::string& em
 // Config
 // ============================================================================
 
-static const size_t K_DEFAULT = 5;
+static const size_t /*K_DEFAULT*/ = 5;
 static const float THRESHOLD_DEFAULT = 0.7f;
 static constexpr float MIN_NORM = 0.01f;
 static int g_num_threads = 1;  // Set at runtime

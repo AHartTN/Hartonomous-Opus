@@ -34,7 +34,7 @@ public:
 private:
     // Mathematical constants from Super-Fibonacci paper
     static constexpr double PHI = 1.533751168755204288118041; // ψ
-    static constexpr double PSI = std::sqrt(2.0);             // φ
+    static constexpr double PSI = 1.41421356237309504880168872420969807856967187537694807317667973799; // sqrt(2.0)
 
     /**
      * @brief Core Super-Fibonacci algorithm implementation

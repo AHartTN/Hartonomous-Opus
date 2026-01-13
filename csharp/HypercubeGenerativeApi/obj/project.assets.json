@@ -1970,25 +1970,32 @@
     ]
   },
   "packageFolders": {
-    "/home/ahart/.nuget/packages/": {}
+    "C:\\Users\\ahart\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
+      "projectUniqueName": "D:\\Repositories\\Hartonomous-Opus\\csharp\\HypercubeGenerativeApi\\HypercubeGenerativeApi.csproj",
       "projectName": "HypercubeGenerativeApi",
-      "projectPath": "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/HypercubeGenerativeApi.csproj",
-      "packagesPath": "/home/ahart/.nuget/packages/",
-      "outputPath": "/home/ahart/Projects/Hartonomous-Opus/csharp/HypercubeGenerativeApi/obj/",
+      "projectPath": "D:\\Repositories\\Hartonomous-Opus\\csharp\\HypercubeGenerativeApi\\HypercubeGenerativeApi.csproj",
+      "packagesPath": "C:\\Users\\ahart\\.nuget\\packages\\",
+      "outputPath": "D:\\Repositories\\Hartonomous-Opus\\csharp\\HypercubeGenerativeApi\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "/home/ahart/.nuget/NuGet/NuGet.Config"
+        "C:\\Users\\ahart\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
-        "/usr/lib/dotnet/library-packs": {},
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+        "C:\\Program Files\\dotnet\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -2053,20 +2060,6 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
-        "downloadDependencies": [
-          {
-            "name": "Microsoft.AspNetCore.App.Ref",
-            "version": "[8.0.22, 8.0.22]"
-          },
-          {
-            "name": "Microsoft.NETCore.App.Host.linux-x64",
-            "version": "[8.0.22, 8.0.22]"
-          },
-          {
-            "name": "Microsoft.NETCore.App.Ref",
-            "version": "[8.0.22, 8.0.22]"
-          }
-        ],
         "frameworkReferences": {
           "Microsoft.AspNetCore.App": {
             "privateAssets": "none"
@@ -2075,7 +2068,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/10.0.101/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.101/PortableRuntimeIdentifierGraph.json"
       }
     }
   },

@@ -7,7 +7,7 @@
 #include <iomanip>
 #include <type_traits>
 
-#ifdef HAS_MKL
+#if HAS_MKL
 #include <mkl.h>
 #endif
 
@@ -25,10 +25,20 @@ MatrixT<T> random_matrix(size_t rows, size_t cols, T min_val, T max_val) {
     mt19937 gen(rd());
 
     if constexpr (std::is_integral_v<T>) {
-        uniform_int_distribution<T> dist(min_val, max_val);
-        for (size_t i = 0; i < rows; ++i) {
-            for (size_t j = 0; j < cols; ++j) {
-                mat(i, j) = dist(gen);
+        if constexpr (sizeof(T) == 1) {
+            // For int8_t/char types, use int as intermediate
+            uniform_int_distribution<int> dist(static_cast<int>(min_val), static_cast<int>(max_val));
+            for (size_t i = 0; i < rows; ++i) {
+                for (size_t j = 0; j < cols; ++j) {
+                    mat(i, j) = static_cast<T>(dist(gen));
+                }
+            }
+        } else {
+            uniform_int_distribution<T> dist(min_val, max_val);
+            for (size_t i = 0; i < rows; ++i) {
+                for (size_t j = 0; j < cols; ++j) {
+                    mat(i, j) = dist(gen);
+                }
             }
         }
     } else {
@@ -82,7 +92,7 @@ double benchmark_gemm(size_t n, size_t iterations = 10) {
 int main() {
     cout << "=== Int8 Quantization GEMM Benchmark ===\n\n";
 
-#ifdef HAS_MKL
+#if HAS_MKL
     cout << "Using Intel MKL for optimized matrix operations\n";
 #else
     cout << "Using Eigen (no MKL detected)\n";

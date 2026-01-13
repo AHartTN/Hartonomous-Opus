@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("HypercubeGenerativeApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+28fe5ceada05c3fbefa87db037696d3ed4db1399")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dd7b391ed931531d84e815d847ce808684c20067")]
 [assembly: System.Reflection.AssemblyProductAttribute("HypercubeGenerativeApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("HypercubeGenerativeApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

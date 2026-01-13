@@ -21,7 +21,7 @@
 #include <iostream>
 #include <iomanip>
 
-#ifdef HAS_MKL
+#if HAS_MKL
 #include <mkl.h>
 #include <mkl_lapacke.h>
 #endif
@@ -42,7 +42,7 @@ namespace lanczos {
 namespace vec {
 
 double dot(const double* a, const double* b, size_t n) {
-#ifdef HAS_MKL
+#if HAS_MKL
     return cblas_ddot(static_cast<int>(n), a, 1, b, 1);
 #elif defined(HAS_EIGEN)
     return Eigen::Map<const Eigen::VectorXd>(a, n).dot(Eigen::Map<const Eigen::VectorXd>(b, n));
@@ -116,7 +116,7 @@ double dot(const std::vector<double>& a, const std::vector<double>& b) {
 }
 
 double norm(const double* v, size_t n) {
-#ifdef HAS_MKL
+#if HAS_MKL
     return cblas_dnrm2(static_cast<int>(n), v, 1);
 #else
     return std::sqrt(dot(v, v, n));
@@ -140,7 +140,7 @@ void normalize(std::vector<double>& v) {
 }
 
 void axpy(double a, const double* x, double* y, size_t n) {
-#ifdef HAS_MKL
+#if HAS_MKL
     cblas_daxpy(static_cast<int>(n), a, x, 1, y, 1);
 #else
 #if defined(HAS_AVX512F) && HAS_AVX512F
@@ -191,7 +191,7 @@ void scale(double a, std::vector<double>& v) {
     Eigen::Map<Eigen::VectorXd> vv(v.data(), v.size());
     vv *= a;
 #else
-#ifdef HAS_MKL
+#if HAS_MKL
     cblas_dscal(static_cast<int>(v.size()), a, v.data(), 1);
 #else
 #if defined(HAS_AVX512F) && HAS_AVX512F
@@ -412,7 +412,7 @@ std::vector<TridiagonalEigensolver::EigenPair> TridiagonalEigensolver::solve(
         return {};
     }
 
-#ifdef HAS_MKL
+#if HAS_MKL
     // Use LAPACKE_dsyev (simpler interface) for dense symmetric matrices
     std::vector<double> diag = T.alpha;
     std::vector<double> offdiag = T.beta;

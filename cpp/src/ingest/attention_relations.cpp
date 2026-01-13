@@ -52,12 +52,12 @@ using namespace hypercube::db;
 // MIN_SIMILARITY: Cosine threshold (normalized IP). 0.5 = 60° angle max.
 // ENABLE_HNSW_CACHE: Set to true to cache HNSW indices to disk.
 // ============================================================================
-static constexpr size_t HNSW_M = 16;
-static constexpr size_t HNSW_EF_CONSTRUCTION = 200;
-static constexpr size_t HNSW_EF_SEARCH = 100;
+static constexpr size_t /*HNSW_M*/ = 16;
+static constexpr size_t /*HNSW_EF_CONSTRUCTION*/ = 200;
+static constexpr size_t /*HNSW_EF_SEARCH*/ = 100;
 static constexpr size_t K_NEIGHBORS = 15;
 static constexpr float MIN_SIMILARITY = 0.5f;
-static constexpr bool ENABLE_HNSW_CACHE = true;
+static constexpr bool /*ENABLE_HNSW_CACHE*/ = true;
 
 // ============================================================================
 // HNSW CACHE HELPERS (DISABLED - HNSWLib not available)

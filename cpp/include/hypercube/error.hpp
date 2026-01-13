@@ -4,6 +4,7 @@
 #include <string>
 #include <system_error>
 #include <memory>
+#include <iostream>
 
 namespace hypercube {
 
@@ -112,8 +113,10 @@ public:
 class ErrorHandler {
 public:
     static void handle_error(const std::exception& e, bool rethrow = true) {
-        // Note: Logging integration would go here
-        // For now, we just rethrow or ignore
+        // Log the error message if logging is available
+        // For now, output to stderr for debugging
+        std::cerr << "Hypercube error: " << e.what() << std::endl;
+
         if (rethrow) {
             throw;
         }

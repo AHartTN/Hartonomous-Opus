@@ -104,8 +104,9 @@ inline bool has_fma3() {
  * Check if AVX_VNNI is supported
  */
 inline bool has_avx_vnni() {
-    auto leaf7 = cpuid(7, 0);
-    return (leaf7.ebx & (1 << 11)) != 0;  // AVX_VNNI bit
+    // AVX_VNNI is located in Leaf 7, Subleaf 1, EAX bit 4
+    auto leaf7_1 = cpuid(7, 1);
+    return (leaf7_1.eax & (1 << 4)) != 0;  // AVX_VNNI bit
 }
 
 /**
