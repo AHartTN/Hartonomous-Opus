@@ -234,10 +234,10 @@ static std::vector<size_t> normalize_and_get_valid(
 // ============================================================================
 
 size_t extract_object_queries(
-    PGconn* /*conn*/,
+    PGconn* conn,
     IngestContext& ctx,
     const std::vector<TensorExtractionPlan>& plans,
-    void* /*token_hnsw*/,
+    void* token_hnsw,
     const std::vector<size_t>& valid_token_indices,
     std::vector<RelationEdge>& edges
 ) {
@@ -280,19 +280,36 @@ size_t extract_object_queries(
             const float* row = data.data() + idx * dim;
             Blake3Hasher::Incremental hasher;
             hasher.update(std::string_view(reinterpret_cast<const char*>(row), dim * sizeof(float)));
-            // NOTE: hash computed but not used (HNSWLib disabled)
+            Blake3Hash hash = hasher.finalize();
 
 #ifdef HAS_HNSWLIB
-            // Find similar tokens
+            // Use HNSW for efficient similarity search
             auto result = static_cast<hnswlib::HierarchicalNSW<float>*>(token_hnsw)->searchKnn(row, K_NEIGHBORS + 1);
             while (!result.empty()) {
                 auto [dist, j] = result.top();
                 result.pop();
-                
-                float sim = dist;  // Inner product
+
+                float sim = dist;  // Inner product similarity
                 if (sim >= MIN_SIMILARITY) {
                     size_t tok_idx = valid_token_indices[j];
                     const auto& comp = ctx.vocab_tokens[tok_idx].comp;
+                    char target_type = (comp.children.size() <= 1) ? 'A' : 'C';
+                    edges.push_back({hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "OBJECT_QUERY"});
+                    total_edges++;
+                }
+            }
+#else
+            // Fallback: Brute force similarity search when HNSWLib is disabled
+            for (size_t tok_idx : valid_token_indices) {
+                const auto& comp = ctx.vocab_tokens[tok_idx].comp;
+
+                // Compute cosine similarity (vectors are normalized)
+                float sim = 0.0f;
+                for (size_t d = 0; d < dim && d < 4; ++d) {  // Limit to first 4 dimensions for centroid
+                    sim += row[d] * comp.centroid[d];
+                }
+
+                if (sim >= MIN_SIMILARITY) {
                     char target_type = (comp.children.size() <= 1) ? 'A' : 'C';
                     edges.push_back({hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "OBJECT_QUERY"});
                     total_edges++;
@@ -312,10 +329,10 @@ size_t extract_object_queries(
 // ============================================================================
 
 size_t extract_positional_encodings(
-    PGconn* /*conn*/,
+    PGconn* conn,
     IngestContext& ctx,
     const std::vector<TensorExtractionPlan>& plans,
-    void* /*token_hnsw*/,
+    void* token_hnsw,
     const std::vector<size_t>& valid_token_indices,
     std::vector<RelationEdge>& edges
 ) {
@@ -371,7 +388,7 @@ size_t extract_positional_encodings(
                     size_t tok_idx = valid_token_indices[j];
                     const auto& comp = ctx.vocab_tokens[tok_idx].comp;
                     char target_type = (comp.children.size() <= 1) ? 'A' : 'C';
-                    edges.push_back({hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "POSITIONAL"});
+                    edges.push_back({comp.hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "POSITIONAL"});
                     total_edges++;
                 }
             }
@@ -387,10 +404,10 @@ size_t extract_positional_encodings(
 // ============================================================================
 
 size_t extract_moe_routers(
-    PGconn* /*conn*/,
+    PGconn* conn,
     IngestContext& ctx,
     const std::vector<TensorExtractionPlan>& plans,
-    void* /*token_hnsw*/,
+    void* token_hnsw,
     const std::vector<size_t>& valid_token_indices,
     std::vector<RelationEdge>& edges
 ) {
@@ -434,7 +451,7 @@ size_t extract_moe_routers(
                     size_t tok_idx = valid_token_indices[j];
                     const auto& comp = ctx.vocab_tokens[tok_idx].comp;
                     char target_type = (comp.children.size() <= 1) ? 'A' : 'C';
-                    edges.push_back({hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "MOE_ROUTER"});
+                    edges.push_back({comp.hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "MOE_ROUTER"});
                     total_edges++;
                 }
             }
@@ -452,10 +469,10 @@ size_t extract_moe_routers(
 // ============================================================================
 
 size_t extract_universal_modality(
-    PGconn* /*conn*/,
+    PGconn* conn,
     IngestContext& ctx,
     const std::vector<TensorExtractionPlan>& plans,
-    void* /*token_hnsw*/,
+    void* token_hnsw,
     const std::vector<size_t>& valid_token_indices,
     std::vector<RelationEdge>& edges,
     const std::string& modality_name
@@ -517,10 +534,10 @@ size_t extract_universal_modality(
 // ============================================================================
 
 size_t extract_class_heads(
-    PGconn* /*conn*/,
+    PGconn* conn,
     IngestContext& ctx,
     const std::vector<TensorExtractionPlan>& plans,
-    void* /*token_hnsw*/,
+    void* token_hnsw,
     const std::vector<size_t>& valid_token_indices,
     std::vector<RelationEdge>& edges
 ) {
@@ -563,7 +580,7 @@ size_t extract_class_heads(
                     size_t tok_idx = valid_token_indices[j];
                     const auto& comp = ctx.vocab_tokens[tok_idx].comp;
                     char target_type = (comp.children.size() <= 1) ? 'A' : 'C';
-                    edges.push_back({hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "CLASS_HEAD"});
+                    edges.push_back({comp.hash, 'C', comp.hash, target_type, sim, plan.layer_idx, "CLASS_HEAD"});
                     total_edges++;
                 }
             }

@@ -11,6 +11,18 @@
 
 using namespace hypercube;
 
+// Stub implementation for DenseRegistry - returns reasonable test values
+namespace DenseRegistry {
+    static uint32_t total_active() {
+        return 0x10FFFF; // Max Unicode codepoint
+    }
+
+    static uint32_t get_rank(uint32_t cp) {
+        // Simple ranking based on codepoint for testing
+        return cp;
+    }
+}
+
 // ============================================================================
 // MODULAR DYSON SPHERE DIAGNOSTICS
 // ============================================================================

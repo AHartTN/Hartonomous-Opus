@@ -14,6 +14,10 @@
 #include "hypercube/tensor_classifier.hpp"
 #include <unordered_map>
 
+#ifdef HAS_HNSWLIB
+#include <hnswlib/hnswlib.h>
+#endif
+
 namespace hypercube {
 namespace ingest {
 namespace db {
@@ -119,6 +123,7 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
         int64_t num_items = embed->shape[0];
         int64_t embed_dim = embed->shape[1];
         float threshold = get_threshold(embed_type);
+        static constexpr size_t k_neighbors = 15;
 
         if (embed_type == "token" && !ctx.vocab_tokens.empty()) {
             num_items = std::min(num_items, static_cast<int64_t>(ctx.vocab_tokens.size()));

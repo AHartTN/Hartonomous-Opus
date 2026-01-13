@@ -32,7 +32,13 @@ target_link_libraries(hypercube_core
     PRIVATE Threads::Threads
 )
 if(HAS_OPENMP)
-    target_link_libraries(hypercube_core PUBLIC OpenMP::OpenMP_CXX)
+    if(TARGET OpenMP::OpenMP_CXX)
+        target_link_libraries(hypercube_core PUBLIC OpenMP::OpenMP_CXX)
+    else()
+        # Fallback to manual OpenMP linking
+        target_compile_options(hypercube_core PUBLIC ${OpenMP_CXX_FLAGS})
+        target_link_libraries(hypercube_core PUBLIC ${OpenMP_CXX_LIBRARIES})
+    endif()
 endif()
 
 # Linear algebra backend
@@ -45,7 +51,14 @@ target_compile_definitions(hypercube_core PUBLIC HAS_EIGEN=1)
 
 # MKL for optimized BLAS operations
 if(HAS_MKL)
-    target_link_libraries(hypercube_core PUBLIC MKL::MKL)
+    if(TARGET MKL::MKL)
+        # Use vcpkg-installed MKL with CMake targets
+        target_link_libraries(hypercube_core PUBLIC MKL::MKL)
+    else()
+        # Fallback to manual linking for local installations
+        target_include_directories(hypercube_core PUBLIC ${MKL_INCLUDE_DIRS})
+        target_link_libraries(hypercube_core PUBLIC ${MKL_LIBRARIES})
+    endif()
     target_compile_definitions(hypercube_core PUBLIC HAS_MKL=1)
 else()
     target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0)
@@ -525,6 +538,21 @@ if(PostgreSQL_FOUND)
         Threads::Threads
     )
 
+    # Link HNSWLib if found
+    if(HAS_HNSWLIB)
+        if(TARGET hnswlib::hnswlib)
+            # Use vcpkg-installed HNSWLib with CMake targets
+            target_link_libraries(hypercube_ingest PRIVATE hnswlib::hnswlib)
+        elseif(HNSWLIB_FOUND)
+            # Fallback to manual linking
+            target_include_directories(hypercube_ingest PRIVATE ${HNSWLIB_INCLUDE_DIRS})
+            target_link_libraries(hypercube_ingest PRIVATE ${HNSWLIB_LIBRARIES})
+        endif()
+        target_compile_definitions(hypercube_ingest PRIVATE HAS_HNSWLIB=1)
+    else()
+        target_compile_definitions(hypercube_ingest PRIVATE HAS_HNSWLIB=0)
+    endif()
+
     # Fix Windows min/max macro conflicts with HNSWLIB
     if(WIN32)
         target_compile_definitions(hypercube_ingest PRIVATE NOMINMAX)
@@ -537,7 +565,22 @@ if(PostgreSQL_FOUND)
     # Modular safetensor ingester (replaces archived monolith)
     add_executable(ingest_safetensor src/tools/ingest_safetensor_modular.cpp)
     target_include_directories(ingest_safetensor PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-    # HNSWLib disabled
+
+    # Link HNSWLib if found (inherited from hypercube_ingest)
+    if(HAS_HNSWLIB)
+        if(TARGET hnswlib::hnswlib)
+            # Use vcpkg-installed HNSWLib with CMake targets
+            target_link_libraries(ingest_safetensor PRIVATE hnswlib::hnswlib)
+        elseif(HNSWLIB_FOUND)
+            # Fallback to manual linking
+            target_include_directories(ingest_safetensor PRIVATE ${HNSWLIB_INCLUDE_DIRS})
+            target_link_libraries(ingest_safetensor PRIVATE ${HNSWLIB_LIBRARIES})
+        endif()
+        target_compile_definitions(ingest_safetensor PRIVATE HAS_HNSWLIB=1)
+    else()
+        target_compile_definitions(ingest_safetensor PRIVATE HAS_HNSWLIB=0)
+    endif()
+
     target_link_libraries(ingest_safetensor PRIVATE hypercube_core hypercube_ingest ${PostgreSQL_LIBRARIES} Threads::Threads)
 
     # Fix Windows min/max macro conflicts with HNSWLIB
@@ -573,6 +616,21 @@ if(PostgreSQL_FOUND)
         Threads::Threads
     )
 
+    # Link HNSWLib if found
+    if(HAS_HNSWLIB)
+        if(TARGET hnswlib::hnswlib)
+            # Use vcpkg-installed HNSWLib with CMake targets
+            target_link_libraries(hypercube_cli PRIVATE hnswlib::hnswlib)
+        elseif(HNSWLIB_FOUND)
+            # Fallback to manual linking
+            target_include_directories(hypercube_cli PRIVATE ${HNSWLIB_INCLUDE_DIRS})
+            target_link_libraries(hypercube_cli PRIVATE ${HNSWLIB_LIBRARIES})
+        endif()
+        target_compile_definitions(hypercube_cli PRIVATE HAS_HNSWLIB=1)
+    else()
+        target_compile_definitions(hypercube_cli PRIVATE HAS_HNSWLIB=0)
+    endif()
+
     # Add backend detection defines
     target_compile_definitions(hypercube_cli PRIVATE HAS_EIGEN=1)
     if(HAS_MKL)
@@ -580,7 +638,6 @@ if(PostgreSQL_FOUND)
     else()
         target_compile_definitions(hypercube_cli PRIVATE HAS_MKL=0)
     endif()
-    # HNSWLib disabled
 
     # Set output name to just "hypercube" (conflicts with extension on some systems)
     set_target_properties(hypercube_cli PROPERTIES OUTPUT_NAME "hc")
@@ -658,12 +715,30 @@ if(GTest_FOUND)
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${GTEST_INCLUDE_DIRS}
     )
-    target_link_libraries(hypercube_tests
+    # Build link libraries list
+    set(TEST_LINK_LIBRARIES
         hypercube_core
         GTest::gtest
         GTest::gtest_main
         Threads::Threads
     )
+
+    # Add HNSWLib if found
+    if(HAS_HNSWLIB)
+        if(TARGET hnswlib::hnswlib)
+            # Use vcpkg-installed HNSWLib with CMake targets
+            list(APPEND TEST_LINK_LIBRARIES hnswlib::hnswlib)
+        elseif(HNSWLIB_FOUND)
+            # Fallback to manual linking
+            target_include_directories(hypercube_tests PRIVATE ${HNSWLIB_INCLUDE_DIRS})
+            list(APPEND TEST_LINK_LIBRARIES ${HNSWLIB_LIBRARIES})
+        endif()
+        target_compile_definitions(hypercube_tests PRIVATE HAS_HNSWLIB=1)
+    else()
+        target_compile_definitions(hypercube_tests PRIVATE HAS_HNSWLIB=0)
+    endif()
+
+    target_link_libraries(hypercube_tests PRIVATE ${TEST_LINK_LIBRARIES})
 
     # Add backend defines
     target_compile_definitions(hypercube_tests PRIVATE HAS_EIGEN=1)
@@ -672,7 +747,6 @@ if(GTest_FOUND)
     else()
         target_compile_definitions(hypercube_tests PRIVATE HAS_MKL=0)
     endif()
-    # HNSWLib disabled
 
     add_test(NAME HypercubeTests COMMAND hypercube_tests)
     # Increase stack size to prevent crashes (MSVC only)

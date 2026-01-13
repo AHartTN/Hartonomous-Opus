@@ -311,7 +311,7 @@ namespace hypercube
             __m256d sum_vec = _mm256_setzero_pd(); // [sum_x, sum_y, sum_z, sum_m]
 
             // Process 2 points at a time (8 doubles)
-            for (size_t i = 0; i < n; ++i)
+            for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(n); ++i)
             {
                 Point4F p(points[i]); // Convert to float coordinates [-1,1]
 
@@ -334,7 +334,7 @@ namespace hypercube
 #ifdef HAS_OPENMP
 #pragma omp parallel for reduction(+ : sum_x, sum_y, sum_z, sum_m) if (n > 1000)
 #endif
-            for (size_t i = 0; i < n; ++i)
+            for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(n); ++i)
             {
                 Point4F p(points[i]); // Convert uint32 to float [-1,1]
                 sum_x += p.x;
@@ -377,7 +377,7 @@ namespace hypercube
 #ifdef HAS_OPENMP
 #pragma omp parallel for reduction(+ : sum_x, sum_y, sum_z, sum_m) if (n > 1000)
 #endif
-        for (size_t i = 0; i < n; ++i)
+        for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(n); ++i)
         {
             sum_x += points[i].x;
             sum_y += points[i].y;
@@ -680,7 +680,7 @@ namespace hypercube
 #ifdef HAS_OPENMP
 #pragma omp parallel for if (n > 1000)
 #endif
-        for (size_t i = 0; i < n; ++i)
+        for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(n); ++i)
         {
             for (size_t j = 0; j < n; ++j)
             {

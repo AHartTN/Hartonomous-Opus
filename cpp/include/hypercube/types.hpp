@@ -353,8 +353,25 @@ struct Blake3Hash {
     }
 
     // 128-bit hash for higher collision resistance
-    __int128 truncated_128() const noexcept {
-        __int128 result;
+    struct uint128_t {
+        uint64_t hi;
+        uint64_t lo;
+
+        uint128_t() noexcept : hi(0), lo(0) {}
+        uint128_t(uint64_t hi_, uint64_t lo_) noexcept : hi(hi_), lo(lo_) {}
+
+        bool operator==(const uint128_t& other) const noexcept {
+            return hi == other.hi && lo == other.lo;
+        }
+
+        bool operator<(const uint128_t& other) const noexcept {
+            if (hi != other.hi) return hi < other.hi;
+            return lo < other.lo;
+        }
+    };
+
+    uint128_t truncated_128() const noexcept {
+        uint128_t result;
         std::memcpy(&result, bytes.data(), 16);
         return result;
     }

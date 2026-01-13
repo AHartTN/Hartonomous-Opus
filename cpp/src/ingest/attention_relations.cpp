@@ -52,12 +52,33 @@ using namespace hypercube::db;
 // MIN_SIMILARITY: Cosine threshold (normalized IP). 0.5 = 60° angle max.
 // ENABLE_HNSW_CACHE: Set to true to cache HNSW indices to disk.
 // ============================================================================
-static constexpr size_t /*HNSW_M*/ = 16;
-static constexpr size_t /*HNSW_EF_CONSTRUCTION*/ = 200;
-static constexpr size_t /*HNSW_EF_SEARCH*/ = 100;
+#ifdef HAS_HNSWLIB
+static constexpr size_t HNSW_M = 16;
+static constexpr size_t HNSW_EF_CONSTRUCTION = 200;
+static constexpr size_t HNSW_EF_SEARCH = 100;
+static constexpr bool ENABLE_HNSW_CACHE = true;
+#endif
 static constexpr size_t K_NEIGHBORS = 15;
 static constexpr float MIN_SIMILARITY = 0.5f;
-static constexpr bool /*ENABLE_HNSW_CACHE*/ = true;
+
+// Helper function to generate cache path for HNSW indices
+static std::string get_cache_path(const std::string& model_name, size_t n_vectors, size_t dim) {
+    // Create cache directory if it doesn't exist
+    std::filesystem::path cache_dir = std::filesystem::current_path() / "hnsw_cache";
+    std::filesystem::create_directories(cache_dir);
+
+    // Generate cache filename based on model and dimensions
+    std::string filename = model_name + "_n" + std::to_string(n_vectors) +
+                          "_d" + std::to_string(dim) + ".hnsw";
+    // Sanitize filename for filesystem
+    for (char& c : filename) {
+        if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' ||
+            c == '"' || c == '<' || c == '>' || c == '|') {
+            c = '_';
+        }
+    }
+    return (cache_dir / filename).string();
+}
 
 // ============================================================================
 // HNSW CACHE HELPERS (DISABLED - HNSWLib not available)

@@ -28,13 +28,24 @@ static void validate_cpu_features() {
     static bool validated = false;
     if (validated) return;
 
-    // Check CPUID support first
+    // Cross-platform CPUID detection
     uint32_t eax, ebx, ecx, edx;
+#ifdef _MSC_VER
+    // MSVC intrinsics for CPUID
+    int cpu_info[4];
+    __cpuid(cpu_info, 1);
+    eax = cpu_info[0];
+    ebx = cpu_info[1];
+    ecx = cpu_info[2];
+    edx = cpu_info[3];
+#else
+    // GCC-style inline assembly
     __asm__ volatile(
         "cpuid"
         : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
         : "a"(1), "c"(0)
     );
+#endif
     bool cpuid_supported = (edx & (1 << 21)) != 0;
 
     if (!cpuid_supported) {
@@ -44,11 +55,19 @@ static void validate_cpu_features() {
     }
 
     // Check AVX512 support at runtime
+#ifdef _MSC_VER
+    __cpuid(cpu_info, 7);
+    eax = cpu_info[0];
+    ebx = cpu_info[1];
+    ecx = cpu_info[2];
+    edx = cpu_info[3];
+#else
     __asm__ volatile(
         "cpuid"
         : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
         : "a"(7), "c"(0)
     );
+#endif
     bool runtime_avx512f = (ebx & (1 << 16)) != 0;
     bool runtime_avx2 = (ebx & (1 << 5)) != 0;
 
