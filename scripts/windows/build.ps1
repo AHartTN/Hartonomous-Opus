@@ -100,9 +100,9 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Build with ninja
-Write-Host "Building with ninja..." -ForegroundColor Yellow
-& ninja
+# Build with cmake --build (works with any generator)
+Write-Host "Building..." -ForegroundColor Yellow
+& cmake --build . --config Release
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed" -ForegroundColor Red
     Pop-Location

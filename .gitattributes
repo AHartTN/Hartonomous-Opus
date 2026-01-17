@@ -1,0 +1,54 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Explicitly declare text files for consistent line endings
+*.c text
+*.cpp text
+*.h text
+*.hpp text
+*.cmake text
+*.txt text
+*.md text
+*.json text
+*.xml text
+*.yaml text
+*.yml text
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.cs text
+*.csproj text
+*.sln text
+*.sql text
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.a binary
+*.lib binary
+*.o binary
+*.obj binary
+*.pdb binary
+*.safetensors binary
+*.bin binary
+*.model binary
+*.onnx binary
+
+# Git LFS tracking (if needed in future)
+# *.safetensors filter=lfs diff=lfs merge=lfs -text
+
+# Linguist overrides
+*.sql linguist-language=PLpgSQL

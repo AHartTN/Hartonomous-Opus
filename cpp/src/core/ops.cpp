@@ -29,7 +29,7 @@ static void validate_cpu_features() {
     if (validated) return;
 
     // Cross-platform CPUID detection
-    uint32_t eax, ebx, ecx, edx;
+    [[maybe_unused]] uint32_t eax, ebx, ecx, edx;
 #ifdef _MSC_VER
     // MSVC intrinsics for CPUID
     int cpu_info[4];

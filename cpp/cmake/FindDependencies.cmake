@@ -1,164 +1,233 @@
 # ============================================================================
-# Dependency Detection Module
+# FindDependencies.cmake
+#
+# Comprehensive dependency detection for hypercube.
+# - Conservative: prefer imported CMake targets when available
+# - Robust: try pkg-config, vcpkg-style locations, common system paths
+# - Fallbacks: FetchContent for libraries we can build (HNSW, GTest)
+# - Windows-aware: common Program Files and vcpkg locations probed
+#
+# Exports canonical variables for the rest of the build:
+#   HAS_THREADS, HAS_OPENMP, HAS_EIGEN, HAS_MKL, HAS_HNSWLIB,
+#   PostgreSQL_FOUND, BUILD_PG_EXTENSION, PostgreSQL_INCLUDE_DIRS,
+#   PostgreSQL_LIBRARIES, POSTGRES_LIB, GTest_FOUND, GTEST_INCLUDE_DIRS
+#
+# This file performs detection only. It does not link targets or set flags.
 # ============================================================================
 
 include(FetchContent)
+include(CheckCXXCompilerFlag)
+include(CheckCXXSymbolExists)
+include(FindPackageHandleStandardArgs)
 
-# ============================================================================
-# Threading Support
-# ============================================================================
-
+# ----------------------------------------------------------------------------
+# Threads (required)
+# ----------------------------------------------------------------------------
 find_package(Threads REQUIRED)
-
-# ============================================================================
-# OpenMP (Optional - Compiler Feature)
-# ============================================================================
-
-# OpenMP is a compiler feature, not a library - use standard CMake detection
-find_package(OpenMP)
-
-if(OpenMP_CXX_FOUND)
-    message(STATUS "OpenMP: Enabled (version ${OpenMP_CXX_VERSION})")
-    set(HAS_OPENMP ON)
+set(HAS_THREADS ON)
+message(STATUS "[deps] Threads: found")
+# Additional check for pthread_create if needed
+if(NOT DEFINED COMPILER_SUPPORTS_PTHREAD_CREATE)
+    check_cxx_symbol_exists(pthread_create "pthread.h" COMPILER_SUPPORTS_PTHREAD_CREATE)
+endif()
+if(NOT COMPILER_SUPPORTS_PTHREAD_CREATE)
+    message(WARNING "[deps] pthread_create not supported, but threads package found. This might be OK for some builds.")
+endif()
+# Check for pthread_create availability
+set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} Threads::Threads)
+check_cxx_symbol_exists(pthread_create "pthread.h" COMPILER_SUPPORTS_PTHREAD_CREATE)
+if(COMPILER_SUPPORTS_PTHREAD_CREATE)
+    set(HAS_THREADS ON)
+    message(STATUS "[deps] Threads: found (pthread_create available)")
 else()
-    message(STATUS "OpenMP: Not found - building without OpenMP support")
-    message(STATUS "Note: OpenMP is a compiler feature. Ensure your compiler supports it.")
-    set(HAS_OPENMP OFF)
+    set(HAS_THREADS OFF)
+    message(STATUS "[deps] Threads: not found")
 endif()
 
-# ============================================================================
-# Eigen3 Linear Algebra Library (REQUIRED)
-# ============================================================================
+# ----------------------------------------------------------------------------
+# OpenMP (optional)
+# ----------------------------------------------------------------------------
+set(HAS_OPENMP OFF)
+find_package(OpenMP QUIET)
+if(OpenMP_CXX_FOUND)
+    set(HAS_OPENMP ON)
+    message(STATUS "[deps] OpenMP: found (${OpenMP_CXX_VERSION})")
+else()
+    message(STATUS "[deps] OpenMP: not found")
+endif()
 
-# Try multiple ways to find Eigen3 - REQUIRED dependency
-find_package(Eigen3 QUIET)
-if(NOT Eigen3_FOUND)
-    # Try pkg-config
+# ----------------------------------------------------------------------------
+# Eigen3 detection (multiple strategies)
+# ----------------------------------------------------------------------------
+set(HAS_EIGEN OFF)
+set(Eigen3_INCLUDE_DIRS "")
+
+# 1) Prefer CMake imported target
+find_package(Eigen3 QUIET NO_MODULE)
+if(TARGET Eigen3::Eigen)
+    set(HAS_EIGEN ON)
+    message(STATUS "[deps] Eigen3: found (imported target Eigen3::Eigen)")
+else()
+    # 2) Try pkg-config
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
-        pkg_check_modules(EIGEN3 QUIET eigen3)
-        if(EIGEN3_FOUND)
-            set(Eigen3_FOUND TRUE)
-            set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+        pkg_check_modules(EIGEN3_PKG QUIET eigen3)
+        if(EIGEN3_PKG_FOUND)
+            set(HAS_EIGEN ON)
+            set(Eigen3_INCLUDE_DIRS ${EIGEN3_PKG_INCLUDE_DIRS})
+            message(STATUS "[deps] Eigen3: found via pkg-config (${Eigen3_INCLUDE_DIRS})")
         endif()
     endif()
 endif()
 
-if(NOT Eigen3_FOUND)
-    # Try manual path detection
-    find_path(Eigen3_INCLUDE_DIR Eigen/Core
-              PATHS "/usr/local/include/eigen3"
-                    "/usr/include/eigen3"
-                    "$ENV{HOME}/.local/include/eigen3"
-                    "$ENV{CONDA_PREFIX}/include/eigen3"
-                    "C:/vcpkg/installed/x64-windows/include/eigen3"
-                    "C:/Program Files/eigen3/include/eigen3"
-              PATH_SUFFIXES eigen3)
+# 3) Manual search common paths
+if(NOT HAS_EIGEN)
+    find_path(Eigen3_INCLUDE_DIR
+        NAMES Eigen/Core
+        PATHS
+            /usr/include/eigen3
+            /usr/local/include/eigen3
+            $ENV{CONDA_PREFIX}/include/eigen3
+            $ENV{HOME}/.local/include/eigen3
+            C:/vcpkg/installed/x64-windows/include/eigen3
+            "C:/Program Files/eigen3/include"
+        NO_DEFAULT_PATH
+    )
     if(Eigen3_INCLUDE_DIR)
-        set(Eigen3_FOUND TRUE)
+        set(HAS_EIGEN ON)
         set(Eigen3_INCLUDE_DIRS ${Eigen3_INCLUDE_DIR})
+        message(STATUS "[deps] Eigen3: found at ${Eigen3_INCLUDE_DIRS}")
     endif()
 endif()
 
-if(Eigen3_FOUND)
-    message(STATUS "Eigen3: Found - linear algebra library ready")
-    message(STATUS "Eigen3 include dirs: ${Eigen3_INCLUDE_DIRS}")
-    set(HAS_EIGEN ON)
-else()
-    message(FATAL_ERROR "\n=== EIGEN3 REQUIRED BUT NOT FOUND ===\n"
-                       "Eigen3 is a required dependency for this project.\n\n"
-                       "Ensure Eigen3 is installed and available:\n"
-                       "- Check that Eigen3 headers are in your include path\n"
-                       "- Set CMAKE_PREFIX_PATH to include Eigen3's installation directory\n"
-                       "- Or install via your preferred package manager\n\n"
-                       "Common Eigen3 locations:\n"
-                       "- Windows: C:/Program Files/eigen3 or via vcpkg\n"
-                       "- Linux: /usr/include/eigen3\n"
-                       "- macOS: /usr/local/include/eigen3\n"
-                       "=======================================\n")
+if(NOT HAS_EIGEN)
+    message(WARNING "[deps] Eigen3 not found. Some features will be disabled or slower.")
 endif()
 
-# ============================================================================
-# Intel MKL BLAS Library (REQUIRED FOR PERFORMANCE)
-# ============================================================================
+# ----------------------------------------------------------------------------
+# Intel MKL detection (multi-strategy)
+# ----------------------------------------------------------------------------
+set(HAS_MKL OFF)
+set(MKL_INCLUDE_DIRS "")
+set(MKL_LIBRARIES "")
 
-# First try CMake's built-in MKL package (from vcpkg intel-mkl)
-find_package(MKL CONFIG QUIET)
+# 1) Prefer CMake config package (vcpkg / oneAPI)
+find_package(MKL QUIET)
+if(MKL_FOUND)
+    set(HAS_MKL ON)
+    message(STATUS "[deps] MKL: found via CMake package (MKL::MKL)")
+endif()
 
-# If not found, try manual detection for local installations
-if(NOT MKL_FOUND)
-    # Manual MKL detection for common installation paths
+# 2) Try Intel oneAPI environment variable MKLROOT
+if(NOT HAS_MKL)
+    if(DEFINED ENV{MKLROOT})
+        set(_MKLROOT $ENV{MKLROOT})
+        find_path(_MKL_INCLUDE mkl.h PATHS "${_MKLROOT}/include" "${_MKLROOT}/include/mkl" NO_DEFAULT_PATH)
+        find_library(_MKL_CORE mkl_core PATHS "${_MKLROOT}/lib/intel64" "${_MKLROOT}/lib" NO_DEFAULT_PATH)
+        find_library(_MKL_INTEL mkl_intel_lp64 PATHS "${_MKLROOT}/lib/intel64" "${_MKLROOT}/lib" NO_DEFAULT_PATH)
+        find_library(_MKL_SEQUENTIAL mkl_sequential PATHS "${_MKLROOT}/lib/intel64" "${_MKLROOT}/lib" NO_DEFAULT_PATH)
+        if(_MKL_INCLUDE AND _MKL_CORE)
+            set(HAS_MKL ON)
+            set(MKL_INCLUDE_DIRS ${_MKL_INCLUDE})
+            set(MKL_LIBRARIES ${_MKL_SEQUENTIAL} ${_MKL_INTEL} ${_MKL_CORE})
+            message(STATUS "[deps] MKL: found via MKLROOT (${_MKLROOT})")
+        endif()
+    endif()
+endif()
+
+# 3) Try common system locations (Linux/macOS/Windows)
+if(NOT HAS_MKL)
     if(WIN32)
-        # Windows MKL paths - include common installation locations
-        set(MKL_ROOT_SEARCH_PATHS
-            "$ENV{MKLROOT}"
-            "D:/Intel/oneAPI/mkl/latest"
-            "C:/Intel/oneAPI/mkl/latest"
-            "$ENV{ProgramFiles}/Intel/oneAPI/mkl/latest"
+        set(_MKL_SEARCH
             "C:/Program Files/Intel/oneAPI/mkl/latest"
-            "C:/Program Files (x86)/Intel/oneAPI/mkl/latest"
-            "$ENV{ProgramFiles}/Intel/Composer XE/mkl"
-            # Direct path to known MKL installations
-            "D:/Intel/oneAPI/mkl/2025.3"
-            "C:/Intel/oneAPI/mkl/2025.3"
+            "C:/Program Files (x86)/IntelSWTools/compilers_and_libraries/windows/mkl"
+            "D:/Intel/oneAPI/mkl/latest"
         )
-        find_path(MKL_INCLUDE_DIR mkl.h PATHS ${MKL_ROOT_SEARCH_PATHS} PATH_SUFFIXES include)
-        find_library(MKL_CORE_LIBRARY mkl_core PATHS ${MKL_ROOT_SEARCH_PATHS} PATH_SUFFIXES lib/intel64 lib)
-        find_library(MKL_SEQUENTIAL_LIBRARY mkl_sequential PATHS ${MKL_ROOT_SEARCH_PATHS} PATH_SUFFIXES lib/intel64 lib)
-        find_library(MKL_INTEL_LIBRARY mkl_intel_lp64 PATHS ${MKL_ROOT_SEARCH_PATHS} PATH_SUFFIXES lib/intel64 lib)
     else()
-        # Linux/macOS MKL paths
-        set(MKL_ROOT_SEARCH_PATHS
-            "$ENV{MKLROOT}"
+        set(_MKL_SEARCH
             "/opt/intel/oneapi/mkl/latest"
-            "/opt/intel/composerxe/mkl"
+            "/opt/intel/mkl"
             "/usr/local/intel/mkl"
         )
-        find_path(MKL_INCLUDE_DIR mkl.h PATHS ${MKL_ROOT_SEARCH_PATHS} PATH_SUFFIXES include)
-        find_library(MKL_CORE_LIBRARY mkl_core PATHS ${MKL_ROOT_SEARCH_PATHS} PATH_SUFFIXES lib/intel64 lib)
-        find_library(MKL_SEQUENTIAL_LIBRARY mkl_sequential PATHS ${MKL_ROOT_SEARCH_PATHS} PATH_SUFFIXES lib/intel64 lib)
-        find_library(MKL_INTEL_LIBRARY mkl_intel_lp64 PATHS ${MKL_ROOT_SEARCH_PATHS} PATH_SUFFIXES lib/intel64 lib)
     endif()
 
-    if(MKL_INCLUDE_DIR AND MKL_CORE_LIBRARY)
-        set(MKL_FOUND TRUE)
-        set(MKL_INCLUDE_DIRS ${MKL_INCLUDE_DIR})
-        set(MKL_LIBRARIES ${MKL_SEQUENTIAL_LIBRARY} ${MKL_INTEL_LIBRARY} ${MKL_CORE_LIBRARY})
-        if(WIN32)
-            list(APPEND MKL_LIBRARIES ${MKL_CORE_LIBRARY})
+    foreach(_p IN LISTS _MKL_SEARCH)
+        find_path(_MKL_INCLUDE mkl.h PATHS "${_p}/include" "${_p}/include/mkl" NO_DEFAULT_PATH)
+        find_library(_MKL_CORE mkl_core PATHS "${_p}/lib/intel64" "${_p}/lib" NO_DEFAULT_PATH)
+        if(_MKL_INCLUDE AND _MKL_CORE)
+            set(HAS_MKL ON)
+            set(MKL_INCLUDE_DIRS ${_MKL_INCLUDE})
+            set(MKL_LIBRARIES ${_MKL_CORE})
+            message(STATUS "[deps] MKL: found at ${_p}")
+            break()
+        endif()
+    endforeach()
+endif()
+
+# 4) Final status
+if(HAS_MKL)
+    message(STATUS "[deps] MKL: enabled")
+else()
+    message(STATUS "[deps] MKL: not found (will fall back to Eigen or custom implementations)")
+endif()
+
+# ----------------------------------------------------------------------------
+# HNSWLib detection / FetchContent fallback
+# ----------------------------------------------------------------------------
+set(HAS_HNSWLIB OFF)
+set(HNSWLIB_INCLUDE_DIRS "")
+set(HNSWLIB_LIBRARIES "")
+
+# Prefer imported target
+find_package(hnswlib QUIET)
+if(hnswlib_FOUND)
+    set(HAS_HNSWLIB ON)
+    message(STATUS "[deps] HNSWLib: found via package")
+else()
+    # Try pkg-config
+    if(PkgConfig_FOUND)
+        pkg_check_modules(HNSW_PKG QUIET hnswlib)
+        if(HNSW_PKG_FOUND)
+            set(HAS_HNSWLIB ON)
+            set(HNSWLIB_INCLUDE_DIRS ${HNSW_PKG_INCLUDE_DIRS})
+            set(HNSWLIB_LIBRARIES ${HNSW_PKG_LIBRARIES})
+            message(STATUS "[deps] HNSWLib: found via pkg-config")
         endif()
     endif()
 endif()
 
-if(MKL_FOUND)
-    message(STATUS "Intel MKL: Found - using optimized BLAS operations")
-    message(STATUS "MKL include dirs: ${MKL_INCLUDE_DIRS}")
-    message(STATUS "MKL libraries: ${MKL_LIBRARIES}")
-    set(HAS_MKL ON)
-else()
-    message(FATAL_ERROR "\n=== INTEL MKL REQUIRED BUT NOT FOUND ===\n"
-                       "Intel MKL is required for optimal performance in this project.\n\n"
-                       "Ensure Intel MKL is installed and available:\n"
-                       "- Check that MKL libraries and headers are in your paths\n"
-                       "- Set MKLROOT environment variable to MKL installation directory\n"
-                       "- Set CMAKE_PREFIX_PATH to include MKL's installation directory\n\n"
-                       "Common MKL locations:\n"
-                       "- Windows: D:/Intel/oneAPI/mkl/latest, C:/Intel/oneAPI/mkl/latest\n"
-                       "- Linux: /opt/intel/oneapi/mkl/latest\n"
-                       "- macOS: /opt/intel/oneapi/mkl/latest\n\n"
-                       "Download from: https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html\n"
-                       "=======================================\n")
+# If still not found, fetch source and build as part of the tree
+if(NOT HAS_HNSWLIB)
+    message(STATUS "[deps] HNSWLib: not found system-wide, will fetch and build from source")
+    FetchContent_Declare(
+        hnswlib_src
+        GIT_REPOSITORY https://github.com/nmslib/hnswlib.git
+        GIT_TAG v0.8.0
+    )
+    FetchContent_GetProperties(hnswlib_src)
+    if(NOT hnswlib_src_POPULATED)
+        FetchContent_Populate(hnswlib_src)
+    endif()
+    # hnswlib is header-only in many usages; mark as available
+    set(HAS_HNSWLIB ON)
+    set(HNSWLIB_INCLUDE_DIRS ${hnswlib_src_SOURCE_DIR})
+    message(STATUS "[deps] HNSWLib: fetched into ${hnswlib_src_SOURCE_DIR}")
 endif()
 
-# ============================================================================
-# PostgreSQL Detection
-# ============================================================================
+# ----------------------------------------------------------------------------
+# PostgreSQL detection (pg_config, libpq, postgres.lib)
+# ----------------------------------------------------------------------------
+set(BUILD_PG_EXTENSION OFF)
+set(PostgreSQL_FOUND OFF)
+set(PostgreSQL_INCLUDE_DIRS "")
+set(PostgreSQL_LIBRARIES "")
+set(POSTGRES_LIB "")
 
-# Find pg_config for extension development
+# Try to find pg_config first (best for extension development)
 if(WIN32)
-    # Try common PostgreSQL installation paths on Windows
+    # Search common Windows install locations for pg_config
     find_program(PG_CONFIG pg_config
-        PATHS
+        HINTS
             "$ENV{ProgramFiles}/PostgreSQL/*/bin"
             "C:/Program Files/PostgreSQL/*/bin"
             "C:/Program Files (x86)/PostgreSQL/*/bin"
@@ -175,24 +244,27 @@ if(PG_CONFIG)
     execute_process(COMMAND ${PG_CONFIG} --libdir OUTPUT_VARIABLE PG_LIBDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
     execute_process(COMMAND ${PG_CONFIG} --version OUTPUT_VARIABLE PG_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-    message(STATUS "PostgreSQL: ${PG_VERSION}")
-    message(STATUS "PostgreSQL server includes: ${PG_INCLUDEDIR_SERVER}")
-    message(STATUS "PostgreSQL pkglibdir: ${PG_PKGLIBDIR}")
     set(BUILD_PG_EXTENSION ON)
+    message(STATUS "[deps] pg_config found: ${PG_CONFIG} (PostgreSQL ${PG_VERSION})")
+    message(STATUS "[deps] PostgreSQL server include: ${PG_INCLUDEDIR_SERVER}")
+    message(STATUS "[deps] PostgreSQL pkglibdir: ${PG_PKGLIBDIR}")
+    message(STATUS "[deps] PostgreSQL libdir: ${PG_LIBDIR}")
 else()
-    message(WARNING "pg_config not found - building without PostgreSQL extension support")
-    set(BUILD_PG_EXTENSION OFF)
+    message(STATUS "[deps] pg_config not found; PostgreSQL extension builds will be disabled unless overridden")
 endif()
 
-# Find libpq for client tools
+# Find libpq (client library) for tools
 find_package(PostgreSQL QUIET)
 if(PostgreSQL_FOUND)
-    message(STATUS "Found PostgreSQL client library: ${PostgreSQL_LIBRARIES}")
+    set(PostgreSQL_FOUND ON)
+    set(PostgreSQL_INCLUDE_DIRS ${PostgreSQL_INCLUDE_DIRS})
+    set(PostgreSQL_LIBRARIES ${PostgreSQL_LIBRARIES})
+    message(STATUS "[deps] libpq: found (PostgreSQL client libraries available)")
 else()
-    # Try manual libpq detection on Windows
-    if(WIN32 AND NOT PostgreSQL_FOUND)
+    # Manual search for libpq on Windows if not found
+    if(WIN32)
         find_library(LIBPQ_LIB pq libpq
-            PATHS
+            HINTS
                 "$ENV{ProgramFiles}/PostgreSQL/*/lib"
                 "C:/Program Files/PostgreSQL/*/lib"
                 "C:/Program Files (x86)/PostgreSQL/*/lib"
@@ -202,97 +274,125 @@ else()
             get_filename_component(PG_ROOT "${PG_LIB_DIR}" DIRECTORY)
             set(PostgreSQL_INCLUDE_DIRS "${PG_ROOT}/include")
             set(PostgreSQL_LIBRARIES "${LIBPQ_LIB}")
-            set(PostgreSQL_FOUND TRUE)
-            message(STATUS "Found libpq manually: ${LIBPQ_LIB}")
-            message(STATUS "Include dirs: ${PostgreSQL_INCLUDE_DIRS}")
+            set(PostgreSQL_FOUND ON)
+            message(STATUS "[deps] libpq: found manually at ${LIBPQ_LIB}")
         endif()
     endif()
 endif()
 
-# Find postgres.lib on Windows for extensions
+# On Windows, try to find postgres.lib for linking extensions
 if(WIN32 AND BUILD_PG_EXTENSION)
-    find_library(POSTGRES_LIB postgres HINTS "${PG_PKGLIBDIR}" "${PG_LIBDIR}")
+    # First try the libdir from pg_config
+    find_library(POSTGRES_LIB postgres HINTS "${PG_LIBDIR}")
+    if(NOT POSTGRES_LIB)
+        # Try pkglibdir if different
+        if(DEFINED PG_PKGLIBDIR AND PG_PKGLIBDIR)
+            find_library(POSTGRES_LIB postgres HINTS "${PG_PKGLIBDIR}")
+        endif()
+    endif()
+    if(NOT POSTGRES_LIB)
+        # Try common locations
+        find_library(POSTGRES_LIB postgres HINTS
+            "$ENV{ProgramFiles}/PostgreSQL/*/lib"
+            "C:/Program Files/PostgreSQL/*/lib"
+            "C:/Program Files (x86)/PostgreSQL/*/lib"
+        )
+    endif()
     if(POSTGRES_LIB)
-        message(STATUS "Found postgres.lib: ${POSTGRES_LIB}")
+        message(STATUS "[deps] postgres.lib found: ${POSTGRES_LIB}")
     else()
-        message(WARNING "postgres.lib not found - extensions may not link correctly")
-    endif()
-endif()
-
-# ============================================================================
-# Google Test Framework (Optional)
-# ============================================================================
-
-# ============================================================================
-# HNSWLib k-NN Library (REQUIRED)
-# ============================================================================
-
-# Try to find HNSWLib package - REQUIRED for k-NN operations
-find_package(hnswlib CONFIG QUIET)
-if(NOT hnswlib_FOUND)
-    # Fallback: Try pkg-config for HNSWLib
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(HNSWLIB QUIET hnswlib)
-    endif()
-
-    # Manual detection for common paths (including vcpkg)
-    if(NOT HNSWLIB_FOUND)
-        find_path(HNSWLIB_INCLUDE_DIR hnswlib.h
-                  PATHS "/usr/local/include"
-                        "/usr/include"
-                        "$ENV{HOME}/.local/include"
-                        "$ENV{CONDA_PREFIX}/include"
-                        "C:/vcpkg/installed/x64-windows/include"
-                        "C:/Program Files/hnswlib/include"
-                  PATH_SUFFIXES hnswlib)
-
-        find_library(HNSWLIB_LIBRARY hnswlib
-                     PATHS "/usr/local/lib"
-                           "/usr/lib"
-                           "$ENV{HOME}/.local/lib"
-                           "$ENV{CONDA_PREFIX}/lib"
-                           "C:/vcpkg/installed/x64-windows/lib"
-                           "C:/Program Files/hnswlib/lib")
-
-        if(HNSWLIB_INCLUDE_DIR AND HNSWLIB_LIBRARY)
-            set(HNSWLIB_FOUND TRUE)
-            set(HNSWLIB_INCLUDE_DIRS ${HNSWLIB_INCLUDE_DIR})
-            set(HNSWLIB_LIBRARIES ${HNSWLIB_LIBRARY})
+        # Try explicit path
+        set(EXPLICIT_POSTGRES_LIB "${PG_LIBDIR}/postgres.lib")
+        if(EXISTS "${EXPLICIT_POSTGRES_LIB}")
+            set(POSTGRES_LIB "${EXPLICIT_POSTGRES_LIB}")
+            message(STATUS "[deps] postgres.lib found explicitly: ${POSTGRES_LIB}")
+        else()
+            message(WARNING "[deps] postgres.lib not found; disabling PostgreSQL extensions")
+            set(BUILD_PG_EXTENSION OFF)
         endif()
     endif()
 endif()
 
-if(HNSWLIB_FOUND OR hnswlib_FOUND)
-    message(STATUS "HNSWLib: Found - approximate k-NN enabled")
-    set(HAS_HNSWLIB ON)
-    if(HNSWLIB_INCLUDE_DIRS)
-        message(STATUS "HNSWLib include dirs: ${HNSWLIB_INCLUDE_DIRS}")
-    endif()
-    if(HNSWLIB_LIBRARIES)
-        message(STATUS "HNSWLib libraries: ${HNSWLIB_LIBRARIES}")
-    endif()
-else()
-    # Fetch HNSWLib from source if not found system-wide
-    message(STATUS "HNSWLib: Not found system-wide, fetching from source...")
-    FetchContent_Declare(
-        hnswlib_src
-        GIT_REPOSITORY https://github.com/nmslib/hnswlib.git
-        GIT_TAG v0.8.0
-    )
-    FetchContent_MakeAvailable(hnswlib_src)
-    set(HAS_HNSWLIB ON)
-    message(STATUS "HNSWLib: Built from source")
-endif()
-
-# ============================================================================
-# Google Test Framework (Optional)
-# ============================================================================
+# ----------------------------------------------------------------------------
+# Google Test detection / FetchContent fallback
+# ----------------------------------------------------------------------------
+set(GTest_FOUND OFF)
+set(GTEST_INCLUDE_DIRS "")
 
 find_package(GTest QUIET)
 if(GTest_FOUND)
-    message(STATUS "Found Google Test: ${GTEST_INCLUDE_DIRS}")
+    set(GTest_FOUND ON)
+    message(STATUS "[deps] GoogleTest: found via package")
 else()
-    message(STATUS "Google Test not found - skipping test suite")
-    message(STATUS "To enable tests: vcpkg install gtest:x64-windows (or equivalent)")
+    message(STATUS "[deps] GoogleTest: not found system-wide; fetching via FetchContent")
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.15.2
+    )
+    FetchContent_GetProperties(googletest)
+    if(NOT googletest_POPULATED)
+        FetchContent_Populate(googletest)
+        # Build googletest to create GTest::gtest and GTest::gtest_main targets
+        add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
+    endif()
+    set(GTest_FOUND ON)
+    set(GTEST_INCLUDE_DIRS ${googletest_SOURCE_DIR}/googletest/include)
+    message(STATUS "[deps] GoogleTest: fetched into ${googletest_SOURCE_DIR}")
 endif()
+
+# ----------------------------------------------------------------------------
+# Hints for vcpkg / conan users (informational)
+# ----------------------------------------------------------------------------
+message(STATUS "")
+message(STATUS "Dependency hints:")
+message(STATUS "  - On Windows, vcpkg is recommended: vcpkg install eigen3 mkl hnswlib libpq gtest")
+message(STATUS "  - On Linux: apt install libeigen3-dev libpq-dev libgtest-dev (or use vcpkg/conan)")
+message(STATUS "")
+
+# ----------------------------------------------------------------------------
+# Final canonical variables (ensure defined)
+# ----------------------------------------------------------------------------
+if(NOT DEFINED HAS_THREADS)
+    set(HAS_THREADS OFF)
+endif()
+if(NOT DEFINED HAS_OPENMP)
+    set(HAS_OPENMP OFF)
+endif()
+if(NOT DEFINED HAS_EIGEN)
+    set(HAS_EIGEN OFF)
+endif()
+if(NOT DEFINED HAS_MKL)
+    set(HAS_MKL OFF)
+endif()
+if(NOT DEFINED HAS_HNSWLIB)
+    set(HAS_HNSWLIB OFF)
+endif()
+if(NOT DEFINED PostgreSQL_FOUND)
+    set(PostgreSQL_FOUND OFF)
+endif()
+if(NOT DEFINED BUILD_PG_EXTENSION)
+    set(BUILD_PG_EXTENSION OFF)
+endif()
+if(NOT DEFINED GTest_FOUND)
+    set(GTest_FOUND OFF)
+endif()
+
+# ----------------------------------------------------------------------------
+# Print final summary
+# ----------------------------------------------------------------------------
+message(STATUS "=== Dependency Detection Summary ===")
+message(STATUS "Threads:            ${HAS_THREADS}")
+message(STATUS "OpenMP:             ${HAS_OPENMP}")
+message(STATUS "Eigen3:             ${HAS_EIGEN}")
+if(HAS_EIGEN AND TARGET Eigen3::Eigen)
+    message(STATUS "  Eigen target:     Eigen3::Eigen")
+elseif(HAS_EIGEN AND Eigen3_INCLUDE_DIRS)
+    message(STATUS "  Eigen include:    ${Eigen3_INCLUDE_DIRS}")
+endif()
+message(STATUS "Intel MKL:          ${HAS_MKL}")
+message(STATUS "HNSWLib:            ${HAS_HNSWLIB}")
+message(STATUS "PostgreSQL ext:     ${BUILD_PG_EXTENSION}")
+message(STATUS "PostgreSQL client:  ${PostgreSQL_FOUND}")
+message(STATUS "Google Test:        ${GTest_FOUND}")
+message(STATUS "")

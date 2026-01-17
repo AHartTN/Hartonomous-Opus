@@ -66,7 +66,16 @@
       "Bash(test:*)",
       "Bash(chmod:*)",
       "Bash(./debug_semantic_order.exe:*)",
-      "Bash(./test_clustering.exe:*)"
+      "Bash(./test_clustering.exe:*)",
+      "Bash(git -C \"D:\\\\Repositories\\\\Hartonomous-Opus\" status --short)",
+      "Bash(git -C \"D:\\\\Repositories\\\\Hartonomous-Opus\" log --oneline)",
+      "Bash(git -C \"D:\\\\Repositories\\\\Hartonomous-Opus\" diff --name-only)",
+      "Bash(git -C \"D:\\\\Repositories\\\\Hartonomous-Opus\" show HEAD:cpp/cmake/BuildTargets.cmake)",
+      "Bash(git -C \"D:\\\\Repositories\\\\Hartonomous-Opus\" status --porcelain)",
+      "Bash(git -C \"D:\\\\Repositories\\\\Hartonomous-Opus\" diff cpp/CMakeLists.txt)",
+      "Bash(del \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\cpp\\\\include\\\\hypercube\\\\cpu_features.cpp\" \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\cpp\\\\include\\\\hypercube\\\\isa_class.cpp\" \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\cpp\\\\include\\\\hypercube\\\\dispatch.cpp\")",
+      "Bash(git rm:*)",
+      "Bash(git add:*)"
     ]
   },
   "outputStyle": "default"

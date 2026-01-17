@@ -17,6 +17,7 @@
 #pragma once
 
 #include "hypercube/types.hpp"
+#include "hypercube/coordinates.hpp"
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -355,6 +356,10 @@ private:
     std::string metrics_to_json(const TrainingMetrics& metrics);
     Hyperparameters json_to_hyperparameters(const std::string& json);
     TrainingMetrics json_to_metrics(const std::string& json);
+
+    // Inference helpers
+    Point4F get_composition_coordinates(const Blake3Hash& hash);
+    Blake3Hash compute_hash_from_coordinates(const Point4D& coords);
 };
 
 } // namespace ml

@@ -313,12 +313,14 @@ static std::vector<size_t> normalize_rows(float* data, size_t rows, size_t cols)
 
 struct Edge { int32_t src, tgt; float sim; };
 
-#ifdef HAS_HNSWLIB
 static std::vector<Edge> knn(const float* data, const std::vector<size_t>& valid, size_t dim,
                           size_t k_neighbors = K_DEFAULT, float threshold = THRESHOLD_DEFAULT) {
     size_t n = valid.size();
     if (n < 2) return {};
 
+    std::vector<Edge> edges;
+
+    #ifdef HAS_HNSWLIB
     std::cerr << "[KNN] Building index for " << n << " vectors (single-threaded)...\n";
 
     hnswlib::InnerProductSpace space(dim);
@@ -389,18 +391,58 @@ static std::vector<Edge> knn(const float* data, const std::vector<size_t>& valid
         all_edges.insert(tes.begin(), tes.end());
     }
 
-    std::vector<Edge> edges;
+    // Remove the duplicate edges declaration
     edges.reserve(all_edges.size());
     for (auto& t : all_edges) {
         edges.push_back({static_cast<int32_t>(std::get<0>(t)), static_cast<int32_t>(std::get<1>(t)), std::get<2>(t)});
     }
 
-    std::cerr << "[KNN] Found " << edges.size() << " unique edges above threshold " << threshold << "\n";
+    #else
+    std::cerr << "[KNN] Computing brute-force k-NN for " << n << " vectors...\n";
+
+    // Brute-force k-NN implementation
+    std::vector<Edge> edges_brute;
+    std::mutex edges_mutex;
+
+    #pragma omp parallel for schedule(dynamic, 256) num_threads(g_num_threads)
+    for (int64_t ii = 0; ii < static_cast<int64_t>(n); ii++) {
+        size_t i = valid[ii];
+        std::vector<std::pair<float, size_t>> candidates;
+
+        for (size_t jj = ii + 1; jj < n; jj++) {
+            size_t j = valid[jj];
+
+            // Compute dot product (cosine similarity since vectors are normalized)
+            float sim = 0.0f;
+            for (size_t d = 0; d < dim; d++) {
+                sim += data[i * dim + d] * data[j * dim + d];
+            }
+
+            if (sim >= threshold) {
+                candidates.emplace_back(sim, j);
+            }
+        }
+
+        // Sort candidates by similarity descending, take top k_neighbors
+        std::sort(candidates.begin(), candidates.end(), std::greater<>());
+        if (candidates.size() > k_neighbors) {
+            candidates.resize(k_neighbors);
+        }
+
+        // Add edges
+        {
+            std::lock_guard<std::mutex> lock(edges_mutex);
+            for (auto& [sim, j] : candidates) {
+                edges_brute.push_back({static_cast<int32_t>(i), static_cast<int32_t>(j), sim});
+            }
+        }
+    }
+    edges = edges_brute;
+    #endif
+
+    std::cerr << "[KNN] Found " << edges.size() << " edges above threshold " << threshold << "\n";
     return edges;
 }
-#else
-static std::vector<Edge> knn(const float*, const std::vector<size_t>&, size_t) { return {}; }
-#endif
 
 // ============================================================================
 // Insert edges via batched INSERT
@@ -1630,9 +1672,7 @@ static bool extract_temporal_relations(PGconn* conn, IngestContext& ctx, const I
 
         // Extract k-NN relations with lower threshold for temporal proximity
         // Position embeddings capture sequential/temporal relationships
-        // NOTE: k-NN disabled due to HNSWLib not available
-
-        std::vector<Edge> temporal_edges;  // Empty since k-NN is disabled
+        auto temporal_edges = knn(pos_data.data(), valid_positions, static_cast<size_t>(embed_dim));
 
         std::cerr << "[TEMPORAL] Found " << temporal_edges.size() << " temporal relations\n";
 
@@ -1827,9 +1867,7 @@ static bool extract_visual_relations(PGconn* conn, IngestContext& ctx, const Ing
 
         // Extract k-NN relations with moderate threshold for visual similarity
         // Vision features capture visual concepts and patterns
-        // NOTE: k-NN disabled due to HNSWLib not available
-
-        std::vector<Edge> visual_edges;  // Empty since k-NN is disabled
+        auto visual_edges = knn(vis_data.data(), valid_features, static_cast<size_t>(feature_dim));
 
         std::cerr << "[VISION] Found " << visual_edges.size() << " visual relations\n";
 

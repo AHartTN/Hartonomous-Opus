@@ -19,6 +19,7 @@
  */
 
 #include "hypercube/types.hpp"
+#include "hypercube/dispatch.h"
 #include <vector>
 #include <array>
 #include <string>
@@ -33,6 +34,23 @@ struct LaplacianConfig;
 struct ProjectionResult;
 
 /**
+ * Backend selection for eigenvector computation
+ */
+enum class EigenBackend {
+    MKL_DENSE,      // Intel MKL LAPACK (fastest, most accurate)
+    EIGEN_DENSE,    // Eigen library (portable fallback)
+    LANCZOS_SPARSE  // Custom Lanczos (handles large sparse matrices)
+};
+
+/**
+ * Backend selection for k-NN neighbor search
+ */
+enum class NeighborSearchBackend {
+    HNSW,           // Hierarchical Navigable Small World (fast, approximate)
+    BRUTE_FORCE     // Brute force cosine similarity (exact but slow)
+};
+
+/**
  * Anchor point for constrained Laplacian projection
  * Used to align new embeddings with existing 4D coordinate system
  */
@@ -44,19 +62,37 @@ struct AnchorPoint {
 
 /**
  * Configuration for Laplacian eigenmap projection
+ *
+ * Key backends:
+ * - NeighborSearchBackend: HNSW (fast, approximate) vs BRUTE_FORCE (exact but slow)
+ * - EigenBackend: MKL_DENSE (fastest), EIGEN_DENSE (portable), LANCZOS_SPARSE (large matrices)
+ *
+ * Policy: Use MKL_DENSE for small matrices (< dense_threshold), LANCZOS_SPARSE for large ones.
  */
 struct LaplacianConfig {
+    // Graph construction parameters
     int k_neighbors = 50;               // k for k-NN graph construction (increased for better graphs)
     float similarity_threshold = 0.0f;  // Minimum similarity for edges (negative = include all)
+    NeighborSearchBackend neighbor_backend = NeighborSearchBackend::HNSW;  // k-NN search method
+
+    // HNSW parameters (only used when neighbor_backend == HNSW)
+    size_t hnsw_M = 16;                 // Max connections per layer (higher = more accurate, slower)
+    size_t hnsw_ef_construction = 200;  // Construction-time parameter (higher = more accurate)
+
+    // Eigenvalue solver parameters
+    EigenBackend eigen_backend = EigenBackend::LANCZOS_SPARSE;  // Which eigensolver to use
+    size_t dense_threshold = 20000;      // Matrix size threshold for dense vs sparse solvers
     int power_iterations = 200;         // Iterations for inverse power method
     int num_threads = 0;                // 0 = auto-detect
-    bool project_to_sphere = true;      // Project final coords onto hypersphere
-    double sphere_radius = 1.0;         // Radius of target hypersphere (before scaling)
-    bool verbose = false;               // Enable verbose debug output
 
     // Convergence tolerance for eigensolver (relaxed for 10x speedup)
     double convergence_tol = 1e-4;      // Looser tolerance = faster convergence
     int max_deflation_iterations = 50;  // Fewer iterations needed with looser tolerance
+
+    // Projection parameters
+    bool project_to_sphere = true;      // Project final coords onto hypersphere
+    double sphere_radius = 1.0;         // Radius of target hypersphere (before scaling)
+    bool verbose = false;               // Enable verbose debug output
 
     // Anchor constraints for aligning with existing 4D space
     double anchor_weight = 10.0;        // Weight for anchor constraints (higher = stricter alignment)
@@ -204,13 +240,21 @@ private:
     // Compute unnormalized Laplacian L = D - W
     SparseSymmetricMatrix build_laplacian(const SparseSymmetricMatrix& W);
     
-    // Find k smallest non-zero eigenvectors using inverse iteration with deflation
+    // Find k smallest non-zero eigenvectors using policy-based backend selection
     std::vector<std::vector<double>> find_smallest_eigenvectors(
         SparseSymmetricMatrix& L,
         int k,
         std::array<double, 4>& eigenvalues_out,
         bool& converged_out
     );
+
+    // Backend-specific eigenvector solvers
+    std::vector<std::vector<double>> solve_eigenvectors_mkl_dense(
+        SparseSymmetricMatrix& L, int k, std::array<double, 4>& eigenvalues_out);
+    std::vector<std::vector<double>> solve_eigenvectors_eigen_dense(
+        SparseSymmetricMatrix& L, int k, std::array<double, 4>& eigenvalues_out);
+    std::vector<std::vector<double>> solve_eigenvectors_lanczos_sparse(
+        SparseSymmetricMatrix& L, int k, std::array<double, 4>& eigenvalues_out, bool& converged_out);
     
     // Gram-Schmidt orthonormalization on columns
     void gram_schmidt_columns(std::vector<std::vector<double>>& Y);
@@ -227,15 +271,29 @@ private:
     void report_progress(const std::string& stage, size_t current, size_t total);
 };
 
-// SIMD-optimized vector operations
+// SIMD-optimized vector operations (dispatch-based)
 namespace simd {
-    float dot_product(const float* a, const float* b, size_t n);
-    double dot_product_d(const double* a, const double* b, size_t n);
-    float cosine_similarity(const float* a, const float* b, size_t n);
-    void scale_inplace(double* v, double s, size_t n);
-    void subtract_scaled(double* a, const double* b, double s, size_t n);
-    double norm(const double* v, size_t n);
-    void normalize(double* v, size_t n);
+    inline float dot_product(const float* a, const float* b, size_t n) {
+        return get_kernels().dot_product_f(a, b, n);
+    }
+    inline double dot_product_d(const double* a, const double* b, size_t n) {
+        return get_kernels().dot_product_d(a, b, n);
+    }
+    inline void scale_inplace(double* v, double s, size_t n) {
+        get_kernels().scale_inplace_d(v, s, n);
+    }
+    inline void subtract_scaled(double* a, const double* b, double s, size_t n) {
+        get_kernels().subtract_scaled_d(a, b, s, n);
+    }
+    inline double norm(const double* v, size_t n) {
+        return get_kernels().norm_d(v, n);
+    }
+    inline void normalize(double* v, size_t n) {
+        double nrm = norm(v, n);
+        if (nrm > 1e-12) {
+            scale_inplace(v, 1.0 / nrm, n);
+        }
+    }
 }
 
 } // namespace hypercube

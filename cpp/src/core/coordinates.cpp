@@ -292,6 +292,8 @@ namespace hypercube
         return map_codepoint_full(codepoint).coords;
     }
 
+    // Note: GCC/Clang use __attribute__((target("avx"))) for CPU dispatch
+    // MSVC uses different mechanisms (/arch flag or intrinsics directly)
     Point4D CoordinateMapper::centroid(const std::vector<Point4D> &points) noexcept
     {
         if (points.empty())
@@ -1003,7 +1005,7 @@ namespace hypercube
         [[maybe_unused]] double prev_energy = 0.0; // Previous energy value (for tracking)
 
         // Compute initial mean NN distance for eta scaling
-        double mean_nn = 0.0;
+        [[maybe_unused]] double mean_nn = 0.0;
         int count = 0;
         for (size_t i = 0; i < n; ++i)
         {

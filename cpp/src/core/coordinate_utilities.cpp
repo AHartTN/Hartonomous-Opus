@@ -29,7 +29,7 @@ uint32_t CoordinateUtilities::quantize_unit_to_u32(double v) noexcept
 
 #if HAS_AVX
 // AVX-optimized quantization for 4 components
-void CoordinateUtilities::avx_quantize_point4f_to_point4d(const Point4F& src, Point4D& dst) noexcept
+__attribute__((target("avx"))) void CoordinateUtilities::avx_quantize_point4f_to_point4d(const Point4F& src, Point4D& dst) noexcept
 {
     // Process components individually since we need uint32 conversion
     // This is still faster than scalar due to vectorized operations
@@ -74,7 +74,7 @@ double CoordinateUtilities::safe_pow_inv(double r, double p, double eps)
 
 #if HAS_AVX
 // AVX-optimized Euclidean distance for 4D points
-double CoordinateUtilities::avx_distance(const Point4F& a, const Point4F& b) noexcept
+__attribute__((target("avx"))) double CoordinateUtilities::avx_distance(const Point4F& a, const Point4F& b) noexcept
 {
     // Load points into AVX registers
     __m256d a_vec = _mm256_set_pd(a.m, a.z, a.y, a.x);

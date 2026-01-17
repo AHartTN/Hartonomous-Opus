@@ -193,7 +193,7 @@ public class TokenizationService
             {
                 hash = hash * 31 + c;
             }
-            return Math.Abs(hash);
+            return Math.Abs((long)hash);
         }
     }
 

@@ -64,20 +64,42 @@ protected:
 // Test semantic_search function exists and is callable
 TEST_F(SQLQueryAPITest, SemanticSearchCallable) {
     PGresult* res = PQexec(conn, "SELECT * FROM search_text('test', 10)");
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        std::string err = PQresultErrorMessage(res);
-        PQclear(res);
-        
-        // Function might not exist yet
-        if (err.find("does not exist") != std::string::npos) {
-            GTEST_SKIP() << "search_text not implemented";
-        }
-        FAIL() << "search_text failed: " << err;
+
+    ASSERT_EQ(PQresultStatus(res), PGRES_TUPLES_OK) << "search_text failed: " << PQresultErrorMessage(res);
+
+    // Check structure
+    ASSERT_EQ(PQnfields(res), 5);
+    EXPECT_STREQ(PQfname(res, 0), "id");
+    EXPECT_STREQ(PQfname(res, 1), "text");
+    EXPECT_STREQ(PQfname(res, 2), "depth");
+    EXPECT_STREQ(PQfname(res, 3), "atom_count");
+    EXPECT_STREQ(PQfname(res, 4), "score");
+
+    // Check results
+    int ntuples = PQntuples(res);
+    EXPECT_GE(ntuples, 0);
+    for(int i = 0; i < ntuples; i++) {
+        // id is BYTEA, should not be null
+        ASSERT_TRUE(PQgetvalue(res, i, 0) != nullptr);
+
+        // text should not be null and length > 3
+        const char* text_val = PQgetvalue(res, i, 1);
+        ASSERT_TRUE(text_val != nullptr);
+        std::string text(text_val);
+        EXPECT_GT(text.length(), 3);
+
+        // depth should be integer >=3
+        int depth = std::atoi(PQgetvalue(res, i, 2));
+        EXPECT_GE(depth, 3);
+
+        // atom_count BIGINT >=0
+        long atom_count = std::atol(PQgetvalue(res, i, 3));
+        EXPECT_GE(atom_count, 0);
+
+        // score FLOAT >=0
+        float score = std::atof(PQgetvalue(res, i, 4));
+        EXPECT_GE(score, 0.0f);
     }
-    
-    // Should return valid result set (possibly empty)
-    EXPECT_GE(PQntuples(res), 0);
     PQclear(res);
 }
 
@@ -85,29 +107,42 @@ TEST_F(SQLQueryAPITest, SemanticSearchCallable) {
 TEST_F(SQLQueryAPITest, GetNeighborsCallable) {
     // First get any atom ID
     PGresult* res = PQexec(conn, "SELECT id FROM atom WHERE codepoint = 65");
-    
+
     if (PQntuples(res) == 0) {
         PQclear(res);
         GTEST_SKIP() << "No atoms in database";
     }
-    
+
     // Use binary format for bytea
     PQclear(res);
-    
+
     // Call semantic_neighbors with subquery
     res = PQexec(conn, "SELECT * FROM semantic_neighbors((SELECT id FROM atom WHERE codepoint = 65), 5)");
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        std::string err = PQresultErrorMessage(res);
-        PQclear(res);
-        
-        if (err.find("does not exist") != std::string::npos) {
-            GTEST_SKIP() << "semantic_neighbors not implemented";
-        }
-        // May return 0 rows if no relations exist
+
+    ASSERT_EQ(PQresultStatus(res), PGRES_TUPLES_OK) << "semantic_neighbors failed: " << PQresultErrorMessage(res);
+
+    // Check structure
+    ASSERT_EQ(PQnfields(res), 3);
+    EXPECT_STREQ(PQfname(res, 0), "neighbor_id");
+    EXPECT_STREQ(PQfname(res, 1), "weight");
+    EXPECT_STREQ(PQfname(res, 2), "relation_type");
+
+    // Check results
+    int ntuples = PQntuples(res);
+    EXPECT_GE(ntuples, 0);
+    for(int i = 0; i < ntuples; i++) {
+        // neighbor_id BYTEA
+        ASSERT_TRUE(PQgetvalue(res, i, 0) != nullptr);
+
+        // weight REAL >=0
+        float weight = std::atof(PQgetvalue(res, i, 1));
+        EXPECT_GE(weight, 0.0f);
+
+        // relation_type CHAR(1)
+        const char* rt = PQgetvalue(res, i, 2);
+        ASSERT_TRUE(rt != nullptr);
+        EXPECT_EQ(strlen(rt), 1);
     }
-    
-    EXPECT_GE(PQntuples(res), 0);
     PQclear(res);
 }
 

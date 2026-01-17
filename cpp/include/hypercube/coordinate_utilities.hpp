@@ -20,7 +20,7 @@ public:
     /**
      * AVX-optimized quantization for 4 components
      */
-    static void avx_quantize_point4f_to_point4d(const Point4F& src, Point4D& dst) noexcept;
+    static __attribute__((target("avx"))) void avx_quantize_point4f_to_point4d(const Point4F& src, Point4D& dst) noexcept;
 #endif
 
     /**
@@ -32,7 +32,7 @@ public:
     /**
      * AVX-optimized Euclidean distance for 4D points
      */
-    static double avx_distance(const Point4F& a, const Point4F& b) noexcept;
+    static __attribute__((target("avx"))) double avx_distance(const Point4F& a, const Point4F& b) noexcept;
 #endif
 
     /**

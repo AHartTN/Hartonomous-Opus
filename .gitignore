@@ -851,3 +851,13 @@ venv/
 Thumbs.db
 nul
 cpp/include/hnswlib/
+
+# Build test directory
+build_test/
+
+# External object files
+external/**/*.o
+*.o
+
+# Root object files (from misplaced builds)
+simd_kernels_*.o

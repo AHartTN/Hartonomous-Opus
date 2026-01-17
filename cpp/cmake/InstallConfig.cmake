@@ -2,7 +2,7 @@
 # Installation Configuration Module
 # ============================================================================
 
-if(BUILD_PG_EXTENSION)
+if(BUILD_PG_EXTENSION AND TARGET hypercube_c AND TARGET hypercube)
     # The extension DLLs depend on hypercube_c.dll at runtime (Windows loader).
     # Install it into pkglibdir alongside the modules.
     install(TARGETS hypercube_c
@@ -21,10 +21,12 @@ if(BUILD_PG_EXTENSION)
         DESTINATION ${PG_SHAREDIR}/extension
     )
 
-    install(TARGETS semantic_ops
-        LIBRARY DESTINATION ${PG_PKGLIBDIR}
-        RUNTIME DESTINATION ${PG_PKGLIBDIR}
-    )
+    if(TARGET semantic_ops)
+        install(TARGETS semantic_ops
+            LIBRARY DESTINATION ${PG_PKGLIBDIR}
+            RUNTIME DESTINATION ${PG_PKGLIBDIR}
+        )
+    endif()
 
     install(FILES
         sql/semantic_ops--1.0.sql
@@ -32,10 +34,12 @@ if(BUILD_PG_EXTENSION)
         DESTINATION ${PG_SHAREDIR}/extension
     )
 
-    install(TARGETS hypercube_ops
-        LIBRARY DESTINATION ${PG_PKGLIBDIR}
-        RUNTIME DESTINATION ${PG_PKGLIBDIR}
-    )
+    if(TARGET hypercube_ops)
+        install(TARGETS hypercube_ops
+            LIBRARY DESTINATION ${PG_PKGLIBDIR}
+            RUNTIME DESTINATION ${PG_PKGLIBDIR}
+        )
+    endif()
 
     install(FILES
         sql/hypercube_ops--1.0.sql
@@ -43,15 +47,19 @@ if(BUILD_PG_EXTENSION)
         DESTINATION ${PG_SHAREDIR}/extension
     )
 
-    install(TARGETS embedding_c
-        LIBRARY DESTINATION ${PG_PKGLIBDIR}
-        RUNTIME DESTINATION ${PG_PKGLIBDIR}
-    )
+    if(TARGET embedding_c)
+        install(TARGETS embedding_c
+            LIBRARY DESTINATION ${PG_PKGLIBDIR}
+            RUNTIME DESTINATION ${PG_PKGLIBDIR}
+        )
+    endif()
 
-    install(TARGETS embedding_ops
-        LIBRARY DESTINATION ${PG_PKGLIBDIR}
-        RUNTIME DESTINATION ${PG_PKGLIBDIR}
-    )
+    if(TARGET embedding_ops)
+        install(TARGETS embedding_ops
+            LIBRARY DESTINATION ${PG_PKGLIBDIR}
+            RUNTIME DESTINATION ${PG_PKGLIBDIR}
+        )
+    endif()
 
     install(FILES
         sql/embedding_ops--1.0.sql
@@ -59,15 +67,19 @@ if(BUILD_PG_EXTENSION)
         DESTINATION ${PG_SHAREDIR}/extension
     )
 
-    install(TARGETS generative_c
-        LIBRARY DESTINATION ${PG_PKGLIBDIR}
-        RUNTIME DESTINATION ${PG_PKGLIBDIR}
-    )
+    if(TARGET generative_c)
+        install(TARGETS generative_c
+            LIBRARY DESTINATION ${PG_PKGLIBDIR}
+            RUNTIME DESTINATION ${PG_PKGLIBDIR}
+        )
+    endif()
 
-    install(TARGETS generative
-        LIBRARY DESTINATION ${PG_PKGLIBDIR}
-        RUNTIME DESTINATION ${PG_PKGLIBDIR}
-    )
+    if(TARGET generative)
+        install(TARGETS generative
+            LIBRARY DESTINATION ${PG_PKGLIBDIR}
+            RUNTIME DESTINATION ${PG_PKGLIBDIR}
+        )
+    endif()
 
     install(FILES
         sql/generative--1.0.sql
