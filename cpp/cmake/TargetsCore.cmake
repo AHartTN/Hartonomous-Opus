@@ -111,6 +111,13 @@ else()
     target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0)
 endif()
 
+# HNSWLib
+if(HAS_HNSWLIB)
+    target_compile_definitions(hypercube_core PUBLIC HAS_HNSWLIB=1)
+else()
+    target_compile_definitions(hypercube_core PUBLIC HAS_HNSWLIB=0)
+endif()
+
 # BLAKE3 (with SIMD optimizations)
 if(HAS_BLAKE3)
     if(TARGET BLAKE3::blake3)
