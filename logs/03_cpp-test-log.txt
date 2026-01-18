@@ -28,8 +28,8 @@ test 3
 
 3: Test command: NOT_AVAILABLE
 3: Working Directory: D:/Repositories/Hartonomous-Opus/cpp/build
-Test not available without configuration.  (Missing "-C <config>"?)
  3/13 Test  #3: HilbertTest ......................***Not Run   0.00 sec
+Test not available without configuration.  (Missing "-C <config>"?)
 test 4
       Start  4: CoordinatesTest
 

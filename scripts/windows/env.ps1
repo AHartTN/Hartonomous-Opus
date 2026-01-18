@@ -114,8 +114,15 @@ foreach ($oneAPIPath in $IntelOneAPIPaths) {
         $compilerBin = "$oneAPIPath\compiler\latest\bin"
         $mklBin = "$oneAPIPath\mkl\latest\bin"
 
-        if ((Test-Path $compilerBin) -and ($env:PATH -notlike "*$compilerBin*")) {
-            $env:PATH = "$compilerBin;$mklBin;$env:PATH"
+        if (Test-Path $compilerBin) {
+            if ($env:PATH -notlike "*$compilerBin*") {
+                $env:PATH = "$compilerBin;$env:PATH"
+            }
+        }
+        if (Test-Path $mklBin) {
+            if ($env:PATH -notlike "*$mklBin*") {
+                $env:PATH = "$mklBin;$env:PATH"
+            }
         }
         break
     }
