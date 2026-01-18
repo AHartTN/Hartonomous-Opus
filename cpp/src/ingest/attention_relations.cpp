@@ -225,8 +225,10 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
     std::vector<std::vector<std::tuple<size_t, size_t, float>>> thread_edges(num_threads);
     
 #ifdef HAS_HNSWLIB
+#ifndef _MSC_VER
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtype-limits"
+#endif
     auto hnsw_start = std::chrono::steady_clock::now();
 
     // Use inner product space (normalized vectors = cosine similarity)

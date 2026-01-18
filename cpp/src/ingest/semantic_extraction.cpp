@@ -61,10 +61,14 @@
 #endif
 
 #ifdef HAS_HNSWLIB
+#ifndef _MSC_VER
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtype-limits"
+#endif
 #include <hnswlib/hnswlib.h>
+#ifndef _MSC_VER
 #pragma GCC diagnostic pop
+#endif
 #endif
 
 namespace hypercube {

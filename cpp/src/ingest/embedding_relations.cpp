@@ -162,8 +162,10 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
         std::vector<std::vector<std::tuple<size_t, size_t, float>>> thread_edges(num_threads);
         
 #ifdef HAS_HNSWLIB
+#ifndef _MSC_VER
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtype-limits"
+#endif
         hnswlib::InnerProductSpace space(embed_dim);
         hnswlib::HierarchicalNSW<float> hnsw(&space, num_items, 16, 200);
         hnsw.setEf(50);
@@ -223,7 +225,9 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
         std::vector<std::thread> knn_workers;
         for (unsigned t = 0; t < num_threads; ++t) knn_workers.emplace_back(knn_worker, t);
         for (auto& th : knn_workers) th.join();
+#ifndef _MSC_VER
 #pragma GCC diagnostic pop
+#endif
 #endif
         
         auto knn_end = std::chrono::steady_clock::now();
