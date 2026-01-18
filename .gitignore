@@ -31,8 +31,8 @@ x86/
 bld/
 [Oo]bj/
 [Oo]ut/
-[Ll]og/
-[Ll]ogs/
+# [Ll]og/
+# [Ll]ogs/
 artifacts/
 
 # Build results on 'Bin' directories
@@ -533,8 +533,8 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Oo]ut/
-[Ll]og/
-[Ll]ogs/
+# [Ll]og/
+# [Ll]ogs/
 [Bb]uild/
 [Bb]uilds/
 msbuild.log

@@ -1375,9 +1375,9 @@ bool ingest_universal(const UniversalConfig& config) {
 void print_usage(const char* prog) {
     std::cerr << "Usage: " << prog << " [options] <model_path>\n\n"
               << "Options:\n"
-              << "  -d, --database <name>     Database name (default: hypercube)\n"
-              << "  -U, --user <user>         Database user (default: hypercube)\n"
-              << "  -h, --host <host>         Database host (default: localhost)\n"
+              << "  -d, --database <name>     Database name (default: postgres)\n"
+              << "  -U, --user <user>         Database user (default: postgres)\n"
+              << "  -h, --host <host>         Database host (default: HART-SERVER)\n"
               << "  -p, --port <port>         Database port (default: 5432)\n"
               << "  -n, --name <model_name>   Model name for source_model field\n"
               << "  -k, --neighbors <k>       k-NN neighbors (default: 15)\n"
@@ -1393,10 +1393,10 @@ void print_usage(const char* prog) {
 int main(int argc, char* argv[]) {
     UniversalConfig config;
     std::string db_name = "hypercube";
-    std::string db_user = "hartonomous";
-    std::string db_host = "localhost";
+    std::string db_user = "postgres";
+    std::string db_host = "HART-SERVER";
     std::string db_port = "5432";
-    std::string db_pass = "hartonomous";  // Default password
+    std::string db_pass = "postgres";
     
     // Load from HC_* environment variables (matches env.ps1)
     if (const char* p = std::getenv("HC_DB_NAME")) db_name = p;

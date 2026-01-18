@@ -77,6 +77,8 @@ if ($vsPath -and (Test-Path "$vsPath\Common7\Tools\VsDevCmd.bat")) {
 # Set project variables
 $env:HC_PROJECT_ROOT = $ProjectRoot
 $env:HC_BUILD_DIR = "$ProjectRoot\cpp\build"
+$env:HC_BUILD_TYPE = "Release"
+$env:HC_BIN_DIR = "$ProjectRoot\cpp\build\bin\$env:HC_BUILD_TYPE"
 
 # Build the project
 Write-Host "Building project..." -ForegroundColor Green
@@ -110,7 +112,15 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+# Install PostgreSQL extensions
+Write-Host "Installing PostgreSQL extensions..." -ForegroundColor Yellow
+& cmake --install . --config Release
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Extension install failed (may need admin privileges for PostgreSQL dir)" -ForegroundColor Yellow
+}
+
 Pop-Location
 Pop-Location
 
 Write-Host "Build completed successfully!" -ForegroundColor Green
+Write-Host "  Binaries: $env:HC_BIN_DIR" -ForegroundColor Cyan

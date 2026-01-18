@@ -774,12 +774,12 @@ bool test_depth_query_performance(PGconn* conn, std::string& msg) {
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    std::string conninfo = "dbname=hypercube host=localhost";
+    std::string conninfo = "dbname=hypercube host=hart-server";
     
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "-d" && i + 1 < argc) {
-            conninfo = "dbname=" + std::string(argv[++i]) + " host=localhost";
+            conninfo = "dbname=" + std::string(argv[++i]) + " host=hart-server";
         } else if (arg == "-h" && i + 1 < argc) {
             size_t pos = conninfo.find("host=");
             if (pos != std::string::npos) {

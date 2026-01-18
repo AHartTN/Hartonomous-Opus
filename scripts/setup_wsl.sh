@@ -21,9 +21,8 @@ sudo systemctl enable postgresql
 echo "Setting up PostgreSQL user and database..."
 sudo -u postgres dropuser hartonomous || true
 sudo -u postgres dropdb hypercube || true
-sudo -u postgres createuser --createdb --login hartonomous
-sudo -u postgres psql -c "ALTER USER hartonomous PASSWORD 'hartonomous';"
-sudo -u postgres createdb hypercube -O hartonomous
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+sudo -u postgres createdb hypercube -O postgres
 
 # Build and install PostgreSQL extensions
 echo "Building and installing PostgreSQL extensions..."
@@ -37,6 +36,6 @@ sudo ninja install
 
 # Load schema
 echo "Loading database schema..."
-PGPASSWORD=hartonomous psql -h localhost -U hartonomous -d hypercube -f sql/hypercube_schema.sql
+PGPASSWORD=postgres psql -h hart-server -U postgres -d hypercube -f sql/hypercube_schema.sql
 
 echo "Setup complete. Please source your .bashrc or restart terminal for PIP_CACHE_DIR."

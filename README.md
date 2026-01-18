@@ -133,8 +133,8 @@ ctest --output-on-failure -V
 ```bash
 # Database integration tests
 export HC_DB_NAME=hypercube_test
-export HC_DB_USER=test_user
-export HC_DB_HOST=localhost
+export HC_DB_USER=postgres
+export HC_DB_HOST=HART-SERVER
 
 ctest -R "IntegrationTest"
 ```
@@ -211,14 +211,14 @@ LIMIT 10;
 
 ```bash
 # Database connection
-export HC_DB_HOST=localhost
+export HC_DB_HOST=HART-SERVER
 export HC_DB_PORT=5432
-export HC_DB_NAME=hypercube
-export HC_DB_USER=hartonomous
-export HC_DB_PASS=secure_password
+export HC_DB_NAME=postgres
+export HC_DB_USER=postgres
+export HC_DB_PASS=postgres
 
 # Performance tuning
-export OMP_NUM_THREADS=16
+export OMP_NUM_THREADS=8
 export MKL_NUM_THREADS=8
 export HC_MODEL_CACHE_SIZE=1GB
 
@@ -237,7 +237,7 @@ system:
   enable_gpu: false
 
 database:
-  host: localhost
+  host: HART-SERVER
   port: 5432
   name: hypercube
   connection_pool_size: 10

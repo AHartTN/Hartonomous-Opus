@@ -93,7 +93,7 @@ static const Command g_commands[] = {
 struct GlobalOptions {
     std::string database = "hypercube";
     std::string user = "postgres";
-    std::string host = "localhost";
+    std::string host = "hart-server";
     std::string port = "5432";
     std::string password;  // From PGPASSWORD env
     bool verbose = false;

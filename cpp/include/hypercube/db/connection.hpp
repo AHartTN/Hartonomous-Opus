@@ -36,10 +36,10 @@ struct ConnectionConfig {
 #endif
         };
         dbname = get_env("HC_DB_NAME", "hypercube");
-        host = get_env("HC_DB_HOST", "localhost");
+        host = get_env("HC_DB_HOST", "HART-SERVER");
         port = get_env("HC_DB_PORT", "5432");
-        user = get_env("HC_DB_USER", "hartonomous");
-        password = get_env("HC_DB_PASS", "hartonomous");
+        user = get_env("HC_DB_USER", "postgres");
+        password = get_env("HC_DB_PASS", "postgres");
     }
     
     // Build libpq connection string

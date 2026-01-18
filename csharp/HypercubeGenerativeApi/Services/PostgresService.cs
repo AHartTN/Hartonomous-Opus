@@ -18,7 +18,7 @@ public class PostgresService : IDisposable
     {
         _logger = logger;
         _connectionString = configuration.GetConnectionString("HypercubeDatabase")
-            ?? "Host=localhost;Port=5432;Username=hartonomous;Password=hartonomous;Database=hypercube";
+            ?? "Host=hart-server;Port=5432;Username=postgres;Password=postgres;Database=hypercube";
     }
 
     /// <summary>

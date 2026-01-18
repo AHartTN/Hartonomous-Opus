@@ -34,11 +34,8 @@ Write-Host "  Source: $testDataDir"
 Write-Host ""
 
 # Find ingestion tool
-$ingester = if (Test-Path "$env:HC_BUILD_DIR\ingest.exe") {
-    "$env:HC_BUILD_DIR\ingest.exe"
-} elseif (Test-Path "$env:HC_BUILD_DIR\Release\ingest.exe") {
-    "$env:HC_BUILD_DIR\Release\ingest.exe"
-} else { $null }
+$ingester = "$env:HC_BIN_DIR\ingest.exe"
+if (-not (Test-Path $ingester)) { $ingester = $null }
 
 $dbArgs = @("-d", $env:HC_DB_NAME, "-U", $env:HC_DB_USER, "-h", $env:HC_DB_HOST, "-p", $env:HC_DB_PORT)
 
@@ -119,10 +116,37 @@ $env:PGPASSWORD = $env:HC_DB_PASS
 Write-Host ""
 Write-Host "[3/3] Final State" -ForegroundColor Cyan
 
-$atomCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom").Trim()
-$compCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition").Trim()
-$relCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM relation").Trim()
-$centroidCount = (& psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL").Trim()
+$psqlOutput = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM atom" 2>&1
+if ($LASTEXITCODE -eq 0) {
+    $atomCount = $psqlOutput.Trim()
+} else {
+    Write-Host "      WARNING: Failed to query atom count" -ForegroundColor Yellow
+    $atomCount = "0"
+}
+
+$psqlOutput = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition" 2>&1
+if ($LASTEXITCODE -eq 0) {
+    $compCount = $psqlOutput.Trim()
+} else {
+    Write-Host "      WARNING: Failed to query composition count" -ForegroundColor Yellow
+    $compCount = "0"
+}
+
+$psqlOutput = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM relation" 2>&1
+if ($LASTEXITCODE -eq 0) {
+    $relCount = $psqlOutput.Trim()
+} else {
+    Write-Host "      WARNING: Failed to query relation count" -ForegroundColor Yellow
+    $relCount = "0"
+}
+
+$psqlOutput = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -tAc "SELECT COUNT(*) FROM composition WHERE centroid IS NOT NULL" 2>&1
+if ($LASTEXITCODE -eq 0) {
+    $centroidCount = $psqlOutput.Trim()
+} else {
+    Write-Host "      WARNING: Failed to query centroid count" -ForegroundColor Yellow
+    $centroidCount = "0"
+}
 
 Write-Host ""
 Write-Host "  Atoms:        $atomCount" -ForegroundColor Cyan

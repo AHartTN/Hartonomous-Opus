@@ -84,7 +84,7 @@ private:
 
     void load_from_env() {
         // Database configuration
-        set_if_env("db.host", "HC_DB_HOST", "localhost");
+        set_if_env("db.host", "HC_DB_HOST", "HART-SERVER");
         set_if_env("db.port", "HC_DB_PORT", "5432");
         set_if_env("db.user", "HC_DB_USER", "postgres");
         set_if_env("db.password", "HC_DB_PASS", "");

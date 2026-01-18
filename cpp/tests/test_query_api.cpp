@@ -392,7 +392,7 @@ int main() {
 
     std::string host_str = get_env("HC_DB_HOST");
     if (host_str.empty()) host_str = get_env("PGHOST");
-    if (host_str.empty()) host_str = "localhost";
+    if (host_str.empty()) host_str = "hart-server";
     const char* host = host_str.c_str();
 
     std::string port_str = get_env("HC_DB_PORT");
@@ -402,12 +402,12 @@ int main() {
 
     std::string user_str = get_env("HC_DB_USER");
     if (user_str.empty()) user_str = get_env("PGUSER");
-    if (user_str.empty()) user_str = "hartonomous";
+    if (user_str.empty()) user_str = "postgres";
     const char* user = user_str.c_str();
 
     std::string pass_str = get_env("HC_DB_PASS");
     if (pass_str.empty()) pass_str = get_env("PGPASSWORD");
-    if (pass_str.empty()) pass_str = "hartonomous";
+    if (pass_str.empty()) pass_str = "postgres";
     const char* pass = pass_str.c_str();
 
     std::string db_str = get_env("HC_DB_NAME");

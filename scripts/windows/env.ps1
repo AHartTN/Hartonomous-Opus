@@ -126,7 +126,7 @@ foreach ($oneAPIPath in $IntelOneAPIPaths) {
 # ============================================================================
 # App-specific variables (don't clash with global PG* vars)
 
-if (-not $env:HC_DB_HOST) { $env:HC_DB_HOST = "localhost" }
+if (-not $env:HC_DB_HOST) { $env:HC_DB_HOST = "hart-server" }
 if (-not $env:HC_DB_PORT) { $env:HC_DB_PORT = "5432" }
 if (-not $env:HC_DB_USER) { $env:HC_DB_USER = "postgres" }
 if (-not $env:HC_DB_PASS) { $env:HC_DB_PASS = "postgres" }
@@ -139,6 +139,7 @@ if (-not $env:HC_INGEST_THRESHOLD) { $env:HC_INGEST_THRESHOLD = "0.5" }
 
 $env:HC_PROJECT_ROOT = $ProjectRoot
 $env:HC_BUILD_DIR = "$ProjectRoot\cpp\build"
+$env:HC_BIN_DIR = "$ProjectRoot\cpp\build\bin\$env:HC_BUILD_TYPE"
 
 # Connection string for libpq (used by C++ tools)
 $env:HC_CONNINFO = "host=$env:HC_DB_HOST port=$env:HC_DB_PORT dbname=$env:HC_DB_NAME user=$env:HC_DB_USER password=$env:HC_DB_PASS"

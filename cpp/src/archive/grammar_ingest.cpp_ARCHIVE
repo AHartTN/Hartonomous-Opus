@@ -1107,7 +1107,7 @@ void ingest_file(PGconn* conn, const std::filesystem::path& path) {
 int main(int argc, char* argv[]) {
     std::string db_name = "hypercube";
     std::string db_user = "hartonomous";
-    std::string db_host = "localhost";
+    std::string db_host = "HART-SERVER";
     std::string db_port = "5432";
     std::vector<std::string> targets;
     
@@ -1125,7 +1125,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Options:\n";
         std::cerr << "  -d <database>  Database name (default: hypercube)\n";
         std::cerr << "  -U <user>      Username (default: hartonomous)\n";
-        std::cerr << "  -h <host>      Host (default: localhost)\n";
+        std::cerr << "  -h <host>      Host (default: HART-SERVER)\n";
         std::cerr << "  -p <port>      Port (default: 5432)\n";
         return 1;
     }

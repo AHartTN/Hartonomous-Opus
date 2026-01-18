@@ -47,7 +47,7 @@
 // =============================================================================
 
 struct Config {
-    std::string db_conn = "host=localhost port=5432 dbname=hypercube user=hartonomous password=hartonomous";
+    std::string db_conn = "host=HART-SERVER port=5432 dbname=hypercube user=postgres password=postgres";
     std::string model_name = "minilm";
     int k_neighbors = 15;           // k for k-NN graph
     int target_dims = 4;            // Output dimensionality (4D)

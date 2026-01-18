@@ -159,7 +159,7 @@ if(PostgreSQL_FOUND)
     target_link_libraries(test_integration hypercube_core ${PostgreSQL_LIBRARIES})
     add_test(NAME IntegrationTest COMMAND test_integration)
     set_tests_properties(IntegrationTest PROPERTIES
-        ENVIRONMENT "HC_DB_NAME=hypercube;HC_DB_USER=hartonomous;HC_DB_PASS=hartonomous;HC_DB_HOST=localhost;HC_DB_PORT=5432"
+        ENVIRONMENT "HC_DB_NAME=hypercube;HC_DB_USER=postgres;HC_DB_PASS=postgres;HC_DB_HOST=HART-SERVER;HC_DB_PORT=5432"
     )
 
     add_executable(test_query_api tests/test_query_api.cpp)
@@ -167,7 +167,7 @@ if(PostgreSQL_FOUND)
     target_link_libraries(test_query_api hypercube_core ${PostgreSQL_LIBRARIES})
     add_test(NAME QueryAPITest COMMAND test_query_api)
     set_tests_properties(QueryAPITest PROPERTIES
-        ENVIRONMENT "HC_DB_NAME=hypercube;HC_DB_USER=hartonomous;HC_DB_PASS=hartonomous;HC_DB_HOST=localhost;HC_DB_PORT=5432"
+        ENVIRONMENT "HC_DB_NAME=hypercube;HC_DB_USER=postgres;HC_DB_PASS=postgres;HC_DB_HOST=HART-SERVER;HC_DB_PORT=5432"
     )
 else()
     message(STATUS "PostgreSQL client library not found - skipping tool builds")

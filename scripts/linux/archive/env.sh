@@ -12,10 +12,10 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 # Defaults (app-specific, not global PG* vars)
-export HC_DB_HOST="${HC_DB_HOST:-localhost}"
+export HC_DB_HOST="${HC_DB_HOST:-hart-server}"
 export HC_DB_PORT="${HC_DB_PORT:-5432}"
-export HC_DB_USER="${HC_DB_USER:-hartonomous}"
-export HC_DB_PASS="${HC_DB_PASS:-hartonomous}"
+export HC_DB_USER="${HC_DB_USER:-postgres}"
+export HC_DB_PASS="${HC_DB_PASS:-postgres}"
 export HC_DB_NAME="${HC_DB_NAME:-hypercube}"
 export HC_BUILD_TYPE="${HC_BUILD_TYPE:-Release}"
 export HC_PARALLEL_JOBS="${HC_PARALLEL_JOBS:-$(nproc)}"

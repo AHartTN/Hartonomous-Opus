@@ -220,11 +220,8 @@ $failCount = 0
 $skipCount = 0
 
 # Find the main ingester (ingest_safetensor.exe with hierarchy support)
-$universalIngester = if (Test-Path "$env:HC_BUILD_DIR\ingest_safetensor.exe") {
-    "$env:HC_BUILD_DIR\ingest_safetensor.exe"
-} elseif (Test-Path "$env:HC_BUILD_DIR\Release\ingest_safetensor.exe") {
-    "$env:HC_BUILD_DIR\Release\ingest_safetensor.exe"
-} else { $null }
+$universalIngester = "$env:HC_BIN_DIR\ingest_safetensor.exe"
+if (-not (Test-Path $universalIngester)) { $universalIngester = $null }
 
 foreach ($m in $models) {
     Write-Host "────────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
@@ -264,19 +261,14 @@ foreach ($m in $models) {
         }
         
         # Extract vocab to text and ingest via universal ingester
-        $vocabExtract = "$env:HC_BUILD_DIR\vocab_extract.exe"
-        if (-not (Test-Path $vocabExtract)) {
-            $vocabExtract = "$env:HC_BUILD_DIR\Release\vocab_extract.exe"
-        }
+        $vocabExtract = "$env:HC_BIN_DIR\vocab_extract.exe"
+        if (-not (Test-Path $vocabExtract)) { $vocabExtract = $null }
         
         if (Test-Path $vocabExtract) {
             $tempVocab = [System.IO.Path]::GetTempFileName()
             & $vocabExtract $vocabFile | Out-File -FilePath $tempVocab -Encoding UTF8
             
-            $ingester = "$env:HC_BUILD_DIR\ingest.exe"
-            if (-not (Test-Path $ingester)) {
-                $ingester = "$env:HC_BUILD_DIR\Release\ingest.exe"
-            }
+            $ingester = "$env:HC_BIN_DIR\ingest.exe"
             
             if (Test-Path $ingester) {
                 & $ingester -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -p $env:HC_DB_PORT $tempVocab

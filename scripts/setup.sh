@@ -43,10 +43,10 @@ if [ -f .env ]; then
 fi
 
 # Support both HC_* (new) and PG* (legacy) variable names
-export PGHOST="${HC_DB_HOST:-${PGHOST:-localhost}}"
+export PGHOST="${HC_DB_HOST:-${PGHOST:-HART-SERVER}}"
 export PGPORT="${HC_DB_PORT:-${PGPORT:-5432}}"
-export PGUSER="${HC_DB_USER:-${PGUSER:-hartonomous}}"
-export PGPASSWORD="${HC_DB_PASS:-${PGPASSWORD:-hartonomous}}"
+export PGUSER="${HC_DB_USER:-${PGUSER:-postgres}}"
+export PGPASSWORD="${HC_DB_PASS:-${PGPASSWORD:-postgres}}"
 export PGDATABASE="${HC_DB_NAME:-${PGDATABASE:-hypercube}}"
 
 # Also set HC_* for new scripts
@@ -664,10 +664,10 @@ HOW IT WORKS:
 CONFIGURATION:
     Set environment variables or create .env file:
     
-    PGHOST=localhost
+    PGHOST=HART-SERVER
     PGPORT=5432
-    PGUSER=hartonomous
-    PGPASSWORD=hartonomous
+    PGUSER=postgres
+    PGPASSWORD=postgres
     PGDATABASE=hypercube
 
 EOF

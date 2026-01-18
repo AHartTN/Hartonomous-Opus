@@ -128,10 +128,7 @@ Write-Host ""
 # FIND INGESTER
 # ============================================================================
 
-$IngestExe = "$env:HC_BUILD_DIR\ingest_safetensor.exe"
-if (-not (Test-Path $IngestExe)) {
-    $IngestExe = "$env:HC_BUILD_DIR\Release\ingest_safetensor.exe"
-}
+$IngestExe = "$env:HC_BIN_DIR\ingest_safetensor.exe"
 if (-not (Test-Path $IngestExe)) {
     Write-Host "ERROR: ingest_safetensor.exe not found." -ForegroundColor Red
     Write-Host "       Run: .\scripts\windows\build.ps1" -ForegroundColor Yellow

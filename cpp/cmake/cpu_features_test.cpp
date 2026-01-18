@@ -89,12 +89,16 @@ int main() {
     //
     // Intel defines:
     //   - AVX-512 VNNI: leaf 7, subleaf 0, ECX bit 11 (requires AVX-512F)
-    //   - AVX-VNNI (256-bit): leaf 7, subleaf 0, ECX bit 4
+    //   - AVX-VNNI (256-bit): leaf 7, subleaf 1, EAX bit 4 (Alder Lake+, no AVX512 required)
     //
     // We treat "AVX_VNNI" as "some VNNI-capable AVX path is present", and let
     // CMake decide whether to use -mavx512vnni or -mavxvnni based on compiler.
     bool has_avx512_vnni = (ecx & (1u << 11)) != 0;
-    bool has_avx_vnni_256 = (ecx & (1u << 4)) != 0;
+
+    // Check leaf 7, subleaf 1 for AVX-VNNI (256-bit)
+    uint32_t eax1 = 0, ebx1 = 0, ecx1 = 0, edx1 = 0;
+    cpuid(7u, 1u, eax1, ebx1, ecx1, edx1);
+    bool has_avx_vnni_256 = (eax1 & (1u << 4)) != 0;
 
     has_avx_vnni = has_avx512_vnni || has_avx_vnni_256;
 

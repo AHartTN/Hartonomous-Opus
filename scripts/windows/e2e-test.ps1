@@ -286,11 +286,8 @@ if (-not $SkipSeed) {
         $seedStart = Get-Date
         
         # Find seed executable
-        $seeder = if (Test-Path "$env:HC_BUILD_DIR\seed_atoms_parallel.exe") {
-            "$env:HC_BUILD_DIR\seed_atoms_parallel.exe"
-        } elseif (Test-Path "$env:HC_BUILD_DIR\Release\seed_atoms_parallel.exe") {
-            "$env:HC_BUILD_DIR\Release\seed_atoms_parallel.exe"
-        } else { $null }
+        $seeder = "$env:HC_BIN_DIR\seed_atoms_parallel.exe"
+        if (-not (Test-Path $seeder)) { $seeder = $null }
         
         if ($seeder) {
             & $seeder -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -p $env:HC_DB_PORT
@@ -331,11 +328,8 @@ if (-not $SkipModels) {
                   ForEach-Object { $_.Directory }
         
         if ($models.Count -gt 0) {
-            $ingestTool = if (Test-Path "$env:HC_BUILD_DIR\ingest_safetensor.exe") {
-                "$env:HC_BUILD_DIR\ingest_safetensor.exe"
-            } elseif (Test-Path "$env:HC_BUILD_DIR\Release\ingest_safetensor.exe") {
-                "$env:HC_BUILD_DIR\Release\ingest_safetensor.exe"
-            } else { $null }
+            $ingestTool = "$env:HC_BIN_DIR\ingest_safetensor.exe"
+            if (-not (Test-Path $ingestTool)) { $ingestTool = $null }
             
             foreach ($modelDir in $models) {
                 Write-Host "    Ingesting $($modelDir.Name)..." -NoNewline
@@ -376,11 +370,8 @@ if (-not $SkipContent) {
         Write-Host "  Ingesting $mobyPath..."
         $beforeComp = Invoke-Psql "SELECT compositions FROM db_stats()" -Scalar
 
-        $ingester = if (Test-Path "$env:HC_BUILD_DIR\ingest.exe") {
-            "$env:HC_BUILD_DIR\ingest.exe"
-        } elseif (Test-Path "$env:HC_BUILD_DIR\Release\ingest.exe") {
-            "$env:HC_BUILD_DIR\Release\ingest.exe"
-        } else { $null }
+        $ingester = "$env:HC_BIN_DIR\ingest.exe"
+        if (-not (Test-Path $ingester)) { $ingester = $null }
         
         if ($ingester) {
             & $ingester -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -p $env:HC_DB_PORT $mobyPath 2>&1 | Out-Null

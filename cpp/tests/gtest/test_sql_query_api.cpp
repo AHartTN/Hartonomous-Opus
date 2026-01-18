@@ -36,7 +36,7 @@ protected:
 
         std::string conninfo = "dbname=" + (!db.empty() ? db : "hypercube");
         conninfo += " user=" + (!user.empty() ? user : "postgres");
-        conninfo += " host=" + (!host.empty() ? host : "localhost");
+        conninfo += " host=" + (!host.empty() ? host : "hart-server");
         conninfo += " port=" + (!port.empty() ? port : "5432");
         if (!pass.empty()) conninfo += " password=" + pass;
         
