@@ -224,6 +224,17 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
     }
     PQclear(res);
 
+    // Calculate expected children for newly inserted compositions
+    int expected_children = 0;
+    res = PQexec(conn, "SELECT COALESCE(SUM(child_count), 0)::text FROM temp_composition WHERE id IN (SELECT id FROM composition)");
+    if (PQresultStatus(res) == PGRES_TUPLES_OK && PQntuples(res) > 0) {
+        expected_children = atoi(PQgetvalue(res, 0, 0));
+    } else {
+        std::cerr << "Failed to calculate expected children: " << PQerrorMessage(conn) << std::endl;
+        // Continue, but warn
+    }
+    PQclear(res);
+
     // Insert children only for newly inserted compositions
     res = PQexec(conn, R"(
         INSERT INTO composition_child (composition_id, ordinal, child_type, child_id)
@@ -233,31 +244,52 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
         ON CONFLICT DO NOTHING
     )");
     int children_inserted = 0;
+    bool children_success = false;
     if (PQresultStatus(res) == PGRES_COMMAND_OK) {
         children_inserted = atoi(PQcmdTuples(res));
+        children_success = true;
     } else {
         std::cerr << "INSERT children failed: " << PQerrorMessage(conn) << std::endl;
+        if (comps_inserted > 0) {
+            std::cerr << "WARNING: Child insertion failed after successfully inserting " << comps_inserted << " compositions. Committing transaction for later retry. Error: " << PQerrorMessage(conn) << std::endl;
+            // Commit the transaction
+            PGresult* commit_res = PQexec(conn, "COMMIT");
+            PQclear(commit_res);
+            return true; // Partial success
+        } else {
+            PQclear(res);
+            PQexec(conn, "ROLLBACK");
+            return false;
+        }
+    }
+    PQclear(res);
+
+    // If children insertion succeeded, validate count and commit
+    if (children_success) {
+        if (children_inserted != expected_children) {
+            std::cerr << "WARNING: Expected " << expected_children << " children for inserted compositions, but inserted " << children_inserted << std::endl;
+        }
+        res = PQexec(conn, "COMMIT");
         PQclear(res);
-        PQexec(conn, "ROLLBACK");
-        return false;
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+        size_t skipped = comps.size() - comps_inserted;
+        std::cerr << "[DB] Inserted " << comps_inserted << " compositions, "
+                  << children_inserted << " children";
+        if (skipped > 0) {
+            std::cerr << " (skipped " << skipped << " existing)";
+        }
+        if (children_inserted != expected_children) {
+            std::cerr << " (expected " << expected_children << " children)";
+        }
+        std::cerr << " (" << ms << " ms)\n";
+
+        return true;
     }
-    PQclear(res);
 
-    res = PQexec(conn, "COMMIT");
-    PQclear(res);
-
-    auto end = std::chrono::high_resolution_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-    size_t skipped = comps.size() - comps_inserted;
-    std::cerr << "[DB] Inserted " << comps_inserted << " compositions, "
-              << children_inserted << " children";
-    if (skipped > 0) {
-        std::cerr << " (skipped " << skipped << " existing)";
-    }
-    std::cerr << " (" << ms << " ms)\n";
-
-    return true;
+    // If we reach here, children failed but no compositions were inserted (already handled above)
 }
 
 } // namespace hypercube::db

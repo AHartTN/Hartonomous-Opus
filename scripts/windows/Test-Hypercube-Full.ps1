@@ -5,6 +5,8 @@ param(
     [string]$Database = "hypercube"
 )
 
+$env:PGPASSWORD = "postgres"
+
 function Run-SQL {
     param([string]$Query, [string]$Label)
 

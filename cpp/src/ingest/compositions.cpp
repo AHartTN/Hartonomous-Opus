@@ -244,15 +244,14 @@ bool insert_compositions(PGconn* conn, IngestContext& ctx) {
     int inserted_comps = cmd_tuples(res);
     std::cerr << "[COMP] Inserted " << inserted_comps << " compositions\n";
     
-    // Insert composition children (only for compositions that exist and children that exist)
+    // Insert composition children (allowing insertions even if dependencies don't exist yet)
     std::cerr << "[COMP] Inserting into composition_child table...\n";
     res = exec(conn,
         "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
         "SELECT composition_id, ordinal, child_type, child_id "
         "FROM tmp_comp_child "
-        "WHERE EXISTS (SELECT 1 FROM composition WHERE id = tmp_comp_child.composition_id) "
-        "AND ((child_type = 'A' AND EXISTS (SELECT 1 FROM atom WHERE id = tmp_comp_child.child_id)) "
-        "     OR (child_type = 'C' AND EXISTS (SELECT 1 FROM composition WHERE id = tmp_comp_child.child_id))) "
+
+
         "ON CONFLICT (composition_id, ordinal) DO NOTHING");
     
     if (!res.ok()) {
@@ -261,7 +260,37 @@ bool insert_compositions(PGconn* conn, IngestContext& ctx) {
     }
     int inserted_children = cmd_tuples(res);
     std::cerr << "[COMP] Inserted " << inserted_children << " children\n";
-    
+
+    // Validation: Check for child_count mismatches
+    std::cerr << "[COMP] Validating child count consistency...\n";
+    res = exec(conn,
+        "SELECT c.id, c.child_count as expected, COALESCE(cc.actual_count, 0) as actual "
+        "FROM tmp_comp c "
+        "LEFT JOIN (SELECT composition_id, COUNT(*) as actual_count FROM composition_child GROUP BY composition_id) cc "
+        "ON c.id = cc.composition_id "
+        "WHERE c.child_count != COALESCE(cc.actual_count, 0)");
+
+    if (!res.ok()) {
+        std::cerr << "[COMP] Validation query failed: " << res.error_message() << "\n";
+        // Continue execution - validation failure doesn't stop the process
+    } else {
+        int mismatch_count = cmd_tuples(res);
+        if (mismatch_count > 0) {
+            std::cerr << "[COMP] WARNING: Found " << mismatch_count << " child count mismatches:\n";
+            for (int i = 0; i < mismatch_count; ++i) {
+                // Extract composition ID, expected count, actual count using Result helpers
+                std::string id_hex = res.str(i, 0);
+                int expected = res.integer(i, 1, 0);
+                int actual = res.integer(i, 2, 0);
+
+                std::cerr << "[COMP]   Composition " << id_hex << ": expected " << expected << " children, got " << actual << "\n";
+            }
+            std::cerr << "[COMP] Child count validation complete - mismatches reported above\n";
+        } else {
+            std::cerr << "[COMP] Child count validation passed - no mismatches found\n";
+        }
+    }
+
     // Recreate idx_comp_label
     std::cerr << "[COMP] Recreating idx_comp_label...\n";
     exec(conn, "CREATE INDEX idx_comp_label ON composition(label)");
