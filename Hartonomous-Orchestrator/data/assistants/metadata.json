@@ -1,0 +1,21 @@
+{
+  "asst_9155c93eeef441f281d7d6b4": {
+    "id": "asst_9155c93eeef441f281d7d6b4",
+    "object": "assistant",
+    "created_at": 1768736122,
+    "name": "Persistent Assistant",
+    "description": null,
+    "model": "qwen3-coder-30b",
+    "instructions": null,
+    "tools": [
+      {
+        "type": "code_interpreter"
+      },
+      {
+        "type": "file_search"
+      }
+    ],
+    "file_ids": [],
+    "metadata": null
+  }
+}

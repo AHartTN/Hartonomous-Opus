@@ -87,7 +87,8 @@
       "Bash(ldd:*)",
       "Bash(nm:*)",
       "Bash(strace:*)",
-      "Bash(readelf:*)"
+      "Bash(readelf:*)",
+      "Bash(if not exist \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\scripts\\\\linux\" mkdir \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\scripts\\\\linux\")"
     ]
   },
   "outputStyle": "default"

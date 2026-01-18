@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  openai-gateway:
+    build: .
+    container_name: llamacpp-rag-gateway
+    ports:
+      - "8700:8700"
+    environment:
+      # Llama.cpp backends
+      - GENERATIVE_URL=http://host.docker.internal:8710
+      - EMBEDDING_URL=http://host.docker.internal:8711
+      - RERANKER_URL=http://host.docker.internal:8712
+      - BACKEND_API_KEY=Welcome!123
+      # Qdrant vector store
+      - QDRANT_URL=http://host.docker.internal:6333
+      - QDRANT_API_KEY=Welcome!123
+      # RAG configuration
+      - RAG_ENABLED=true
+      - RAG_TOP_K=10
+      - RAG_RERANK_TOP_N=3
+      - COLLECTION_NAME=knowledge_base
+      - CHUNK_SIZE=512
+      - CHUNK_OVERLAP=50
+      - VECTOR_SIZE=2560
+      # Multi-collection search
+      - SEARCH_ALL_COLLECTIONS=true  # Auto-discover all compatible collections
+      - SEARCH_COLLECTIONS=          # Or specify manually: "knowledge_base,code_chunks"
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

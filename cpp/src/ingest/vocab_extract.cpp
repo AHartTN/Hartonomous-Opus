@@ -86,7 +86,11 @@ std::vector<std::pair<std::string, size_t>> extract_vocab_from_tokenizer_json(co
                 try {
                     size_t id = std::stoull(current_id);
                     vocab.emplace_back(current_token, id);
-                } catch (...) {}
+                } catch (const std::exception& e) {
+                    // Log malformed vocab entries for debugging
+                    std::cerr << "Warning: Skipping malformed vocab entry (id='"
+                              << current_id << "'): " << e.what() << "\n";
+                }
             }
             current_token.clear();
             current_id.clear();
@@ -200,17 +204,29 @@ int main(int argc, char* argv[]) {
     std::string tokenizer_json = (path / "tokenizer.json").string();
     std::string vocab_txt = (path / "vocab.txt").string();
     
-    // Also check snapshot directories
+    // Also check snapshot directories (with error handling for permission-denied)
     if (!fs::exists(tokenizer_json) && !fs::exists(vocab_txt)) {
-        for (const auto& entry : fs::recursive_directory_iterator(path)) {
-            if (entry.path().filename() == "tokenizer.json" && 
-                entry.path().string().find(".cache") == std::string::npos) {
-                tokenizer_json = entry.path().string();
+        try {
+            // Use skip_permission_denied to avoid crashes on inaccessible directories
+            for (const auto& entry : fs::recursive_directory_iterator(
+                    path, fs::directory_options::skip_permission_denied)) {
+                try {
+                    if (entry.path().filename() == "tokenizer.json" &&
+                        entry.path().string().find(".cache") == std::string::npos) {
+                        tokenizer_json = entry.path().string();
+                    }
+                    if (entry.path().filename() == "vocab.txt" &&
+                        entry.path().string().find(".cache") == std::string::npos) {
+                        vocab_txt = entry.path().string();
+                    }
+                } catch (const std::exception& e) {
+                    // Skip individual entries that fail (e.g., broken symlinks)
+                    std::cerr << "Warning: Skipping entry: " << e.what() << "\n";
+                }
             }
-            if (entry.path().filename() == "vocab.txt" && 
-                entry.path().string().find(".cache") == std::string::npos) {
-                vocab_txt = entry.path().string();
-            }
+        } catch (const fs::filesystem_error& e) {
+            std::cerr << "Warning: Directory scan error: " << e.what() << "\n";
+            // Continue with whatever we found so far
         }
     }
     

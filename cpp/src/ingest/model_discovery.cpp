@@ -167,31 +167,40 @@ std::vector<ModelInfo> discover_models(const std::vector<std::string>& search_pa
         }
         
         std::cerr << "[SCAN] " << base_path << "\n";
-        
-        // Recursively find config.json files
-        for (const auto& entry : fs::recursive_directory_iterator(base_path)) {
-            if (entry.is_regular_file() && entry.path().filename() == "config.json") {
-                // Skip .cache directories
-                std::string path_str = entry.path().string();
-                if (path_str.find(".cache") != std::string::npos) continue;
-                
-                // Prefer snapshot directories
-                if (path_str.find("snapshots") == std::string::npos &&
-                    path_str.find("snapshot") == std::string::npos) {
-                    // Only accept if no snapshots dir exists nearby
-                    fs::path parent = entry.path().parent_path();
-                    if (fs::exists(parent / "snapshots")) continue;
-                }
-                
-                auto info = parse_model_config(entry.path());
-                if (info) {
-                    // Detect tokenizer type
-                    auto tok_type = detect_tokenizer_type(*info);
-                    if (tok_type) info->tokenizer_type = *tok_type;
-                    
-                    models.push_back(std::move(*info));
+
+        // Recursively find config.json files (with error handling for permission-denied)
+        try {
+            for (const auto& entry : fs::recursive_directory_iterator(
+                    base_path, fs::directory_options::skip_permission_denied)) {
+                try {
+                    if (entry.is_regular_file() && entry.path().filename() == "config.json") {
+                        // Skip .cache directories
+                        std::string path_str = entry.path().string();
+                        if (path_str.find(".cache") != std::string::npos) continue;
+
+                        // Prefer snapshot directories
+                        if (path_str.find("snapshots") == std::string::npos &&
+                            path_str.find("snapshot") == std::string::npos) {
+                            // Only accept if no snapshots dir exists nearby
+                            fs::path parent = entry.path().parent_path();
+                            if (fs::exists(parent / "snapshots")) continue;
+                        }
+
+                        auto info = parse_model_config(entry.path());
+                        if (info) {
+                            // Detect tokenizer type
+                            auto tok_type = detect_tokenizer_type(*info);
+                            if (tok_type) info->tokenizer_type = *tok_type;
+
+                            models.push_back(std::move(*info));
+                        }
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "Warning: Skipping entry: " << e.what() << "\n";
                 }
             }
+        } catch (const fs::filesystem_error& e) {
+            std::cerr << "Warning: Directory scan error in " << base_path << ": " << e.what() << "\n";
         }
     }
     

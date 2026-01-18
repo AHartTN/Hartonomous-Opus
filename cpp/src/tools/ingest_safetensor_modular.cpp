@@ -188,29 +188,40 @@ int main(int argc, char* argv[]) {
     
     auto total_start = std::chrono::steady_clock::now();
     
-    // Find model files
+    // Find model files (with error handling for permission-denied)
     fs::path vocab_path, tokenizer_path, index_path;
     std::vector<fs::path> safetensor_files;
-    
-    for (const auto& entry : fs::recursive_directory_iterator(dir)) {
-        std::string name = entry.path().filename().string();
-        std::string path_str = entry.path().string();
-        
-        // Skip hidden directories and cache folders
-        if (path_str.find("\\.") != std::string::npos || 
-            path_str.find("/.") != std::string::npos ||
-            path_str.find(".cache") != std::string::npos) {
-            continue;
+
+    try {
+        for (const auto& entry : fs::recursive_directory_iterator(
+                dir, fs::directory_options::skip_permission_denied)) {
+            try {
+                std::string name = entry.path().filename().string();
+                std::string path_str = entry.path().string();
+
+                // Skip hidden directories and cache folders
+                if (path_str.find("\\.") != std::string::npos ||
+                    path_str.find("/.") != std::string::npos ||
+                    path_str.find(".cache") != std::string::npos) {
+                    continue;
+                }
+
+                if (name == "vocab.txt") vocab_path = entry.path();
+                else if (name == "tokenizer.json") tokenizer_path = entry.path();
+                else if (name == "model.safetensors.index.json") index_path = entry.path();
+                else if (name.find(".safetensors") != std::string::npos) {
+                    safetensor_files.push_back(entry.path());
+                }
+            } catch (const std::exception& e) {
+                // Skip individual entries that fail (e.g., broken symlinks)
+                std::cerr << "Warning: Skipping entry: " << e.what() << "\n";
+            }
         }
-        
-        if (name == "vocab.txt") vocab_path = entry.path();
-        else if (name == "tokenizer.json") tokenizer_path = entry.path();
-        else if (name == "model.safetensors.index.json") index_path = entry.path();
-        else if (name.find(".safetensors") != std::string::npos) {
-            safetensor_files.push_back(entry.path());
-        }
+    } catch (const fs::filesystem_error& e) {
+        std::cerr << "Warning: Directory scan error: " << e.what() << "\n";
+        // Continue with whatever we found so far
     }
-    
+
     // Parse tokenizer first (need vocab for token lookups)
     if (!tokenizer_path.empty()) {
         std::cerr << "[1] Parsing tokenizer: " << tokenizer_path << "\n";

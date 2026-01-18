@@ -1,7 +1,7 @@
 /**
  * @file tensor_hierarchy.cpp
  * @brief Build and insert tensor path hierarchy as compositions
- * 
+ *
  * Parses tensor names into hierarchical path components and inserts them
  * as composition records with atom and composition children.
  */
@@ -14,6 +14,24 @@
 namespace hypercube {
 namespace ingest {
 namespace db {
+
+// Helper to escape SQL string literal using libpq (SECURITY: prevents SQL injection)
+static std::string escape_sql_literal(PGconn* conn, const std::string& str) {
+    char* escaped = PQescapeLiteral(conn, str.c_str(), str.length());
+    if (!escaped) {
+        // Fallback: double single quotes (basic SQL escaping)
+        std::string result = "'";
+        for (char c : str) {
+            if (c == '\'') result += "''";
+            else result += c;
+        }
+        result += "'";
+        return result;
+    }
+    std::string result(escaped);
+    PQfreemem(escaped);
+    return result;
+}
 
 bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
     using namespace hypercube::db;
@@ -219,7 +237,11 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
         // Handle \N for null geom
         std::string geom_val = (geom_ewkb == "\\N") ? "NULL" : ("'" + geom_ewkb + "'");
 
-        std::string val = "('" + id_hex + "', '" + label + "', " + depth_str + ", " + child_count_str + ", " + atom_count_str +
+        // SECURITY FIX: Escape label to prevent SQL injection
+        // Labels are tensor paths which should only contain [a-zA-Z0-9._] but we escape for safety
+        std::string escaped_label = escape_sql_literal(conn, label);
+
+        std::string val = "('" + id_hex + "', " + escaped_label + ", " + depth_str + ", " + child_count_str + ", " + atom_count_str +
                           ", " + geom_val + ", '" + centroid_ewkb + "', " + hilbert_lo_str + ", " + hilbert_hi_str + ")";
         comp_values.push_back(val);
     }
@@ -359,12 +381,34 @@ bool insert_tensor_hierarchy(PGconn* conn, IngestContext& ctx, const IngestConfi
         }
     }
     
-    // Update child counts on parent compositions
-    exec(conn,
-        "UPDATE composition c SET child_count = sub.cnt "
-        "FROM (SELECT composition_id, COUNT(*) as cnt FROM composition_child GROUP BY composition_id) sub "
-        "WHERE c.id = sub.composition_id");
-    
+    // Update child counts ONLY for compositions modified in this batch
+    // This is needed because tensor hierarchy adds both atom children AND composition children,
+    // and the initial child_count only accounts for atom children.
+    // Using temp table to limit scope rather than scanning all composition_child.
+    if (!path_to_comp.empty()) {
+        // Build list of composition IDs we just modified
+        std::string id_list;
+        for (const auto& [path, comp] : path_to_comp) {
+            if (!id_list.empty()) id_list += ", ";
+            id_list += "'\\x" + comp.hash.to_hex() + "'";
+        }
+
+        std::string update_sql =
+            "UPDATE composition c SET child_count = sub.cnt "
+            "FROM (SELECT composition_id, COUNT(*) as cnt FROM composition_child "
+            "      WHERE composition_id IN (" + id_list + ") "
+            "      GROUP BY composition_id) sub "
+            "WHERE c.id = sub.composition_id AND c.child_count != sub.cnt";
+
+        Result update_res = exec(conn, update_sql);
+        if (update_res.ok()) {
+            int updated = cmd_tuples(update_res);
+            if (updated > 0) {
+                std::cerr << "[HIER] Updated child_count for " << updated << " compositions\n";
+            }
+        }
+    }
+
     tx.commit();
     
     return true;

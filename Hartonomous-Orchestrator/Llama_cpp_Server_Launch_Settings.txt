@@ -1,0 +1,10 @@
+# 14900KS, 48GB DDR5 ram, 4060 AND 1080TI with custom built llama.cpp for both architectures...
+
+# Reranker
+--host 0.0.0.0 --port 8712 --api-key Welcome!123 --no-webui -a "Reranker" -m D:\Models\Qwen3-Reranker-4B-Q4_K_M.gguf --reranking -sp --threads 2 --parallel 1 -b 256 -ub 256 -fa 1 -ctk q4_0 -ctv q4_0 --no-host -c 1024 --numa numactl -dev CUDA0,CUDA1 -mg 1 -ts 1,1.37 -sm layer -cram 0 --no-context-shift -nocb --no-cache-prompt --metrics --props
+
+# Embedding
+--host 0.0.0.0 --port 8711 --api-key Welcome!123 --no-webui -a "Embedding" -m D:\Models\Qwen3-Embedding-4B-Q4_K_M.gguf --embedding -sp --threads 2 --parallel 1 -b 256 -ub 256 -fa 1 -ctk q4_0 -ctv q4_0 --no-host -c 8192 --numa numactl -dev CUDA0,CUDA1 -mg 1 -ts 1,1.37 -sm layer -cram 0 --no-context-shift -nocb --no-cache-prompt --metrics --props
+
+# Generative
+--host 0.0.0.0 --port 8710 --api-key Welcome!123 --webui -a "Generative" -m D:\Models\Qwen3-Coder-30B-Q4_K_M.gguf -sp --threads 2 --parallel 1 -b 4096 -ub 512 -fa 1 -ctk q4_0 -ctv q4_0 -c 65535 --keep -1 -dev CUDA0,CUDA1 -ts 1.37,1 -sm layer -cram 16384 --context-shift --cont-batching --cache-prompt --cache-reuse 256 --metrics --props --swa-full -kvo -kvu -ncmoe 24

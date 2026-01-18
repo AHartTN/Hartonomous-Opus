@@ -1,0 +1,8 @@
+fastapi==0.115.5
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+pydantic==2.10.5
+qdrant-client==1.12.1
+numpy==1.26.4
+tiktoken==0.8.0
+python-multipart==0.0.20

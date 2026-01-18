@@ -11,7 +11,57 @@ param(
     [switch]$Reset      # DESTRUCTIVE: Drop and recreate database
 )
 
-$ErrorActionPreference = "Stop"
+# Don't treat non-terminating errors as fatal - we handle psql errors explicitly
+$ErrorActionPreference = "Continue"
+
+# Helper function to run psql and capture output properly
+# psql writes notices/warnings to stderr which PowerShell treats as errors
+function Invoke-Psql {
+    param(
+        [string]$Database = $env:HC_DB_NAME,
+        [string]$Command,
+        [string]$File,
+        [switch]$Quiet,
+        [switch]$TuplesOnly
+    )
+
+    $args = @("-h", $env:HC_DB_HOST, "-p", $env:HC_DB_PORT, "-U", $env:HC_DB_USER, "-d", $Database)
+
+    if ($Quiet) { $args += "-q" }
+    if ($TuplesOnly) { $args += "-tA" }
+
+    if ($Command) {
+        $args += @("-c", $Command)
+    } elseif ($File) {
+        $args += @("-v", "ON_ERROR_STOP=1", "-f", $File)
+    }
+
+    # Run psql and capture both stdout and stderr
+    $output = & psql @args 2>&1
+
+    # Check for actual errors (not just NOTICE/WARNING)
+    $hasError = $false
+    $errorMsg = ""
+    foreach ($line in $output) {
+        if ($line -is [System.Management.Automation.ErrorRecord]) {
+            $text = $line.ToString()
+            # PostgreSQL errors start with "ERROR:" or "FATAL:"
+            if ($text -match "^(ERROR|FATAL):") {
+                $hasError = $true
+                $errorMsg = $text
+            }
+            # Ignore NOTICE, WARNING, INFO - these are not errors
+        }
+    }
+
+    if ($hasError -or $LASTEXITCODE -ne 0) {
+        return @{ Success = $false; Output = $output; Error = $errorMsg }
+    }
+
+    # Return just the stdout content (filter out ErrorRecord objects)
+    $stdout = ($output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }) -join "`n"
+    return @{ Success = $true; Output = $stdout.Trim() }
+}
 
 . "$PSScriptRoot\env.ps1"
 
@@ -23,11 +73,23 @@ Write-Host ""
 
 $env:PGPASSWORD = $env:HC_DB_PASS
 
+# Helper function to run psql without NOTICE spam
+function Invoke-PsqlQuiet {
+    param([string]$Query, [string]$Database = $env:HC_DB_NAME)
+    $output = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $Database -tAq -c $Query 2>&1
+    # Filter out NOTICE messages
+    $stdout = ($output | Where-Object {
+        -not ($_ -is [System.Management.Automation.ErrorRecord]) -or
+        -not ($_.ToString() -match "^(NOTICE|WARNING|INFO):")
+    }) -join ""
+    return $stdout.Trim()
+}
+
 try {
     # ========================================================================
     # CONNECTION TEST
     # ========================================================================
-    Write-Host "[1/5] Testing PostgreSQL connection..." -NoNewline
+    Write-Host "[1/4] Testing PostgreSQL connection..." -NoNewline
     $result = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d postgres -tAc "SELECT 1" 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host " FAILED" -ForegroundColor Red
@@ -38,24 +100,19 @@ try {
     Write-Host " OK" -ForegroundColor Green
 
     # ========================================================================
-    # RESET (DESTRUCTIVE - only if explicitly requested)
+    # DATABASE CREATION (or RESET)
     # ========================================================================
     if ($Reset) {
-        Write-Host ""
-        Write-Host "!!! DESTRUCTIVE: Dropping database $env:HC_DB_NAME !!!" -ForegroundColor Red
-        & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d postgres -c "DROP DATABASE IF EXISTS $env:HC_DB_NAME" 2>&1 | Out-Null
-        Write-Host "  Database dropped" -ForegroundColor Yellow
-        Write-Host ""
+        Write-Host "[2/4] Resetting database..." -ForegroundColor Red
+        $null = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d postgres -c "DROP DATABASE IF EXISTS $env:HC_DB_NAME" 2>&1
+        Write-Host "  Dropped $env:HC_DB_NAME" -ForegroundColor Yellow
     }
 
-    # ========================================================================
-    # DATABASE CREATION
-    # ========================================================================
-    Write-Host "[2/5] Database..." -NoNewline
-    $dbExists = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$env:HC_DB_NAME'"
+    Write-Host "[2/4] Database..." -NoNewline
+    $dbExists = Invoke-PsqlQuiet -Query "SELECT 1 FROM pg_database WHERE datname='$env:HC_DB_NAME'" -Database postgres
 
     if ($dbExists -ne "1") {
-        & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d postgres -c "CREATE DATABASE $env:HC_DB_NAME" 2>&1 | Out-Null
+        $null = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d postgres -c "CREATE DATABASE $env:HC_DB_NAME" 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host " FAILED to create" -ForegroundColor Red
             exit 1
@@ -66,44 +123,48 @@ try {
     }
 
     # ========================================================================
-    # SCHEMA
+    # SCHEMA DEPLOYMENT (using consolidated file)
     # ========================================================================
-    Write-Host "[3/5] Schema..." -NoNewline
-    $sqlDir = Join-Path $env:HC_PROJECT_ROOT "sql"
-    Push-Location $sqlDir
-    try {
-        $null = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -v ON_ERROR_STOP=1 -f "hypercube_schema.sql" 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host " FAILED" -ForegroundColor Red
+    Write-Host "[3/4] Schema..." -NoNewline
+
+    $deployDir = Join-Path $env:HC_PROJECT_ROOT "sql\deploy"
+    $schemaFile = Join-Path $deployDir "full_schema.sql"
+
+    # Build consolidated schema if missing
+    if (-not (Test-Path $schemaFile)) {
+        Write-Host " building..." -NoNewline
+        $buildScript = Join-Path $deployDir "build-schema.ps1"
+        if (Test-Path $buildScript) {
+            $null = & $buildScript 2>&1
+        } else {
+            Write-Host " FAILED (build script missing)" -ForegroundColor Red
             exit 1
         }
-    } finally {
-        Pop-Location
     }
-    Write-Host " OK" -ForegroundColor Green
 
-    # ========================================================================
-    # C++ EXTENSIONS
-    # ========================================================================
-    Write-Host "[4/5] Extensions..." -NoNewline
-    $extensions = @("hypercube", "hypercube_ops", "embedding_ops", "semantic_ops", "generative")
-    $loaded = 0
-    $failed = @()
+    # Deploy with quiet mode (suppresses NOTICE messages)
+    $output = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -q -v ON_ERROR_STOP=1 -f $schemaFile 2>&1
 
-    foreach ($ext in $extensions) {
-        $extResult = & psql -h $env:HC_DB_HOST -p $env:HC_DB_PORT -U $env:HC_DB_USER -d $env:HC_DB_NAME -c "CREATE EXTENSION IF NOT EXISTS $ext;" 2>&1
-        if ($LASTEXITCODE -eq 0 -and -not ($extResult -match "ERROR:")) {
-            $loaded++
-        } else {
-            $failed += $ext
+    # Check for actual errors
+    $hasError = $false
+    foreach ($line in $output) {
+        if ($line -is [System.Management.Automation.ErrorRecord]) {
+            $text = $line.ToString()
+            if ($text -match "^(ERROR|FATAL):") {
+                $hasError = $true
+                Write-Host " FAILED" -ForegroundColor Red
+                Write-Host "  $text" -ForegroundColor Red
+            }
         }
     }
 
-    if ($failed.Count -eq 0) {
-        Write-Host " $loaded loaded" -ForegroundColor Green
+    if (-not $hasError -and $LASTEXITCODE -eq 0) {
+        Write-Host " OK" -ForegroundColor Green
+    } elseif (-not $hasError) {
+        Write-Host " FAILED (exit code $LASTEXITCODE)" -ForegroundColor Red
+        exit 1
     } else {
-        Write-Host " $loaded loaded, missing: $($failed -join ', ')" -ForegroundColor Yellow
-        Write-Host "  Run build.ps1 to compile and install extensions" -ForegroundColor Yellow
+        exit 1
     }
 
     # ========================================================================

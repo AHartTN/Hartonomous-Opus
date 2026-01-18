@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(if [ -d \"trash\" ])",
+      "Bash(then find trash -name \"package.json\" -o -name \"requirements.txt\" -o -name \"*.py\" -o -name \"*.js\")",
+      "Bash(fi)",
+      "Bash(D:NSSMnssm-2.24win64nssm.exe status Generative)",
+      "Bash(D:NSSMnssm-2.24win64nssm.exe status Reranker)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(timeout 10 bash:*)",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose restart:*)"
+    ]
+  }
+}

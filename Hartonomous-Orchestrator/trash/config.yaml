@@ -1,0 +1,189 @@
+# Hartonomous Orchestrator Configuration
+# Production-ready configuration for enterprise RAG operations
+
+services:
+  # Embedding service configuration
+  embedding:
+    endpoint: "http://embedding-service:8711"
+    api_key: "your-embedding-api-key"
+    model: "text-embedding-3-large"
+    timeout: 30
+    max_retries: 3
+    retry_backoff: 1.5
+    
+  # Reranking service configuration
+  reranking:
+    endpoint: "http://reranking-service:8711"
+    api_key: "your-reranking-api-key"
+    model: "rerank-lite"
+    timeout: 30
+    max_retries: 3
+    retry_backoff: 1.5
+    
+  # Generative service configuration
+  generative:
+    endpoint: "http://generative-service:8711"
+    api_key: "your-generative-api-key"
+    model: "gpt-4-turbo"
+    timeout: 60
+    max_retries: 3
+    retry_backoff: 1.5
+    
+  # Vector database configuration
+  vector_db:
+    endpoint: "http://qdrant-service:6333"
+    api_key: "your-qdrant-api-key"
+    timeout: 30
+    max_retries: 3
+    retry_backoff: 1.5
+
+# HTTP Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8080
+  max_connections: 1000
+  request_timeout: 30
+  max_body_size: 10485760  # 10MB
+
+# Security Configuration
+security:
+  enabled: true
+  api_key: "your-production-api-key"
+  rate_limit:
+    requests_per_minute: 1000
+    burst: 100
+  authentication:
+    enabled: true
+    type: "api-key"  # or "jwt", "oauth2"
+  tls:
+    enabled: false  # Set to true in production
+    cert_file: "/path/to/cert.pem"
+    key_file: "/path/to/key.pem"
+
+# Metrics and Monitoring
+metrics:
+  enabled: true
+  port: 9090
+  export_format: "prometheus"
+  collection_interval: 30  # seconds
+  metrics:
+    - "query_count"
+    - "latency"
+    - "documents_retrieved"
+    - "model_used"
+
+# Logging Configuration
+logging:
+  level: "info"
+  file: "/var/log/hartonomous/orchestrator.log"
+  max_size: 10485760  # 10MB
+  max_files: 5
+  format: "json"  # or "text"
+  console_output: true
+
+# Caching Configuration
+caching:
+  enabled: true
+  type: "memory"  # or "redis", "memcached"
+  ttl_seconds: 3600  # 1 hour
+  max_size: 10000
+  cache_key_prefix: "hartonomous_"
+
+# Circuit Breaker Configuration
+circuit_breaker:
+  enabled: true
+  timeout: 30  # seconds
+  failure_threshold: 5
+  success_threshold: 3
+  reset_timeout: 60  # seconds
+
+# Health Check Configuration
+health:
+  enabled: true
+  interval: 30  # seconds
+  timeout: 10  # seconds
+  endpoints:
+    - "/health"
+    - "/metrics"
+    - "/status"
+
+# Batch Processing
+batch:
+  enabled: true
+  max_concurrent: 10
+  timeout: 30  # seconds
+  max_size: 100
+
+# Resource Management
+resources:
+  memory:
+    soft_limit: "80%"
+    hard_limit: "90%"
+  cpu:
+    soft_limit: "80%"
+    hard_limit: "90%"
+  connections:
+    max_open: 1000
+    max_idle: 100
+
+# Database Connection Pooling
+database:
+  pool:
+    min_connections: 5
+    max_connections: 20
+    connection_timeout: 30
+
+# OpenAI Proxy Configuration
+openai:
+  proxy:
+    enabled: true
+    base_url: "https://api.openai.com/v1"
+    api_key: "your-openai-key"
+    models:
+      - "gpt-3.5-turbo"
+      - "gpt-4-turbo"
+      - "text-embedding-3"
+      - "rerank-lite"
+  compatibility:
+    enabled: true
+    endpoints:
+      - "/chat/completions"
+      - "/completions"
+      - "/embeddings"
+      - "/rerank"
+
+# RAG Pipeline Settings
+rag:
+  pipeline:
+    ingest:
+      batch_size: 100
+      concurrency: 10
+      timeout: 30
+    query:
+      max_results: 100
+      similarity_threshold: 0.7
+      reranking_enabled: true
+      context_window: 4000
+    batch:
+      max_queries: 100
+      concurrency: 5
+
+# Performance Optimization
+performance:
+  async:
+    enabled: true
+    max_concurrent: 100
+  connection_pooling:
+    enabled: true
+    max_idle: 10
+    max_active: 100
+  streaming:
+    enabled: true
+
+# Debugging and Development
+debug:
+  enabled: false
+  verbose_logging: false
+  profiling:
+    enabled: false
+    output_directory: "/tmp/profile"

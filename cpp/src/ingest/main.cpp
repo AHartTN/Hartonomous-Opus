@@ -134,15 +134,24 @@ int main(int argc, char* argv[]) {
     auto start = std::chrono::high_resolution_clock::now();
     
     if (fs::is_directory(path)) {
-        for (const auto& entry : fs::recursive_directory_iterator(path)) {
-            if (entry.is_regular_file() && is_text_file(entry.path())) {
-                std::string content = read_file(entry.path());
-                if (!content.empty()) {
-                    auto unique = util::extract_unique_codepoints(content);
-                    all_codepoints.insert(unique.begin(), unique.end());
-                    files.emplace_back(entry.path(), std::move(content));
+        try {
+            for (const auto& entry : fs::recursive_directory_iterator(
+                    path, fs::directory_options::skip_permission_denied)) {
+                try {
+                    if (entry.is_regular_file() && is_text_file(entry.path())) {
+                        std::string content = read_file(entry.path());
+                        if (!content.empty()) {
+                            auto unique = util::extract_unique_codepoints(content);
+                            all_codepoints.insert(unique.begin(), unique.end());
+                            files.emplace_back(entry.path(), std::move(content));
+                        }
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "Warning: Skipping entry: " << e.what() << "\n";
                 }
             }
+        } catch (const fs::filesystem_error& e) {
+            std::cerr << "Warning: Directory scan error: " << e.what() << "\n";
         }
     } else {
         std::cerr << "[DEBUG] Processing single file: " << path << "\n";

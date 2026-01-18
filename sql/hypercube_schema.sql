@@ -49,6 +49,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 \i functions/compositions/compute_composition_centroid.sql
 \i functions/compositions/recompute_composition_centroids.sql
 \i functions/compositions/maintain_child_count_integrity.sql
+\i functions/compositions/validate_child_references.sql
 
 -- Relation operations (semantic graph)
 \i functions/relations/semantic_neighbors.sql

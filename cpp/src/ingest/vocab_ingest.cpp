@@ -280,17 +280,29 @@ public:
         fs::path tokenizer_json = model_path / "tokenizer.json";
         fs::path vocab_txt = model_path / "vocab.txt";
         
-        // Check snapshot directories
+        // Check snapshot directories (with error handling for permission-denied)
         if (!fs::exists(tokenizer_json) && !fs::exists(vocab_txt)) {
-            for (const auto& entry : fs::recursive_directory_iterator(model_path)) {
-                if (entry.path().filename() == "tokenizer.json" && 
-                    entry.path().string().find(".cache") == std::string::npos) {
-                    tokenizer_json = entry.path();
+            try {
+                // Use skip_permission_denied to avoid crashes on inaccessible directories
+                for (const auto& entry : fs::recursive_directory_iterator(
+                        model_path, fs::directory_options::skip_permission_denied)) {
+                    try {
+                        if (entry.path().filename() == "tokenizer.json" &&
+                            entry.path().string().find(".cache") == std::string::npos) {
+                            tokenizer_json = entry.path();
+                        }
+                        if (entry.path().filename() == "vocab.txt" &&
+                            entry.path().string().find(".cache") == std::string::npos) {
+                            vocab_txt = entry.path();
+                        }
+                    } catch (const std::exception& e) {
+                        // Skip individual entries that fail (e.g., broken symlinks)
+                        std::cerr << "Warning: Skipping entry: " << e.what() << "\n";
+                    }
                 }
-                if (entry.path().filename() == "vocab.txt" && 
-                    entry.path().string().find(".cache") == std::string::npos) {
-                    vocab_txt = entry.path();
-                }
+            } catch (const fs::filesystem_error& e) {
+                std::cerr << "Warning: Directory scan error: " << e.what() << "\n";
+                // Continue with whatever we found so far
             }
         }
         

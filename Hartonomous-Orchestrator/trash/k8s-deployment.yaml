@@ -1,0 +1,157 @@
+# Kubernetes deployment for Hartonomous Orchestrator
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hartonomous-orchestrator
+  labels:
+    app: hartonomous-orchestrator
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hartonomous-orchestrator
+  template:
+    metadata:
+      labels:
+        app: hartonomous-orchestrator
+    spec:
+      containers:
+      - name: hartonomous-orchestrator
+        image: hartonomous-orchestrator:latest
+        ports:
+        - containerPort: 8080
+          name: api
+        - containerPort: 9090
+          name: metrics
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        env:
+        - name: LOG_LEVEL
+          value: "info"
+        - name: SERVICE_HOST
+          value: "localhost"
+        envFrom:
+        - secretRef:
+            name: orchestrator-secrets
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+        - name: logs-volume
+          mountPath: /app/logs
+      volumes:
+      - name: config-volume
+        configMap:
+          name: orchestrator-config
+      - name: logs-volume
+        emptyDir: {}
+      restartPolicy: Always
+---
+# Service for Hartonomous Orchestrator
+apiVersion: v1
+kind: Service
+metadata:
+  name: hartonomous-orchestrator-service
+  labels:
+    app: hartonomous-orchestrator
+spec:
+  selector:
+    app: hartonomous-orchestrator
+  ports:
+  - name: api
+    port: 8080
+    targetPort: 8080
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+  type: ClusterIP
+---
+# ConfigMap for configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orchestrator-config
+data:
+  config.yaml: |
+    services:
+      embedding:
+        endpoint: "http://embedding-service:8711"
+        model: "text-embedding-3"
+      reranking:
+        endpoint: "http://reranking-service:8711"
+        model: "rerank-lite"
+      generative:
+        endpoint: "http://generative-service:8711"
+        model: "gpt-3.5-turbo"
+      vector_db:
+        endpoint: "http://qdrant-service:6333"
+        model: "qdrant"
+    metrics:
+      enabled: true
+      port: 9090
+    logging:
+      level: "info"
+      file: "/app/logs/orchestrator.log"
+---
+# Secret for API keys and credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: orchestrator-secrets
+type: Opaque
+data:
+  # These would be base64 encoded
+  # api_key: "base64encodedkey"
+  # embedding_api_key: "base64encodedkey"
+  # reranking_api_key: "base64encodedkey"
+---
+# Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hartonomous-orchestrator-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hartonomous-orchestrator
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+# Ingress for external access (if using ingress controller)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hartonomous-orchestrator-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: orchestrator.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hartonomous-orchestrator-service
+            port:
+              number: 8080
