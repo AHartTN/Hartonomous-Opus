@@ -1,0 +1,183 @@
+  count  
+---------
+ 1114112
+(1 row)
+
+ cp 
+----
+(0 rows)
+
+     hilbert_hi      |      hilbert_lo      | count 
+---------------------+----------------------+-------
+ 4285039296217551448 | 15540671909537327709 |    35
+ 1071256231363861981 | 15987178197214944733 |  2048
+(2 rows)
+
+ count 
+-------
+     0
+(1 row)
+
+ codepoint 
+-----------
+(0 rows)
+
+ count 
+-------
+     0
+(1 row)
+
+ count 
+-------
+     0
+(1 row)
+
+ count 
+-------
+     0
+(1 row)
+
+ id | label 
+----+-------
+(0 rows)
+
+ id | label 
+----+-------
+(0 rows)
+
+ id | child_count | actual 
+----+-------------+--------
+(0 rows)
+
+ id | label | depth 
+----+-------+-------
+(0 rows)
+
+ count 
+-------
+     0
+(1 row)
+
+ id | label 
+----+-------
+(0 rows)
+
+ id | label 
+----+-------
+(0 rows)
+
+ count 
+-------
+     0
+(1 row)
+
+ composition_id | ordinal | child_type | child_id | id | codepoint | value | geom | hilbert_lo | hilbert_hi | created_at | id | label | depth | child_count | atom_count | geom | centroid | hilbert_lo | hilbert_hi | created_at 
+----------------+---------+------------+----------+----+-----------+-------+------+------------+------------+------------+----+-------+-------+-------------+------------+------+----------+------------+------------+------------
+(0 rows)
+
+ composition_id 
+----------------
+(0 rows)
+
+ composition_id | ordinal 
+----------------+---------
+(0 rows)
+
+ count 
+-------
+     0
+(1 row)
+
+ id 
+----
+(0 rows)
+
+ count 
+-------
+     0
+(1 row)
+
+ source_id | target_id | relation_type | count 
+-----------+-----------+---------------+-------
+(0 rows)
+
+ id | source_type | source_id | target_type | target_id | relation_type | weight | source_model | source_count | layer | component | created_at | id | codepoint | value | geom | hilbert_lo | hilbert_hi | created_at | id | label | depth | child_count | atom_count | geom | centroid | hilbert_lo | hilbert_hi | created_at | id | codepoint | value | geom | hilbert_lo | hilbert_hi | created_at | id | label | depth | child_count | atom_count | geom | centroid | hilbert_lo | hilbert_hi | created_at 
+----+-------------+-----------+-------------+-----------+---------------+--------+--------------+--------------+-------+-----------+------------+----+-----------+-------+------+------------+------------+------------+----+-------+-------+-------------+------------+------+----------+------------+------------+------------+----+-----------+-------+------+------------+------------+------------+----+-------+-------+-------------+------------+------+----------+------------+------------+------------
+(0 rows)
+
+ count 
+-------
+     0
+(1 row)
+
+ id | name | source | version | embedding_dim 
+----+------+--------+---------+---------------
+(0 rows)
+
+ model_id | tensor_name | converged | variance_explained | quality_score 
+----------+-------------+-----------+--------------------+---------------
+(0 rows)
+
+ count 
+-------
+     0
+(1 row)
+
+ count 
+-------
+     0
+(1 row)
+
+ count 
+-------
+     0
+(1 row)
+
+ left_id | right_id | count | pmi 
+---------+----------+-------+-----
+(0 rows)
+
+ count 
+-------
+     0
+(1 row)
+
+ source_id | target_id | relation_type | disagreement | num_models 
+-----------+-----------+---------------+--------------+------------
+(0 rows)
+
+REFRESH MATERIALIZED VIEW
+ count 
+-------
+     0
+(1 row)
+
+ source_id | target_id | relation_type | avg_rating | rating_stddev | consensus_weight | confidence | num_models | total_observations 
+-----------+-----------+---------------+------------+---------------+------------------+------------+------------+--------------------
+(0 rows)
+
+ missing_atoms 
+---------------
+             0
+(1 row)
+
+ invalid_atom_geom 
+-------------------
+                 0
+(1 row)
+
+ bad_compositions 
+------------------
+                0
+(1 row)
+
+ orphan_children 
+-----------------
+               0
+(1 row)
+
+ orphan_relations 
+------------------
+                0
+(1 row)
+

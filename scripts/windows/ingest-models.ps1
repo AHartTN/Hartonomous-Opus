@@ -4,10 +4,10 @@
 # Models are detected by presence of config.json with "model_type" field.
 #
 # What gets ingested from each model:
-#   1. Vocabulary (vocab.txt or tokenizer.json) → compositions with labels
-#   2. BPE/WordPiece merges → composition_child hierarchy
-#   3. Token embeddings (safetensors) → 4D centroids via Laplacian projection
-#   4. k-NN similarity → semantic edges in relation table
+#   1. Vocabulary (vocab.txt or tokenizer.json) -> compositions with labels
+#   2. BPE/WordPiece merges -> composition_child hierarchy
+#   3. Token embeddings (safetensors) -> 4D centroids via Laplacian projection
+#   4. k-NN similarity -> semantic edges in relation table
 #
 # Usage:
 #   .\ingest-models.ps1                          # Scan default paths
@@ -31,9 +31,9 @@ $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\env.ps1"
 
 Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║     Hartonomous Hypercube - Model Ingestion                  ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "=================================================================" -ForegroundColor Cyan
+Write-Host "     Hartonomous Hypercube - Model Ingestion" -ForegroundColor Cyan
+Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host ""
 
 # ============================================================================
@@ -118,7 +118,8 @@ foreach ($basePath in $validPaths) {
             }
             
             # Extract name from path
-            if ($pathStr -match "models--([^/\\]+)--([^/\\]+)") {
+            $pattern = 'models--([^/\\]+)--([^/\\]+)'
+            if ($pathStr -match $pattern) {
                 $modelInfo.Name = "$($Matches[1])/$($Matches[2])"
             } else {
                 $modelInfo.Name = $configFile.Directory.Name
@@ -179,12 +180,18 @@ Write-Host ""
 $idx = 0
 foreach ($m in $models) {
     $idx++
-    $status = if ($m.HasSafetensors -and $m.HasVocab) { "✓" } 
-              elseif ($m.HasVocab) { "○" } 
-              else { "✗" }
-    $statusColor = if ($m.HasSafetensors -and $m.HasVocab) { "Green" } 
-                   elseif ($m.HasVocab) { "Yellow" } 
-                   else { "Red" }
+
+    # Determine status and color
+    if ($m.HasSafetensors -and $m.HasVocab) {
+        $status = "[OK]"
+        $statusColor = "Green"
+    } elseif ($m.HasVocab) {
+        $status = "[PARTIAL]"
+        $statusColor = "Yellow"
+    } else {
+        $status = "[MISSING]"
+        $statusColor = "Red"
+    }
     
     Write-Host "  [$status] " -NoNewline -ForegroundColor $statusColor
     Write-Host "$($m.Name)" -ForegroundColor White
@@ -224,7 +231,7 @@ $universalIngester = "$env:HC_BIN_DIR\ingest_safetensor.exe"
 if (-not (Test-Path $universalIngester)) { $universalIngester = $null }
 
 foreach ($m in $models) {
-    Write-Host "────────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+    Write-Host "----------------------------------------------------------------" -ForegroundColor DarkGray
     Write-Host "  Ingesting: $($m.Name)" -ForegroundColor Cyan
     
     # Use universal ingester for ALL models (not just those with vocab)
@@ -240,7 +247,7 @@ foreach ($m in $models) {
             }
         }
         
-        Write-Host "    Mode: Universal (all tensors → 4D projection)"
+        Write-Host "    Mode: Universal (all tensors -> 4D projection)"
         & $universalIngester -d $env:HC_DB_NAME -U $env:HC_DB_USER -h $env:HC_DB_HOST -p $env:HC_DB_PORT -n $m.Name $m.Path
         
         if ($LASTEXITCODE -eq 0) {
@@ -299,9 +306,9 @@ Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
 # ============================================================================
 
 Write-Host ""
-Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "  Model Ingestion Complete" -ForegroundColor Cyan
-Write-Host "════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Total:    $($models.Count) models discovered"
 Write-Host "  Success:  $successCount" -ForegroundColor Green
