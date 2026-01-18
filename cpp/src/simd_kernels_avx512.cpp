@@ -7,17 +7,7 @@
 
 namespace hypercube {
 
-// Define global function pointers for dispatch system
-DistanceL2Fn distance_l2_avx512 = nullptr;
-DistanceIPFn distance_ip_avx512 = nullptr;
-GemmF32Fn gemm_f32_avx512 = nullptr;
-DotProductDFn dot_product_d_avx512 = nullptr;
-DotProductFFn dot_product_f_avx512 = nullptr;
-ScaleInplaceDFn scale_inplace_d_avx512 = nullptr;
-SubtractScaledDFn subtract_scaled_d_avx512 = nullptr;
-NormDFn norm_d_avx512 = nullptr;
-
-namespace simd {
+namespace avx512 {
 
 float dot_product(const float* a, const float* b, size_t n) {
     __m512 sum_vec = _mm512_setzero_ps();
@@ -171,37 +161,5 @@ void gemm_f32(float alpha, const float* A, size_t m, size_t k,
     }
 }
 
-} // namespace simd
-
-// Initialize dispatch function pointers
-struct Avx512Init {
-    Avx512Init() {
-        distance_l2_avx512 = [](const float* a, const float* b, size_t n) -> double {
-            return simd::distance_l2(a, b, n);
-        };
-        distance_ip_avx512 = [](const float* a, const float* b, size_t n) -> double {
-            return simd::distance_ip(a, b, n);
-        };
-        gemm_f32_avx512 = [](float alpha, const float* A, size_t m, size_t k,
-                            const float* B, size_t n, float beta, float* C) -> void {
-            simd::gemm_f32(alpha, A, m, k, B, n, beta, C);
-        };
-        dot_product_d_avx512 = [](const double* a, const double* b, size_t n) -> double {
-            return simd::dot_product_d(a, b, n);
-        };
-        dot_product_f_avx512 = [](const float* a, const float* b, size_t n) -> float {
-            return simd::dot_product(a, b, n);
-        };
-        scale_inplace_d_avx512 = [](double* v, double s, size_t n) -> void {
-            simd::scale_inplace(v, s, n);
-        };
-        subtract_scaled_d_avx512 = [](double* a, const double* b, double s, size_t n) -> void {
-            simd::subtract_scaled(a, b, s, n);
-        };
-        norm_d_avx512 = [](const double* v, size_t n) -> double {
-            return simd::norm(v, n);
-        };
-    }
-} avx512_init;
-
+} // namespace avx512
 } // namespace hypercube

@@ -7,17 +7,7 @@
 
 namespace hypercube {
 
-// Define global function pointers for dispatch system
-DistanceL2Fn distance_l2_avx2_vnni = nullptr;
-DistanceIPFn distance_ip_avx2_vnni = nullptr;
-GemmF32Fn gemm_f32_avx2_vnni = nullptr;
-DotProductDFn dot_product_d_avx2_vnni = nullptr;
-DotProductFFn dot_product_f_avx2_vnni = nullptr;
-ScaleInplaceDFn scale_inplace_d_avx2_vnni = nullptr;
-SubtractScaledDFn subtract_scaled_d_avx2_vnni = nullptr;
-NormDFn norm_d_avx2_vnni = nullptr;
-
-namespace simd {
+namespace avx2_vnni {
 
 float dot_product(const float* a, const float* b, size_t n) {
     __m256 sum_vec = _mm256_setzero_ps();
@@ -232,37 +222,5 @@ void gemm_f32(float alpha, const float* A, size_t m, size_t k,
     }
 }
 
-} // namespace simd
-
-// Initialize dispatch function pointers
-struct Avx2VnniInit {
-    Avx2VnniInit() {
-        distance_l2_avx2_vnni = [](const float* a, const float* b, size_t n) -> double {
-            return simd::distance_l2(a, b, n);
-        };
-        distance_ip_avx2_vnni = [](const float* a, const float* b, size_t n) -> double {
-            return simd::distance_ip(a, b, n);
-        };
-        gemm_f32_avx2_vnni = [](float alpha, const float* A, size_t m, size_t k,
-                               const float* B, size_t n, float beta, float* C) -> void {
-            simd::gemm_f32(alpha, A, m, k, B, n, beta, C);
-        };
-        dot_product_d_avx2_vnni = [](const double* a, const double* b, size_t n) -> double {
-            return simd::dot_product_d(a, b, n);
-        };
-        dot_product_f_avx2_vnni = [](const float* a, const float* b, size_t n) -> float {
-            return simd::dot_product(a, b, n);
-        };
-        scale_inplace_d_avx2_vnni = [](double* v, double s, size_t n) -> void {
-            simd::scale_inplace(v, s, n);
-        };
-        subtract_scaled_d_avx2_vnni = [](double* a, const double* b, double s, size_t n) -> void {
-            simd::subtract_scaled(a, b, s, n);
-        };
-        norm_d_avx2_vnni = [](const double* v, size_t n) -> double {
-            return simd::norm(v, n);
-        };
-    }
-} avx2_vnni_init;
-
+} // namespace avx2_vnni
 } // namespace hypercube

@@ -210,6 +210,7 @@ if(NOT HAS_HNSWLIB)
     endif()
     # hnswlib is header-only in many usages; mark as available
     set(HAS_HNSWLIB ON)
+    set(HNSWLIB_FOUND ON)
     set(HNSWLIB_INCLUDE_DIRS ${hnswlib_src_SOURCE_DIR})
     message(STATUS "[deps] HNSWLib: fetched into ${hnswlib_src_SOURCE_DIR}")
 endif()

@@ -6,17 +6,8 @@
 
 namespace hypercube {
 
-// Define global function pointers for dispatch system
-DistanceL2Fn distance_l2_baseline = nullptr;
-DistanceIPFn distance_ip_baseline = nullptr;
-GemmF32Fn gemm_f32_baseline = nullptr;
-DotProductDFn dot_product_d_baseline = nullptr;
-DotProductFFn dot_product_f_baseline = nullptr;
-ScaleInplaceDFn scale_inplace_d_baseline = nullptr;
-SubtractScaledDFn subtract_scaled_d_baseline = nullptr;
-NormDFn norm_d_baseline = nullptr;
-
-namespace simd {
+// Named namespace for baseline implementations - accessible from dispatch.cpp
+namespace baseline {
 
 float dot_product(const float* a, const float* b, size_t n) {
     float sum = 0.0f;
@@ -98,37 +89,5 @@ void gemm_f32(float alpha, const float* A, size_t m, size_t k,
     }
 }
 
-} // namespace simd
-
-// Initialize dispatch function pointers
-struct BaselineInit {
-    BaselineInit() {
-        distance_l2_baseline = [](const float* a, const float* b, size_t n) -> double {
-            return simd::distance_l2(a, b, n);
-        };
-        distance_ip_baseline = [](const float* a, const float* b, size_t n) -> double {
-            return simd::distance_ip(a, b, n);
-        };
-        gemm_f32_baseline = [](float alpha, const float* A, size_t m, size_t k,
-                              const float* B, size_t n, float beta, float* C) -> void {
-            simd::gemm_f32(alpha, A, m, k, B, n, beta, C);
-        };
-        dot_product_d_baseline = [](const double* a, const double* b, size_t n) -> double {
-            return simd::dot_product_d(a, b, n);
-        };
-        dot_product_f_baseline = [](const float* a, const float* b, size_t n) -> float {
-            return simd::dot_product(a, b, n);
-        };
-        scale_inplace_d_baseline = [](double* v, double s, size_t n) -> void {
-            simd::scale_inplace(v, s, n);
-        };
-        subtract_scaled_d_baseline = [](double* a, const double* b, double s, size_t n) -> void {
-            simd::subtract_scaled(a, b, s, n);
-        };
-        norm_d_baseline = [](const double* v, size_t n) -> double {
-            return simd::norm(v, n);
-        };
-    }
-} baseline_init;
-
+} // namespace baseline
 } // namespace hypercube

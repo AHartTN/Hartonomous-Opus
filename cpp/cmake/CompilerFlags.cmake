@@ -242,6 +242,11 @@ else()
                 message(STATUS "SIMD: AVX_VNNI detected but compiler lacks -mavx512vnni/-mavxvnni")
             endif()
         endif()
+    elseif(HAS_AVX AND COMPILER_SUPPORTS_MARCH_NATIVE)
+        # Fallback: runtime detection failed but -march=native is supported
+        # Use -march=native to let the compiler auto-detect CPU features
+        set(HYPERCUBE_AVX_FLAGS "-march=native")
+        message(STATUS "SIMD: using -march=native (fallback mode)")
     endif()
 
     # Sanitizers for Debug where available (non-MSVC, and not Clang on Windows)

@@ -499,8 +499,8 @@ void test_distance_uniformity() {
     std::cout << "    95th percentile: " << p95 << std::endl;
     std::cout << "    Range (95th-5th): " << (p95 - p5) << std::endl;
 
-    // Target: CV <= 2.0 (200%) acceptable with semantic adjacency constraints (euclidean distances show clustering)
-    const double MAX_ACCEPTABLE_CV = 2.0;
+    // Target: CV <= 0.5 (50%) - reasonable for semantic clustering with adjacency constraints
+    const double MAX_ACCEPTABLE_CV = 0.5;
 
     if (cv <= MAX_ACCEPTABLE_CV) {
         std::cout << "  [OK] CV " << (cv * 100) << "% is within acceptable range (<= " << (MAX_ACCEPTABLE_CV * 100)
@@ -662,8 +662,8 @@ void test_uniformity_nn() {
     std::cout << "    Std dev: " << std_dev << std::endl;
     std::cout << "    CV: " << cv << " (" << (cv * 100) << "%)" << std::endl;
 
-    // Expect CV <= 200% acceptable with semantic constraints (euclidean distances show clustering)
-    assert(cv <= 2.0); // Less than or equal to 200%
+    // Expect CV <= 50% for reasonable distribution uniformity
+    assert(cv <= 0.5); // Less than or equal to 50%
     std::cout << "  Uniformity NN: PASS" << std::endl;
 }
 

@@ -75,7 +75,19 @@
       "Bash(git -C \"D:\\\\Repositories\\\\Hartonomous-Opus\" diff cpp/CMakeLists.txt)",
       "Bash(del \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\cpp\\\\include\\\\hypercube\\\\cpu_features.cpp\" \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\cpp\\\\include\\\\hypercube\\\\isa_class.cpp\" \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\cpp\\\\include\\\\hypercube\\\\dispatch.cpp\")",
       "Bash(git rm:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(./bin/test_coordinates:*)",
+      "Bash(./bin/test_cpu_features:*)",
+      "Bash(gdb:*)",
+      "Bash(./bin/hypercube_tests:*)",
+      "Bash(./bin/test_simd_dispatch:*)",
+      "Bash(./bin/test_laplacian_4d:*)",
+      "Bash(echo:*)",
+      "Bash(ASAN_OPTIONS=detect_leaks=0 ./bin/test_laplacian_4d:*)",
+      "Bash(ldd:*)",
+      "Bash(nm:*)",
+      "Bash(strace:*)",
+      "Bash(readelf:*)"
     ]
   },
   "outputStyle": "default"

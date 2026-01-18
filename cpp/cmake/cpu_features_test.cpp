@@ -5,8 +5,23 @@
   #include <intrin.h>
 #endif
 
+// Forward declaration
+inline void cpuid(uint32_t leaf, uint32_t subleaf,
+                  uint32_t& eax, uint32_t& ebx,
+                  uint32_t& ecx, uint32_t& edx);
+
 // Check OS support for AVX state saving via XGETBV
+// Must verify OSXSAVE is enabled before calling xgetbv to avoid SIGILL
 inline bool check_os_avx_support() {
+    // First check if OSXSAVE is enabled (CPUID leaf 1, ECX bit 27)
+    uint32_t eax_local, ebx_local, ecx_local, edx_local;
+    cpuid(1u, 0u, eax_local, ebx_local, ecx_local, edx_local);
+
+    bool osxsave_enabled = (ecx_local & (1u << 27)) != 0;
+    if (!osxsave_enabled) {
+        return false; // Can't use xgetbv safely
+    }
+
     uint64_t xcr0;
 #if defined(_MSC_VER)
     xcr0 = _xgetbv(0);

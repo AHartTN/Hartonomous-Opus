@@ -1,98 +1,11 @@
 #include "hypercube/dispatch.h"
 #include "hypercube/cpu_features.h"
+#include "hypercube/simd_kernels.hpp"
 
 #include <mutex>
 #include <memory>
 
 namespace hypercube {
-
-// =============================================================================
-// ISA-Specific Kernel Declarations (extern - implementations defined elsewhere)
-// =============================================================================
-
-// Baseline scalar implementations
-DistanceL2Fn distance_l2_baseline = nullptr;  // Placeholder - implementation will be added later
-DistanceIPFn distance_ip_baseline = nullptr;  // Placeholder - implementation will be added later
-GemmF32Fn gemm_f32_baseline = nullptr;        // Placeholder - implementation will be added later
-
-// SSE4.2 implementations
-DistanceL2Fn distance_l2_sse42 = nullptr;     // Placeholder - implementation will be added later
-DistanceIPFn distance_ip_sse42 = nullptr;     // Placeholder - implementation will be added later
-GemmF32Fn gemm_f32_sse42 = nullptr;           // Placeholder - implementation will be added later
-
-// AVX2 implementations
-DistanceL2Fn distance_l2_avx2 = nullptr;      // Placeholder - implementation will be added later
-DistanceIPFn distance_ip_avx2 = nullptr;      // Placeholder - implementation will be added later
-GemmF32Fn gemm_f32_avx2 = nullptr;            // Placeholder - implementation will be added later
-
-// AVX2 + VNNI implementations
-DistanceL2Fn distance_l2_avx2_vnni = nullptr; // Placeholder - implementation will be added later
-DistanceIPFn distance_ip_avx2_vnni = nullptr; // Placeholder - implementation will be added later
-GemmF32Fn gemm_f32_avx2_vnni = nullptr;       // Placeholder - implementation will be added later
-
-// AVX-512 implementations
-DistanceL2Fn distance_l2_avx512 = nullptr;    // Placeholder - implementation will be added later
-DistanceIPFn distance_ip_avx512 = nullptr;    // Placeholder - implementation will be added later
-GemmF32Fn gemm_f32_avx512 = nullptr;          // Placeholder - implementation will be added later
-
-// AVX-512 + VNNI implementations
-DistanceL2Fn distance_l2_avx512_vnni = nullptr; // Placeholder - implementation will be added later
-DistanceIPFn distance_ip_avx512_vnni = nullptr; // Placeholder - implementation will be added later
-GemmF32Fn gemm_f32_avx512_vnni = nullptr;     // Placeholder - implementation will be added later
-
-// AMX implementations
-DistanceL2Fn distance_l2_amx = nullptr;       // Placeholder - implementation will be added later
-DistanceIPFn distance_ip_amx = nullptr;       // Placeholder - implementation will be added later
-GemmF32Fn gemm_f32_amx = nullptr;             // Placeholder - implementation will be added later
-
-// Baseline SIMD implementations
-DotProductDFn dot_product_d_baseline = nullptr;      // Placeholder - implementation will be added later
-DotProductFFn dot_product_f_baseline = nullptr;      // Placeholder - implementation will be added later
-ScaleInplaceDFn scale_inplace_d_baseline = nullptr;  // Placeholder - implementation will be added later
-SubtractScaledDFn subtract_scaled_d_baseline = nullptr; // Placeholder - implementation will be added later
-NormDFn norm_d_baseline = nullptr;                   // Placeholder - implementation will be added later
-
-// SSE4.2 SIMD implementations
-DotProductDFn dot_product_d_sse42 = nullptr;         // Placeholder - implementation will be added later
-DotProductFFn dot_product_f_sse42 = nullptr;         // Placeholder - implementation will be added later
-ScaleInplaceDFn scale_inplace_d_sse42 = nullptr;     // Placeholder - implementation will be added later
-SubtractScaledDFn subtract_scaled_d_sse42 = nullptr; // Placeholder - implementation will be added later
-NormDFn norm_d_sse42 = nullptr;                      // Placeholder - implementation will be added later
-
-// AVX2 SIMD implementations
-DotProductDFn dot_product_d_avx2 = nullptr;          // Placeholder - implementation will be added later
-DotProductFFn dot_product_f_avx2 = nullptr;          // Placeholder - implementation will be added later
-ScaleInplaceDFn scale_inplace_d_avx2 = nullptr;      // Placeholder - implementation will be added later
-SubtractScaledDFn subtract_scaled_d_avx2 = nullptr;  // Placeholder - implementation will be added later
-NormDFn norm_d_avx2 = nullptr;                       // Placeholder - implementation will be added later
-
-// AVX2 + VNNI SIMD implementations
-DotProductDFn dot_product_d_avx2_vnni = nullptr;     // Placeholder - implementation will be added later
-DotProductFFn dot_product_f_avx2_vnni = nullptr;     // Placeholder - implementation will be added later
-ScaleInplaceDFn scale_inplace_d_avx2_vnni = nullptr; // Placeholder - implementation will be added later
-SubtractScaledDFn subtract_scaled_d_avx2_vnni = nullptr; // Placeholder - implementation will be added later
-NormDFn norm_d_avx2_vnni = nullptr;                  // Placeholder - implementation will be added later
-
-// AVX-512 SIMD implementations
-DotProductDFn dot_product_d_avx512 = nullptr;        // Placeholder - implementation will be added later
-DotProductFFn dot_product_f_avx512 = nullptr;        // Placeholder - implementation will be added later
-ScaleInplaceDFn scale_inplace_d_avx512 = nullptr;    // Placeholder - implementation will be added later
-SubtractScaledDFn subtract_scaled_d_avx512 = nullptr; // Placeholder - implementation will be added later
-NormDFn norm_d_avx512 = nullptr;                     // Placeholder - implementation will be added later
-
-// AVX-512 + VNNI SIMD implementations
-DotProductDFn dot_product_d_avx512_vnni = nullptr;   // Placeholder - implementation will be added later
-DotProductFFn dot_product_f_avx512_vnni = nullptr;   // Placeholder - implementation will be added later
-ScaleInplaceDFn scale_inplace_d_avx512_vnni = nullptr; // Placeholder - implementation will be added later
-SubtractScaledDFn subtract_scaled_d_avx512_vnni = nullptr; // Placeholder - implementation will be added later
-NormDFn norm_d_avx512_vnni = nullptr;               // Placeholder - implementation will be added later
-
-// AMX SIMD implementations
-DotProductDFn dot_product_d_amx = nullptr;          // Placeholder - implementation will be added later
-DotProductFFn dot_product_f_amx = nullptr;          // Placeholder - implementation will be added later
-ScaleInplaceDFn scale_inplace_d_amx = nullptr;      // Placeholder - implementation will be added later
-SubtractScaledDFn subtract_scaled_d_amx = nullptr;  // Placeholder - implementation will be added later
-NormDFn norm_d_amx = nullptr;                       // Placeholder - implementation will be added later
 
 // =============================================================================
 // Static Variables for Lazy Initialization
@@ -109,6 +22,9 @@ static IsaClass active_isa = IsaClass::BASELINE;
 /**
  * Initialize dispatch based on detected ISA capabilities
  * Uses std::call_once for thread-safe initialization
+ *
+ * Note: We directly reference the namespace functions instead of using
+ * global function pointers to avoid static initialization order issues.
  */
 static void init_dispatch() {
     auto features = cpu_features::detect_cpu_features();
@@ -119,81 +35,74 @@ static void init_dispatch() {
 
     switch (active_isa) {
         case IsaClass::AMX:
-            active_kernels->distance_l2 = distance_l2_amx;
-            active_kernels->distance_ip = distance_ip_amx;
-            active_kernels->gemm_f32 = gemm_f32_amx;
-            active_kernels->dot_product_d = dot_product_d_amx;
-            active_kernels->dot_product_f = dot_product_f_amx;
-            active_kernels->scale_inplace_d = scale_inplace_d_amx;
-            active_kernels->subtract_scaled_d = subtract_scaled_d_amx;
-            active_kernels->norm_d = norm_d_amx;
-            break;
+            // AMX not yet implemented - fall through to AVX512_VNNI
+            [[fallthrough]];
 
         case IsaClass::AVX512_VNNI:
-            active_kernels->distance_l2 = distance_l2_avx512_vnni;
-            active_kernels->distance_ip = distance_ip_avx512_vnni;
-            active_kernels->gemm_f32 = gemm_f32_avx512_vnni;
-            active_kernels->dot_product_d = dot_product_d_avx512_vnni;
-            active_kernels->dot_product_f = dot_product_f_avx512_vnni;
-            active_kernels->scale_inplace_d = scale_inplace_d_avx512_vnni;
-            active_kernels->subtract_scaled_d = subtract_scaled_d_avx512_vnni;
-            active_kernels->norm_d = norm_d_avx512_vnni;
+            active_kernels->distance_l2 = avx512_vnni::distance_l2;
+            active_kernels->distance_ip = avx512_vnni::distance_ip;
+            active_kernels->gemm_f32 = avx512_vnni::gemm_f32;
+            active_kernels->dot_product_d = avx512_vnni::dot_product_d;
+            active_kernels->dot_product_f = avx512_vnni::dot_product;
+            active_kernels->scale_inplace_d = avx512_vnni::scale_inplace;
+            active_kernels->subtract_scaled_d = avx512_vnni::subtract_scaled;
+            active_kernels->norm_d = avx512_vnni::norm;
             break;
 
         case IsaClass::AVX512:
-            active_kernels->distance_l2 = distance_l2_avx512;
-            active_kernels->distance_ip = distance_ip_avx512;
-            active_kernels->gemm_f32 = gemm_f32_avx512;
-            active_kernels->dot_product_d = dot_product_d_avx512;
-            active_kernels->dot_product_f = dot_product_f_avx512;
-            active_kernels->scale_inplace_d = scale_inplace_d_avx512;
-            active_kernels->subtract_scaled_d = subtract_scaled_d_avx512;
-            active_kernels->norm_d = norm_d_avx512;
+            active_kernels->distance_l2 = avx512::distance_l2;
+            active_kernels->distance_ip = avx512::distance_ip;
+            active_kernels->gemm_f32 = avx512::gemm_f32;
+            active_kernels->dot_product_d = avx512::dot_product_d;
+            active_kernels->dot_product_f = avx512::dot_product;
+            active_kernels->scale_inplace_d = avx512::scale_inplace;
+            active_kernels->subtract_scaled_d = avx512::subtract_scaled;
+            active_kernels->norm_d = avx512::norm;
             break;
 
         case IsaClass::AVX2_VNNI:
-            active_kernels->distance_l2 = distance_l2_avx2_vnni;
-            active_kernels->distance_ip = distance_ip_avx2_vnni;
-            active_kernels->gemm_f32 = gemm_f32_avx2_vnni;
-            active_kernels->dot_product_d = dot_product_d_avx2_vnni;
-            active_kernels->dot_product_f = dot_product_f_avx2_vnni;
-            active_kernels->scale_inplace_d = scale_inplace_d_avx2_vnni;
-            active_kernels->subtract_scaled_d = subtract_scaled_d_avx2_vnni;
-            active_kernels->norm_d = norm_d_avx2_vnni;
+            active_kernels->distance_l2 = avx2_vnni::distance_l2;
+            active_kernels->distance_ip = avx2_vnni::distance_ip;
+            active_kernels->gemm_f32 = avx2_vnni::gemm_f32;
+            active_kernels->dot_product_d = avx2_vnni::dot_product_d;
+            active_kernels->dot_product_f = avx2_vnni::dot_product;
+            active_kernels->scale_inplace_d = avx2_vnni::scale_inplace;
+            active_kernels->subtract_scaled_d = avx2_vnni::subtract_scaled;
+            active_kernels->norm_d = avx2_vnni::norm;
             break;
 
         case IsaClass::AVX2:
-            active_kernels->distance_l2 = distance_l2_avx2;
-            active_kernels->distance_ip = distance_ip_avx2;
-            active_kernels->gemm_f32 = gemm_f32_avx2;
-            active_kernels->dot_product_d = dot_product_d_avx2;
-            active_kernels->dot_product_f = dot_product_f_avx2;
-            active_kernels->scale_inplace_d = scale_inplace_d_avx2;
-            active_kernels->subtract_scaled_d = subtract_scaled_d_avx2;
-            active_kernels->norm_d = norm_d_avx2;
+            active_kernels->distance_l2 = avx2::distance_l2;
+            active_kernels->distance_ip = avx2::distance_ip;
+            active_kernels->gemm_f32 = avx2::gemm_f32;
+            active_kernels->dot_product_d = avx2::dot_product_d;
+            active_kernels->dot_product_f = avx2::dot_product;
+            active_kernels->scale_inplace_d = avx2::scale_inplace;
+            active_kernels->subtract_scaled_d = avx2::subtract_scaled;
+            active_kernels->norm_d = avx2::norm;
             break;
 
         case IsaClass::SSE42:
-            active_kernels->distance_l2 = distance_l2_sse42;
-            active_kernels->distance_ip = distance_ip_sse42;
-            active_kernels->gemm_f32 = gemm_f32_sse42;
-            active_kernels->dot_product_d = dot_product_d_sse42;
-            active_kernels->dot_product_f = dot_product_f_sse42;
-            active_kernels->scale_inplace_d = scale_inplace_d_sse42;
-            active_kernels->subtract_scaled_d = subtract_scaled_d_sse42;
-            active_kernels->norm_d = norm_d_sse42;
+            active_kernels->distance_l2 = sse42::distance_l2;
+            active_kernels->distance_ip = sse42::distance_ip;
+            active_kernels->gemm_f32 = sse42::gemm_f32;
+            active_kernels->dot_product_d = sse42::dot_product_d;
+            active_kernels->dot_product_f = sse42::dot_product;
+            active_kernels->scale_inplace_d = sse42::scale_inplace;
+            active_kernels->subtract_scaled_d = sse42::subtract_scaled;
+            active_kernels->norm_d = sse42::norm;
             break;
 
         case IsaClass::BASELINE:
         default:
-            active_kernels->distance_l2 = distance_l2_baseline;
-            active_kernels->distance_ip = distance_ip_baseline;
-            active_kernels->gemm_f32 = gemm_f32_baseline;
-            active_kernels->dot_product_d = dot_product_d_baseline;
-            active_kernels->dot_product_f = dot_product_f_baseline;
-            active_kernels->scale_inplace_d = scale_inplace_d_baseline;
-            active_kernels->subtract_scaled_d = subtract_scaled_d_baseline;
-            active_kernels->norm_d = norm_d_baseline;
+            active_kernels->distance_l2 = baseline::distance_l2;
+            active_kernels->distance_ip = baseline::distance_ip;
+            active_kernels->gemm_f32 = baseline::gemm_f32;
+            active_kernels->dot_product_d = baseline::dot_product_d;
+            active_kernels->dot_product_f = baseline::dot_product;
+            active_kernels->scale_inplace_d = baseline::scale_inplace;
+            active_kernels->subtract_scaled_d = baseline::subtract_scaled;
+            active_kernels->norm_d = baseline::norm;
             break;
     }
 }

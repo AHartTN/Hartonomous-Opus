@@ -6,17 +6,7 @@
 
 namespace hypercube {
 
-// Define global function pointers for dispatch system
-DistanceL2Fn distance_l2_sse42 = nullptr;
-DistanceIPFn distance_ip_sse42 = nullptr;
-GemmF32Fn gemm_f32_sse42 = nullptr;
-DotProductDFn dot_product_d_sse42 = nullptr;
-DotProductFFn dot_product_f_sse42 = nullptr;
-ScaleInplaceDFn scale_inplace_d_sse42 = nullptr;
-SubtractScaledDFn subtract_scaled_d_sse42 = nullptr;
-NormDFn norm_d_sse42 = nullptr;
-
-namespace {
+namespace sse42 {
 
 // Horizontal sum helper for __m128 (float)
 inline float hsum_sse_ps(__m128 v) noexcept {
@@ -32,10 +22,6 @@ inline double hsum_sse_pd(__m128d v) noexcept {
     __m128d sum = _mm_add_pd(v, _mm_shuffle_pd(v, v, 1));
     return _mm_cvtsd_f64(sum);
 }
-
-} // anonymous namespace
-
-namespace simd {
 
 float dot_product(const float* a, const float* b, size_t n) {
     __m128 sum_vec = _mm_setzero_ps();
@@ -169,37 +155,5 @@ void normalize(double* v, size_t n) {
     }
 }
 
-} // namespace simd
-
-// Initialize dispatch function pointers
-struct Sse42Init {
-    Sse42Init() {
-        distance_l2_sse42 = [](const float* a, const float* b, size_t n) -> double {
-            return simd::distance_l2(a, b, n);
-        };
-        distance_ip_sse42 = [](const float* a, const float* b, size_t n) -> double {
-            return simd::distance_ip(a, b, n);
-        };
-        gemm_f32_sse42 = [](float alpha, const float* A, size_t m, size_t k,
-                           const float* B, size_t n, float beta, float* C) -> void {
-            simd::gemm_f32(alpha, A, m, k, B, n, beta, C);
-        };
-        dot_product_d_sse42 = [](const double* a, const double* b, size_t n) -> double {
-            return simd::dot_product_d(a, b, n);
-        };
-        dot_product_f_sse42 = [](const float* a, const float* b, size_t n) -> float {
-            return simd::dot_product(a, b, n);
-        };
-        scale_inplace_d_sse42 = [](double* v, double s, size_t n) -> void {
-            simd::scale_inplace(v, s, n);
-        };
-        subtract_scaled_d_sse42 = [](double* a, const double* b, double s, size_t n) -> void {
-            simd::subtract_scaled(a, b, s, n);
-        };
-        norm_d_sse42 = [](const double* v, size_t n) -> double {
-            return simd::norm(v, n);
-        };
-    }
-} sse42_init;
-
+} // namespace sse42
 } // namespace hypercube

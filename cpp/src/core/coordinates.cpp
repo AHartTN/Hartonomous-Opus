@@ -127,7 +127,7 @@ namespace hypercube
 
         // Quantize to uint32 lanes (map [-1,1] -> [0, UINT32_MAX])
         Point4D coords;
-#if HAS_AVX
+#if defined(__AVX__)
         CoordinateUtilities::avx_quantize_point4f_to_point4d(float_coords, coords);
 #else
         coords.x = CoordinateUtilities::quantize_unit_to_u32(float_coords.x);
@@ -183,7 +183,7 @@ namespace hypercube
                     jittered = jittered.normalized(); // Keep on sphere
 
                     Point4D new_coords;
-#if HAS_AVX
+#if defined(__AVX__)
             CoordinateUtilities::avx_quantize_point4f_to_point4d(jittered, new_coords);
 #else
             new_coords.x = CoordinateUtilities::quantize_unit_to_u32(jittered.x);
@@ -306,7 +306,7 @@ namespace hypercube
         // Use SIMD-friendly accumulation for better performance
         double sum_x = 0, sum_y = 0, sum_z = 0, sum_m = 0;
 
-#if HAS_AVX
+#if defined(__AVX__)
         // AVX-optimized accumulation for large arrays
         if (n >= 8)
         {                                          // Only worthwhile for larger arrays
@@ -344,7 +344,7 @@ namespace hypercube
                 sum_z += p.z;
                 sum_m += p.m;
             }
-#if HAS_AVX
+#if defined(__AVX__)
         }
 #endif
 
@@ -611,7 +611,7 @@ namespace hypercube
     }
 
 // AVX-optimized Euclidean distance for 4D points
-#if HAS_AVX
+#if defined(__AVX__)
     inline double avx_distance(const Point4F &a, const Point4F &b) noexcept
     {
         // Load points into AVX registers
