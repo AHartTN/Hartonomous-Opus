@@ -6,120 +6,116 @@
 
 namespace hypercube::db {
 
-std::unordered_set<std::string> check_existing_compositions(
-    PGconn* conn,
-    const std::vector<ingest::CompositionRecord>& comps) {
+// ============================================================================
+// ARCHITECTURE: C++ computes everything, SQL just stores
+// - Labels computed in C++ during PMI contraction
+// - No round-trips: use ON CONFLICT DO NOTHING for deduplication
+// - All data written in single batch COPY
+// ============================================================================
 
-    std::unordered_set<std::string> existing;
-    if (comps.empty()) return existing;
-
-    // Build array of hashes to check (batch query)
-    // Look in COMPOSITION table, not atom
-    std::ostringstream query;
-    query << "SELECT encode(id, 'hex') FROM composition WHERE id IN (";
-
-    for (size_t i = 0; i < comps.size(); ++i) {
-        if (i > 0) query << ",";
-        query << "'\\x" << comps[i].hash.to_hex() << "'::bytea";
-    }
-    query << ")";
-
-    PGresult* res = PQexec(conn, query.str().c_str());
-    if (PQresultStatus(res) == PGRES_TUPLES_OK) {
-        int nrows = PQntuples(res);
-        for (int i = 0; i < nrows; ++i) {
-            existing.insert(PQgetvalue(res, i, 0));
+// Helper to escape string for PostgreSQL COPY TEXT format
+static std::string escape_copy_string(const std::string& s) {
+    std::string result;
+    result.reserve(s.size() + 10);
+    for (char c : s) {
+        switch (c) {
+            case '\\': result += "\\\\"; break;
+            case '\t': result += "\\t"; break;
+            case '\n': result += "\\n"; break;
+            case '\r': result += "\\r"; break;
+            default: result += c; break;
         }
     }
-    PQclear(res);
-
-    return existing;
-}
-
-std::vector<ingest::CompositionRecord> filter_new_compositions(
-    PGconn* conn,
-    const std::vector<ingest::CompositionRecord>& comps) {
-
-    if (comps.empty()) return {};
-
-    auto existing = check_existing_compositions(conn, comps);
-
-    std::vector<ingest::CompositionRecord> new_comps;
-    new_comps.reserve(comps.size() - existing.size());
-
-    for (const auto& c : comps) {
-        if (existing.find(c.hash.to_hex()) == existing.end()) {
-            new_comps.push_back(c);
-        }
-    }
-
-    return new_comps;
+    return result;
 }
 
 size_t insert_new_compositions(PGconn* conn, const std::vector<ingest::CompositionRecord>& comps) {
+    // No round-trip! Just insert directly - DB handles dedup via ON CONFLICT
     if (comps.empty()) return 0;
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    // Filter to only new compositions
-    auto new_comps = filter_new_compositions(conn, comps);
-
-    auto filter_end = std::chrono::high_resolution_clock::now();
-    auto filter_ms = std::chrono::duration_cast<std::chrono::milliseconds>(filter_end - start).count();
-
-    size_t skipped = comps.size() - new_comps.size();
-    if (skipped > 0) {
-        std::cerr << "[DEDUP] Skipped " << skipped << " existing compositions ("
-                  << filter_ms << " ms to check)\n";
-    }
-
-    if (new_comps.empty()) return 0;
-
-    // Insert only new compositions
-    if (insert_compositions(conn, new_comps)) {
-        return new_comps.size();
-    }
-    return 0;
+    return insert_compositions(conn, comps) ? comps.size() : 0;
 }
 
 bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionRecord>& comps) {
     if (comps.empty()) return true;
-    
+
     auto start = std::chrono::high_resolution_clock::now();
-    
+
     PGresult* res = PQexec(conn, "BEGIN");
     PQclear(res);
-    
+
     // =========================================================================
-    // NEW 4-TABLE SCHEMA: Insert into composition + composition_child tables
-    // NOW WITH GEOMETRY: geom, centroid, hilbert_lo, hilbert_hi
+    // Create temp table, COPY into it, then INSERT with ON CONFLICT DO NOTHING
+    // This avoids round-trips while handling duplicates efficiently
     // =========================================================================
-    
-    // Step 1: COPY compositions into composition table WITH GEOMETRY
-    res = PQexec(conn, "COPY composition (id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi) FROM STDIN WITH (FORMAT text)");
-    if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "COPY composition failed: " << PQerrorMessage(conn) << std::endl;
+
+    // Create temp table for compositions
+    res = PQexec(conn, R"(
+        CREATE TEMP TABLE temp_composition (
+            id bytea PRIMARY KEY,
+            label text,
+            depth integer,
+            child_count integer,
+            atom_count bigint,
+            geom geometry(LINESTRINGZM, 0),
+            centroid geometry(POINTZM, 0),
+            hilbert_lo bigint,
+            hilbert_hi bigint
+        ) ON COMMIT DROP
+    )");
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "CREATE TEMP TABLE composition failed: " << PQerrorMessage(conn) << std::endl;
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
     PQclear(res);
-    
-    // Send composition rows
+
+    // Create temp table for children
+    res = PQexec(conn, R"(
+        CREATE TEMP TABLE temp_composition_child (
+            composition_id bytea,
+            ordinal integer,
+            child_type char(1),
+            child_id bytea
+        ) ON COMMIT DROP
+    )");
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::cerr << "CREATE TEMP TABLE child failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    PQclear(res);
+
+    // Step 1: COPY compositions into temp table (labels computed in C++)
+    res = PQexec(conn, "COPY temp_composition (id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi) FROM STDIN WITH (FORMAT text)");
+    if (PQresultStatus(res) != PGRES_COPY_IN) {
+        std::cerr << "COPY temp_composition failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    PQclear(res);
+
+    // Send composition rows with labels computed in C++
     for (const auto& c : comps) {
         std::ostringstream line;
-        
+
         // id (bytea hex format)
         line << "\\\\x" << c.hash.to_hex() << "\t";
-        
-        // label (NULL for auto-discovered patterns)
-        line << "\\N\t";
-        
+
+        // label (computed in C++, not SQL!)
+        if (c.label.empty()) {
+            line << "\\N\t";
+        } else {
+            line << escape_copy_string(c.label) << "\t";
+        }
+
         // depth, child_count, atom_count
         line << c.depth << "\t"
              << c.children.size() << "\t"
              << c.atom_count << "\t";
-        
+
         // geom (LINESTRINGZM from child coordinates)
         if (c.children.size() >= 2) {
             std::vector<std::array<int32_t, 4>> points;
@@ -131,13 +127,13 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
         } else {
             line << "\\N\t";
         }
-        
+
         // centroid (POINTZM)
         line << build_pointzm_ewkb(c.coord_x, c.coord_y, c.coord_z, c.coord_m) << "\t";
-        
+
         // hilbert_lo, hilbert_hi
         line << c.hilbert_lo << "\t" << c.hilbert_hi << "\n";
-        
+
         std::string data = line.str();
         if (PQputCopyData(conn, data.c_str(), static_cast<int>(data.size())) != 1) {
             std::cerr << "PQputCopyData composition failed\n";
@@ -146,57 +142,44 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
             return false;
         }
     }
-    
+
     if (PQputCopyEnd(conn, nullptr) != 1) {
         std::cerr << "PQputCopyEnd composition failed\n";
         PQexec(conn, "ROLLBACK");
         return false;
     }
-    
+
     res = PQgetResult(conn);
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "COPY composition result: " << PQerrorMessage(conn) << std::endl;
+        std::cerr << "COPY temp_composition result: " << PQerrorMessage(conn) << std::endl;
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
     PQclear(res);
-    
-    size_t comp_inserted = comps.size();
-    
-    // Step 2: COPY children into composition_child table
-    res = PQexec(conn, "COPY composition_child (composition_id, ordinal, child_type, child_id) FROM STDIN WITH (FORMAT text)");
+
+    // Step 2: COPY children into temp table
+    res = PQexec(conn, "COPY temp_composition_child (composition_id, ordinal, child_type, child_id) FROM STDIN WITH (FORMAT text)");
     if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "COPY composition_child failed: " << PQerrorMessage(conn) << std::endl;
+        std::cerr << "COPY temp_composition_child failed: " << PQerrorMessage(conn) << std::endl;
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
     PQclear(res);
-    
+
     // Send child rows
     size_t child_count = 0;
     for (const auto& c : comps) {
         for (size_t i = 0; i < c.children.size(); ++i) {
-            // Use ChildInfo::is_atom to correctly determine child type
-            // This is set during composition creation based on actual child depths
-            // NOT inferred from parent depth (which was the bug!)
             char child_type = c.children[i].is_atom ? 'A' : 'C';
-            
+
             std::ostringstream line;
-            
-            // composition_id
-            line << "\\\\x" << c.hash.to_hex() << "\t";
-            
-            // ordinal (0-based)
-            line << i << "\t";
-            
-            // child_type
-            line << child_type << "\t";
-            
-            // child_id
-            line << "\\\\x" << c.children[i].hash.to_hex() << "\n";
-            
+            line << "\\\\x" << c.hash.to_hex() << "\t"
+                 << i << "\t"
+                 << child_type << "\t"
+                 << "\\\\x" << c.children[i].hash.to_hex() << "\n";
+
             std::string data = line.str();
             if (PQputCopyData(conn, data.c_str(), static_cast<int>(data.size())) != 1) {
                 std::cerr << "PQputCopyData child failed\n";
@@ -207,51 +190,73 @@ bool insert_compositions(PGconn* conn, const std::vector<ingest::CompositionReco
             child_count++;
         }
     }
-    
+
     if (PQputCopyEnd(conn, nullptr) != 1) {
         std::cerr << "PQputCopyEnd child failed\n";
         PQexec(conn, "ROLLBACK");
         return false;
     }
-    
+
     res = PQgetResult(conn);
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        std::cerr << "COPY composition_child result: " << PQerrorMessage(conn) << std::endl;
+        std::cerr << "COPY temp_composition_child result: " << PQerrorMessage(conn) << std::endl;
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return false;
     }
     PQclear(res);
-    
-    res = PQexec(conn, "COMMIT");
-    PQclear(res);
-    
-    // Step 3: Update labels from atom children for compositions without labels
-    // This reconstructs text like "whale" from its character atoms [w,h,a,l,e]
+
+    // Step 3: INSERT from temp tables with ON CONFLICT DO NOTHING (dedup at DB level)
     res = PQexec(conn, R"(
-        UPDATE composition c
-        SET label = (
-            SELECT string_agg(chr(a.codepoint), '' ORDER BY cc.ordinal)
-            FROM composition_child cc
-            JOIN atom a ON a.id = cc.child_id
-            WHERE cc.composition_id = c.id
-        )
-        WHERE c.label IS NULL
-        AND c.depth = 1
-        AND EXISTS (SELECT 1 FROM composition_child WHERE composition_id = c.id)
+        INSERT INTO composition (id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi)
+        SELECT id, label, depth, child_count, atom_count, geom, centroid, hilbert_lo, hilbert_hi
+        FROM temp_composition
+        ON CONFLICT (id) DO NOTHING
     )");
-    
-    int labels_updated = 0;
+    int comps_inserted = 0;
     if (PQresultStatus(res) == PGRES_COMMAND_OK) {
-        labels_updated = atoi(PQcmdTuples(res));
+        comps_inserted = atoi(PQcmdTuples(res));
+    } else {
+        std::cerr << "INSERT composition failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return false;
     }
     PQclear(res);
-    
+
+    // Insert children only for newly inserted compositions
+    res = PQexec(conn, R"(
+        INSERT INTO composition_child (composition_id, ordinal, child_type, child_id)
+        SELECT tc.composition_id, tc.ordinal, tc.child_type, tc.child_id
+        FROM temp_composition_child tc
+        WHERE EXISTS (SELECT 1 FROM composition c WHERE c.id = tc.composition_id)
+        ON CONFLICT DO NOTHING
+    )");
+    int children_inserted = 0;
+    if (PQresultStatus(res) == PGRES_COMMAND_OK) {
+        children_inserted = atoi(PQcmdTuples(res));
+    } else {
+        std::cerr << "INSERT children failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return false;
+    }
+    PQclear(res);
+
+    res = PQexec(conn, "COMMIT");
+    PQclear(res);
+
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cerr << "[DB] Inserted " << comp_inserted << " compositions with " 
-              << child_count << " children, " << labels_updated << " labels set (" << ms << " ms)\n";
-    
+
+    size_t skipped = comps.size() - comps_inserted;
+    std::cerr << "[DB] Inserted " << comps_inserted << " compositions, "
+              << children_inserted << " children";
+    if (skipped > 0) {
+        std::cerr << " (skipped " << skipped << " existing)";
+    }
+    std::cerr << " (" << ms << " ms)\n";
+
     return true;
 }
 

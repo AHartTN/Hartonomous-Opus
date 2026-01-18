@@ -18,6 +18,15 @@ project(
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # ============================================================================
+# FetchContent caching - persist downloads across builds
+# ============================================================================
+
+# Store FetchContent downloads in a persistent directory outside the build tree.
+# This prevents re-downloading dependencies on every clean build.
+set(FETCHCONTENT_BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../external/_deps" CACHE PATH "FetchContent cache directory")
+message(STATUS "FetchContent cache: ${FETCHCONTENT_BASE_DIR}")
+
+# ============================================================================
 # Global options
 # ============================================================================
 

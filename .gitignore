@@ -859,5 +859,8 @@ build_test/
 external/**/*.o
 *.o
 
+# FetchContent cache (persistent across builds)
+external/_deps/
+
 # Root object files (from misplaced builds)
 simd_kernels_*.o

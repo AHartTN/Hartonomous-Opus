@@ -111,6 +111,16 @@ else()
     target_compile_definitions(hypercube_core PUBLIC HAS_MKL=0)
 endif()
 
+# BLAKE3 (with SIMD optimizations)
+if(HAS_BLAKE3)
+    if(TARGET BLAKE3::blake3)
+        target_link_libraries(hypercube_core PRIVATE BLAKE3::blake3)
+    elseif(TARGET blake3)
+        target_link_libraries(hypercube_core PRIVATE blake3)
+    endif()
+    target_compile_definitions(hypercube_core PRIVATE USE_OFFICIAL_BLAKE3=1)
+endif()
+
 # SIMD macros
 target_compile_definitions(hypercube_core PUBLIC
     HAS_AVX=$<BOOL:${HAS_AVX}>

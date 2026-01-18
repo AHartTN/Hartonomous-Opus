@@ -73,6 +73,8 @@ struct ChildInfo {
     Blake3Hash hash;
     int32_t x, y, z, m;
     bool is_atom = true;  // true if child is an atom (depth=0), false if composition (depth>0)
+    uint32_t codepoint = 0;  // Original codepoint (only valid when is_atom=true)
+    std::string label;       // For compositions: concatenated child labels
 };
 
 // N-ary composition record - NOT limited to binary pairs
@@ -85,7 +87,8 @@ struct CompositionRecord {
     uint32_t depth;                               // Depth tier (1 = direct child of leaves)
     uint64_t atom_count;                          // Total leaves in subtree
     NodeRole node_role = NodeRole::Generic;       // Semantic role in DAG
-    
+    std::string label;                            // Reconstructed text (computed in C++, not SQL)
+
     std::vector<ChildInfo> children;              // N children, ordered (NOT just 2)
 };
 

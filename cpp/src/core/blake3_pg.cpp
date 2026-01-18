@@ -1,12 +1,163 @@
 #include "hypercube/blake3.hpp"
 
-// BLAKE3 reference implementation (portable C)
-// In production, link against the official BLAKE3 library with SIMD optimizations
-// This is a minimal implementation for bootstrapping
+#ifdef USE_OFFICIAL_BLAKE3
+// Use official BLAKE3 library with SIMD optimizations (AVX2/AVX-512/NEON)
+#include <blake3.h>
+
+namespace hypercube {
+
+Blake3Hash Blake3Hasher::hash(std::span<const uint8_t> data) noexcept {
+    blake3_hasher hasher;
+    blake3_hasher_init(&hasher);
+    blake3_hasher_update(&hasher, data.data(), data.size());
+
+    Blake3Hash result;
+    blake3_hasher_finalize(&hasher, result.bytes.data(), BLAKE3_OUT_LEN);
+    return result;
+}
+
+Blake3Hash Blake3Hasher::hash(std::string_view str) noexcept {
+    return hash(std::span<const uint8_t>(
+        reinterpret_cast<const uint8_t*>(str.data()), str.size()));
+}
+
+std::vector<uint8_t> Blake3Hasher::encode_utf8(uint32_t codepoint) noexcept {
+    std::vector<uint8_t> result;
+
+    if (codepoint <= 0x7F) {
+        result.push_back(static_cast<uint8_t>(codepoint));
+    } else if (codepoint <= 0x7FF) {
+        result.push_back(static_cast<uint8_t>(0xC0 | (codepoint >> 6)));
+        result.push_back(static_cast<uint8_t>(0x80 | (codepoint & 0x3F)));
+    } else if (codepoint <= 0xFFFF) {
+        result.push_back(static_cast<uint8_t>(0xE0 | (codepoint >> 12)));
+        result.push_back(static_cast<uint8_t>(0x80 | ((codepoint >> 6) & 0x3F)));
+        result.push_back(static_cast<uint8_t>(0x80 | (codepoint & 0x3F)));
+    } else if (codepoint <= 0x10FFFF) {
+        result.push_back(static_cast<uint8_t>(0xF0 | (codepoint >> 18)));
+        result.push_back(static_cast<uint8_t>(0x80 | ((codepoint >> 12) & 0x3F)));
+        result.push_back(static_cast<uint8_t>(0x80 | ((codepoint >> 6) & 0x3F)));
+        result.push_back(static_cast<uint8_t>(0x80 | (codepoint & 0x3F)));
+    }
+
+    return result;
+}
+
+Blake3Hash Blake3Hasher::hash_codepoint(uint32_t codepoint) noexcept {
+    auto utf8 = encode_utf8(codepoint);
+    return hash(utf8);
+}
+
+Blake3Hash Blake3Hasher::hash_children(std::span<const Blake3Hash> children) noexcept {
+    if (children.empty()) {
+        return hash(std::vector<uint8_t>{});
+    }
+
+    blake3_hasher hasher;
+    blake3_hasher_init(&hasher);
+
+    for (const auto& child : children) {
+        blake3_hasher_update(&hasher, child.bytes.data(), child.bytes.size());
+    }
+
+    Blake3Hash result;
+    blake3_hasher_finalize(&hasher, result.bytes.data(), BLAKE3_OUT_LEN);
+    return result;
+}
+
+Blake3Hash Blake3Hasher::hash_children_ordered(std::span<const Blake3Hash> children) noexcept {
+    blake3_hasher hasher;
+    blake3_hasher_init(&hasher);
+
+    uint32_t ordinal = 0;
+    for (const auto& child : children) {
+        // Add ordinal as 4 bytes little-endian
+        uint8_t ord_bytes[4];
+        ord_bytes[0] = static_cast<uint8_t>(ordinal);
+        ord_bytes[1] = static_cast<uint8_t>(ordinal >> 8);
+        ord_bytes[2] = static_cast<uint8_t>(ordinal >> 16);
+        ord_bytes[3] = static_cast<uint8_t>(ordinal >> 24);
+        blake3_hasher_update(&hasher, ord_bytes, 4);
+        blake3_hasher_update(&hasher, child.bytes.data(), child.bytes.size());
+        ++ordinal;
+    }
+
+    Blake3Hash result;
+    blake3_hasher_finalize(&hasher, result.bytes.data(), BLAKE3_OUT_LEN);
+    return result;
+}
+
+// Incremental hasher using official library
+struct Blake3Hasher::Incremental::Impl {
+    blake3_hasher hasher;
+};
+
+Blake3Hasher::Incremental::Incremental() noexcept
+    : impl_(std::make_unique<Impl>()) {
+    blake3_hasher_init(&impl_->hasher);
+}
+
+Blake3Hasher::Incremental::~Incremental() = default;
+
+Blake3Hasher::Incremental::Incremental(Incremental&&) noexcept = default;
+Blake3Hasher::Incremental& Blake3Hasher::Incremental::operator=(Incremental&&) noexcept = default;
+
+void Blake3Hasher::Incremental::update(std::span<const uint8_t> data) noexcept {
+    blake3_hasher_update(&impl_->hasher, data.data(), data.size());
+}
+
+void Blake3Hasher::Incremental::update(std::string_view str) noexcept {
+    blake3_hasher_update(&impl_->hasher, str.data(), str.size());
+}
+
+Blake3Hash Blake3Hasher::Incremental::finalize() noexcept {
+    Blake3Hash result;
+    blake3_hasher_finalize(&impl_->hasher, result.bytes.data(), BLAKE3_OUT_LEN);
+    return result;
+}
+
+void Blake3Hasher::Incremental::reset() noexcept {
+    blake3_hasher_init(&impl_->hasher);
+}
+
+Blake3Hash Blake3Hasher::keyed_hash(std::span<const uint8_t> key,
+                                     std::span<const uint8_t> data) noexcept {
+    blake3_hasher hasher;
+    if (key.size() >= BLAKE3_KEY_LEN) {
+        blake3_hasher_init_keyed(&hasher, key.data());
+    } else {
+        // Pad key if too short
+        uint8_t padded_key[BLAKE3_KEY_LEN] = {0};
+        std::memcpy(padded_key, key.data(), key.size());
+        blake3_hasher_init_keyed(&hasher, padded_key);
+    }
+
+    blake3_hasher_update(&hasher, data.data(), data.size());
+
+    Blake3Hash result;
+    blake3_hasher_finalize(&hasher, result.bytes.data(), BLAKE3_OUT_LEN);
+    return result;
+}
+
+Blake3Hash Blake3Hasher::derive_key(std::string_view context,
+                                     std::span<const uint8_t> key_material) noexcept {
+    blake3_hasher hasher;
+    blake3_hasher_init_derive_key(&hasher, std::string(context).c_str());
+    blake3_hasher_update(&hasher, key_material.data(), key_material.size());
+
+    Blake3Hash result;
+    blake3_hasher_finalize(&hasher, result.bytes.data(), BLAKE3_OUT_LEN);
+    return result;
+}
+
+} // namespace hypercube
+
+#else
+// Fallback: Portable scalar implementation (no SIMD)
+// Only used when official BLAKE3 library is unavailable
 
 namespace {
 
-[[maybe_unused]] constexpr uint32_t BLAKE3_KEY_LEN = 32;
 constexpr uint32_t BLAKE3_OUT_LEN = 32;
 constexpr uint32_t BLAKE3_BLOCK_LEN = 64;
 constexpr uint32_t BLAKE3_CHUNK_LEN = 1024;
@@ -118,7 +269,7 @@ struct blake3_hasher {
     uint32_t key[8];
     blake3_chunk_state chunk;
     uint8_t cv_stack_len;
-    uint8_t cv_stack[54 * 32]; // 54 levels * 32 bytes
+    uint8_t cv_stack[54 * 32];
 };
 
 void chunk_state_init(blake3_chunk_state* self, const uint32_t key[8], uint8_t flags) {
@@ -139,7 +290,7 @@ void chunk_state_reset(blake3_chunk_state* self, const uint32_t key[8], uint64_t
 }
 
 size_t chunk_state_len(const blake3_chunk_state* self) {
-    return BLAKE3_BLOCK_LEN * static_cast<size_t>(self->blocks_compressed) + 
+    return BLAKE3_BLOCK_LEN * static_cast<size_t>(self->blocks_compressed) +
            static_cast<size_t>(self->buf_len);
 }
 
@@ -158,7 +309,7 @@ void chunk_state_update(blake3_chunk_state* self, const uint8_t* input, size_t i
             self->buf_len = 0;
             std::memset(self->buf, 0, BLAKE3_BLOCK_LEN);
         }
-        
+
         size_t take = BLAKE3_BLOCK_LEN - self->buf_len;
         if (take > input_len) take = input_len;
         std::memcpy(&self->buf[self->buf_len], input, take);
@@ -171,7 +322,7 @@ void chunk_state_update(blake3_chunk_state* self, const uint8_t* input, size_t i
 void chunk_state_finalize(const blake3_chunk_state* self, bool is_root, uint32_t out[8]) {
     uint8_t flags = self->flags | chunk_state_start_flag(self) | CHUNK_END;
     if (is_root) flags |= ROOT;
-    
+
     uint32_t full_out[16];
     compress(self->cv, self->buf, self->buf_len, self->chunk_counter, flags, full_out);
     for (int i = 0; i < 8; ++i) out[i] = full_out[i];
@@ -197,7 +348,7 @@ void hasher_pop_cv(blake3_hasher* self, uint32_t cv[8]) {
     }
 }
 
-void parent_cv(const uint32_t left[8], const uint32_t right[8], 
+void parent_cv(const uint32_t left[8], const uint32_t right[8],
                const uint32_t key[8], uint8_t flags, uint32_t out[8]) {
     uint8_t block[BLAKE3_BLOCK_LEN];
     for (int i = 0; i < 8; ++i) {
@@ -230,7 +381,7 @@ void hasher_update(blake3_hasher* self, const uint8_t* input, size_t input_len) 
             hasher_add_chunk_cv(self, cv, total_chunks);
             chunk_state_reset(&self->chunk, self->key, total_chunks);
         }
-        
+
         size_t take = BLAKE3_CHUNK_LEN - chunk_state_len(&self->chunk);
         if (take > input_len) take = input_len;
         chunk_state_update(&self->chunk, input, take);
@@ -242,10 +393,10 @@ void hasher_update(blake3_hasher* self, const uint8_t* input, size_t input_len) 
 void hasher_finalize(const blake3_hasher* self, uint8_t out[BLAKE3_OUT_LEN]) {
     uint32_t cv[8];
     chunk_state_finalize(&self->chunk, self->cv_stack_len == 0, cv);
-    
+
     uint32_t parent[8];
     for (int i = 0; i < 8; ++i) parent[i] = cv[i];
-    
+
     for (int i = self->cv_stack_len - 1; i >= 0; --i) {
         uint32_t popped[8];
         for (int j = 0; j < 8; ++j) {
@@ -254,7 +405,7 @@ void hasher_finalize(const blake3_hasher* self, uint8_t out[BLAKE3_OUT_LEN]) {
         uint8_t flags = (i == 0) ? ROOT : 0;
         parent_cv(popped, parent, self->key, flags, parent);
     }
-    
+
     for (int i = 0; i < 8; ++i) {
         store32_le(&out[i * 4], parent[i]);
     }
@@ -281,7 +432,7 @@ Blake3Hash Blake3Hasher::hash(std::string_view str) noexcept {
 
 std::vector<uint8_t> Blake3Hasher::encode_utf8(uint32_t codepoint) noexcept {
     std::vector<uint8_t> result;
-    
+
     if (codepoint <= 0x7F) {
         result.push_back(static_cast<uint8_t>(codepoint));
     } else if (codepoint <= 0x7FF) {
@@ -297,7 +448,7 @@ std::vector<uint8_t> Blake3Hasher::encode_utf8(uint32_t codepoint) noexcept {
         result.push_back(static_cast<uint8_t>(0x80 | ((codepoint >> 6) & 0x3F)));
         result.push_back(static_cast<uint8_t>(0x80 | (codepoint & 0x3F)));
     }
-    
+
     return result;
 }
 
@@ -310,14 +461,14 @@ Blake3Hash Blake3Hasher::hash_children(std::span<const Blake3Hash> children) noe
     if (children.empty()) {
         return hash(std::vector<uint8_t>{});
     }
-    
+
     blake3_hasher hasher;
     hasher_init(&hasher);
-    
+
     for (const auto& child : children) {
         hasher_update(&hasher, child.bytes.data(), child.bytes.size());
     }
-    
+
     Blake3Hash result;
     hasher_finalize(&hasher, result.bytes.data());
     return result;
@@ -326,32 +477,29 @@ Blake3Hash Blake3Hasher::hash_children(std::span<const Blake3Hash> children) noe
 Blake3Hash Blake3Hasher::hash_children_ordered(std::span<const Blake3Hash> children) noexcept {
     blake3_hasher hasher;
     hasher_init(&hasher);
-    
+
     uint32_t ordinal = 0;
     for (const auto& child : children) {
-        // Add ordinal as 4 bytes little-endian
         uint8_t ord_bytes[4];
         ord_bytes[0] = static_cast<uint8_t>(ordinal);
         ord_bytes[1] = static_cast<uint8_t>(ordinal >> 8);
         ord_bytes[2] = static_cast<uint8_t>(ordinal >> 16);
         ord_bytes[3] = static_cast<uint8_t>(ordinal >> 24);
         hasher_update(&hasher, ord_bytes, 4);
-        
         hasher_update(&hasher, child.bytes.data(), child.bytes.size());
         ++ordinal;
     }
-    
+
     Blake3Hash result;
     hasher_finalize(&hasher, result.bytes.data());
     return result;
 }
 
-// Incremental hasher implementation
 struct Blake3Hasher::Incremental::Impl {
     blake3_hasher hasher;
 };
 
-Blake3Hasher::Incremental::Incremental() noexcept 
+Blake3Hasher::Incremental::Incremental() noexcept
     : impl_(std::make_unique<Impl>()) {
     hasher_init(&impl_->hasher);
 }
@@ -382,10 +530,9 @@ void Blake3Hasher::Incremental::reset() noexcept {
 
 Blake3Hash Blake3Hasher::keyed_hash(std::span<const uint8_t> key,
                                      std::span<const uint8_t> data) noexcept {
-    // Simplified keyed hash - uses key as IV
     blake3_hasher hasher;
     hasher_init(&hasher);
-    
+
     if (key.size() >= 32) {
         for (int i = 0; i < 8; ++i) {
             hasher.key[i] = load32_le(&key[i * 4]);
@@ -393,9 +540,9 @@ Blake3Hash Blake3Hasher::keyed_hash(std::span<const uint8_t> key,
         }
         hasher.chunk.flags = KEYED_HASH;
     }
-    
+
     hasher_update(&hasher, data.data(), data.size());
-    
+
     Blake3Hash result;
     hasher_finalize(&hasher, result.bytes.data());
     return result;
@@ -403,18 +550,16 @@ Blake3Hash Blake3Hasher::keyed_hash(std::span<const uint8_t> key,
 
 Blake3Hash Blake3Hasher::derive_key(std::string_view context,
                                      std::span<const uint8_t> key_material) noexcept {
-    // Derive context key
     blake3_hasher context_hasher;
     hasher_init(&context_hasher);
     context_hasher.chunk.flags = DERIVE_KEY_CONTEXT;
-    hasher_update(&context_hasher, 
-                  reinterpret_cast<const uint8_t*>(context.data()), 
+    hasher_update(&context_hasher,
+                  reinterpret_cast<const uint8_t*>(context.data()),
                   context.size());
-    
+
     uint8_t context_key[32];
     hasher_finalize(&context_hasher, context_key);
-    
-    // Derive output key
+
     blake3_hasher derive_hasher;
     hasher_init(&derive_hasher);
     for (int i = 0; i < 8; ++i) {
@@ -422,12 +567,14 @@ Blake3Hash Blake3Hasher::derive_key(std::string_view context,
         derive_hasher.chunk.cv[i] = derive_hasher.key[i];
     }
     derive_hasher.chunk.flags = DERIVE_KEY_MATERIAL;
-    
+
     hasher_update(&derive_hasher, key_material.data(), key_material.size());
-    
+
     Blake3Hash result;
     hasher_finalize(&derive_hasher, result.bytes.data());
     return result;
 }
 
 } // namespace hypercube
+
+#endif // USE_OFFICIAL_BLAKE3

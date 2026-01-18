@@ -192,6 +192,9 @@ if(MSVC)
     set(HYPERCUBE_DEBUG_FLAGS   /Od /DDEBUG /Zi)
     set(HYPERCUBE_WARNING_FLAGS /W3 /EHsc /permissive- /DNOMINMAX)
 
+    # Force consistent CRT usage to avoid mixing MT/MD
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
     # AVX2 is /arch:AVX2; AVX-512 is limited and inconsistent, so we stay at AVX2.
     if(HAS_AVX2)
         set(HYPERCUBE_AVX_FLAGS "/arch:AVX2")

@@ -30,6 +30,10 @@
 #include <set>
 #include <iomanip>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace fs = std::filesystem;
 using namespace hypercube;
 
@@ -45,10 +49,20 @@ bool is_text_file(const fs::path& path) {
 }
 
 std::string read_file(const fs::path& path) {
+    std::cerr << "[DEBUG] Attempting to open file: " << path << std::endl;
     std::ifstream file(path, std::ios::binary);
-    if (!file) return "";
+    if (!file) {
+        std::cerr << "[DEBUG] Failed to open file: " << path << " (errno: " << errno << ")" << std::endl;
+        return "";
+    }
+    std::cerr << "[DEBUG] File opened successfully, reading..." << std::endl;
     std::stringstream buf;
     buf << file.rdbuf();
+    if (!file) {
+        std::cerr << "[DEBUG] Error reading file: " << path << std::endl;
+        return "";
+    }
+    std::cerr << "[DEBUG] File read successfully, size: " << buf.str().size() << std::endl;
     return buf.str();
 }
 
@@ -65,6 +79,11 @@ void print_usage(const char* prog) {
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
+    // Prevent CRT assertion dialogs from popping up
+    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
+#endif
+
     db::ConnectionConfig config;
     std::string target;
     
@@ -78,6 +97,10 @@ int main(int argc, char* argv[]) {
             return 0;
         } else if (arg[0] != '-') {
             target = arg;
+            // Strip surrounding quotes if present (Windows cmd behavior)
+            if (target.size() >= 2 && target.front() == '"' && target.back() == '"') {
+                target = target.substr(1, target.size() - 2);
+            }
         }
     }
     
@@ -87,15 +110,24 @@ int main(int argc, char* argv[]) {
     }
     
     fs::path path(target);
-    if (!fs::exists(path)) {
+    std::cerr << "[DEBUG] Checking if path exists: " << path << "\n";
+    bool exists = false;
+    try {
+        exists = fs::exists(path);
+    } catch (const std::exception& e) {
+        std::cerr << "[DEBUG] Exception checking path: " << e.what() << "\n";
+        return 1;
+    }
+    if (!exists) {
         std::cerr << "Not found: " << target << "\n";
         return 1;
     }
     
     std::cerr << "=== Hypercube Universal Ingester ===\n";
     std::cerr << "Target: " << target << "\n\n";
-    
+
     // Phase 1: Collect files and extract unique codepoints
+    std::cerr << "[DEBUG] Starting file processing...\n";
     std::unordered_set<uint32_t> all_codepoints;
     std::vector<std::pair<fs::path, std::string>> files;
     
@@ -113,10 +145,27 @@ int main(int argc, char* argv[]) {
             }
         }
     } else {
-        std::string content = read_file(path);
+        std::cerr << "[DEBUG] Processing single file: " << path << "\n";
+        std::string content;
+        try {
+            content = read_file(path);
+        } catch (const std::exception& e) {
+            std::cerr << "[DEBUG] Exception reading file: " << e.what() << "\n";
+            return 1;
+        }
+        std::cerr << "[DEBUG] File read, size: " << content.size() << " bytes\n";
         if (!content.empty()) {
-            all_codepoints = util::extract_unique_codepoints(content);
+            std::cerr << "[DEBUG] Extracting codepoints...\n";
+            try {
+                all_codepoints = util::extract_unique_codepoints(content);
+            } catch (const std::exception& e) {
+                std::cerr << "[DEBUG] Exception extracting codepoints: " << e.what() << "\n";
+                return 1;
+            }
+            std::cerr << "[DEBUG] Found " << all_codepoints.size() << " unique codepoints\n";
             files.emplace_back(path, std::move(content));
+        } else {
+            std::cerr << "[DEBUG] File is empty or failed to read\n";
         }
     }
     

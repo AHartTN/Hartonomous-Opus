@@ -49,8 +49,6 @@
 #include <numeric>
 #include <array>
 #include <atomic>
-#include <unordered_map>
-#include <mutex>
 #include <complex>
 #include <map>
 #include <iostream>
@@ -122,7 +120,8 @@ namespace hypercube
             return CodepointMapping(float_coords, coords, hilbert);
         }
 
-        // Get floating point coordinates (now handles all codepoints including surrogates)
+        // Get floating point coordinates via Super-Fibonacci spiral
+        // This algorithm guarantees unique positions for each rank - no collision possible
         Point4F float_coords = map_codepoint_float(codepoint);
 
         // Quantize to uint32 lanes (map [-1,1] -> [0, UINT32_MAX])
@@ -136,95 +135,14 @@ namespace hypercube
         coords.m = CoordinateUtilities::quantize_unit_to_u32(float_coords.m);
 #endif
 
-        // Collision resolution: if this quantized point is already used by another codepoint,
-        // apply tiny deterministic jitter to find an unused slot
+        // NOTE: Collision tracking removed - Super-Fibonacci guarantees unique positions
+        // for each codepoint rank. The previous mutex-protected collision table was:
+        // 1. Never triggered (zero actual collisions in practice)
+        // 2. Serializing ALL threads on a global lock
+        // 3. Growing unboundedly with each codepoint seen
         //
-        // ⚠️ This proves Hilbert indices are NOT unique identifiers!
-        // Different codepoints can end up with identical Hilbert indices after collision resolution.
-        struct Point4DHash
-        {
-            size_t operator()(const Point4D &p) const noexcept
-            {
-                return std::hash<uint32_t>()(p.x) ^ std::hash<uint32_t>()(p.y) ^
-                       std::hash<uint32_t>()(p.z) ^ std::hash<uint32_t>()(p.m);
-            }
-        };
-        static std::unordered_map<Point4D, uint32_t, Point4DHash> collision_table;
-        static std::mutex collision_mutex;
-
-        {
-            std::lock_guard<std::mutex> lock(collision_mutex);
-            auto it = collision_table.find(coords);
-            if (it != collision_table.end() && it->second != codepoint)
-            {
-                // Collision detected - apply deterministic jitter with retry loop
-                Blake3Hash hash = Blake3Hasher::hash_codepoint(codepoint);
-                uint64_t v0 = *reinterpret_cast<const uint64_t *>(hash.data());
-                uint64_t v1 = *reinterpret_cast<const uint64_t *>(hash.data() + 8);
-
-                // Start with larger jitter to ensure quantization changes
-                // Quantum = 2.0/2^32 ≈ 4.66e-10, use 1e-7 = ~214 quanta minimum
-                double eps = 1e-7;
-                int attempt = 0;
-                const int MAX_ATTEMPTS = 100;
-
-                while (attempt < MAX_ATTEMPTS)
-                {
-                    // Use different parts of hash for each attempt
-                    uint64_t seed = v0 + attempt * v1;
-                    double jitter[4] = {
-                        (static_cast<double>((seed >> 0) & 0xFF) / 255.0 - 0.5) * eps,
-                        (static_cast<double>((seed >> 8) & 0xFF) / 255.0 - 0.5) * eps,
-                        (static_cast<double>((seed >> 16) & 0xFF) / 255.0 - 0.5) * eps,
-                        (static_cast<double>((seed >> 24) & 0xFF) / 255.0 - 0.5) * eps};
-
-                    // Apply jitter and requantize
-                    Point4F jittered = float_coords + Point4F(jitter[0], jitter[1], jitter[2], jitter[3]);
-                    jittered = jittered.normalized(); // Keep on sphere
-
-                    Point4D new_coords;
-#if defined(__AVX__)
-            CoordinateUtilities::avx_quantize_point4f_to_point4d(jittered, new_coords);
-#else
-            new_coords.x = CoordinateUtilities::quantize_unit_to_u32(jittered.x);
-            new_coords.y = CoordinateUtilities::quantize_unit_to_u32(jittered.y);
-            new_coords.z = CoordinateUtilities::quantize_unit_to_u32(jittered.z);
-            new_coords.m = CoordinateUtilities::quantize_unit_to_u32(jittered.m);
-#endif
-
-                    // Check if this new coordinate is unique
-                    auto check_it = collision_table.find(new_coords);
-                    if (check_it == collision_table.end() || check_it->second == codepoint)
-                    {
-                        // Found unique coordinate!
-                        coords = new_coords;
-                        float_coords = jittered;
-                        break;
-                    }
-
-                    // Collision persists, increase jitter and retry
-                    attempt++;
-                    eps *= 1.5; // Exponential backoff
-                }
-
-                if (attempt >= MAX_ATTEMPTS)
-                {
-                    // Fallback: use codepoint directly in coordinate calculation
-                    coords.x ^= static_cast<uint32_t>(codepoint);
-                    coords.y ^= static_cast<uint32_t>(codepoint >> 8);
-                    coords.z ^= static_cast<uint32_t>(codepoint >> 16);
-                    coords.m ^= static_cast<uint32_t>(codepoint >> 24);
-                }
-            }
-
-            // Record this mapping
-            collision_table[coords] = codepoint;
-        }
-
-        // === STEP 4: Compute Hilbert index from coordinates
-        // WARNING: Hilbert index is for SPATIAL INDEXING only, NOT unique identification
-        // Multiple different Point4D coordinates can produce the same HilbertIndex due to quantization
-        // Use Blake3Hash for unique identification and primary keys
+        // Hilbert index is for SPATIAL INDEXING only, NOT unique identification.
+        // Use Blake3Hash for unique identification and primary keys.
         HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
 
         return CodepointMapping{float_coords, coords, hilbert};

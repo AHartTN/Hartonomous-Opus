@@ -315,6 +315,39 @@ if(WIN32 AND BUILD_PG_EXTENSION)
 endif()
 
 # ----------------------------------------------------------------------------
+# BLAKE3 (fast cryptographic hashing with SIMD)
+# ----------------------------------------------------------------------------
+set(HAS_BLAKE3 OFF)
+set(BLAKE3_INCLUDE_DIRS "")
+
+# Try to find system BLAKE3 first
+find_package(blake3 QUIET CONFIG)
+if(blake3_FOUND OR TARGET BLAKE3::blake3)
+    set(HAS_BLAKE3 ON)
+    message(STATUS "[deps] BLAKE3: found via package")
+else()
+    # Fetch official BLAKE3 from GitHub
+    message(STATUS "[deps] BLAKE3: fetching from GitHub with SIMD optimizations")
+    FetchContent_Declare(
+        blake3_fetch
+        GIT_REPOSITORY https://github.com/BLAKE3-team/BLAKE3.git
+        GIT_TAG 1.5.4
+        SOURCE_SUBDIR c
+    )
+    # Configure BLAKE3 build options for maximum SIMD
+    set(BLAKE3_FETCH_CONTENT ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(blake3_fetch)
+
+    # BLAKE3's CMake creates a target we can use
+    if(TARGET blake3)
+        set(HAS_BLAKE3 ON)
+        message(STATUS "[deps] BLAKE3: fetched with SIMD support (AVX2/AVX-512)")
+    else()
+        message(WARNING "[deps] BLAKE3: fetch succeeded but target not created")
+    endif()
+endif()
+
+# ----------------------------------------------------------------------------
 # Google Test detection / FetchContent fallback
 # ----------------------------------------------------------------------------
 set(GTest_FOUND OFF)
@@ -392,6 +425,7 @@ elseif(HAS_EIGEN AND Eigen3_INCLUDE_DIRS)
     message(STATUS "  Eigen include:    ${Eigen3_INCLUDE_DIRS}")
 endif()
 message(STATUS "Intel MKL:          ${HAS_MKL}")
+message(STATUS "BLAKE3 (SIMD):      ${HAS_BLAKE3}")
 message(STATUS "HNSWLib:            ${HAS_HNSWLIB}")
 message(STATUS "PostgreSQL ext:     ${BUILD_PG_EXTENSION}")
 message(STATUS "PostgreSQL client:  ${PostgreSQL_FOUND}")

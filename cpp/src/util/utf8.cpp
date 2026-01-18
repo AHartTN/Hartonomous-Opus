@@ -1,8 +1,11 @@
 #include "hypercube/util/utf8.hpp"
-#include <iostream>
 
 namespace hypercube::util {
 
+// High-performance UTF-8 decoder
+// - No logging in hot path (was causing I/O serialization)
+// - Invalid sequences silently replaced with U+FFFD
+// - Optimized for large file processing
 std::vector<uint32_t> decode_utf8(const std::string& data) {
     std::vector<uint32_t> codepoints;
     codepoints.reserve(data.size());
@@ -10,9 +13,8 @@ std::vector<uint32_t> decode_utf8(const std::string& data) {
     const uint8_t* p = reinterpret_cast<const uint8_t*>(data.data());
     const uint8_t* end = p + data.size();
 
-    // Check for BOM and skip it
+    // Skip BOM if present (no logging)
     if (data.size() >= 3 && p[0] == 0xEF && p[1] == 0xBB && p[2] == 0xBF) {
-        std::cout << "UTF-8 decode: BOM detected and skipped" << std::endl;
         p += 3;
     }
 
@@ -20,65 +22,46 @@ std::vector<uint32_t> decode_utf8(const std::string& data) {
         uint32_t cp;
 
         if (*p < 0x80) {
+            // ASCII fast path
             cp = *p++;
         } else if ((*p & 0xE0) == 0xC0 && p + 1 < end) {
+            // 2-byte sequence
             uint8_t b1 = *p++;
             uint8_t b2 = *p++;
             if ((b2 & 0xC0) != 0x80) {
-                // Invalid continuation byte
-                std::cerr << "UTF-8 decode: Invalid continuation byte 0x" << std::hex << (int)b2 << " after 0x" << (int)b1 << std::dec << std::endl;
                 cp = 0xFFFD;
                 p--; // Rewind to retry b2 as start byte
             } else {
-                cp = (b1 & 0x1F) << 6;
-                cp |= (b2 & 0x3F);
-                if (cp < 0x80) {
-                    // Overlong encoding
-                    std::cerr << "UTF-8 decode: Overlong 2-byte encoding for cp=" << cp << std::endl;
-                    cp = 0xFFFD;
-                }
+                cp = ((b1 & 0x1F) << 6) | (b2 & 0x3F);
+                if (cp < 0x80) cp = 0xFFFD; // Overlong
             }
         } else if ((*p & 0xF0) == 0xE0 && p + 2 < end) {
+            // 3-byte sequence
             uint8_t b1 = *p++;
             uint8_t b2 = *p++;
             uint8_t b3 = *p++;
             if ((b2 & 0xC0) != 0x80 || (b3 & 0xC0) != 0x80) {
-                // Invalid continuation bytes
                 cp = 0xFFFD;
                 p -= 2; // Rewind
             } else {
-                cp = (b1 & 0x0F) << 12;
-                cp |= (b2 & 0x3F) << 6;
-                cp |= (b3 & 0x3F);
-                if (cp < 0x800 || (cp >= 0xD800 && cp <= 0xDFFF)) {
-                    // Overlong or surrogate
-                    std::cerr << "UTF-8 decode: Overlong or surrogate 3-byte encoding for cp=" << cp << std::endl;
-                    cp = 0xFFFD;
-                }
+                cp = ((b1 & 0x0F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
+                if (cp < 0x800 || (cp >= 0xD800 && cp <= 0xDFFF)) cp = 0xFFFD;
             }
         } else if ((*p & 0xF8) == 0xF0 && p + 3 < end) {
+            // 4-byte sequence
             uint8_t b1 = *p++;
             uint8_t b2 = *p++;
             uint8_t b3 = *p++;
             uint8_t b4 = *p++;
             if ((b2 & 0xC0) != 0x80 || (b3 & 0xC0) != 0x80 || (b4 & 0xC0) != 0x80) {
-                // Invalid continuation bytes
                 cp = 0xFFFD;
                 p -= 3; // Rewind
             } else {
-                cp = (b1 & 0x07) << 18;
-                cp |= (b2 & 0x3F) << 12;
-                cp |= (b3 & 0x3F) << 6;
-                cp |= (b4 & 0x3F);
-                if (cp < 0x10000 || cp > 0x10FFFF) {
-                    // Overlong or out of range
-                    std::cerr << "UTF-8 decode: Overlong or out-of-range 4-byte encoding for cp=" << cp << std::endl;
-                    cp = 0xFFFD;
-                }
+                cp = ((b1 & 0x07) << 18) | ((b2 & 0x3F) << 12) | ((b3 & 0x3F) << 6) | (b4 & 0x3F);
+                if (cp < 0x10000 || cp > 0x10FFFF) cp = 0xFFFD;
             }
         } else {
             // Invalid start byte or insufficient bytes
-            std::cerr << "UTF-8 decode: Invalid start byte 0x" << std::hex << (int)*p << " or insufficient bytes" << std::dec << std::endl;
             cp = 0xFFFD;
             ++p;
         }
