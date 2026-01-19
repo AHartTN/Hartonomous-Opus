@@ -1,0 +1,10 @@
+[INIT] Set Windows error mode to prevent messageboxes
+[INIT] Set MappedFileCache max size to 20 to prevent handle exhaustion
+[THREADING] OpenMP threads: 8
+[THREADING] MKL threads: 8 (dynamic=0)
+=== Universal Safetensor Ingester (Modular) ===
+Directory: D:\Repositories\Hartonomous-Opus\test-data\embedding_models\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\c9745ed1d9f207416be6d2e6f8de32d1f16199bf
+Model: sentence-transformers/all-MiniLM-L6-v2
+Threshold: 0.5
+
+[0] Parsing model manifest (config.json, architecture detection)...

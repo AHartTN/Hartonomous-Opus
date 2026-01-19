@@ -88,7 +88,9 @@
       "Bash(nm:*)",
       "Bash(strace:*)",
       "Bash(readelf:*)",
-      "Bash(if not exist \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\scripts\\\\linux\" mkdir \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\scripts\\\\linux\")"
+      "Bash(if not exist \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\scripts\\\\linux\" mkdir \"D:\\\\Repositories\\\\Hartonomous-Opus\\\\scripts\\\\linux\")",
+      "Bash(bash:*)",
+      "Bash(python:*)"
     ]
   },
   "outputStyle": "default"

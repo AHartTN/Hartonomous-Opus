@@ -1,0 +1,42 @@
+=== Parallel Partitioned Atom Seeder ===
+Connection: dbname=hypercube host=hart-server port=5432 user=postgres password=postgres
+Partitions: 8
+Generators: 8
+Connection Pool: 8 connections
+CPU Features: CPU Vendor: GenuineIntel
+Features: AVX2 FMA3 BMI2 AVX_VNNI SIMD: AVX2 enabled (256-codepoint batch processing)
+VNNI: AVX-VNNI available for enhanced integer operations
+
+[1/5] Initializing coordinate mapping...
+[1.5/5] Generating atoms (8 threads)...
+      Generated 1114112 atoms in 3412 ms
+[2/5] Partitioning by hash...
+Partition sizes: 139506 139838 138867 139265 139269 138313 139631 139423 
+      Partitioned in 54 ms
+[3/5] Preparing database...
+      Setup in 109 ms
+[4/5] Parallel COPY to atom table (8 connections)...
+Partition 1 build time: 426 ms
+Partition 0 build time: 526 ms
+Partition 2 build time: 625 ms
+Partition 0 total time: 1026 ms, I/O: 500 ms, atoms: 139506, rate: 135970 atoms/sec
+Partition 4 build time: 758 ms
+Partition 1 total time: 1289 ms, I/O: 863 ms, atoms: 139838, rate: 108485 atoms/sec
+Partition 2 total time: 1367 ms, I/O: 742 ms, atoms: 138867, rate: 101585 atoms/sec
+Partition 5 build time: 624 ms
+Partition 6 build time: 870 ms
+Partition 7 build time: 795 ms
+Partition 4 total time: 2033 ms, I/O: 1275 ms, atoms: 139269, rate: 68504 atoms/sec
+Partition 5 total time: 2098 ms, I/O: 1474 ms, atoms: 138313, rate: 65926 atoms/sec
+Partition 6 total time: 2258 ms, I/O: 1388 ms, atoms: 139631, rate: 61838 atoms/sec
+Partition 3 build time: 2011 ms
+Partition 7 total time: 2455 ms, I/O: 1660 ms, atoms: 139423, rate: 56791 atoms/sec
+Partition 3 total time: 2530 ms, I/O: 519 ms, atoms: 139265, rate: 55045 atoms/sec
+      Parallel COPY in 2532 ms
+[5/5] Building indexes...
+      Index build in 5276 ms
+
+=== Complete ===
+Total atoms: 1114112
+Total time: 11384 ms (11.384 s)
+Rate: 97866 atoms/sec

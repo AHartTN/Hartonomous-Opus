@@ -16,11 +16,11 @@
 -- CPU feature test failed to compile
 -- Compile output (first 500 chars): Change Dir: 'D:/Repositories/Hartonomous-Opus/cpp/build/cpu_test/CMakeFiles/CMakeTmp'
 
-Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_5eb78.vcxproj /p:Configuration=Release /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_0061c.vcxproj /p:Configuration=Release /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
 MSBuild version 17.14.40+3e7442088 for .NET Framework
-Build started 1/18/2026 7:18:46 PM.
+Build started 1/18/2026 8:42:15 PM.
 
-Project "D:\Repositories\Hartonomous-Opus\cpp\build\cpu_test\CMakeFiles\CMakeTmp\cmTC_5eb78.vcxproj" ...
+Project "D:\Repositories\Hartonomous-Opus\cpp\build\cpu_test\CMakeFiles\CMakeTmp\cmTC_0061c.vcxproj" ...
 -- CPU feature runtime detection failed - using manual overrides or compiler fallback
 -- SIMD: MSVC baseline; AVX features disabled - use FORCE_AVX2=ON to enable
 -- Compiler: MSVC 19.44.35222.0
@@ -80,6 +80,12 @@ Project "D:\Repositories\Hartonomous-Opus\cpp\build\cpu_test\CMakeFiles\CMakeTmp
 -- seed_atoms_parallel will be built
 -- Found Google Test: D:/Repositories/Hartonomous-Opus/cpp/../external/_deps/googletest-src/googletest/include
 -- 
+-- Multi-config generator detected. To run tests:
+--   Option 1: cmake --build build --target test-release
+--   Option 2: cmake --build build --target test-debug
+--   Option 3: cd build && ctest -C Release
+-- 
+-- 
 -- Runtime Environment Setup for AVX Optimization:
 --   Configure these in your Windows user or system environment:
 --     OMP_PROC_BIND=true
@@ -108,8 +114,14 @@ Project "D:\Repositories\Hartonomous-Opus\cpp\build\cpu_test\CMakeFiles\CMakeTmp
 -- 
 -- Hypercube configuration complete.
 -- 
--- Configuring done (18.8s)
--- Generating done (1.0s)
+-- === Running Tests ===
+-- With multi-config generators, specify configuration when running tests:
+--   ./run-tests-release.bat    (Windows batch script)
+--   OR: cd build && ctest -C Release --output-on-failure
+--   OR: cmake --build build --target test-release
+-- 
+-- Configuring done (18.3s)
+-- Generating done (0.9s)
 -- Build files have been written to: D:/Repositories/Hartonomous-Opus/cpp/build
 MSBuild version 17.14.40+3e7442088 for .NET Framework
 
@@ -133,16 +145,71 @@ MSBuild version 17.14.40+3e7442088 for .NET Framework
   simd_kernels_sse42.cpp
   simd_kernels_sse42.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\simd_kernels_sse42.dir\Release\simd_kernels_sse42.lib
   Assembling D:\Repositories\Hartonomous-Opus\external\_deps\blake3_fetch-src\c\blake3_avx2_x86-64_windows_msvc.asm...
-C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\BuildCustomizations\masm.targets(70,5): error MSB3721: The command "ml64.exe /c /nologo /Fo"blake3.dir\Release\blake3_avx2_x86-64_windows_msvc.obj" /D"WIN32" /D"_WINDOWS" /D"NDEBUG" /D"CMAKE_INTDIR="Release"" /I "D:\Repositories\Hartonomous-Opus\external\_deps\blake3_fetch-src\c" /W3 /errorReport:prompt  /Ta"D:\Repositories\Hartonomous-Opus\external\_deps\blake3_fetch-src\c\blake3_avx2_x86-64_windows_msvc.asm"" exited with code 1. [D:\Repositories\Hartonomous-Opus\external\_deps\blake3_fetch-build\blake3.vcxproj]
-  Building Custom Rule D:/Repositories/Hartonomous-Opus/external/_deps/googletest-src/googlemock/CMakeLists.txt
-  gtest-all.cc
+  Assembling D:\Repositories\Hartonomous-Opus\external\_deps\blake3_fetch-src\c\blake3_avx512_x86-64_windows_msvc.asm...
+  Assembling D:\Repositories\Hartonomous-Opus\external\_deps\blake3_fetch-src\c\blake3_sse2_x86-64_windows_msvc.asm...
+  Assembling D:\Repositories\Hartonomous-Opus\external\_deps\blake3_fetch-src\c\blake3_sse41_x86-64_windows_msvc.asm...
+  blake3.c
+  blake3_dispatch.c
+  blake3_portable.c
+  Generating Code...
+  blake3.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\lib\Release\blake3.lib
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  hilbert.cpp
+  coordinates.cpp
+  blake3_pg.cpp
+  ops.cpp
+  utf8.cpp
+  atom_calculator.cpp
+D:\Repositories\Hartonomous-Opus\cpp\src\core\atom_calculator.cpp(122,36): warning C4101: 'e': unreferenced local variable [D:\Repositories\Hartonomous-Opus\cpp\build\hypercube_core.vcxproj]
+  laplacian_4d.cpp
+  lanczos.cpp
+  linear_algebra.cpp
+  semantic_ordering.cpp
+  superfibonacci.cpp
+  thread_config.cpp
+  unicode_categorization.cpp
+  coordinate_utilities.cpp
+  dense_registry.cpp
+  cpu_features.cpp
+  isa_class.cpp
+  dispatch.cpp
+  Generating Code...
+  hypercube_core.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\lib\Release\hypercube_core.lib
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  debug_semantic_order.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\debug_semantic_order.vcxproj]
+  debug_semantic_order.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\debug_semantic_order.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  embedding_c.cpp
+     Creating library D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/embedding_c.lib and object D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/embedding_c.exp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\embedding_c.vcxproj]
+  embedding_c.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\embedding_c.dll
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  embedding_ops_pg.c
+     Creating library D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/embedding_ops.lib and object D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/embedding_ops.exp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\embedding_ops.vcxproj]
+  embedding_ops.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\embedding_ops.dll
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  extract_embeddings.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\extract_embeddings.vcxproj]
+  extract_embeddings.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\extract_embeddings.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  generative_c.cpp
+     Creating library D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/generative_c.lib and object D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/generative_c.exp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\generative_c.vcxproj]
+  generative_c.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\generative_c.dll
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  generative_pg.c
+     Creating library D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/generative.lib and object D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/generative.exp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\generative.vcxproj]
+  generative.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\generative.dll
   gmock-all.cc
+  gtest-all.cc
   Generating Code...
   gmock.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\lib\Release\gmock.lib
-  Building Custom Rule D:/Repositories/Hartonomous-Opus/external/_deps/googletest-src/googlemock/CMakeLists.txt
-  gtest-all.cc
   gmock-all.cc
   gmock_main.cc
+  gtest-all.cc
   Generating Code...
   gmock_main.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\lib\Release\gmock_main.lib
   gtest-all.cc
@@ -150,113 +217,160 @@ C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft
   gtest_main.cc
   gtest_main.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\lib\Release\gtest_main.lib
   Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
-  CMake is re-running because D:/Repositories/Hartonomous-Opus/cpp/build/CMakeFiles/generate.stamp is out-of-date.
-    the file 'D:/Repositories/Hartonomous-Opus/cpp/cmake/FindDependencies.cmake'
-    is newer than 'D:/Repositories/Hartonomous-Opus/cpp/build/CMakeFiles/generate.stamp.depend'
-    result='-1'
-  -- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.26200.
-  -- FetchContent cache: D:/Repositories/Hartonomous-Opus/cpp/../external/_deps
-  -- CPU feature test failed to compile
-  -- Compile output (first 500 chars): Change Dir: 'D:/Repositories/Hartonomous-Opus/cpp/build/cpu_test/CMakeFiles/CMakeTmp'
-  
-  Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_f32d3.vcxproj /p:Configuration=Release /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
-  MSBuild version 17.14.40+3e7442088 for .NET Framework
-  Build started 1/18/2026 7:19:29 PM.
-  
-  Project "D:\Repositories\Hartonomous-Opus\cpp\build\cpu_test\CMakeFiles\CMakeTmp\cmTC_f32d3.vcxproj" ...
-  -- CPU feature runtime detection failed - using manual overrides or compiler fallback
-  -- SIMD: MSVC baseline; AVX features disabled - use FORCE_AVX2=ON to enable
-  -- Compiler: MSVC 19.44.35222.0
-  -- Available configurations: Debug;Release;MinSizeRel;RelWithDebInfo
-  -- C++ standard: 23
-  -- SIMD baseline HAS_AVX: OFF
-  -- HYPERCUBE_AVX_FLAGS:   
-  -- [deps] Threads: found
-  -- [deps] OpenMP: found (2.0)
-  -- [deps] Eigen3: found (imported target Eigen3::Eigen)
-  -- [deps] MKL: found via CMake package (MKL::MKL)
-  -- [deps] MKL: enabled
-  -- [deps] HNSWLib: not found system-wide, will fetch from source
-  -- [deps] HNSWLib: fetched into D:/Repositories/Hartonomous-Opus/cpp/../external/_deps/hnswlib_src-src
-  -- [deps] pg_config found: C:/Program Files/PostgreSQL/18/bin/pg_config.exe (PostgreSQL PostgreSQL 18.1)
-  -- [deps] PostgreSQL server include: C:/PROGRA~1/POSTGR~1/18/include/server
-  -- [deps] PostgreSQL pkglibdir: C:/PROGRA~1/POSTGR~1/18/lib
-  -- [deps] PostgreSQL libdir: C:/PROGRA~1/POSTGR~1/18/lib
-  -- [deps] libpq: found manually at C:/Program Files/PostgreSQL/18/lib/libpq.lib
-  -- [deps] postgres.lib found explicitly: C:/PROGRA~1/POSTGR~1/18/lib/postgres.lib
-  -- [deps] BLAKE3: fetching from GitHub with SIMD optimizations
-  -- BLAKE3 SIMD configuration: x64
-  -- 
-   * AMD64 assembly, The library uses hand written amd64 SIMD assembly.
-  
-  -- [deps] BLAKE3: fetched with SIMD support (AVX2/AVX-512)
-  -- [deps] GoogleTest: not found system-wide; fetching via FetchContent
-  -- [deps] GoogleTest: fetched into D:/Repositories/Hartonomous-Opus/cpp/../external/_deps/googletest-src
-  -- 
-  -- Dependency hints:
-  --   - On Windows, vcpkg is recommended: vcpkg install eigen3 mkl hnswlib libpq gtest
-  --   - On Linux: apt install libeigen3-dev libpq-dev libgtest-dev (or use vcpkg/conan)
-  -- 
-  -- === Dependency Detection Summary ===
-  -- Threads:            ON
-  -- OpenMP:             ON
-  -- Eigen3:             ON
-  --   Eigen target:     Eigen3::Eigen
-  -- Intel MKL:          ON
-  -- BLAKE3 (SIMD):      ON
-  -- HNSWLib:            ON
-  -- PostgreSQL ext:     ON
-  -- PostgreSQL client:  ON
-  -- Google Test:        ON
-  -- 
-  -- seed_atoms_parallel will be built
-  -- Found Google Test: D:/Repositories/Hartonomous-Opus/cpp/../external/_deps/googletest-src/googletest/include
-  -- 
-  -- Runtime Environment Setup for AVX Optimization:
-  --   Configure these in your Windows user or system environment:
-  --     OMP_PROC_BIND=true
-  --     OMP_PLACES=cores
-  --     MKL_DEBUG_CPU_TYPE=5  # Force AVX2 code path
-  --   This improves thread scheduling and MKL code-path selection.
-  -- 
-  -- 
-  -- === Hypercube Build Configuration ===
-  -- Build configurations:    Debug;Release;MinSizeRel;RelWithDebInfo
-  -- C++ compiler:            MSVC 19.44.35222.0
-  -- C compiler:              MSVC 19.44.35222.0
-  -- C++ standard:            23
-  -- Eigen3 present:          ON
-  -- Intel MKL present:       ON
-  -- OpenMP present:          ON
-  -- HNSWLib present:         ON
-  -- PostgreSQL extensions:   ON
-  -- PostgreSQL client libs:  ON
-  -- Google Test present:     ON
-  -- SIMD baseline HAS_AVX:   OFF
-  -- HAS_AVX2:                OFF
-  -- HAS_AVX512F:             OFF
-  -- HAS_FMA3:                OFF
-  -- HAS_AVX_VNNI:            OFF
-  -- 
-  -- Hypercube configuration complete.
-  -- 
-  -- Configuring done (5.9s)
-  -- Generating done (1.2s)
-  -- Build files have been written to: D:/Repositories/Hartonomous-Opus/cpp/build
+  hypercube_c.cpp
+     Creating library D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/hypercube_c.lib and object D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/hypercube_c.exp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\hypercube_c.vcxproj]
+  hypercube_c.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\hypercube_c.dll
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  hypercube_pg.c
+     Creating library D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/hypercube.lib and object D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/hypercube.exp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\hypercube.vcxproj]
+  hypercube.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\hypercube.dll
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  atom_cache.cpp
+  geometry.cpp
+  insert.cpp
+  cpe.cpp
+  universal.cpp
+  parallel_cpe.cpp
+  sequitur.cpp
+  pmi_contraction.cpp
+  projection_db.cpp
+  tensor_io.cpp
+  compositions.cpp
+  tensor_hierarchy.cpp
+  embedding_relations.cpp
+  attention_relations.cpp
+  semantic_extraction.cpp
+  multimodal_extraction.cpp
+  Generating Code...
+  hypercube_ingest.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\lib\Release\hypercube_ingest.lib
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  main.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\hypercube_cli.vcxproj]
+  hypercube_cli.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\hc.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  hypercube_ops_pg.c
+     Creating library D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/hypercube_ops.lib and object D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/hypercube_ops.exp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\hypercube_ops.vcxproj]
+  hypercube_ops.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\hypercube_ops.dll
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_main.cpp
+  test_sql_schema.cpp
+  test_sql_functions.cpp
+  test_sql_query_api.cpp
+  Generating Code...
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\hypercube_sql_tests.vcxproj]
+  hypercube_sql_tests.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\hypercube_sql_tests.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_main.cpp
+  test_blake3.cpp
+  test_hilbert.cpp
+  test_coordinates.cpp
+  test_laplacian.cpp
+  test_backend.cpp
+  Generating Code...
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\hypercube_tests.vcxproj]
+  hypercube_tests.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\hypercube_tests.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  main.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\ingest.vcxproj]
+  ingest.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\ingest.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  ingest_safetensor_modular.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\ingest_safetensor.vcxproj]
+  ingest_safetensor.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\ingest_safetensor.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
   model_discovery.cpp
 LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\model_discovery.vcxproj]
   model_discovery.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\model_discovery.exe
-  'pwsh.exe' is not recognized as an internal or external command,
-  operable program or batch file.
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  seed_atoms_parallel.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\seed_atoms_parallel.vcxproj]
+  seed_atoms_parallel.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\seed_atoms_parallel.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  semantic_ops_pg.c
+     Creating library D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/semantic_ops.lib and object D:/Repositories/Hartonomous-Opus/cpp/build/lib/Release/semantic_ops.exp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\semantic_ops.vcxproj]
+  semantic_ops.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\semantic_ops.dll
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_blake3.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_blake3.vcxproj]
+  test_blake3.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_blake3.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_clustering.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_clustering.vcxproj]
+  test_clustering.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_clustering.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_coordinates.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_coordinates.vcxproj]
+  test_coordinates.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_coordinates.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_cpu_features.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_cpu_features.vcxproj]
+  test_cpu_features.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_cpu_features.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_eigen_solver_paths.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_eigen_solver_paths.vcxproj]
+  test_eigen_solver_paths.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_eigen_solver_paths.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_hilbert.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_hilbert.vcxproj]
+  test_hilbert.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_hilbert.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_int8_quantization.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_int8_quantization.vcxproj]
+  test_int8_quantization.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_int8_quantization.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_integration.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_integration.vcxproj]
+  test_integration.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_integration.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_laplacian_4d.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_laplacian_4d.vcxproj]
+  test_laplacian_4d.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_laplacian_4d.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_query_api.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_query_api.vcxproj]
+  test_query_api.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_query_api.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_safetensor_fix.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_safetensor_fix.vcxproj]
+  test_safetensor_fix.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_safetensor_fix.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_semantic.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_semantic.vcxproj]
+  test_semantic.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_semantic.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_simd_dispatch.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_simd_dispatch.vcxproj]
+  test_simd_dispatch.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_simd_dispatch.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_thread_config.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_thread_config.vcxproj]
+  test_thread_config.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_thread_config.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_unicode_seeding.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_unicode_seeding.vcxproj]
+  test_unicode_seeding.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_unicode_seeding.exe
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+  test_vocab_parse.cpp
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\test_vocab_parse.vcxproj]
+  test_vocab_parse.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\test_vocab_parse.exe
   Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
   vocab_extract.cpp
 LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\vocab_extract.vcxproj]
   vocab_extract.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\vocab_extract.exe
-  'pwsh.exe' is not recognized as an internal or external command,
-  operable program or batch file.
   Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
   vocab_ingest.cpp
 LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\vocab_ingest.vcxproj]
   vocab_ingest.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\bin\Release\vocab_ingest.exe
-  'pwsh.exe' is not recognized as an internal or external command,
-  operable program or batch file.
+  Building Custom Rule D:/Repositories/Hartonomous-Opus/cpp/CMakeLists.txt
+-- Installing: C:/Program Files (x86)/hypercube/include/hnswlib
+CMake Error at D:/Repositories/Hartonomous-Opus/external/_deps/hnswlib_src-build/cmake_install.cmake:36 (file):
+  file INSTALL cannot make directory "C:/Program Files
+  (x86)/hypercube/include/hnswlib": No such file or directory.
+Call Stack (most recent call first):
+  cmake_install.cmake:37 (include)
+
+
