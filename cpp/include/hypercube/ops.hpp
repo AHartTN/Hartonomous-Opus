@@ -14,6 +14,7 @@
 #include "hypercube/blake3.hpp"
 #include "hypercube/hilbert.hpp"
 #include "hypercube/cpu_features.hpp"
+#include "hypercube/thread_config.hpp"
 
 #include <vector>
 #include <span>
@@ -122,7 +123,8 @@ std::vector<DistanceResult> find_knn(
 
 class ThreadPool {
 public:
-    explicit ThreadPool(size_t num_threads = 0);  // 0 = hardware concurrency
+    explicit ThreadPool(size_t num_threads = 0);  // 0 = auto-detect from ThreadConfig
+    explicit ThreadPool(WorkloadType workload_type);  // Workload-aware construction
     ~ThreadPool();
     
     // Submit work and get future

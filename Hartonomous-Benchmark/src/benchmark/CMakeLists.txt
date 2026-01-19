@@ -1,0 +1,2 @@
+add_library(benchmark_framework INTERFACE)
+target_include_directories(benchmark_framework INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

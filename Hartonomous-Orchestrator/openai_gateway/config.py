@@ -14,7 +14,11 @@ EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://localhost:8711")
 RERANKER_URL = os.getenv("RERANKER_URL", "http://localhost:8712")
 BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "Welcome!123")
 
-# Qdrant configuration
+# PostgreSQL (Opus database) configuration
+POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://postgres:postgres@localhost:5432/hypercube")
+USE_OPUS_DB = os.getenv("USE_OPUS_DB", "true").lower() == "true"  # Use Opus PostgreSQL instead of Qdrant
+
+# Qdrant configuration (fallback/legacy)
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "Welcome!123")
 
@@ -22,6 +26,8 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "Welcome!123")
 RAG_ENABLED = os.getenv("RAG_ENABLED", "true").lower() == "true"
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "10"))
 RAG_RERANK_TOP_N = int(os.getenv("RAG_RERANK_TOP_N", "3"))
+RAG_MIN_RATING = float(os.getenv("RAG_MIN_RATING", "1000.0"))  # Minimum ELO rating for relations
+RAG_MAX_HOPS = int(os.getenv("RAG_MAX_HOPS", "2"))  # Multi-hop search depth
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "knowledge_base")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "512"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))
@@ -70,10 +76,24 @@ qdrant_client = QdrantClient(
 
 def initialize_collections():
     """
-    Initialize Qdrant collections and set up SEARCH_COLLECTIONS
+    Initialize Opus PostgreSQL or Qdrant collections and set up SEARCH_COLLECTIONS
     """
     global SEARCH_COLLECTIONS
 
+    # Initialize Opus database if enabled
+    if USE_OPUS_DB:
+        try:
+            from .clients.opus_postgres_client import initialize_opus_client
+            initialize_opus_client(POSTGRES_URL)
+            logger.info("Opus PostgreSQL client initialized and ready")
+            # For Opus, we don't use collections - just return
+            SEARCH_COLLECTIONS = []
+            return
+        except Exception as e:
+            logger.error(f"Failed to initialize Opus database: {e}")
+            logger.warning("Falling back to Qdrant")
+
+    # Qdrant initialization (fallback or if USE_OPUS_DB=false)
     # Ensure collection exists
     try:
         qdrant_client.get_collection(COLLECTION_NAME)

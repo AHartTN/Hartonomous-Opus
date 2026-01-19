@@ -41,6 +41,7 @@
 #include "hypercube/ingest/multimodal_extraction.hpp"
 #include "hypercube/ingest/metadata.hpp"
 #include "hypercube/ingest/metadata_db.hpp"
+#include "hypercube/thread_config.hpp"
 
 // Forward declarations for command modules
 namespace hypercube::cli {
@@ -672,6 +673,11 @@ int parse_global_options(int& argc, char**& argv) {
 }
 
 int main(int argc, char* argv[]) {
+    // Initialize threading configuration early
+    hypercube::ThreadConfig::instance().configure_openmp();
+    hypercube::ThreadConfig::instance().configure_mkl();
+    hypercube::ThreadConfig::instance().configure_std_thread_pool();
+
     // Parse global options and find command
     parse_global_options(argc, argv);
     

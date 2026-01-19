@@ -1,0 +1,550 @@
+{
+  "context": {
+    "date": "2026-01-13T17:15:58-06:00",
+    "host_name": "HART-DESKTOP",
+    "executable": "D:\\Repositories\\Github\\AHartTN\\Hartonomous-Benchmark\\build\\benchmarks\\benchmark_suite.exe",
+    "num_cpus": 32,
+    "mhz_per_cpu": 3187,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 49152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 32768,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 2097152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 3,
+        "size": 37748736,
+        "num_sharing": 32
+      }
+    ],
+    "load_avg": [],
+    "library_version": "v1.9.4-95-g262afc90-dirty",
+    "library_build_type": "release",
+    "json_schema_version": 1
+  },
+  "benchmarks": [
+    {
+      "name": "BM_StringCreation/1",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_StringCreation/1",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 560000000,
+      "real_time": 1.2386180357095458e+00,
+      "cpu_time": 1.2276785714285714e+00,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_StringCreation/2",
+      "family_index": 0,
+      "per_family_instance_index": 1,
+      "run_name": "BM_StringCreation/2",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 560000000,
+      "real_time": 1.2298494642826492e+00,
+      "cpu_time": 1.2276785714285714e+00,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_StringCreation/4",
+      "family_index": 0,
+      "per_family_instance_index": 2,
+      "run_name": "BM_StringCreation/4",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 560000000,
+      "real_time": 1.2415014285709600e+00,
+      "cpu_time": 1.2276785714285714e+00,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_StringCreation/8",
+      "family_index": 0,
+      "per_family_instance_index": 3,
+      "run_name": "BM_StringCreation/8",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 608193939,
+      "real_time": 1.3224400120169311e+00,
+      "cpu_time": 1.1560868251270093e+00,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_StringCreation/16",
+      "family_index": 0,
+      "per_family_instance_index": 4,
+      "run_name": "BM_StringCreation/16",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 37333333,
+      "real_time": 2.1389175191007251e+01,
+      "cpu_time": 1.8833705525300942e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_StringCreation/32",
+      "family_index": 0,
+      "per_family_instance_index": 5,
+      "run_name": "BM_StringCreation/32",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 37333333,
+      "real_time": 2.0200800180443292e+01,
+      "cpu_time": 1.8833705525300942e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_StringCreation/64",
+      "family_index": 0,
+      "per_family_instance_index": 6,
+      "run_name": "BM_StringCreation/64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 34461538,
+      "real_time": 2.0234140449576159e+01,
+      "cpu_time": 1.9949777052898799e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_StringCreation/128",
+      "family_index": 0,
+      "per_family_instance_index": 7,
+      "run_name": "BM_StringCreation/128",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 37333333,
+      "real_time": 2.2002110017829633e+01,
+      "cpu_time": 2.0089285893654338e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_StringCreation/256",
+      "family_index": 0,
+      "per_family_instance_index": 8,
+      "run_name": "BM_StringCreation/256",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 32000000,
+      "real_time": 2.1848090624985161e+01,
+      "cpu_time": 2.1484375000000000e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_StringCreation/512",
+      "family_index": 0,
+      "per_family_instance_index": 9,
+      "run_name": "BM_StringCreation/512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 32000000,
+      "real_time": 2.1339878124990719e+01,
+      "cpu_time": 2.0996093750000000e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_StringCreation/1024",
+      "family_index": 0,
+      "per_family_instance_index": 10,
+      "run_name": "BM_StringCreation/1024",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 26352941,
+      "real_time": 2.7880356883096887e+01,
+      "cpu_time": 2.7273995718352651e+01,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_MatrixMultiplyFloat/8",
+      "family_index": 1,
+      "per_family_instance_index": 0,
+      "run_name": "BM_MatrixMultiplyFloat/8",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 6400000,
+      "real_time": 1.2503998437466635e-01,
+      "cpu_time": 1.1718750000000000e-01,
+      "time_unit": "us"
+    },
+    {
+      "name": "BM_MatrixMultiplyFloat/16",
+      "family_index": 1,
+      "per_family_instance_index": 1,
+      "run_name": "BM_MatrixMultiplyFloat/16",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 4480000,
+      "real_time": 1.6519073660674621e-01,
+      "cpu_time": 1.5345982142857142e-01,
+      "time_unit": "us"
+    },
+    {
+      "name": "BM_MatrixMultiplyFloat/32",
+      "family_index": 1,
+      "per_family_instance_index": 2,
+      "run_name": "BM_MatrixMultiplyFloat/32",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 1000000,
+      "real_time": 5.0861869999789633e-01,
+      "cpu_time": 5.0000000000000000e-01,
+      "time_unit": "us"
+    },
+    {
+      "name": "BM_MatrixMultiplyFloat/64",
+      "family_index": 1,
+      "per_family_instance_index": 3,
+      "run_name": "BM_MatrixMultiplyFloat/64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 165926,
+      "real_time": 3.7703090534272548e+00,
+      "cpu_time": 3.3900654508636379e+00,
+      "time_unit": "us"
+    }
+  ]
+}
+Running new benchmark framework...
+Hardware Detection:
+CPU Features:
+ - MMX
+ - SSE
+ - SSE2
+ - SSE3
+ - SSSE3
+ - SSE4.1
+ - SSE4.2
+ - AVX
+GPU: Nvidia GeForce RTX 4060 (8192 MB)
+Memory: 32768 MB total, 24576 MB available
+
+Aggregated results for MKL_DGEMM_double_256:
+  Runs: 5
+  Avg duration: 448700 ns
+  Throughput: 3.35221e+11 ops/s
+
+Aggregated results for MKL_DGESV_double_256:
+  Runs: 5
+  Avg duration: 25271820 ns
+  Throughput: 6.3768e+10 ops/s
+
+Aggregated results for MKL_DFTI_FFT_class std::complex<double>_0:
+  Runs: 5
+  Avg duration: 67400 ns
+  Throughput: 3.27086e+10 ops/s
+
+Aggregated results for MKL_VSL_RNG_double_0:
+  Runs: 5
+  Avg duration: 554600 ns
+  Throughput: 0 ops/s
+
+Aggregated results for Eigen_MatrixMultiply_double_0:
+  Runs: 5
+  Avg duration: 859360 ns
+  Throughput: 3.92229e+10 ops/s
+
+Aggregated results for Eigen_LU_Solve_double_0:
+  Runs: 5
+  Avg duration: 433620 ns
+  Throughput: 3.87576e+10 ops/s
+
+Aggregated results for Eigen_SVD_double_0:
+  Runs: 5
+  Avg duration: 228604840 ns
+  Throughput: 2.94837e+08 ops/s
+
+Aggregated results for Eigen_Sparse_MatrixVector_double_0:
+  Runs: 5
+  Avg duration: 1280 ns
+  Throughput: 0 ops/s
+
+Aggregated results for HNSW_Index_Build_0x0:
+  Runs: 5
+  Avg duration: 6092560 ns
+  Throughput: 0 ops/s
+
+Aggregated results for HNSW_Search_0x0_k0:
+  Runs: 5
+  Avg duration: 1923740 ns
+  Throughput: 0 ops/s
+
+Aggregated results for HNSW_Insertion_0x0:
+  Runs: 5
+  Avg duration: 176892880 ns
+  Throughput: 0 ops/s
+
+Aggregated results for SIMD_INTRINSICS_SCALAR_float_0:
+  Runs: 5
+  Avg duration: 1280 ns
+  Throughput: 0 ops/s
+
+Aggregated results for SIMD_INTRINSICS_SCALAR_double_0:
+  Runs: 5
+  Avg duration: 1160 ns
+  Throughput: 0 ops/s
+
+Aggregated results for VNNI_DOT_PRODUCT_SCALAR_int8_0:
+  Runs: 5
+  Avg duration: 1100 ns
+  Throughput: 0 ops/s
+
+Aggregated results for VNNI_DOT_PRODUCT_SCALAR_int16_0:
+  Runs: 5
+  Avg duration: 1200 ns
+  Throughput: 0 ops/s
+
+Aggregated results for VNNI_DOT_PRODUCT_SCALAR_float_0:
+  Runs: 5
+  Avg duration: 1100 ns
+  Throughput: 0 ops/s
+
+Aggregated results for VNNI_DOT_PRODUCT_SCALAR_double_0:
+  Runs: 5
+  Avg duration: 1060 ns
+  Throughput: 0 ops/s
+
+Aggregated results for AVX_VECTOR_ARITHMETIC_SCALAR_float_0:
+  Runs: 5
+  Avg duration: 1300 ns
+  Throughput: 0 ops/s
+
+Aggregated results for AVX_VECTOR_ARITHMETIC_SCALAR_double_0:
+  Runs: 5
+  Avg duration: 1200 ns
+  Throughput: 0 ops/s
+
+Aggregated results for Hybrid_MKL_SIMD_float_0:
+  Runs: 5
+  Avg duration: 200 ns
+  Throughput: -nan(ind) ops/s
+
+Aggregated results for Hybrid_MKL_SIMD_double_0:
+  Runs: 5
+  Avg duration: 1080 ns
+  Throughput: 0 ops/s
+
+Aggregated results for Hybrid_MKL_SIMD_int_0:
+  Runs: 5
+  Avg duration: 240 ns
+  Throughput: 0 ops/s
+
+Aggregated results for Hybrid_MKL_SIMD___int64_0:
+  Runs: 5
+  Avg duration: 260 ns
+  Throughput: 0 ops/s
+
+Aggregated results for Hybrid_Eigen_AVX_float_0:
+  Runs: 5
+  Avg duration: 599220 ns
+  Throughput: 0 ops/s
+
+Aggregated results for Hybrid_Eigen_AVX_double_0:
+  Runs: 5
+  Avg duration: 734340 ns
+  Throughput: 0 ops/s
+
+Aggregated results for Memory_Bandwidth_Read_Sequential_float_10450117045617443561:
+  Runs: 5
+  Avg duration: 372740 ns
+  Throughput: 2.78235e+09 ops/s
+
+Aggregated results for Memory_Bandwidth_Read_Sequential_double_256:
+  Runs: 5
+  Avg duration: 350720 ns
+  Throughput: 5.83983e+09 ops/s
+
+Aggregated results for Memory_Bandwidth_Write_Sequential_float_256:
+  Runs: 5
+  Avg duration: 2720 ns
+  Throughput: 3.7655e+11 ops/s
+
+Aggregated results for Memory_Bandwidth_Write_Sequential_double_256:
+  Runs: 5
+  Avg duration: 16280 ns
+  Throughput: 1.25799e+11 ops/s
+
+Aggregated results for Memory_Bandwidth_Read_Random_float_256:
+  Runs: 5
+  Avg duration: 354260 ns
+  Throughput: 2.89082e+09 ops/s
+
+Aggregated results for Memory_Bandwidth_Read_Random_double_256:
+  Runs: 5
+  Avg duration: 366760 ns
+  Throughput: 5.60467e+09 ops/s
+
+Aggregated results for Memory_Bandwidth_Write_Random_float_256:
+  Runs: 5
+  Avg duration: 95100 ns
+  Throughput: 1.07778e+10 ops/s
+
+Aggregated results for Memory_Bandwidth_Write_Random_double_256:
+  Runs: 5
+  Avg duration: 139100 ns
+  Throughput: 1.55953e+10 ops/s
+
+Aggregated results for Memory_Bandwidth_Stream_Copy_float_256:
+  Runs: 5
+  Avg duration: 14340 ns
+  Throughput: 1.46363e+11 ops/s
+
+Aggregated results for Memory_Bandwidth_Stream_Copy_double_256:
+  Runs: 5
+  Avg duration: 27140 ns
+  Throughput: 1.51148e+11 ops/s
+
+Aggregated results for Memory_Bandwidth_Stream_Scale_float_256:
+  Runs: 5
+  Avg duration: 16300 ns
+  Throughput: 1.27809e+11 ops/s
+
+Aggregated results for Memory_Bandwidth_Stream_Scale_double_256:
+  Runs: 5
+  Avg duration: 26200 ns
+  Throughput: 1.59206e+11 ops/s
+
+Aggregated results for Vector_Addition_Scalar_float_256:
+  Runs: 5
+  Avg duration: 140 ns
+  Throughput: inf ops/s
+
+Aggregated results for Vector_Addition_Scalar_double_256:
+  Runs: 5
+  Avg duration: 120 ns
+  Throughput: 2.304e+09 ops/s
+
+Aggregated results for Vector_Addition_SIMD_float_256:
+  Runs: 5
+  Avg duration: 80 ns
+  Throughput: inf ops/s
+
+Aggregated results for Vector_Addition_SIMD_double_256:
+  Runs: 5
+  Avg duration: 40 ns
+  Throughput: inf ops/s
+
+Aggregated results for Vector_Addition_MKL_float_256:
+  Runs: 5
+  Avg duration: 719480 ns
+  Throughput: 4.02013e+06 ops/s
+
+Aggregated results for Vector_Addition_MKL_double_256:
+  Runs: 5
+  Avg duration: 98280 ns
+  Throughput: 7.96188e+07 ops/s
+
+Aggregated results for Vector_Addition_Hybrid_float_256:
+  Runs: 5
+  Avg duration: 140 ns
+  Throughput: inf ops/s
+
+Aggregated results for Vector_Addition_Hybrid_double_256:
+  Runs: 5
+  Avg duration: 120 ns
+  Throughput: 2.304e+09 ops/s
+
+Aggregated results for Dot_Product_Scalar_float_256:
+  Runs: 5
+  Avg duration: 240 ns
+  Throughput: 2.304e+09 ops/s
+
+Aggregated results for Dot_Product_Scalar_double_256:
+  Runs: 5
+  Avg duration: 240 ns
+  Throughput: 2.304e+09 ops/s
+
+Aggregated results for Dot_Product_SIMD_float_256:
+  Runs: 5
+  Avg duration: 80 ns
+  Throughput: inf ops/s
+
+Aggregated results for Dot_Product_SIMD_double_256:
+  Runs: 5
+  Avg duration: 60 ns
+  Throughput: inf ops/s
+
+Aggregated results for Dot_Product_MKL_float_256:
+  Runs: 5
+  Avg duration: 5120 ns
+  Throughput: inf ops/s
+
+Aggregated results for Dot_Product_MKL_double_256:
+  Runs: 5
+  Avg duration: 1960 ns
+  Throughput: inf ops/s
+
+Aggregated results for Dot_Product_Hybrid_float_256:
+  Runs: 5
+  Avg duration: 20 ns
+  Throughput: inf ops/s
+
+Aggregated results for Dot_Product_Hybrid_double_256:
+  Runs: 5
+  Avg duration: 60 ns
+  Throughput: inf ops/s
+
+Aggregated results for Matrix_Vector_Eigen_float_256:
+  Runs: 5
+  Avg duration: 2520 ns
+  Throughput: 5.92698e+10 ops/s
+
+Aggregated results for Matrix_Vector_Eigen_double_256:
+  Runs: 5
+  Avg duration: 3560 ns
+  Throughput: 3.78696e+10 ops/s
+
+Aggregated results for Matrix_Vector_Eigen_AVX_float_256:
+  Runs: 5
+  Avg duration: 1780 ns
+  Throughput: 7.45603e+10 ops/s
+
+Aggregated results for Matrix_Vector_Eigen_AVX_double_256:
+  Runs: 5
+  Avg duration: 4500 ns
+  Throughput: 3.16514e+10 ops/s
+

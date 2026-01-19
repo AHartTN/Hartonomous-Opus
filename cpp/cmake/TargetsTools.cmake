@@ -157,7 +157,7 @@ if(PostgreSQL_FOUND)
     add_executable(test_integration tests/test_integration.cpp)
     target_include_directories(test_integration PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(test_integration hypercube_core ${PostgreSQL_LIBRARIES})
-    add_test(NAME IntegrationTest COMMAND test_integration)
+    add_test(NAME IntegrationTest COMMAND $<TARGET_FILE:test_integration>)
     set_tests_properties(IntegrationTest PROPERTIES
         ENVIRONMENT "HC_DB_NAME=hypercube;HC_DB_USER=postgres;HC_DB_PASS=postgres;HC_DB_HOST=HART-SERVER;HC_DB_PORT=5432"
     )
@@ -165,7 +165,7 @@ if(PostgreSQL_FOUND)
     add_executable(test_query_api tests/test_query_api.cpp)
     target_include_directories(test_query_api PRIVATE ${PostgreSQL_INCLUDE_DIRS})
     target_link_libraries(test_query_api hypercube_core ${PostgreSQL_LIBRARIES})
-    add_test(NAME QueryAPITest COMMAND test_query_api)
+    add_test(NAME QueryAPITest COMMAND $<TARGET_FILE:test_query_api>)
     set_tests_properties(QueryAPITest PROPERTIES
         ENVIRONMENT "HC_DB_NAME=hypercube;HC_DB_USER=postgres;HC_DB_PASS=postgres;HC_DB_HOST=HART-SERVER;HC_DB_PORT=5432"
     )

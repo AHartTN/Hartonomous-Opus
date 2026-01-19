@@ -1,0 +1,75 @@
+-- Building for: Ninja
+-- The CXX compiler identification is Clang 21.1.8 with GNU-like command-line
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files/LLVM/bin/clang++.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found Git: C:/Program Files/Git/cmd/git.exe (found version "2.51.1.windows.1")
+-- Google Benchmark version: v1.9.4-95-g262afc90-dirty, normalized to 1.9.4.95
+-- Looking for shm_open in rt
+-- Looking for shm_open in rt - found
+-- Performing Test HAVE_CXX_FLAG_WALL
+-- Performing Test HAVE_CXX_FLAG_WALL - Success
+-- Performing Test HAVE_CXX_FLAG_WEXTRA
+-- Performing Test HAVE_CXX_FLAG_WEXTRA - Success
+-- Performing Test HAVE_CXX_FLAG_WSHADOW
+-- Performing Test HAVE_CXX_FLAG_WSHADOW - Success
+-- Performing Test HAVE_CXX_FLAG_WFLOAT_EQUAL
+-- Performing Test HAVE_CXX_FLAG_WFLOAT_EQUAL - Success
+-- Performing Test HAVE_CXX_FLAG_WOLD_STYLE_CAST
+-- Performing Test HAVE_CXX_FLAG_WOLD_STYLE_CAST - Success
+-- Performing Test HAVE_CXX_FLAG_WCONVERSION
+-- Performing Test HAVE_CXX_FLAG_WCONVERSION - Success
+-- Performing Test HAVE_CXX_FLAG_WFORMAT_2
+-- Performing Test HAVE_CXX_FLAG_WFORMAT_2 - Success
+-- Performing Test HAVE_CXX_FLAG_WSUGGEST_OVERRIDE
+-- Performing Test HAVE_CXX_FLAG_WSUGGEST_OVERRIDE - Success
+-- Performing Test HAVE_CXX_FLAG_PEDANTIC
+-- Performing Test HAVE_CXX_FLAG_PEDANTIC - Success
+-- Performing Test HAVE_CXX_FLAG_PEDANTIC_ERRORS
+-- Performing Test HAVE_CXX_FLAG_PEDANTIC_ERRORS - Success
+-- Performing Test HAVE_CXX_FLAG_WSHORTEN_64_TO_32
+-- Performing Test HAVE_CXX_FLAG_WSHORTEN_64_TO_32 - Success
+-- Performing Test HAVE_CXX_FLAG_FSTRICT_ALIASING
+-- Performing Test HAVE_CXX_FLAG_FSTRICT_ALIASING - Success
+-- Performing Test HAVE_CXX_FLAG_WNO_DEPRECATED_DECLARATIONS
+-- Performing Test HAVE_CXX_FLAG_WNO_DEPRECATED_DECLARATIONS - Success
+-- Performing Test HAVE_CXX_FLAG_WSTRICT_ALIASING
+-- Performing Test HAVE_CXX_FLAG_WSTRICT_ALIASING - Success
+-- Performing Test HAVE_CXX_FLAG_WTHREAD_SAFETY
+-- Performing Test HAVE_CXX_FLAG_WTHREAD_SAFETY - Success
+-- Enabling additional flags: -DINCLUDE_DIRECTORIES=D:/Repositories/Github/AHartTN/Hartonomous-Benchmark/build/_deps/benchmark-src/include
+-- Performing Test THREAD_SAFETY_ATTRIBUTES -- success
+-- Performing Test HAVE_CXX_FLAG_COVERAGE
+-- Performing Test HAVE_CXX_FLAG_COVERAGE - Success
+-- Performing Test STEADY_CLOCK -- success
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - found
+-- Found Threads: TRUE
+-- Performing Test PTHREAD_AFFINITY -- failed
+-- MKL_VERSION: 2025.2.0
+-- MKL_ROOT: D:/Intel/oneAPI/mkl/latest
+-- MKL_ARCH: intel64
+-- MKL_LINK: None, set to ` dynamic` by default
+-- MKL_INTERFACE_FULL: None, set to ` intel_ilp64` by default
+-- MKL_THREADING: None, set to ` intel_thread` by default
+-- MKL_MPI: None, set to ` intelmpi` by default
+-- Found D:/Intel/oneAPI/mkl/latest/lib/mkl_scalapack_ilp64_dll.lib
+-- Found DLL: D:/Intel/oneAPI/mkl/latest/bin/mkl_scalapack_ilp64.2.dll
+-- Found D:/Intel/oneAPI/mkl/latest/lib/mkl_cdft_core_dll.lib
+-- Found DLL: D:/Intel/oneAPI/mkl/latest/bin/mkl_cdft_core.2.dll
+-- Found D:/Intel/oneAPI/mkl/latest/lib/mkl_intel_ilp64_dll.lib
+-- Found D:/Intel/oneAPI/mkl/latest/lib/mkl_intel_thread_dll.lib
+-- Found DLL: D:/Intel/oneAPI/mkl/latest/bin/mkl_intel_thread.2.dll
+-- Found D:/Intel/oneAPI/mkl/latest/lib/mkl_core_dll.lib
+-- Found DLL: D:/Intel/oneAPI/mkl/latest/bin/mkl_core.2.dll
+-- Found D:/Intel/oneAPI/mkl/latest/lib/mkl_blacs_ilp64_dll.lib
+-- Found DLL: D:/Intel/oneAPI/mkl/latest/bin/mkl_blacs_ilp64.2.dll
+-- Found D:/Intel/oneAPI/compiler/latest/lib/libiomp5md.lib
+-- MKL found
+-- Configuring done (14.3s)
+-- Generating done (0.1s)
+-- Build files have been written to: D:/Repositories/Github/AHartTN/Hartonomous-Benchmark/build

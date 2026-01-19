@@ -24,24 +24,22 @@ include(FindPackageHandleStandardArgs)
 # Threads (required)
 # ----------------------------------------------------------------------------
 find_package(Threads REQUIRED)
-set(HAS_THREADS ON)
-message(STATUS "[deps] Threads: found")
-# Additional check for pthread_create if needed
-if(NOT DEFINED COMPILER_SUPPORTS_PTHREAD_CREATE)
-    check_cxx_symbol_exists(pthread_create "pthread.h" COMPILER_SUPPORTS_PTHREAD_CREATE)
-endif()
-if(NOT COMPILER_SUPPORTS_PTHREAD_CREATE)
-    message(WARNING "[deps] pthread_create not supported, but threads package found. This might be OK for some builds.")
-endif()
-# Check for pthread_create availability
-set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} Threads::Threads)
-check_cxx_symbol_exists(pthread_create "pthread.h" COMPILER_SUPPORTS_PTHREAD_CREATE)
-if(COMPILER_SUPPORTS_PTHREAD_CREATE)
+if(Threads_FOUND)
     set(HAS_THREADS ON)
-    message(STATUS "[deps] Threads: found (pthread_create available)")
+    message(STATUS "[deps] Threads: found")
+
+    # On non-Windows platforms, check for pthread_create as additional validation
+    # Note: Windows uses native threads (via Threads::Threads), not pthreads
+    if(NOT WIN32)
+        set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} Threads::Threads)
+        check_cxx_symbol_exists(pthread_create "pthread.h" COMPILER_SUPPORTS_PTHREAD_CREATE)
+        if(NOT COMPILER_SUPPORTS_PTHREAD_CREATE)
+            message(WARNING "[deps] pthread_create not found, but Threads package is available")
+        endif()
+    endif()
 else()
     set(HAS_THREADS OFF)
-    message(STATUS "[deps] Threads: not found")
+    message(FATAL_ERROR "[deps] Threads: not found (required)")
 endif()
 
 # ----------------------------------------------------------------------------
@@ -198,16 +196,15 @@ endif()
 
 # If still not found, fetch source and build as part of the tree
 if(NOT HAS_HNSWLIB)
-    message(STATUS "[deps] HNSWLib: not found system-wide, will fetch and build from source")
+    message(STATUS "[deps] HNSWLib: not found system-wide, will fetch from source")
     FetchContent_Declare(
         hnswlib_src
         GIT_REPOSITORY https://github.com/nmslib/hnswlib.git
         GIT_TAG v0.8.0
     )
-    FetchContent_GetProperties(hnswlib_src)
-    if(NOT hnswlib_src_POPULATED)
-        FetchContent_Populate(hnswlib_src)
-    endif()
+    # Use FetchContent_MakeAvailable instead of Populate (CMP0169)
+    FetchContent_MakeAvailable(hnswlib_src)
+
     # hnswlib is header-only in many usages; mark as available
     set(HAS_HNSWLIB ON)
     set(HNSWLIB_FOUND ON)
@@ -336,7 +333,13 @@ else()
     )
     # Configure BLAKE3 build options for maximum SIMD
     set(BLAKE3_FETCH_CONTENT ON CACHE BOOL "" FORCE)
+
+    # Suppress deprecation warning from BLAKE3's old cmake_minimum_required
+    set(_SAVED_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED})
+    set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(blake3_fetch)
+    set(CMAKE_WARN_DEPRECATED ${_SAVED_WARN_DEPRECATED} CACHE BOOL "" FORCE)
+    unset(_SAVED_WARN_DEPRECATED)
 
     # BLAKE3's CMake creates a target we can use
     if(TARGET blake3)
@@ -364,12 +367,10 @@ else()
         GIT_REPOSITORY https://github.com/google/googletest.git
         GIT_TAG v1.15.2
     )
-    FetchContent_GetProperties(googletest)
-    if(NOT googletest_POPULATED)
-        FetchContent_Populate(googletest)
-        # Build googletest to create GTest::gtest and GTest::gtest_main targets
-        add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
-    endif()
+    # Use FetchContent_MakeAvailable instead of Populate (CMP0169)
+    # This automatically calls add_subdirectory and creates GTest::gtest targets
+    FetchContent_MakeAvailable(googletest)
+
     set(GTest_FOUND ON)
     set(GTEST_INCLUDE_DIRS ${googletest_SOURCE_DIR}/googletest/include)
     message(STATUS "[deps] GoogleTest: fetched into ${googletest_SOURCE_DIR}")

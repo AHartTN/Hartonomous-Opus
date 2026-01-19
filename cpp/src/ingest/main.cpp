@@ -21,6 +21,7 @@
 #include "hypercube/db/connection.hpp"
 #include "hypercube/db/helpers.hpp"
 #include "hypercube/ingest/pmi_contraction.hpp"
+#include "hypercube/thread_config.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -79,6 +80,11 @@ void print_usage(const char* prog) {
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
+    // Initialize threading configuration early
+    hypercube::ThreadConfig::instance().configure_openmp();
+    hypercube::ThreadConfig::instance().configure_mkl();
+    hypercube::ThreadConfig::instance().configure_std_thread_pool();
+
 #ifdef _WIN32
     // Prevent CRT assertion dialogs from popping up
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);

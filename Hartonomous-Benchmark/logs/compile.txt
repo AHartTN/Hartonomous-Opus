@@ -1,0 +1,30 @@
+[1/26] Building CXX object src/CMakeFiles/hardware_check.dir/hardware.cpp.obj
+[2/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/benchmark_name.cc.obj
+[3/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark_main.dir/benchmark_main.cc.obj
+[4/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/counter.cc.obj
+[5/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/check.cc.obj
+[6/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/colorprint.cc.obj
+[7/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/benchmark_api_internal.cc.obj
+[8/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/console_reporter.cc.obj
+[9/26] Linking CXX executable src\hardware_check.exe
+[10/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/perf_counters.cc.obj
+[11/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/timers.cc.obj
+[12/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/complexity.cc.obj
+[13/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/reporter.cc.obj
+[14/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/commandlineflags.cc.obj
+[15/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/csv_reporter.cc.obj
+[16/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/statistics.cc.obj
+[17/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/string_util.cc.obj
+D:/Repositories/Github/AHartTN/Hartonomous-Benchmark/build/_deps/benchmark-src/src/string_util.cc:158:34: warning: format string is not a string literal [-Wformat-nonliteral]
+  158 |   std::string tmp = StrFormatImp(format, args);
+      |                                  ^~~~~~
+1 warning generated.
+[18/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/sysinfo.cc.obj
+[19/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/json_reporter.cc.obj
+[20/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/benchmark_runner.cc.obj
+[21/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/benchmark.cc.obj
+[22/26] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark.dir/benchmark_register.cc.obj
+[23/26] Linking CXX static library _deps\benchmark-build\src\benchmark.lib
+[24/26] Linking CXX static library _deps\benchmark-build\src\benchmark_main.lib
+[25/26] Building CXX object benchmarks/CMakeFiles/benchmark_suite.dir/benchmark_main.cpp.obj
+[26/26] Linking CXX executable benchmarks\benchmark_suite.exe

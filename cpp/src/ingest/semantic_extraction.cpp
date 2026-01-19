@@ -1726,6 +1726,10 @@ static bool extract_temporal_relations(PGconn* conn, IngestContext& ctx, const I
             res = PQgetResult(conn);
             PQclear(res);
 
+            // CRITICAL FIX: Ensure position compositions exist BEFORE inserting relations
+            // The INSERT has WHERE EXISTS clauses that filter out missing compositions
+            ensure_position_compositions_exist(conn, emb_name, valid_positions);
+
             // INSERT into relation_evidence with ELO rating updates
             std::string insert_sql = R"SQL(
                 INSERT INTO relation_evidence

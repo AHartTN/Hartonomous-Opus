@@ -34,15 +34,27 @@ inline bool parse_safetensor_header(
     const fs::path& path,
     const std::string& shard_file = ""
 ) {
+    std::cerr << "[DEBUG] parse_safetensor_header: Opening file " << path << "\n";
     std::ifstream file(path, std::ios::binary);
     if (!file) {
-        std::cerr << "Cannot open: " << path << "\n";
+        std::cerr << "[ERROR] Cannot open: " << path << "\n";
         return false;
     }
 
     // Read 8-byte header size (little-endian)
     uint64_t header_size;
     file.read(reinterpret_cast<char*>(&header_size), 8);
+    if (!file || file.gcount() != 8) {
+        std::cerr << "[ERROR] Failed to read header size from " << path << "\n";
+        return false;
+    }
+
+    // Sanity check header size
+    if (header_size == 0 || header_size > 100 * 1024 * 1024) {  // 100MB limit
+        std::cerr << "[ERROR] Invalid header size: " << header_size << " from " << path << "\n";
+        return false;
+    }
+
     if (ctx.verbose) {
         std::cerr << "[DEBUG] Header size: " << header_size << "\n";
     }
@@ -50,6 +62,11 @@ inline bool parse_safetensor_header(
     // Read JSON header
     std::vector<char> buf(header_size);
     file.read(buf.data(), header_size);
+    if (!file || file.gcount() != static_cast<std::streamsize>(header_size)) {
+        std::cerr << "[ERROR] Failed to read header data from " << path << "\n";
+        return false;
+    }
+
     std::string json(buf.begin(), buf.end());
     if (ctx.verbose) {
         std::cerr << "[DEBUG] JSON header length: " << json.size() << "\n";
@@ -63,6 +80,13 @@ inline bool parse_safetensor_header(
         if (ctx.verbose) {
             std::cerr << "[DEBUG] Found 'dtype' at pos " << pos << "\n";
         }
+
+        // Bounds check all positions
+        if (pos >= json.size()) {
+            std::cerr << "[ERROR] Position out of bounds at dtype search\n";
+            break;
+        }
+
         size_t entry_start = json.rfind("{", pos);
         size_t name_end = json.rfind("\":", entry_start);
         size_t name_start = json.rfind("\"", name_end - 1);
@@ -71,7 +95,8 @@ inline bool parse_safetensor_header(
             std::cerr << "[DEBUG] entry_start: " << entry_start << ", name_end: " << name_end << ", name_start: " << name_start << "\n";
         }
 
-        if (name_start == std::string::npos || name_end == std::string::npos) {
+        if (name_start == std::string::npos || name_end == std::string::npos ||
+            name_start >= name_end || name_end >= json.size()) {
             if (ctx.verbose) {
                 std::cerr << "[DEBUG] Skipping malformed entry\n";
             }
@@ -91,37 +116,163 @@ inline bool parse_safetensor_header(
             pos++;
             continue;
         }
-        
+
         safetensor::TensorMeta meta;
         meta.name = name;
         meta.shard_file = shard_file.empty() ? path.string() : shard_file;
-        
-        // Extract dtype
-        size_t dtype_pos = json.find(":", pos) + 1;
+
+        // Extract dtype with bounds checking
+        size_t dtype_pos = json.find(":", pos);
+        if (dtype_pos == std::string::npos || dtype_pos + 1 >= json.size()) {
+            std::cerr << "[ERROR] Malformed dtype for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+        dtype_pos += 1;
+
         size_t dtype_q1 = json.find("\"", dtype_pos);
+        if (dtype_q1 == std::string::npos || dtype_q1 + 1 >= json.size()) {
+            std::cerr << "[ERROR] Malformed dtype quotes for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+
         size_t dtype_q2 = json.find("\"", dtype_q1 + 1);
+        if (dtype_q2 == std::string::npos || dtype_q2 <= dtype_q1 || dtype_q2 >= json.size()) {
+            std::cerr << "[ERROR] Malformed dtype end quote for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+
         meta.dtype = json.substr(dtype_q1 + 1, dtype_q2 - dtype_q1 - 1);
-        
-        // Extract shape
+
+        // Extract shape with bounds checking
         size_t shape_pos = json.find("\"shape\"", pos);
+        if (shape_pos == std::string::npos || shape_pos >= json.size()) {
+            std::cerr << "[ERROR] Missing shape for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+
         size_t shape_start = json.find("[", shape_pos);
+        if (shape_start == std::string::npos || shape_start >= json.size()) {
+            std::cerr << "[ERROR] Malformed shape start for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+
         size_t shape_end = json.find("]", shape_start);
+        if (shape_end == std::string::npos || shape_end <= shape_start || shape_end >= json.size()) {
+            std::cerr << "[ERROR] Malformed shape end for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+
         std::string shape_str = json.substr(shape_start + 1, shape_end - shape_start - 1);
         std::stringstream ss(shape_str);
         std::string dim;
+        bool shape_error = false;
         while (std::getline(ss, dim, ',')) {
-            meta.shape.push_back(std::stoll(dim));
+            // Trim whitespace
+            size_t start = dim.find_first_not_of(" \t\n\r");
+            size_t end = dim.find_last_not_of(" \t\n\r");
+            if (start != std::string::npos && end != std::string::npos) {
+                dim = dim.substr(start, end - start + 1);
+            } else if (start != std::string::npos) {
+                dim = dim.substr(start);
+            } else {
+                dim = "";
+            }
+
+            if (!dim.empty()) {
+                try {
+                    meta.shape.push_back(std::stoll(dim));
+                } catch (const std::exception&) {
+                    std::cerr << "[ERROR] Invalid dimension '" << dim << "' for tensor " << name << "\n";
+                    shape_error = true;
+                    break;
+                }
+            }
         }
-        
-        // Extract data offsets
+
+        if (shape_error || meta.shape.empty()) {
+            std::cerr << "[ERROR] Failed to parse shape for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+
+        // Extract data offsets with bounds checking
         size_t off_pos = json.find("\"data_offsets\"", pos);
+        if (off_pos == std::string::npos || off_pos >= json.size()) {
+            std::cerr << "[ERROR] Missing data_offsets for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+
         size_t off_start = json.find("[", off_pos);
+        if (off_start == std::string::npos || off_start >= json.size()) {
+            std::cerr << "[ERROR] Malformed data_offsets start for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+
         size_t off_end = json.find("]", off_start);
+        if (off_end == std::string::npos || off_end <= off_start || off_end >= json.size()) {
+            std::cerr << "[ERROR] Malformed data_offsets end for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+
         std::string off_str = json.substr(off_start + 1, off_end - off_start - 1);
         size_t comma = off_str.find(",");
-        meta.data_offset_start = std::stoull(off_str.substr(0, comma));
-        meta.data_offset_end = std::stoull(off_str.substr(comma + 1));
-        
+        if (comma == std::string::npos || comma == 0 || comma + 1 >= off_str.size()) {
+            std::cerr << "[ERROR] Malformed data_offsets '" << off_str << "' for tensor " << name << "\n";
+            pos++;
+            continue;
+        }
+
+        try {
+            std::string start_str = off_str.substr(0, comma);
+            std::string end_str = off_str.substr(comma + 1);
+
+            // Trim whitespace
+            auto trim = [](std::string& s) {
+                size_t start = s.find_first_not_of(" \t\n\r");
+                size_t end = s.find_last_not_of(" \t\n\r");
+                if (start != std::string::npos && end != std::string::npos) {
+                    s = s.substr(start, end - start + 1);
+                } else if (start != std::string::npos) {
+                    s = s.substr(start);
+                } else {
+                    s = "";
+                }
+            };
+
+            trim(start_str);
+            trim(end_str);
+
+            if (start_str.empty() || end_str.empty()) {
+                std::cerr << "[ERROR] Empty data offset values for tensor " << name << "\n";
+                pos++;
+                continue;
+            }
+
+            meta.data_offset_start = std::stoull(start_str);
+            meta.data_offset_end = std::stoull(end_str);
+
+            // Sanity check offsets
+            if (meta.data_offset_end < meta.data_offset_start) {
+                std::cerr << "[ERROR] Invalid data offsets (end < start) for tensor " << name << "\n";
+                pos++;
+                continue;
+            }
+
+        } catch (const std::exception& e) {
+            std::cerr << "[ERROR] Invalid data offsets for tensor " << name << ": " << e.what() << "\n";
+            pos++;
+            continue;
+        }
+
         ctx.tensors[name] = meta;
         tensor_count++;
         if (ctx.verbose) {
@@ -135,6 +286,7 @@ inline bool parse_safetensor_header(
         pos = off_end;
     }
 
+    std::cerr << "[DEBUG] parse_safetensor_header: Successfully parsed " << tensor_count << " tensors from " << path << "\n";
     if (ctx.verbose) {
         std::cerr << "[DEBUG] Total tensors parsed: " << tensor_count << "\n";
     }

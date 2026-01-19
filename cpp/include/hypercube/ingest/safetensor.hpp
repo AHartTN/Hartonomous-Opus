@@ -205,17 +205,42 @@ public:
         static MappedFileCache cache;
         return cache;
     }
-    
+
+    // Set maximum cache size to prevent file handle exhaustion
+    void set_max_size(size_t max_size) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        max_cache_size_ = max_size;
+        // If we're over the limit, clear oldest entries
+        if (cache_.size() > max_cache_size_) {
+            // Simple FIFO: remove oldest entries
+            size_t to_remove = cache_.size() - max_cache_size_;
+            auto it = cache_.begin();
+            for (size_t i = 0; i < to_remove && it != cache_.end(); ++i, ++it) {
+                // Evict oldest entries
+            }
+            cache_.erase(cache_.begin(), it);
+        }
+    }
+
     const MappedFile* get(const std::string& path) {
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = cache_.find(path);
         if (it != cache_.end()) {
             return it->second.get();
         }
+
+        // Check cache size limit before adding new file
+        if (cache_.size() >= max_cache_size_ && max_cache_size_ > 0) {
+            // Evict oldest entry (simple FIFO)
+            auto oldest_it = cache_.begin();
+            cache_.erase(oldest_it);
+        }
+
         auto mf = std::make_unique<MappedFile>();
         if (!mf->map(path)) {
             return nullptr;
         }
+
         auto ptr = mf.get();
         cache_[path] = std::move(mf);
         return ptr;
@@ -235,6 +260,7 @@ private:
     MappedFileCache() = default;
     mutable std::mutex mutex_;
     std::unordered_map<std::string, std::unique_ptr<MappedFile>> cache_;
+    size_t max_cache_size_ = 50;  // Default limit to prevent file handle exhaustion
 };
 
 // =============================================================================

@@ -1,0 +1,2 @@
+add_library(result_aggregation INTERFACE)
+target_include_directories(result_aggregation INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

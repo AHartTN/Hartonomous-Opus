@@ -21,6 +21,7 @@
 #include "hypercube/lanczos.hpp"
 #include "hypercube/hilbert.hpp"
 #include "hypercube/embedding_ops.hpp"  // Centralized SIMD operations
+#include "hypercube/thread_config.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -363,8 +364,8 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
 
     int num_threads = config_.num_threads;
     if (num_threads <= 0) {
-        num_threads = static_cast<int>(std::thread::hardware_concurrency());
-        if (num_threads == 0) num_threads = 4;
+        // Use ThreadConfig for workload-appropriate thread allocation
+        num_threads = static_cast<int>(ThreadConfig::instance().get_thread_count(WorkloadType::COMPUTE_BOUND));
     }
 
 #if USE_HNSWLIB

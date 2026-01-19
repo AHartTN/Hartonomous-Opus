@@ -4,7 +4,7 @@ RAG search orchestration and ranking algorithms
 from typing import List, Dict, Any, Optional
 import logging
 
-from ..config import SEARCH_COLLECTIONS, RAG_TOP_K, RAG_RERANK_TOP_N
+from ..config import SEARCH_COLLECTIONS, RAG_TOP_K, RAG_RERANK_TOP_N, USE_OPUS_DB, RAG_MIN_RATING, RAG_MAX_HOPS
 from ..clients.llamacpp_client import llamacpp_client
 from ..clients.qdrant_client import qdrant_vector_client
 
@@ -58,10 +58,115 @@ async def get_embedding_with_dimension(text: str, target_dim: Optional[int] = No
     return embedding
 
 
+async def rag_search_opus(query: str, top_k: int = RAG_TOP_K, rerank_top_n: int = RAG_RERANK_TOP_N) -> List[str]:
+    """
+    Perform RAG search using Opus PostgreSQL database:
+    1. Get query embedding
+    2. Semantic search in composition table
+    3. Optional: Expand via relations (multi-hop)
+    4. Rerank results
+    5. Extract text content
+    """
+    try:
+        from ..clients.opus_postgres_client import get_opus_client
+
+        opus_client = get_opus_client()
+        logger.info(f"Starting Opus RAG search for query: {query[:100]}...")
+
+        # Step 1: Get query embedding
+        query_embedding = await llamacpp_client.get_embedding(query)
+        logger.info(f"Got query embedding: {len(query_embedding)}d")
+
+        # Step 2: Semantic search in Opus database
+        search_results = opus_client.semantic_search(
+            query_embedding=query_embedding,
+            top_k=top_k * 2  # Get more candidates for reranking
+        )
+
+        if not search_results:
+            logger.info("No results from Opus semantic search")
+            return []
+
+        logger.info(f"Opus semantic search returned {len(search_results)} results")
+
+        # Step 3: Optional multi-hop expansion via relations
+        if RAG_MAX_HOPS > 0:
+            logger.info(f"Expanding via relations (max {RAG_MAX_HOPS} hops)")
+
+            # Get top result IDs for expansion
+            top_ids = [r['id'] for r in search_results[:5]]  # Expand from top 5
+
+            expanded_ids = set()
+            for comp_id in top_ids:
+                related = opus_client.get_related_compositions(
+                    source_id=comp_id,
+                    min_rating=RAG_MIN_RATING,
+                    max_results=10
+                )
+                for rel in related:
+                    expanded_ids.add(rel['target_id'])
+
+            if expanded_ids:
+                # Get context for expanded compositions
+                expanded_results = opus_client.get_composition_context(list(expanded_ids))
+                # Merge with original results (deduplicate by ID)
+                existing_ids = {r['id'] for r in search_results}
+                for exp in expanded_results:
+                    if exp['id'] not in existing_ids:
+                        search_results.append(exp)
+
+                logger.info(f"Expanded to {len(search_results)} total results via relations")
+
+        # Step 4: Get text content from metadata
+        text_results = opus_client.get_text_content(
+            [r['id'] for r in search_results]
+        )
+
+        # Extract documents for reranking
+        documents = []
+        doc_metadata = {}
+
+        for text_res in text_results:
+            text = text_res.get('text', '')
+            if text:
+                documents.append(text)
+                doc_metadata[text] = {
+                    'id': text_res['id'],
+                    'model': text_res['model'],
+                    'layer': text_res['layer'],
+                    'source': text_res.get('source', 'unknown')
+                }
+
+        if not documents:
+            logger.info("No text content found in results")
+            return []
+
+        logger.info(f"Extracted {len(documents)} documents for reranking")
+
+        # Step 5: Rerank using reranker model
+        reranked = await llamacpp_client.rerank_documents(query, documents, rerank_top_n)
+
+        final_docs = [r["document"] for r in reranked]
+        logger.info(f"Reranked to top {len(final_docs)} documents")
+
+        return final_docs
+
+    except Exception as e:
+        logger.error(f"Opus RAG search error: {e}", exc_info=True)
+        return []
+
+
 async def rag_search(query: str, top_k: int = RAG_TOP_K, rerank_top_n: int = RAG_RERANK_TOP_N) -> List[str]:
     """
-    Perform RAG search across multiple collections: embed -> vector search -> RRF merge -> rerank
+    Perform RAG search - routes to either Opus PostgreSQL or Qdrant based on config
     """
+    # Route to appropriate backend
+    if USE_OPUS_DB:
+        logger.info("Using Opus PostgreSQL for RAG search")
+        return await rag_search_opus(query, top_k, rerank_top_n)
+
+    # Qdrant fallback/legacy path
+    logger.info("Using Qdrant for RAG search")
     try:
         all_results = []
 

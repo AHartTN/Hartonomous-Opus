@@ -1,0 +1,26 @@
+name: Benchmark
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      run: sudo apt update && sudo apt install -y libbenchmark-dev linux-tools-common valgrind
+    - name: Build
+      run: mkdir build && cd build && cmake .. && make -j$(nproc)
+    - name: Run benchmarks
+      run: ./scripts/run_benchmarks.sh
+    - name: Analyze results
+      run: ./scripts/analyze_results.sh
+    - name: Upload results
+      uses: actions/upload-artifact@v2
+      with:
+        name: benchmark-results
+        path: results/

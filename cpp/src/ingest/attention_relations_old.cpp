@@ -178,8 +178,7 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
     }
     
     unsigned int num_threads = std::thread::hardware_concurrency();
-    if (num_threads == 0) num_threads = 4;
-    if (num_threads > 8) num_threads = 8;  // Limit for memory
+    if (num_threads == 0) num_threads = 8;
     
     for (auto& group : attn_groups) {
         if (group.tensors.empty()) continue;

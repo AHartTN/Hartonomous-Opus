@@ -1,0 +1,2 @@
+add_library(timing_utils INTERFACE)
+target_include_directories(timing_utils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

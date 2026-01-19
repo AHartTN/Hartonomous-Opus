@@ -1,0 +1,2 @@
+Transcript started, output file is ..\logs\analyze.txt
+Transcript stopped, output file is D:\Repositories\Github\AHartTN\logs\analyze.txt

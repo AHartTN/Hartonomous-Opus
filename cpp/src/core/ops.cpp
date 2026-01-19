@@ -7,6 +7,7 @@
 #include "hypercube/ops.hpp"
 #include "hypercube/blake3.hpp"
 #include "hypercube/hilbert.hpp"
+#include "hypercube/thread_config.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -220,10 +221,10 @@ std::vector<DistanceResult> find_knn(
 
 ThreadPool::ThreadPool(size_t num_threads) {
     if (num_threads == 0) {
-        num_threads = std::thread::hardware_concurrency();
-        if (num_threads == 0) num_threads = 4;  // Fallback
+        // Use ThreadConfig for workload-appropriate thread allocation
+        num_threads = ThreadConfig::instance().get_thread_count(WorkloadType::HYBRID);
     }
-    
+
     workers_.reserve(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
         workers_.emplace_back([this] {
@@ -232,9 +233,32 @@ ThreadPool::ThreadPool(size_t num_threads) {
                 {
                     std::unique_lock<std::mutex> lock(mutex_);
                     cv_.wait(lock, [this] { return stop_ || !tasks_.empty(); });
-                    
+
                     if (stop_ && tasks_.empty()) return;
-                    
+
+                    task = std::move(tasks_.front());
+                    tasks_.pop();
+                }
+                task();
+            }
+        });
+    }
+}
+
+ThreadPool::ThreadPool(WorkloadType workload_type) {
+    size_t num_threads = ThreadConfig::instance().get_thread_count(workload_type);
+
+    workers_.reserve(num_threads);
+    for (size_t i = 0; i < num_threads; ++i) {
+        workers_.emplace_back([this] {
+            while (true) {
+                std::function<void()> task;
+                {
+                    std::unique_lock<std::mutex> lock(mutex_);
+                    cv_.wait(lock, [this] { return stop_ || !tasks_.empty(); });
+
+                    if (stop_ && tasks_.empty()) return;
+
                     task = std::move(tasks_.front());
                     tasks_.pop();
                 }

@@ -28,6 +28,11 @@
 #endif
 #endif
 
+#ifdef _WIN32
+#include <windows.h>
+#include <stdlib.h>
+#endif
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -95,6 +100,13 @@ using namespace hypercube::ingest;
 // ============================================================================
 
 int main(int argc, char* argv[]) {
+    // Prevent CRT from showing messagebox dialogs on errors
+    #ifdef _WIN32
+    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX | SEM_NOGPFAULTERRORBOX);
+    _set_error_mode(_OUT_TO_STDERR);
+    std::cerr << "[INIT] Set Windows error mode to prevent messageboxes\n";
+    #endif
+
     IngestConfig config;
     std::string model_dir;
     
@@ -150,6 +162,10 @@ int main(int argc, char* argv[]) {
     IngestContext ctx;
     ctx.model_prefix = config.model_name + ":";
     ctx.verbose = config.verbose;
+
+    // Limit MappedFileCache size to prevent file handle exhaustion
+    safetensor::MappedFileCache::instance().set_max_size(20);
+    std::cerr << "[INIT] Set MappedFileCache max size to 20 to prevent handle exhaustion\n";
     
     // ============================================================================
     // CRITICAL: Configure threading BEFORE any parallel operations

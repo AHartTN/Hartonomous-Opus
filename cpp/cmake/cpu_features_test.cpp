@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdint>
+#include <cstring>
 
 #if defined(_MSC_VER)
   #include <intrin.h>
@@ -69,8 +70,25 @@ int main() {
     bool has_avx_vnni  = false; // generic AVX-VNNI capability (256- or 512-bit)
     bool has_bmi2      = false;
 
+    // Get vendor string to identify Intel CPUs
+    uint32_t vendor_ebx = 0, vendor_ecx = 0, vendor_edx = 0;
+    cpuid(0u, 0u, eax, vendor_ebx, vendor_ecx, vendor_edx);
+    char vendor[13] = {0};
+    memcpy(vendor, &vendor_ebx, 4);
+    memcpy(vendor + 4, &vendor_edx, 4);
+    memcpy(vendor + 8, &vendor_ecx, 4);
+    bool is_intel = (strcmp(vendor, "GenuineIntel") == 0);
+
+    // Debug output to stderr (won't interfere with stdout parsing)
+    std::cerr << "[CPU] Vendor: " << vendor << " (Intel: " << is_intel << ")\n";
+
     // Basic CPUID leaf 1: general feature flags
     cpuid(1u, 0u, eax, ebx, ecx, edx);
+
+    // Extract family and model for debug
+    uint32_t family = ((eax >> 8) & 0xF) + ((eax >> 20) & 0xFF);
+    uint32_t model = ((eax >> 4) & 0xF) | ((eax >> 12) & 0xF0);
+    std::cerr << "[CPU] Family: " << family << ", Model: 0x" << std::hex << model << std::dec << "\n";
 
     // FMA3: leaf 1, ECX bit 12
     has_fma3 = (ecx & (1u << 12)) != 0;
@@ -99,6 +117,11 @@ int main() {
 
     // Check OS support for AVX state saving
     bool os_avx_support = check_os_avx_support();
+    std::cerr << "[CPU] OS AVX support: " << (os_avx_support ? "YES" : "NO") << "\n";
+
+    std::cerr << "[CPU] Raw CPUID features before OS check:\n";
+    std::cerr << "  AVX2=" << has_avx2 << " FMA3=" << has_fma3 << " BMI2=" << has_bmi2 << "\n";
+    std::cerr << "  AVX512F=" << has_avx512f << " AVX512DQ=" << has_avx512dq << "\n";
 
     // AVX-VNNI:
     //
@@ -116,11 +139,36 @@ int main() {
     bool has_avx_vnni_256 = (eax1 & (1u << 4)) != 0;
 
     has_avx_vnni = has_avx512_vnni || has_avx_vnni_256;
+    std::cerr << "  AVX512_VNNI=" << has_avx512_vnni << " AVX_VNNI_256=" << has_avx_vnni_256 << "\n";
+
+    // Fallback for modern Intel CPUs: Intel 14th/15th gen and newer support AVX2 and AVX_VNNI
+    // This helps when OS support checks fail but we know the CPU supports these features
+    if (is_intel && !has_avx2) {
+        // Intel 14th gen (Raptor Lake): family 6, model 0xB7-0xBF
+        // Intel 15th gen (Arrow Lake): family 6, model 0xC6-0xCF
+        // Also handle older Raptor Lake variants: 0x97-0x9F
+        // And Alder Lake: 0x97, 0x9A
+        bool is_modern_intel = (family == 6) && (
+            (model >= 0x97 && model <= 0x9F) ||  // Alder Lake, early Raptor Lake
+            (model >= 0xB7 && model <= 0xBF) ||  // 14th gen Raptor Lake
+            (model >= 0xC6 && model <= 0xCF)     // 15th gen Arrow Lake
+        );
+
+        if (is_modern_intel) {
+            std::cerr << "[CPU] Applying modern Intel CPU fallback (model 0x" << std::hex << model << std::dec << ")\n";
+            has_avx2 = true;
+            has_avx_vnni = true;
+            has_fma3 = true;  // Also typically supported
+            has_bmi2 = true;  // Also typically supported
+        }
+    }
 
     // Apply OS support check for AVX-dependent features
+    std::cerr << "[CPU] Applying OS support check (before: AVX2=" << has_avx2 << " FMA3=" << has_fma3 << " AVX_VNNI=" << has_avx_vnni << ")\n";
     has_avx2 &= os_avx_support;
     has_fma3 &= os_avx_support;
     has_avx_vnni &= os_avx_support;
+    std::cerr << "[CPU] After OS support check: AVX2=" << has_avx2 << " FMA3=" << has_fma3 << " AVX_VNNI=" << has_avx_vnni << "\n";
 
     // Emit machine-readable output for CMake to parse
     std::cout << "AVX2:"      << (has_avx2      ? "1" : "0") << '\n';

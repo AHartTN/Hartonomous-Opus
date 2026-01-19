@@ -13,8 +13,69 @@
 -- Detecting C compile features
 -- Detecting C compile features - done
 -- FetchContent cache: D:/Repositories/Hartonomous-Opus/cpp/../external/_deps
--- CPU feature runtime detection failed - using compiler-based fallback
--- SIMD: MSVC baseline; AVX features will be conservative
+-- Compile output: Change Dir: 'D:/Repositories/Hartonomous-Opus/cpp/build/CMakeFiles/CMakeTmp'
+
+Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_ca4b8.vcxproj /p:Configuration=Release /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+MSBuild version 17.14.40+3e7442088 for .NET Framework
+Build started 1/18/2026 7:14:57 PM.
+
+Project "D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\cmTC_ca4b8.vcxproj" on node 1 (default targets).
+PrepareForBuild:
+  Creating directory "cmTC_ca4b8.dir\Release\".
+  Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+  Creating directory "D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\Release\".
+  Creating directory "cmTC_ca4b8.dir\Release\cmTC_ca4b8.tlog\".
+InitializeBuildStatus:
+  Creating "cmTC_ca4b8.dir\Release\cmTC_ca4b8.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+  Touching "cmTC_ca4b8.dir\Release\cmTC_ca4b8.tlog\unsuccessfulbuild".
+ComputeStdModulesCompileInputs:
+  Reading library manifest file 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\modules\modules.json' which provides data for library 'microsoft/STL'.
+  Adding module source 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\modules\std.ixx' from library 'microsoft/STL' to be built with this project.
+  Adding module source 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\modules\std.compat.ixx' from library 'microsoft/STL' to be built with this project.
+MakeDirsForCl:
+  Creating directory "D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\cmTC_ca4b8.dir\Release\microsoft\STL".
+SetModuleDependencies:
+  Creating directory "cmTC_ca4b8.dir\Release\cmTC_ca4b8_MD.tlog\".
+VcpkgTripletSelection:
+  Using triplet "x64-windows" from "D:\vcpkg\installed\x64-windows\"
+  Using normalized configuration "Release"
+ClCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\CL.exe /c /I"D:\vcpkg\installed\x64-windows\include" /W1 /WX- /diagnostics:column /O2 /Ob2 /D _MBCS /D WIN32 /D _WINDOWS /D NDEBUG /D "CMAKE_INTDIR=\"Release\"" /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /std:c++latest /Fo"cmTC_ca4b8.dir\Release\\" /Fd"cmTC_ca4b8.dir\Release\vc143.pdb" /external:W1 /Gd /TP /errorReport:queue "D:\Repositories\Hartonomous-Opus\cpp\cmake\cpu_features_test.cpp"
+  Microsoft (R) C/C++ Optimizing Compiler Version 19.44.35222 for x64
+  Copyright (C) Microsoft Corporation.  All rights reserved.
+  /std:c++latest is provided as a preview of language features from the latest C++
+  working draft, and we're eager to hear about bugs and suggestions for improvements.
+  However, note that these features are provided as-is without support, and subject
+  to changes or removal as the working draft evolves. See
+  https://go.microsoft.com/fwlink/?linkid=2045807 for details.
+  cl /c /I"D:\vcpkg\installed\x64-windows\include" /W1 /WX- /diagnostics:column /O2 /Ob2 /D _MBCS /D WIN32 /D _WINDOWS /D NDEBUG /D "CMAKE_INTDIR=\"Release\"" /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /std:c++latest /Fo"cmTC_ca4b8.dir\Release\\" /Fd"cmTC_ca4b8.dir\Release\vc143.pdb" /external:W1 /Gd /TP /errorReport:queue "D:\Repositories\Hartonomous-Opus\cpp\cmake\cpu_features_test.cpp"
+  cpu_features_test.cpp
+Link:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64\link.exe /ERRORREPORT:QUEUE /OUT:"D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\Release\cmTC_ca4b8.exe" /INCREMENTAL:NO /NOLOGO /LIBPATH:"D:\vcpkg\installed\x64-windows\lib" /LIBPATH:"D:\vcpkg\installed\x64-windows\lib\manual-link" kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib "D:\vcpkg\installed\x64-windows\lib\*.lib" /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:"D:/Repositories/Hartonomous-Opus/cpp/build/CMakeFiles/CMakeTmp/Release/cmTC_ca4b8.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:/Repositories/Hartonomous-Opus/cpp/build/CMakeFiles/CMakeTmp/Release/cmTC_ca4b8.lib" /MACHINE:X64  /machine:x64 cmTC_ca4b8.dir\Release\cpu_features_test.obj
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\cmTC_ca4b8.vcxproj]
+LINK : warning LNK4098: defaultlib 'LIBCMT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\cmTC_ca4b8.vcxproj]
+  cmTC_ca4b8.vcxproj -> D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\Release\cmTC_ca4b8.exe
+AppLocalFromInstalled:
+  pwsh.exe -ExecutionPolicy Bypass -noprofile -File "D:\vcpkg\scripts\buildsystems\msbuild\applocal.ps1" "D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\Release\cmTC_ca4b8.exe" "D:\vcpkg\installed\x64-windows\bin" "cmTC_ca4b8.dir\Release\cmTC_ca4b8.tlog\cmTC_ca4b8.write.1u.tlog" "cmTC_ca4b8.dir\Release\vcpkg.applocal.log"
+FinalizeBuildStatus:
+  Deleting file "cmTC_ca4b8.dir\Release\cmTC_ca4b8.tlog\unsuccessfulbuild".
+  Touching "cmTC_ca4b8.dir\Release\cmTC_ca4b8.tlog\cmTC_ca4b8.lastbuildstate".
+Done Building Project "D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\cmTC_ca4b8.vcxproj" (default targets).
+
+Build succeeded.
+
+"D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\cmTC_ca4b8.vcxproj" (default target) (1) ->
+(Link target) -> 
+  LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\cmTC_ca4b8.vcxproj]
+  LINK : warning LNK4098: defaultlib 'LIBCMT' conflicts with use of other libs; use /NODEFAULTLIB:library [D:\Repositories\Hartonomous-Opus\cpp\build\CMakeFiles\CMakeTmp\cmTC_ca4b8.vcxproj]
+
+    2 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.69
+
+
+-- SIMD: MSVC baseline; AVX features disabled - use FORCE_AVX2=ON to enable
 -- Compiler: MSVC 19.44.35222.0
 -- Available configurations: Debug;Release;MinSizeRel;RelWithDebInfo
 -- C++ standard: 23
@@ -28,32 +89,11 @@
 -- Looking for pthread_create in pthread - not found
 -- Found Threads: TRUE
 -- [deps] Threads: found
--- Looking for pthread_create
--- Looking for pthread_create - not found
-CMake Warning at cmake/FindDependencies.cmake:34 (message):
-  [deps] pthread_create not supported, but threads package found.  This might
-  be OK for some builds.
-Call Stack (most recent call first):
-  CMakeLists.txt:52 (include)
-
-
--- [deps] Threads: not found
 -- [deps] OpenMP: found (2.0)
 -- [deps] Eigen3: found (imported target Eigen3::Eigen)
 -- [deps] MKL: found via CMake package (MKL::MKL)
 -- [deps] MKL: enabled
 -- [deps] HNSWLib: not found system-wide, will fetch and build from source
-CMake Warning (dev) at C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/FetchContent.cmake:1953 (message):
-  Calling FetchContent_Populate(hnswlib_src) is deprecated, call
-  FetchContent_MakeAvailable(hnswlib_src) instead.  Policy CMP0169 can be set
-  to OLD to allow FetchContent_Populate(hnswlib_src) to be called directly
-  for now, but the ability to call it with declared details will be removed
-  completely in a future version.
-Call Stack (most recent call first):
-  cmake/FindDependencies.cmake:209 (FetchContent_Populate)
-  CMakeLists.txt:52 (include)
-This warning is for project developers.  Use -Wno-dev to suppress it.
-
 -- [deps] HNSWLib: fetched into D:/Repositories/Hartonomous-Opus/cpp/../external/_deps/hnswlib_src-src
 -- [deps] pg_config found: C:/Program Files/PostgreSQL/18/bin/pg_config.exe (PostgreSQL PostgreSQL 18.1)
 -- [deps] PostgreSQL server include: C:/PROGRA~1/POSTGR~1/18/include/server
@@ -62,15 +102,6 @@ This warning is for project developers.  Use -Wno-dev to suppress it.
 -- [deps] libpq: found manually at C:/Program Files/PostgreSQL/18/lib/libpq.lib
 -- [deps] postgres.lib found explicitly: C:/PROGRA~1/POSTGR~1/18/lib/postgres.lib
 -- [deps] BLAKE3: fetching from GitHub with SIMD optimizations
-CMake Deprecation Warning at D:/Repositories/Hartonomous-Opus/external/_deps/blake3_fetch-src/c/CMakeLists.txt:1 (cmake_minimum_required):
-  Compatibility with CMake < 3.10 will be removed from a future version of
-  CMake.
-
-  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
-  to tell CMake that the project requires at least <min> but has been updated
-  to work with policies introduced by <max> or earlier.
-
-
 -- The ASM compiler identification is MSVC
 -- Found assembler: C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe
 -- BLAKE3 SIMD configuration: x64
@@ -81,17 +112,6 @@ CMake Deprecation Warning at D:/Repositories/Hartonomous-Opus/external/_deps/bla
 
 -- [deps] BLAKE3: fetched with SIMD support (AVX2/AVX-512)
 -- [deps] GoogleTest: not found system-wide; fetching via FetchContent
-CMake Warning (dev) at C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.31/Modules/FetchContent.cmake:1953 (message):
-  Calling FetchContent_Populate(googletest) is deprecated, call
-  FetchContent_MakeAvailable(googletest) instead.  Policy CMP0169 can be set
-  to OLD to allow FetchContent_Populate(googletest) to be called directly for
-  now, but the ability to call it with declared details will be removed
-  completely in a future version.
-Call Stack (most recent call first):
-  cmake/FindDependencies.cmake:369 (FetchContent_Populate)
-  CMakeLists.txt:52 (include)
-This warning is for project developers.  Use -Wno-dev to suppress it.
-
 -- [deps] GoogleTest: fetched into D:/Repositories/Hartonomous-Opus/cpp/../external/_deps/googletest-src
 -- 
 -- Dependency hints:
@@ -99,7 +119,7 @@ This warning is for project developers.  Use -Wno-dev to suppress it.
 --   - On Linux: apt install libeigen3-dev libpq-dev libgtest-dev (or use vcpkg/conan)
 -- 
 -- === Dependency Detection Summary ===
--- Threads:            OFF
+-- Threads:            ON
 -- OpenMP:             ON
 -- Eigen3:             ON
 --   Eigen target:     Eigen3::Eigen
@@ -141,6 +161,6 @@ This warning is for project developers.  Use -Wno-dev to suppress it.
 -- 
 -- Hypercube configuration complete.
 -- 
--- Configuring done (15.4s)
+-- Configuring done (16.5s)
 -- Generating done (0.7s)
 -- Build files have been written to: D:/Repositories/Hartonomous-Opus/cpp/build

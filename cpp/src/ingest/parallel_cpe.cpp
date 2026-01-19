@@ -19,6 +19,7 @@
 #include "hypercube/ingest/parallel_cpe.hpp"
 #include "hypercube/atom_calculator.hpp"
 #include "hypercube/blake3.hpp"
+#include "hypercube/thread_config.hpp"
 
 #include <thread>
 #include <mutex>
@@ -258,7 +259,7 @@ struct ParallelCPEIngester::Impl {
 };
 
 ParallelCPEIngester::ParallelCPEIngester(size_t num_threads)
-    : impl_(std::make_unique<Impl>(num_threads == 0 ? std::thread::hardware_concurrency() : num_threads))
+    : impl_(std::make_unique<Impl>(num_threads == 0 ? ThreadConfig::instance().get_thread_count(WorkloadType::HYBRID) : num_threads))
 {}
 
 ParallelCPEIngester::~ParallelCPEIngester() = default;

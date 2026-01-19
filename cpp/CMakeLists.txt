@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 3.24)
 
 # ============================================================================
+# MSVC Runtime Library Configuration (MUST be before project())
+# ============================================================================
+# Fix LNK4098 warnings: ensure all targets use the same runtime library.
+# Use static runtime (/MT for Release, /MTd for Debug) to avoid conflicts
+# with dependencies that may use different runtimes.
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STRING "MSVC runtime library" FORCE)
+    # Also set policy CMP0091 to NEW to ensure this setting is respected
+    cmake_policy(SET CMP0091 NEW)
+endif()
+
+# ============================================================================
 # Project definition
 # ============================================================================
 
@@ -76,6 +88,31 @@ endif()
 if(HYPERCUBE_ENABLE_TESTS)
     include(CTest)  # sets BUILD_TESTING, ctest integration
     include(TargetsTests)
+
+    # For multi-config generators (Visual Studio), create convenience test targets
+    if(CMAKE_CONFIGURATION_TYPES)
+        # Add custom targets to run tests with specific configurations
+        add_custom_target(test-release
+            COMMAND ${CMAKE_CTEST_COMMAND} -C Release --output-on-failure
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Running tests in Release configuration"
+            USES_TERMINAL
+        )
+
+        add_custom_target(test-debug
+            COMMAND ${CMAKE_CTEST_COMMAND} -C Debug --output-on-failure
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            COMMENT "Running tests in Debug configuration"
+            USES_TERMINAL
+        )
+
+        message(STATUS "")
+        message(STATUS "Multi-config generator detected. To run tests:")
+        message(STATUS "  Option 1: cmake --build build --target test-release")
+        message(STATUS "  Option 2: cmake --build build --target test-debug")
+        message(STATUS "  Option 3: cd build && ctest -C Release")
+        message(STATUS "")
+    endif()
 else()
     message(STATUS "Tests are disabled; skipping test targets")
 endif()
@@ -141,4 +178,15 @@ message(STATUS "HAS_AVX_VNNI:            ${HAS_AVX_VNNI}")
 message(STATUS "")
 
 message(STATUS "Hypercube configuration complete.")
+
+# Additional guidance for multi-config generators
+if(HYPERCUBE_ENABLE_TESTS AND CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "")
+    message(STATUS "=== Running Tests ===")
+    message(STATUS "With multi-config generators, specify configuration when running tests:")
+    message(STATUS "  ./run-tests-release.bat    (Windows batch script)")
+    message(STATUS "  OR: cd build && ctest -C Release --output-on-failure")
+    message(STATUS "  OR: cmake --build build --target test-release")
+endif()
+
 message(STATUS "")

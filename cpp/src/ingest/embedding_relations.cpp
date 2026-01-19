@@ -328,14 +328,72 @@ bool extract_embedding_relations(PGconn* conn, IngestContext& ctx, const IngestC
         values.push_back(val);
     }
 
+    // CRITICAL FIX: Deduplicate values before inserting to prevent ON CONFLICT DO UPDATE affecting same row twice
+    // Group by composite key: (source_id, target_id, relation_type, source_model, layer, component)
+    struct EdgeKey {
+        std::string source_id;
+        std::string target_id;
+        std::string model;
+        std::string component;
+        bool operator<(const EdgeKey& other) const {
+            if (source_id != other.source_id) return source_id < other.source_id;
+            if (target_id != other.target_id) return target_id < other.target_id;
+            if (model != other.model) return model < other.model;
+            return component < other.component;
+        }
+    };
+
+    std::map<EdgeKey, std::pair<std::string, float>> unique_edges;  // key -> (full_value, max_weight)
+
+    for (const auto& val : values) {
+        // Parse the value string to extract key fields and weight
+        // Format: ('\\x...', '\\x...', 'E', 'model', 1, 'embed_type', 1500.0, 1, weight, weight)
+        size_t src_start = val.find("'\\\\x") + 1;
+        size_t src_end = val.find("'", src_start);
+        std::string src_id = val.substr(src_start, src_end - src_start);
+
+        size_t tgt_start = val.find("'\\\\x", src_end) + 1;
+        size_t tgt_end = val.find("'", tgt_start);
+        std::string tgt_id = val.substr(tgt_start, tgt_end - tgt_start);
+
+        size_t model_start = val.find("'", tgt_end + 10) + 1;
+        size_t model_end = val.find("'", model_start);
+        std::string model = val.substr(model_start, model_end - model_start);
+
+        size_t comp_start = val.find("'", model_end + 5) + 1;
+        size_t comp_end = val.find("'", comp_start);
+        std::string component = val.substr(comp_start, comp_end - comp_start);
+
+        // Extract weight (appears twice at the end)
+        size_t last_comma = val.rfind(',');
+        size_t second_last_comma = val.rfind(',', last_comma - 1);
+        std::string weight_str = val.substr(second_last_comma + 2, last_comma - second_last_comma - 2);
+        float weight = std::stof(weight_str);
+
+        EdgeKey key{src_id, tgt_id, model, component};
+        auto it = unique_edges.find(key);
+        if (it == unique_edges.end() || weight > it->second.second) {
+            unique_edges[key] = {val, weight};
+        }
+    }
+
+    std::cerr << "[EMBED] Deduplicated " << values.size() << " -> " << unique_edges.size() << " unique edges\n";
+
+    // Build deduplicated values vector
+    std::vector<std::string> deduped_values;
+    deduped_values.reserve(unique_edges.size());
+    for (const auto& [key, val_weight] : unique_edges) {
+        deduped_values.push_back(val_weight.first);
+    }
+
     // Batch in chunks to avoid query size limits
     const size_t batch_size = 1000;
     int total_inserted = 0;
-    for (size_t i = 0; i < values.size(); i += batch_size) {
+    for (size_t i = 0; i < deduped_values.size(); i += batch_size) {
         std::string batch_sql = insert_sql;
-        for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
+        for (size_t j = i; j < std::min(i + batch_size, deduped_values.size()); ++j) {
             if (j > i) batch_sql += ", ";
-            batch_sql += values[j];
+            batch_sql += deduped_values[j];
         }
         batch_sql += " ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component) DO UPDATE SET "
                     "  raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) / (relation_evidence.observation_count + 1), "

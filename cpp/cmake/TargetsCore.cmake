@@ -48,6 +48,7 @@ add_library(hypercube_core STATIC
     src/core/linear_algebra.cpp
     src/core/semantic_ordering.cpp
     src/core/superfibonacci.cpp
+    src/core/thread_config.cpp
     src/core/unicode_categorization.cpp
     src/core/coordinate_utilities.cpp
     src/core/dense_registry.cpp

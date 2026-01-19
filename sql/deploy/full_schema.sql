@@ -1,7 +1,7 @@
 -- =============================================================================
 -- HYPERCUBE DATABASE SCHEMA - CONSOLIDATED DEPLOYMENT FILE
 -- =============================================================================
--- Generated: 2026-01-18 12:46:33
+-- Generated: 2026-01-18 14:32:53
 -- This file contains the complete schema and can be run directly with psql.
 --
 -- Usage:

@@ -51,6 +51,14 @@ endif()
 # CPU feature runtime detection
 # ============================================================================
 
+# Manual override options for CPU features (use if auto-detection fails)
+# Set these in CMake command line: cmake -DFORCE_AVX2=ON -DFORCE_AVX_VNNI=ON ..
+option(FORCE_AVX2      "Force enable AVX2 support" OFF)
+option(FORCE_AVX512F   "Force enable AVX-512F support" OFF)
+option(FORCE_AVX_VNNI  "Force enable AVX-VNNI support" OFF)
+option(FORCE_FMA3      "Force enable FMA3 support" OFF)
+option(FORCE_BMI2      "Force enable BMI2 support" OFF)
+
 # We expect a small C++ program at: ${CMAKE_SOURCE_DIR}/cmake/cpu_features_test.cpp
 # that prints lines like:
 #   AVX2:1
@@ -75,14 +83,70 @@ set(CPU_FEATURES_RUN_RESULT 1)
 set(CPU_FEATURES_OUTPUT "")
 
 if(EXISTS "${HYPERCUBE_CPU_FEATURE_TEST}")
-    try_run(
-        CPU_FEATURES_RUN_RESULT
+    # Pass CMAKE_MSVC_RUNTIME_LIBRARY to the test program to avoid runtime library mismatch
+    if(MSVC)
+        # For multi-config generators (Visual Studio), we need to handle configuration carefully
+        set(CPU_TEST_CMAKE_FLAGS
+            "-DCMAKE_CXX_STANDARD=23"
+            "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}"
+            "-DCMAKE_CONFIGURATION_TYPES=Release"
+        )
+        set(CMAKE_TRY_COMPILE_CONFIGURATION "Release")
+    else()
+        set(CPU_TEST_CMAKE_FLAGS "-DCMAKE_CXX_STANDARD=23")
+    endif()
+
+    # Use try_compile separately first to get better error messages
+    try_compile(
         CPU_FEATURES_COMPILE_RESULT
-        "${CMAKE_BINARY_DIR}"
+        "${CMAKE_BINARY_DIR}/cpu_test"
         "${HYPERCUBE_CPU_FEATURE_TEST}"
-        CMAKE_FLAGS -DCMAKE_CXX_STANDARD=23
-        RUN_OUTPUT_VARIABLE CPU_FEATURES_OUTPUT
+        CMAKE_FLAGS ${CPU_TEST_CMAKE_FLAGS}
+        OUTPUT_VARIABLE CPU_FEATURES_COMPILE_OUTPUT
+        COPY_FILE "${CMAKE_BINARY_DIR}/cpu_features_test${CMAKE_EXECUTABLE_SUFFIX}"
     )
+
+    # If compilation succeeded, run the test
+    if(CPU_FEATURES_COMPILE_RESULT)
+        execute_process(
+            COMMAND "${CMAKE_BINARY_DIR}/cpu_features_test${CMAKE_EXECUTABLE_SUFFIX}"
+            OUTPUT_VARIABLE CPU_FEATURES_OUTPUT
+            ERROR_VARIABLE CPU_FEATURES_ERROR
+            RESULT_VARIABLE CPU_FEATURES_RUN_RESULT
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_STRIP_TRAILING_WHITESPACE
+        )
+    else()
+        set(CPU_FEATURES_RUN_RESULT 1)
+        set(CPU_FEATURES_OUTPUT "")
+    endif()
+
+    # Debug output for troubleshooting
+    if(NOT CPU_FEATURES_COMPILE_RESULT)
+        message(STATUS "CPU feature test failed to compile")
+        # Only show first 500 chars of compile output to avoid log spam
+        string(LENGTH "${CPU_FEATURES_COMPILE_OUTPUT}" OUTPUT_LEN)
+        if(OUTPUT_LEN GREATER 500)
+            string(SUBSTRING "${CPU_FEATURES_COMPILE_OUTPUT}" 0 500 OUTPUT_SNIPPET)
+            message(STATUS "Compile output (first 500 chars): ${OUTPUT_SNIPPET}...")
+        else()
+            message(STATUS "Compile output: ${CPU_FEATURES_COMPILE_OUTPUT}")
+        endif()
+    elseif(NOT CPU_FEATURES_RUN_RESULT EQUAL 0)
+        message(STATUS "CPU feature test failed to run (exit code: ${CPU_FEATURES_RUN_RESULT})")
+        if(CPU_FEATURES_ERROR)
+            message(STATUS "Error output: ${CPU_FEATURES_ERROR}")
+        endif()
+        if(CPU_FEATURES_OUTPUT)
+            message(STATUS "Standard output: ${CPU_FEATURES_OUTPUT}")
+        endif()
+    else()
+        message(STATUS "CPU feature detection successful")
+        # Debug output goes to stderr, so show it if present
+        if(CPU_FEATURES_ERROR)
+            message(STATUS "CPU detection debug info: ${CPU_FEATURES_ERROR}")
+        endif()
+    endif()
 else()
     message(STATUS "CPU feature test source not found: ${HYPERCUBE_CPU_FEATURE_TEST}")
 endif()
@@ -116,10 +180,56 @@ if(CPU_FEATURES_COMPILE_RESULT AND CPU_FEATURES_RUN_RESULT EQUAL 0)
     _hc_set_cpu_feature(FMA3      FMA3_MATCH)
     _hc_set_cpu_feature(AVX_VNNI  AVX_VNNI_MATCH)
     _hc_set_cpu_feature(BMI2      BMI2_MATCH)
+
+    # Apply manual overrides if specified
+    if(FORCE_AVX2)
+        set(HAS_AVX2 ON)
+        message(STATUS "CPU Feature: AVX2 FORCE-ENABLED by user")
+    endif()
+    if(FORCE_AVX512F)
+        set(HAS_AVX512F ON)
+        message(STATUS "CPU Feature: AVX512F FORCE-ENABLED by user")
+    endif()
+    if(FORCE_AVX_VNNI)
+        set(HAS_AVX_VNNI ON)
+        message(STATUS "CPU Feature: AVX_VNNI FORCE-ENABLED by user")
+    endif()
+    if(FORCE_FMA3)
+        set(HAS_FMA3 ON)
+        message(STATUS "CPU Feature: FMA3 FORCE-ENABLED by user")
+    endif()
+    if(FORCE_BMI2)
+        set(HAS_BMI2 ON)
+        message(STATUS "CPU Feature: BMI2 FORCE-ENABLED by user")
+    endif()
 else()
     # Fallback: no runtime info; rely on compiler capability only
-    message(STATUS "CPU feature runtime detection failed - using compiler-based fallback")
-    if(NOT MSVC)
+    message(STATUS "CPU feature runtime detection failed - using manual overrides or compiler fallback")
+
+    # Apply manual overrides if specified
+    if(FORCE_AVX2)
+        set(HAS_AVX2 ON)
+        message(STATUS "CPU Feature: AVX2 FORCE-ENABLED by user (fallback mode)")
+    endif()
+    if(FORCE_AVX512F)
+        set(HAS_AVX512F ON)
+        message(STATUS "CPU Feature: AVX512F FORCE-ENABLED by user (fallback mode)")
+    endif()
+    if(FORCE_AVX_VNNI)
+        set(HAS_AVX_VNNI ON)
+        message(STATUS "CPU Feature: AVX_VNNI FORCE-ENABLED by user (fallback mode)")
+    endif()
+    if(FORCE_FMA3)
+        set(HAS_FMA3 ON)
+        message(STATUS "CPU Feature: FMA3 FORCE-ENABLED by user (fallback mode)")
+    endif()
+    if(FORCE_BMI2)
+        set(HAS_BMI2 ON)
+        message(STATUS "CPU Feature: BMI2 FORCE-ENABLED by user (fallback mode)")
+    endif()
+
+    # If no manual overrides, try compiler-based detection
+    if(NOT HAS_AVX2 AND NOT MSVC)
         check_cxx_compiler_flag("-march=native" COMPILER_SUPPORTS_MARCH_NATIVE)
         if(COMPILER_SUPPORTS_MARCH_NATIVE)
             set(HAS_AVX ON)
@@ -127,8 +237,8 @@ else()
         else()
             message(STATUS "SIMD: generic baseline (no AVX assumptions)")
         endif()
-    else()
-        message(STATUS "SIMD: MSVC baseline; AVX features will be conservative")
+    elseif(NOT HAS_AVX2 AND MSVC)
+        message(STATUS "SIMD: MSVC baseline; AVX features disabled - use FORCE_AVX2=ON to enable")
     endif()
 endif()
 
@@ -192,8 +302,8 @@ if(MSVC)
     set(HYPERCUBE_DEBUG_FLAGS   /Od /DDEBUG /Zi)
     set(HYPERCUBE_WARNING_FLAGS /W3 /EHsc /permissive- /DNOMINMAX)
 
-    # Use dynamic runtime to match PostgreSQL client library (avoids LNK4098 warnings)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    # Note: CMAKE_MSVC_RUNTIME_LIBRARY is set in main CMakeLists.txt before project()
+    # to ensure it applies to all targets and dependencies
 
     # AVX2 is /arch:AVX2; AVX-512 is limited and inconsistent, so we stay at AVX2.
     if(HAS_AVX2)
@@ -201,7 +311,19 @@ if(MSVC)
     endif()
 
     # Suppress common warnings globally (you can localize later if desired)
-    add_compile_options(/wd4244 /wd4267 /wd4996 /wd4005 /wd4200)
+    # Use generator expressions to apply only to C/CXX, not ASM (MASM doesn't understand these flags)
+    add_compile_options(
+        $<$<COMPILE_LANGUAGE:CXX>:/wd4244>
+        $<$<COMPILE_LANGUAGE:CXX>:/wd4267>
+        $<$<COMPILE_LANGUAGE:CXX>:/wd4996>
+        $<$<COMPILE_LANGUAGE:CXX>:/wd4005>
+        $<$<COMPILE_LANGUAGE:CXX>:/wd4200>
+        $<$<COMPILE_LANGUAGE:C>:/wd4244>
+        $<$<COMPILE_LANGUAGE:C>:/wd4267>
+        $<$<COMPILE_LANGUAGE:C>:/wd4996>
+        $<$<COMPILE_LANGUAGE:C>:/wd4005>
+        $<$<COMPILE_LANGUAGE:C>:/wd4200>
+    )
 else()
     # GCC / Clang
     set(HYPERCUBE_OPT_FLAGS     -O3 -DNDEBUG -ffast-math)
