@@ -292,10 +292,11 @@ GENERATIVE_C_API size_t gen_score_candidates(
 // Geometric Operations (4D Coordinate System)
 // =============================================================================
 
-GENERATIVE_C_API void geom_map_codepoint(
-    uint32_t codepoint,
-    GeomPoint4D* coords
+GENERATIVE_C_API GeomPoint4D geom_map_codepoint(
+    uint32_t codepoint
 ) {
+    GeomPoint4D result;
+    
     // Map Unicode codepoint to 4D coordinates using Hilbert curve
     // This creates a deterministic geometric embedding of Unicode
     AtomRecord atom = AtomCalculator::compute_atom(codepoint);
@@ -312,33 +313,35 @@ GENERATIVE_C_API void geom_map_codepoint(
         return static_cast<uint32_t>(val * static_cast<double>(UINT32_MAX));
     };
 
-    coords->x = float_to_uint32(p.x);
-    coords->y = float_to_uint32(p.y);
-    coords->z = float_to_uint32(p.z);
-    coords->m = float_to_uint32(p.m);
+    result.x = float_to_uint32(p.x);
+    result.y = float_to_uint32(p.y);
+    result.z = float_to_uint32(p.z);
+    result.m = float_to_uint32(p.m);
+    
+    return result;
 }
 
 GENERATIVE_C_API double geom_euclidean_distance(
-    const GeomPoint4D* a,
-    const GeomPoint4D* b
+    GeomPoint4D a,
+    GeomPoint4D b
 ) {
     // Standard Euclidean distance in 4D space
-    double dx = (double)a->x - (double)b->x;
-    double dy = (double)a->y - (double)b->y;
-    double dz = (double)a->z - (double)b->z;
-    double dm = (double)a->m - (double)b->m;
+    double dx = (double)a.x - (double)b.x;
+    double dy = (double)a.y - (double)b.y;
+    double dz = (double)a.z - (double)b.z;
+    double dm = (double)a.m - (double)b.m;
     return std::sqrt(dx*dx + dy*dy + dz*dz + dm*dm);
 }
 
-GENERATIVE_C_API void geom_centroid(
+GENERATIVE_C_API GeomPoint4D geom_centroid(
     const GeomPoint4D* points,
-    size_t count,
-    GeomPoint4D* result
+    size_t count
 ) {
+    GeomPoint4D result = {0, 0, 0, 0};
+    
     // Compute geometric centroid (arithmetic mean) of 4D points
     if (count == 0) {
-        result->x = result->y = result->z = result->m = 0;
-        return;
+        return result;
     }
 
     uint64_t sum_x = 0, sum_y = 0, sum_z = 0, sum_m = 0;
@@ -349,23 +352,25 @@ GENERATIVE_C_API void geom_centroid(
         sum_m += points[i].m;
     }
 
-    result->x = (uint32_t)(sum_x / count);
-    result->y = (uint32_t)(sum_y / count);
-    result->z = (uint32_t)(sum_z / count);
-    result->m = (uint32_t)(sum_m / count);
+    result.x = (uint32_t)(sum_x / count);
+    result.y = (uint32_t)(sum_y / count);
+    result.z = (uint32_t)(sum_z / count);
+    result.m = (uint32_t)(sum_m / count);
+    
+    return result;
 }
 
-GENERATIVE_C_API void geom_weighted_centroid(
+GENERATIVE_C_API GeomPoint4D geom_weighted_centroid(
     const GeomPoint4D* points,
     const double* weights,
-    size_t count,
-    GeomPoint4D* result
+    size_t count
 ) {
+    GeomPoint4D result = {0, 0, 0, 0};
+    
     // Compute weighted centroid of 4D points
     // Each point is weighted by its importance/confidence
     if (count == 0) {
-        result->x = result->y = result->z = result->m = 0;
-        return;
+        return result;
     }
 
     double sum_x = 0, sum_y = 0, sum_z = 0, sum_m = 0;
@@ -381,14 +386,15 @@ GENERATIVE_C_API void geom_weighted_centroid(
     }
 
     if (total_weight == 0) {
-        result->x = result->y = result->z = result->m = 0;
-        return;
+        return result;
     }
 
-    result->x = (uint32_t)(sum_x / total_weight);
-    result->y = (uint32_t)(sum_y / total_weight);
-    result->z = (uint32_t)(sum_z / total_weight);
-    result->m = (uint32_t)(sum_m / total_weight);
+    result.x = (uint32_t)(sum_x / total_weight);
+    result.y = (uint32_t)(sum_y / total_weight);
+    result.z = (uint32_t)(sum_z / total_weight);
+    result.m = (uint32_t)(sum_m / total_weight);
+    
+    return result;
 }
 
 } // extern "C"

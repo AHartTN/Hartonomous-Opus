@@ -30,8 +30,8 @@ CREATE INDEX IF NOT EXISTS idx_comp_centroid ON composition USING GIST(centroid)
 -- Hilbert locality for composition queries
 CREATE INDEX IF NOT EXISTS idx_comp_hilbert ON composition(hilbert_hi, hilbert_lo);
 
--- Label lookups for vocabulary operations
-CREATE INDEX IF NOT EXISTS idx_comp_label ON composition(label);
+-- Label lookups for vocabulary operations (prefix indexed to avoid row size limits)
+CREATE INDEX IF NOT EXISTS idx_comp_label ON composition(left(label, 256));
 
 -- Depth-based queries (tree traversal)
 CREATE INDEX IF NOT EXISTS idx_comp_depth ON composition(depth);

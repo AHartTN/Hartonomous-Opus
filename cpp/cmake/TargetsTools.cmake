@@ -10,6 +10,7 @@ if(PostgreSQL_FOUND)
         src/db/atom_cache.cpp
         src/db/geometry.cpp
         src/db/insert.cpp
+        src/db/relation_repository.cpp
         src/ingest/cpe.cpp
         src/ingest/universal.cpp
         src/ingest/parallel_cpe.cpp
@@ -148,6 +149,10 @@ if(PostgreSQL_FOUND)
     # Vocabulary extractor (extracts vocab from any model as text)
     add_executable(vocab_extract src/ingest/vocab_extract.cpp)
     target_link_libraries(vocab_extract Threads::Threads)
+
+    # Diagnostic tool for 4D projection
+    add_executable(diagnose_projection src/tools/diagnose_projection.cpp)
+    target_link_libraries(diagnose_projection hypercube_core Threads::Threads)
 
     # Streaming vocabulary ingester (one token at a time through PMI) - standalone
     add_executable(vocab_ingest src/ingest/vocab_ingest.cpp)

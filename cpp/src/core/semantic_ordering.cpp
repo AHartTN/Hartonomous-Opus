@@ -14,6 +14,9 @@ namespace {
 // Unicode decomposition mappings for common characters
 // This is a simplified implementation - in production, use ICU or similar
 uint32_t decompose_to_base(uint32_t cp) noexcept {
+    // ASCII Lowercase to Uppercase (Canonical Base)
+    if (cp >= 'a' && cp <= 'z') return cp - 32;
+
     // ASCII characters are already decomposed
     if (cp <= 0x7F) return cp;
 
@@ -180,11 +183,75 @@ uint64_t SemanticOrdering::compute_semantic_key(uint32_t codepoint) noexcept {
     else if (codepoint >= 0x1F300 && codepoint <= 0x1F5FF) script_id = 8; // Symbols
 
     // Step 3: Semantic classification with enhanced clustering
-    uint8_t semantic_class = 15; // other
-    uint32_t base_similarity = homoglyph_group; // Use homoglyph group as base
+    // We define "Universal Categories" to group types globally (Language Agnostic)
+    uint8_t universal_cat = 7; // Default: Other
+    uint32_t base_similarity = homoglyph_group; 
     uint8_t variant_order = 0;
 
-    // Case variant ordering: uppercase first, then lowercase, then accented
+    // Categories:
+    // 0: Control / System
+    // 1: Format / Space
+    // 2: Numbers / Digits (Global)
+    // 3: Letters (Global)
+    // 4: Punctuation (Global)
+    // 5: Symbols / Emoji (Global)
+    // 6: Private Use
+    // 7: Other / Undefined
+
+    if (codepoint <= 0x1F || (codepoint >= 0x7F && codepoint <= 0x9F)) {
+        universal_cat = 0; // Control
+        base_similarity = codepoint;
+    }
+    else if (codepoint == 0x20 || codepoint == 0xA0) {
+        universal_cat = 1; // Space
+        base_similarity = 0;
+    }
+    else if (codepoint >= '0' && codepoint <= '9') {
+        universal_cat = 2; // Digits
+        base_similarity = homoglyph_group * 10000;
+    }
+    else if ((codepoint >= 'A' && codepoint <= 'Z') || (codepoint >= 'a' && codepoint <= 'z') ||
+             (codepoint >= 0x00C0 && codepoint <= 0x024F)) {
+        universal_cat = 3; // Latin Letters
+        base_similarity = homoglyph_group * 1000 + (base_char % 1000);
+    }
+    else if (codepoint >= 0x0391 && codepoint <= 0x03C9) {
+        universal_cat = 3; // Greek Letters
+        base_similarity = 200000 + homoglyph_group * 1000 + (base_char % 1000);
+    }
+    else if (codepoint >= 0x0410 && codepoint <= 0x044F) {
+        universal_cat = 3; // Cyrillic Letters
+        base_similarity = 300000 + homoglyph_group * 1000 + (base_char % 1000);
+    }
+    else if (codepoint >= 0x4E00 && codepoint <= 0x9FFF) {
+        universal_cat = 3; // CJK Ideographs (Letters)
+        base_similarity = 600000 + (codepoint - 0x4E00);
+    }
+    else if ((codepoint >= 0x21 && codepoint <= 0x2F) || (codepoint >= 0x3A && codepoint <= 0x40) ||
+             (codepoint >= 0x5B && codepoint <= 0x60) || (codepoint >= 0x7B && codepoint <= 0x7E)) {
+        universal_cat = 4; // ASCII Punctuation
+        base_similarity = 100000 + codepoint;
+    }
+    else if (codepoint >= 0x1F600 && codepoint <= 0x1F64F) {
+        universal_cat = 5; // Emoji Faces (Symbols)
+        base_similarity = 400000 + (codepoint - 0x1F600);
+    }
+    else if (codepoint >= 0x1F300 && codepoint <= 0x1F5FF) {
+        universal_cat = 5; // Emoji Symbols
+        base_similarity = 500000 + (codepoint - 0x1F300);
+    }
+    else if (codepoint >= 0xD800 && codepoint <= 0xDFFF) {
+        universal_cat = 0; // Surrogates (treat as System/Control)
+        base_similarity = 700000 + (codepoint - 0xD800);
+    }
+    else {
+        // Fallback categorization
+        universal_cat = 7; // Other
+        base_similarity = 800000 + codepoint % 100000;
+    }
+
+    // Step 4: Diacritic ordering (combining class)
+    // ... (logic remains)
     bool is_upper = (codepoint >= 'A' && codepoint <= 'Z') ||
                    (codepoint >= 0x0391 && codepoint <= 0x03A9) ||
                    (codepoint >= 0x0410 && codepoint <= 0x042F);
@@ -194,67 +261,22 @@ uint64_t SemanticOrdering::compute_semantic_key(uint32_t codepoint) noexcept {
     bool is_accented = (codepoint >= 0x00C0 && codepoint <= 0x00FF) ||
                       (codepoint >= 0x0100 && codepoint <= 0x024F);
 
-    if (is_upper) variant_order = 0;        // Uppercase first
-    else if (is_lower) variant_order = 1;   // Lowercase second
-    else if (is_accented) variant_order = 2; // Accented third
-    else variant_order = 3;                  // Other variants
+    if (is_upper) variant_order = 0;
+    else if (is_lower) variant_order = 1;
+    else if (is_accented) variant_order = 2;
+    else variant_order = 3;
 
-    // Enhanced character classification
-    if ((codepoint >= 'A' && codepoint <= 'Z') || (codepoint >= 'a' && codepoint <= 'z') ||
-        (codepoint >= 0x00C0 && codepoint <= 0x024F)) {
-        semantic_class = 1; // Latin letters with homoglyph clustering
-        base_similarity = homoglyph_group * 1000 + (base_char % 1000);
-    }
-    else if (codepoint >= '0' && codepoint <= '9') {
-        semantic_class = 3; // Digits with visual similarity clustering
-        base_similarity = homoglyph_group * 10000;
-    }
-    else if ((codepoint >= 0x21 && codepoint <= 0x2F) || (codepoint >= 0x3A && codepoint <= 0x40) ||
-             (codepoint >= 0x5B && codepoint <= 0x60) || (codepoint >= 0x7B && codepoint <= 0x7E)) {
-        semantic_class = 10; // ASCII punctuation
-        base_similarity = 100000 + codepoint;
-    }
-    else if (codepoint >= 0x0391 && codepoint <= 0x03C9) { // Greek letters
-        semantic_class = 4; // Greek with case clustering
-        base_similarity = 200000 + homoglyph_group * 1000 + (base_char % 1000);
-    }
-    else if (codepoint >= 0x0410 && codepoint <= 0x044F) { // Cyrillic letters
-        semantic_class = 5; // Cyrillic with case clustering
-        base_similarity = 300000 + homoglyph_group * 1000 + (base_char % 1000);
-    }
-    else if (codepoint >= 0x1F600 && codepoint <= 0x1F64F) {
-        semantic_class = 20; // Emoji faces
-        base_similarity = 400000 + (codepoint - 0x1F600);
-    }
-    else if (codepoint >= 0x1F300 && codepoint <= 0x1F5FF) {
-        semantic_class = 21; // Emoji symbols
-        base_similarity = 500000 + (codepoint - 0x1F300);
-    }
-    else if (codepoint >= 0x4E00 && codepoint <= 0x9FFF) {
-        semantic_class = 30; // CJK unified
-        base_similarity = 600000 + (codepoint - 0x4E00);
-    }
-    else if (codepoint >= 0xD800 && codepoint <= 0xDFFF) {
-        semantic_class = 50; // Surrogates - special handling
-        base_similarity = 700000 + (codepoint - 0xD800);
-    }
-    else {
-        semantic_class = 99; // Other characters
-        base_similarity = 800000 + codepoint % 100000;
-    }
-
-    // Step 4: Diacritic ordering (combining class)
     uint8_t combining_class = get_combining_class(codepoint);
     variant_order = (variant_order << 4) | (combining_class & 0xF);
 
-    // Step 5: Pack into 64-bit key with enhanced bit allocation
-    // Script (8) > Semantic Class (8) > Base Similarity (20) > Variant Order (8) > Uniqueness (20)
+    // Step 5: Pack into 64-bit key with UNIVERSAL TYPE FIRST
+    // Category (8) > Script (8) > Base Similarity (20) > Variant Order (8) > Uniqueness (20)
     uint64_t key = 0;
-    key |= (uint64_t(script_id) & 0xFF) << 56;           // Bits 63-56: script
-    key |= (uint64_t(semantic_class) & 0xFF) << 48;      // Bits 55-48: semantic class
-    key |= (uint64_t(base_similarity) & 0xFFFFF) << 28;  // Bits 47-28: base similarity (20 bits)
-    key |= (uint64_t(variant_order) & 0xFF) << 20;       // Bits 27-20: variant order
-    key |= (uint64_t(codepoint) & 0xFFFFF);              // Bits 19-0: codepoint for uniqueness (20 bits)
+    key |= (uint64_t(universal_cat) & 0xFF) << 56;        // Bits 63-56: Universal Category
+    key |= (uint64_t(script_id) & 0xFF) << 48;            // Bits 55-48: Script (was semantic_class)
+    key |= (uint64_t(base_similarity) & 0xFFFFF) << 28;  // Bits 47-28: Base similarity
+    key |= (uint64_t(variant_order) & 0xFF) << 20;       // Bits 27-20: Variant
+    key |= (uint64_t(codepoint) & 0xFFFFF);              // Bits 19-0:  Uniqueness
 
     return key;
 }

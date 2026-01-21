@@ -197,46 +197,12 @@ ensure_extension() {
     
     log_info "Installing hypercube extension..."
     
-    local pg_lib=$(pg_config --pkglibdir)
-    local pg_share=$(pg_config --sharedir)/extension
-    local ext_so="cpp/build/hypercube.so"
-    local ext_sql="cpp/sql/hypercube--1.0.sql"
-    
-    # Check if extension files exist in build
-    if [ ! -f "$ext_so" ]; then
-        log_error "Extension not built: $ext_so"
-        log_info "Building now..."
-        ensure_build
-    fi
-    
-    # Check if we can write to extension directories (group permissions set up)
-    if [ -w "$pg_lib" ] && [ -w "$pg_share" ]; then
-        # We have write access - install without sudo
-        cp "$ext_so" "$pg_lib/hypercube.so"
-        cp "$ext_sql" "$pg_share/"
-        
-        cat > "$pg_share/hypercube.control" << 'EOF'
-comment = 'Hypercube 4D semantic substrate functions'
-default_version = '1.0'
-module_pathname = '$libdir/hypercube'
-relocatable = false
-EOF
-        log_ok "Extension files installed"
-    elif [ -f "$pg_lib/hypercube.so" ]; then
-        # Already installed by someone else
-        log_ok "Extension files already present"
-    else
-        log_error "Cannot write to PostgreSQL directories"
-        echo ""
-        echo "Fix with these commands (one time setup):"
-        echo "  sudo groupadd postgres-extensions"
-        echo "  sudo usermod -aG postgres-extensions \$USER"
-        echo "  sudo chown -R root:postgres-extensions $pg_lib $pg_share"
-        echo "  sudo chmod -R 775 $pg_lib $pg_share"
-        echo "  # Then log out and back in for group to take effect"
-        echo ""
+    # Install extension files via the unified deploy script
+    log_info "Installing extension files..."
+    ./deploy.sh extensions || {
+        log_error "Failed to install extensions via deploy.sh"
         return 1
-    fi
+    }
     
     # Create extension in database
     psql -c "CREATE EXTENSION IF NOT EXISTS hypercube;" || {

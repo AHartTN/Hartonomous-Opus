@@ -321,14 +321,13 @@ public static class GeometricController
             var points = entityCoords.Select(Point4D.FromArray).ToArray();
 
             // Calculate centroid using C++ geometric operations
-            Point4D centroidPoint;
-            GenerativeInterop.geom_centroid(points, (UIntPtr)points.Length, out centroidPoint);
+            Point4D centroidPoint = GenerativeInterop.geom_centroid(points, (UIntPtr)points.Length);
 
             // Calculate bounding radius (max distance from centroid)
             var maxDistance = 0.0;
             for (int i = 0; i < points.Length; i++)
             {
-                var distance = GenerativeInterop.geom_euclidean_distance(ref centroidPoint, ref points[i]);
+                var distance = GenerativeInterop.geom_euclidean_distance(centroidPoint, points[i]);
                 if (distance > maxDistance) maxDistance = distance;
             }
 
@@ -377,7 +376,7 @@ public static class GeometricController
             var point2 = Point4D.FromArray(coords2);
 
             // Calculate Euclidean distance using C++ geometric operations
-            var distance = GenerativeInterop.geom_euclidean_distance(ref point1, ref point2);
+            var distance = GenerativeInterop.geom_euclidean_distance(point1, point2);
 
             return distance;
         }
@@ -403,8 +402,7 @@ public static class GeometricController
             var codepoint = (uint)entity[0]; // Simplified mapping
 
             // Map to 4D coordinates using C++ geometric operations
-            Point4D coords;
-            GenerativeInterop.geom_map_codepoint(codepoint, out coords);
+            Point4D coords = GenerativeInterop.geom_map_codepoint(codepoint);
 
             return coords.ToArray();
         }

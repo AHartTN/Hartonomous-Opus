@@ -14,6 +14,7 @@
 #include "hypercube/ingest/db_operations.hpp"
 #include "hypercube/db/operations.hpp"
 #include "hypercube/db/helpers.hpp"
+#include "hypercube/db/relation_repository.hpp"
 #include <thread>
 #include <atomic>
 #include <cmath>
@@ -398,13 +399,8 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
     Transaction tx(conn);
 
     // Direct bulk INSERT into relation_evidence
-    std::string insert_sql = R"SQL(
-        INSERT INTO relation_evidence
-            (source_id, target_id, relation_type, source_model, layer, component,
-             rating, observation_count, raw_weight, normalized_weight)
-        VALUES
-    )SQL";
-    std::vector<std::string> values;
+    hypercube::db::RelationRepository repo(conn);
+    std::vector<hypercube::db::RelationEvidence> batch;
 
     for (const auto& edges : thread_edges) {
         for (const auto& [i, j, sim] : edges) {
@@ -414,54 +410,28 @@ bool insert_attention_relations(PGconn* conn, IngestContext& ctx, const IngestCo
             const auto& comp_i = ctx.vocab_tokens[tok_i].comp;
             const auto& comp_j = ctx.vocab_tokens[tok_j].comp;
 
-            std::string source_hex = "\\x" + comp_i.hash.to_hex();
-            std::string target_hex = "\\x" + comp_j.hash.to_hex();
-
             // Normalize cosine similarity (already -1 to 1 for inner product)
             float normalized = sim;
 
             // Apply quality weighting: multiply by quality score squared for pairwise relations from same tensor
             normalized *= embed_quality * embed_quality;
 
-            std::string val = "('" + source_hex + "', '" + target_hex + "', 'S', '" +
-                              config.model_name + "', -1, 'embedding', 1500.0, 1, " +
-                              std::to_string(sim) + ", " + std::to_string(normalized) + ")";
-            values.push_back(val);
+            hypercube::db::RelationEvidence ev;
+            ev.source_id = comp_i.hash;
+            ev.target_id = comp_j.hash;
+            ev.role = "S";
+            ev.similarity = normalized;
+            ev.model_id = config.model_name;
+            ev.layer = -1;
+            ev.component = "embedding";
+            
+            batch.push_back(ev);
         }
     }
 
-    // Batch in chunks to avoid query size limits
-    const size_t batch_size = 1000;
-    for (size_t i = 0; i < values.size(); i += batch_size) {
-        std::string batch_sql = insert_sql;
-        for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
-            if (j > i) batch_sql += ", ";
-            batch_sql += values[j];
-        }
-        batch_sql += R"SQL( ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
-        DO UPDATE SET
-            rating = relation_evidence.rating +
-                     LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
-                     (
-                         (EXCLUDED.normalized_weight + 1.0) / 2.0 -
-                         (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))
-                     ),
-            observation_count = relation_evidence.observation_count + 1,
-            raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
-                         (relation_evidence.observation_count + 1),
-            normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
-                               (relation_evidence.observation_count + 1),
-            last_updated = NOW()
-    )SQL";
-
-        Result res = exec(conn, batch_sql);
-        if (!res.ok()) {
-            std::cerr << "[SEMANTIC] Batch insert failed: " << res.error_message() << "\n";
-            return false;
-        }
+    if (!repo.insert_evidence_batch(batch)) {
+        return false;
     }
-    
-    tx.commit();
     
     std::cerr << "[SEMANTIC] Inserted " << total_edges << " token↔token semantic relations\n";
     std::cerr << "[SEMANTIC] These relations give tokens MEANING through semantic proximity\n";
@@ -497,13 +467,8 @@ static bool extract_merge_relations(PGconn* conn, IngestContext& ctx, const Inge
 
     Transaction tx(conn);
 
-    std::string insert_sql = R"SQL(
-        INSERT INTO relation_evidence
-            (source_id, target_id, relation_type, source_model, layer, component,
-             rating, observation_count, raw_weight, normalized_weight)
-        VALUES
-    )SQL";
-    std::vector<std::string> values;
+    hypercube::db::RelationRepository repo(conn);
+    std::vector<hypercube::db::RelationEvidence> batch;
 
     size_t merge_edges = 0;
 
@@ -516,66 +481,39 @@ static bool extract_merge_relations(PGconn* conn, IngestContext& ctx, const Inge
         auto right_hash = AtomCalculator::compute_vocab_token(right).hash;
         auto merged_hash = AtomCalculator::compute_vocab_token(merged).hash;
 
-        // Create M-relations: left -> merged, right -> merged
-        // Weight represents the merge strength (1.0 for direct merges)
         float weight = 1.0f;
 
         // left -> merged
         {
-            std::string source_hex = "\\x" + left_hash.to_hex();
-            std::string target_hex = "\\x" + merged_hash.to_hex();
-
-            std::string val = "('" + source_hex + "', '" + target_hex + "', 'M', '" +
-                              config.model_name + "', -1, 'merge', 1500.0, 1, " +
-                              std::to_string(weight) + ", " + std::to_string(weight) + ")";
-            values.push_back(val);
-            merge_edges++;
+             hypercube::db::RelationEvidence ev;
+             ev.source_id = left_hash;
+             ev.target_id = merged_hash;
+             ev.role = "M";
+             ev.similarity = weight;
+             ev.model_id = config.model_name;
+             ev.layer = -1;
+             ev.component = "merge";
+             batch.push_back(ev);
+             merge_edges++;
         }
 
         // right -> merged
         {
-            std::string source_hex = "\\x" + right_hash.to_hex();
-            std::string target_hex = "\\x" + merged_hash.to_hex();
-
-            std::string val = "('" + source_hex + "', '" + target_hex + "', 'M', '" +
-                              config.model_name + "', -1, 'merge', 1500.0, 1, " +
-                              std::to_string(weight) + ", " + std::to_string(weight) + ")";
-            values.push_back(val);
-            merge_edges++;
+             hypercube::db::RelationEvidence ev;
+             ev.source_id = right_hash;
+             ev.target_id = merged_hash;
+             ev.role = "M";
+             ev.similarity = weight;
+             ev.model_id = config.model_name;
+             ev.layer = -1;
+             ev.component = "merge";
+             batch.push_back(ev);
+             merge_edges++;
         }
     }
 
-    // Batch insert merge relations
-    if (!values.empty()) {
-        const size_t batch_size = 1000;
-        for (size_t i = 0; i < values.size(); i += batch_size) {
-            std::string batch_sql = insert_sql;
-            for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
-                if (j > i) batch_sql += ", ";
-                batch_sql += values[j];
-            }
-            batch_sql += R"SQL( ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
-            DO UPDATE SET
-                rating = relation_evidence.rating +
-                         LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
-                         (
-                             (EXCLUDED.normalized_weight + 1.0) / 2.0 -
-                             (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))
-                         ),
-                observation_count = relation_evidence.observation_count + 1,
-                raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
-                             (relation_evidence.observation_count + 1),
-                normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
-                                    (relation_evidence.observation_count + 1),
-                last_updated = NOW()
-        )SQL";
-
-            Result res = exec(conn, batch_sql);
-            if (!res.ok()) {
-                std::cerr << "[MERGE] Batch insert failed: " << res.error_message() << "\n";
-                return false;
-            }
-        }
+    if (!repo.insert_evidence_batch(batch)) {
+        return false;
     }
 
     // Ensure merge token compositions exist

@@ -111,4 +111,4 @@ hc_add_pg_extension(hypercube      src/pg/hypercube_pg.c      C_BRIDGE hypercube
 hc_add_pg_extension(semantic_ops   src/pg/semantic_ops_pg.c   C_BRIDGE hypercube_c  OUTPUT_NAME "semantic_ops")
 hc_add_pg_extension(hypercube_ops  src/pg/hypercube_ops_pg.c  C_BRIDGE hypercube_c  OUTPUT_NAME "hypercube_ops")
 hc_add_pg_extension(embedding_ops  src/pg/embedding_ops_pg.c  C_BRIDGE embedding_c  OUTPUT_NAME "embedding_ops")
-hc_add_pg_extension(generative     src/pg/generative_pg.c     C_BRIDGE generative_c OUTPUT_NAME "generative")
+hc_add_pg_extension(generative     src/pg/generative_pg.c     C_BRIDGE hypercube_generative OUTPUT_NAME "generative")

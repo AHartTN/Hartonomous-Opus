@@ -288,11 +288,10 @@ GENERATIVE_C_API size_t gen_score_candidates(
  * Map a Unicode codepoint to 4D coordinates.
  *
  * @param codepoint Unicode codepoint (0 to 0x10FFFF)
- * @param coords    Output: 4D point on 3-sphere surface
+ * @return          4D point on 3-sphere surface
  */
-GENERATIVE_C_API void geom_map_codepoint(
-    uint32_t codepoint,
-    GeomPoint4D* coords
+GENERATIVE_C_API GeomPoint4D geom_map_codepoint(
+    uint32_t codepoint
 );
 
 /**
@@ -303,8 +302,8 @@ GENERATIVE_C_API void geom_map_codepoint(
  * @return Euclidean distance (0.0 to 2.0 in normalized space)
  */
 GENERATIVE_C_API double geom_euclidean_distance(
-    const GeomPoint4D* a,
-    const GeomPoint4D* b
+    GeomPoint4D a,
+    GeomPoint4D b
 );
 
 /**
@@ -312,12 +311,11 @@ GENERATIVE_C_API double geom_euclidean_distance(
  *
  * @param points Input points array
  * @param count  Number of points
- * @param result Output: centroid point
+ * @return       Centroid point
  */
-GENERATIVE_C_API void geom_centroid(
+GENERATIVE_C_API GeomPoint4D geom_centroid(
     const GeomPoint4D* points,
-    size_t count,
-    GeomPoint4D* result
+    size_t count
 );
 
 /**
@@ -326,13 +324,12 @@ GENERATIVE_C_API void geom_centroid(
  * @param points  Input points array
  * @param weights Weights for each point
  * @param count   Number of points
- * @param result  Output: weighted centroid point
+ * @return        Weighted centroid point
  */
-GENERATIVE_C_API void geom_weighted_centroid(
+GENERATIVE_C_API GeomPoint4D geom_weighted_centroid(
     const GeomPoint4D* points,
     const double* weights,
-    size_t count,
-    GeomPoint4D* result
+    size_t count
 );
 
 #ifdef __cplusplus

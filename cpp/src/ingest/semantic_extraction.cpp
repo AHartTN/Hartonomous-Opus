@@ -13,6 +13,8 @@
 
 #include "hypercube/ingest/db_operations.hpp"
 #include "hypercube/ingest/projection_db.hpp"
+#include "hypercube/io/tensor_loader.hpp"
+#include "hypercube/db/relation_repository.hpp"
 #include "hypercube/db/operations.hpp"
 #include "hypercube/db/helpers.hpp"
 #include "hypercube/db/operations.hpp"  // For Transaction
@@ -118,164 +120,6 @@ static int g_num_threads = 1;  // Set at runtime
 static constexpr bool ENABLE_PROJECTION_KNN = true;
 static constexpr size_t MAX_PROJECTIONS = 2;  // Limit to first N projections
 
-// ============================================================================
-// Load tensor
-// ============================================================================
-
-static std::vector<float> load_tensor(const TensorMeta& meta) {
-    size_t n = meta.element_count();
-    std::vector<float> data(n);
-
-    std::cerr << "[LOAD_TENSOR] Loading tensor '" << meta.name << "' from " << meta.shard_file << "\n";
-    std::cerr << "[LOAD_TENSOR] Shape: [";
-    for (size_t i = 0; i < meta.shape.size(); ++i) {
-        std::cerr << meta.shape[i];
-        if (i < meta.shape.size() - 1) std::cerr << ",";
-    }
-    std::cerr << "] " << meta.dtype << " (" << n << " elements, " << (n * 4) << " bytes)\n";
-    std::cerr << "[LOAD_TENSOR] Seeking to offset: " << meta.data_offset_start << "\n";
-
-    std::ifstream f(meta.shard_file, std::ios::binary);
-    if (!f) {
-        std::cerr << "[LOAD_TENSOR] ERROR: Failed to open file!\n";
-        return {};
-    }
-
-    f.seekg(static_cast<std::streamoff>(meta.data_offset_start));
-    if (f.fail()) {
-        std::cerr << "[LOAD_TENSOR] ERROR: Seek failed! Offset may be invalid.\n";
-        return {};
-    }
-
-    if (meta.dtype == "F32") {
-        f.read(reinterpret_cast<char*>(data.data()), n * 4);
-        if (f.fail()) {
-            std::cerr << "[LOAD_TENSOR] ERROR: Read failed for F32 data!\n";
-            return {};
-        }
-        std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 4) << ")\n";
-    } else if (meta.dtype == "BF16") {
-        std::vector<uint16_t> raw(n);
-        f.read(reinterpret_cast<char*>(raw.data()), n * 2);
-        if (f.fail()) {
-            std::cerr << "[LOAD_TENSOR] ERROR: Read failed for BF16 data!\n";
-            return {};
-        }
-        std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 2) << ")\n";
-        // PARALLEL BF16 conversion
-        #pragma omp parallel for schedule(static)
-        for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
-            uint32_t bits = static_cast<uint32_t>(raw[i]) << 16;
-            std::memcpy(&data[i], &bits, 4);
-        }
-
-        // VALIDATE: Check for extreme values indicating corruption
-        size_t corrupt_count = 0;
-        size_t nan_count = 0;
-        #pragma omp parallel for reduction(+:corrupt_count,nan_count)
-        for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
-            float val = data[i];
-            if (std::isnan(val)) {
-                nan_count++;
-                data[i] = 0.0f;  // Replace NaN with 0
-            } else if (std::abs(val) > 1e10f) {  // Extreme values
-                corrupt_count++;
-                data[i] = 0.0f;  // Replace corrupt values with 0
-            }
-        }
-        if (corrupt_count > 0 || nan_count > 0) {
-            std::cerr << "[LOAD_TENSOR] WARNING: Fixed " << corrupt_count << " extreme values and "
-                      << nan_count << " NaNs in BF16 data\n";
-        }
-    } else if (meta.dtype == "F16") {
-        std::vector<uint16_t> raw(n);
-        f.read(reinterpret_cast<char*>(raw.data()), n * 2);
-        if (f.fail()) {
-            std::cerr << "[LOAD_TENSOR] ERROR: Read failed for F16 data!\n";
-            return {};
-        }
-        std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 2) << ")\n";
-        // PARALLEL F16 conversion
-        #pragma omp parallel for schedule(static)
-        for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
-            uint16_t h = raw[i];
-            uint32_t s = (h & 0x8000) << 16;
-            uint32_t e = (h >> 10) & 0x1F;
-            uint32_t m = h & 0x3FF;
-            uint32_t fval = (e == 0) ? s : (e == 31) ? (s | 0x7F800000 | (m << 13)) : (s | ((e + 112) << 23) | (m << 13));
-            std::memcpy(&data[i], &fval, 4);
-        }
-    } else if (meta.dtype == "F8_E4M3") {
-        std::vector<uint8_t> raw(n);
-        f.read(reinterpret_cast<char*>(raw.data()), n * 1);
-        if (f.fail()) {
-            std::cerr << "[LOAD_TENSOR] ERROR: Read failed for F8_E4M3 data!\n";
-            return {};
-        }
-        std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 1) << ")\n";
-        // PARALLEL F8_E4M3FN conversion (E4M3 Finite, no infinities)
-        #pragma omp parallel for schedule(static)
-        for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
-            uint8_t f8 = raw[i];
-            uint32_t sign = (f8 >> 7) & 0x1;
-            uint32_t exp = (f8 >> 3) & 0xF;
-            uint32_t mant = f8 & 0x7;
-            uint32_t f;
-            if (exp == 0) {
-                if (mant == 0) {
-                    // Zero
-                    f = sign << 31;
-                } else {
-                    // Denormalized number - shift mantissa until leading 1
-                    int shift = 0;
-                    uint32_t m = mant;
-                    while ((m & 0x4) == 0 && shift < 3) {
-                        m <<= 1;
-                        shift++;
-                    }
-                    m &= 0x3;  // Remove leading 1
-                    // FP32 exponent for subnormal: (127 - 7 - shift)
-                    f = (sign << 31) | ((121 - shift) << 23) | (m << 20);
-                }
-            } else if (exp == 15 && mant == 7) {
-                // NaN (the only NaN encoding in E4M3FN)
-                f = (sign << 31) | 0x7FC00000;  // Quiet NaN
-            } else {
-                // Normalized number (including exp==15 with mant!=7, which are valid finite values)
-                // FP32 exponent = exp - 7 (E4M3 bias) + 127 (FP32 bias) = exp + 120
-                f = (sign << 31) | ((exp + 120) << 23) | (mant << 20);
-            }
-            std::memcpy(&data[i], &f, 4);
-        }
-    } else if (meta.dtype == "I64") {
-        std::vector<int64_t> raw(n);
-        f.read(reinterpret_cast<char*>(raw.data()), n * 8);
-        if (f.fail()) {
-            std::cerr << "[LOAD_TENSOR] ERROR: Read failed for I64 data!\n";
-            return {};
-        }
-        std::cerr << "[LOAD_TENSOR] Successfully read " << f.gcount() << " bytes (expected " << (n * 8) << ")\n";
-        // PARALLEL I64 to float conversion
-        #pragma omp parallel for schedule(static)
-        for (int64_t i = 0; i < static_cast<int64_t>(n); i++) {
-            data[i] = static_cast<float>(raw[i]);
-        }
-    } else {
-        std::cerr << "[LOAD_TENSOR] ERROR: Unknown dtype '" << meta.dtype << "'\n";
-        return {};
-    }
-
-    // Verify non-zero data
-    int nonzero = 0;
-    for (size_t i = 0; i < std::min(size_t(100), n); ++i) {
-        if (std::abs(data[i]) > 1e-10f) ++nonzero;
-    }
-    std::cerr << "[LOAD_TENSOR] Non-zero values in first 100 elements: " << nonzero << "/100\n";
-
-    return data;
-}
-
-// ============================================================================
 // PARALLEL normalize rows, return valid indices (skip near-zero)
 // ============================================================================
 
@@ -468,92 +312,34 @@ static std::vector<Edge> knn(const float* data, const std::vector<size_t>& valid
 static void insert(PGconn* conn, const std::vector<Edge>& edges, const IngestContext& ctx, const std::string& tag) {
     if (edges.empty()) return;
 
+    hypercube::db::RelationRepository repo(conn);
+    std::vector<hypercube::db::RelationEvidence> batch;
+    batch.reserve(edges.size());
+
     // Deduplicate edges (though HNSW should already produce unique edges)
     std::set<std::tuple<Blake3Hash, Blake3Hash, float>> seen;
     for (const auto& e : edges) {
         if ((size_t)e.src >= ctx.vocab_tokens.size() || (size_t)e.tgt >= ctx.vocab_tokens.size()) continue;
         const auto& s = ctx.vocab_tokens[e.src].comp;
         const auto& t = ctx.vocab_tokens[e.tgt].comp;
-        seen.emplace(s.hash, t.hash, e.sim);
-    }
-
-    // Use temp table then INSERT with existence checks
-    PQexec(conn, "DROP TABLE IF EXISTS tmp_semantic_rel");
-    PQexec(conn, "CREATE TEMP TABLE tmp_semantic_rel ("
-                 "source_type CHAR(1), source_id BYTEA, target_type CHAR(1), target_id BYTEA, "
-                 "relation_type CHAR(1), weight REAL, source_model TEXT, layer INTEGER, component TEXT)");
-
-    std::string copy_cmd = "COPY tmp_semantic_rel FROM STDIN";
-    PGresult* res = PQexec(conn, copy_cmd.c_str());
-    if (PQresultStatus(res) != PGRES_COPY_IN) {
-        std::cerr << "[INSERT] COPY start failed: " << PQerrorMessage(conn) << "\n";
-        PQclear(res);
-        return;
-    }
-    PQclear(res);
-
-    const std::string component = "semantic";
-
-    for (const auto& [source_hash, target_hash, weight] : seen) {
-        std::string line = "C\t\\\\x" + source_hash.to_hex() + "\tC\t\\\\x" + target_hash.to_hex() +
-                          "\tS\t" + std::to_string(weight) + "\t" + tag + "\t-1\t" + component + "\n";
-
-        if (PQputCopyData(conn, line.c_str(), (int)line.size()) != 1) {
-            std::cerr << "[INSERT] COPY data failed: " << PQerrorMessage(conn) << "\n";
-            return;
+        
+        if (seen.emplace(s.hash, t.hash, e.sim).second) {
+             hypercube::db::RelationEvidence ev;
+             ev.source_id = s.hash;
+             ev.target_id = t.hash;
+             ev.role = "S";
+             ev.similarity = e.sim;
+             ev.model_id = tag;
+             ev.layer = -1;
+             ev.component = "semantic";
+             
+             batch.push_back(ev);
         }
     }
-
-    if (PQputCopyEnd(conn, nullptr) != 1) {
-        std::cerr << "[INSERT] COPY to temp failed: " << PQerrorMessage(conn) << "\n";
-        return;
+    
+    if (!repo.insert_evidence_batch(batch)) {
+        std::cerr << "[INSERT] Failed to insert relations batch\n";
     }
-
-    res = PQgetResult(conn);
-    PQclear(res);
-
-    // INSERT into relation_evidence with ELO rating updates
-    std::string insert_sql = R"SQL(
-        INSERT INTO relation_evidence
-            (source_id, target_id, relation_type, source_model, layer, component,
-             rating, observation_count, raw_weight, normalized_weight)
-        SELECT
-            DECODE(SUBSTRING(source_id, 3), 'hex'),
-            DECODE(SUBSTRING(target_id, 3), 'hex'),
-            relation_type::CHAR(1),
-            source_model,
-            layer::INT,
-            component,
-            1500.0,  -- Initial ELO rating
-            1,        -- First observation
-            weight,   -- Raw weight
-            weight    -- Normalized weight
-        FROM tmp_semantic_rel t
-        WHERE EXISTS (SELECT 1 FROM composition WHERE id = DECODE(SUBSTRING(t.source_id, 3), 'hex'))
-        AND EXISTS (SELECT 1 FROM composition WHERE id = DECODE(SUBSTRING(t.target_id, 3), 'hex'))
-        ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
-        DO UPDATE SET
-            -- ELO rating update with dynamic K-factor
-            rating = relation_evidence.rating +
-                     LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
-                     (
-                         (EXCLUDED.normalized_weight + 1.0) / 2.0 -  -- Actual score [0,1]
-                         (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))  -- Expected
-                     ),
-            observation_count = relation_evidence.observation_count + 1,
-            raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
-                         (relation_evidence.observation_count + 1),
-            normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
-                               (relation_evidence.observation_count + 1),
-            last_updated = NOW()
-    )SQL";
-
-    res = PQexec(conn, insert_sql.c_str());
-
-    int inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
-    PQclear(res);
-
-    std::cerr << "[INSERT] Inserted " << inserted << " semantic relations (filtered " << (seen.size() - inserted) << " missing refs)\n";
 }
 
 // ============================================================================
@@ -832,7 +618,7 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
 
     std::cerr << "[SEMANTIC] Loading " << V << " x " << D << " embeddings for attention projections...\n";
     auto load_start = std::chrono::steady_clock::now();
-    auto E = load_tensor(*emb);
+    auto E = hypercube::io::TensorLoader::load_tensor(*emb);
     auto load_end = std::chrono::steady_clock::now();
     if (E.empty()) {
         std::cerr << "[SEMANTIC] Failed to load embeddings\n";
@@ -906,7 +692,7 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
     for (const auto& [tag, meta] : projs) {
         size_t R = meta->shape[0];
         
-        auto W = load_tensor(*meta);
+        auto W = hypercube::io::TensorLoader::load_tensor(*meta);
         if (W.empty()) continue;
         
         // P = E @ W^T using MKL  (V x D) @ (D x R) = (V x R)
@@ -1062,7 +848,7 @@ bool project_and_update_embeddings(PGconn* conn, IngestContext& ctx, const Inges
 
         std::cerr << "[PROJECTION] Loading " << V << " x " << D << " embeddings...\n";
         auto load_start = std::chrono::steady_clock::now();
-        auto E_flat = load_tensor(*emb);
+        auto E_flat = hypercube::io::TensorLoader::load_tensor(*emb);
         auto load_end = std::chrono::steady_clock::now();
         if (E_flat.empty()) {
             std::cerr << "[PROJECTION] Failed to load embeddings for " << emb_name << "\n";
@@ -1362,13 +1148,8 @@ static bool extract_merge_relations(PGconn* conn, IngestContext& ctx, const Inge
 
     hypercube::db::Transaction tx(conn);
 
-    std::string insert_sql = R"SQL(
-        INSERT INTO relation_evidence
-            (source_id, target_id, relation_type, source_model, layer, component,
-             rating, observation_count, raw_weight, normalized_weight)
-        VALUES
-    )SQL";
-    std::vector<std::string> values;
+    hypercube::db::RelationRepository repo(conn);
+    std::vector<hypercube::db::RelationEvidence> batch;
 
     size_t merge_edges = 0;
 
@@ -1387,60 +1168,36 @@ static bool extract_merge_relations(PGconn* conn, IngestContext& ctx, const Inge
 
         // left -> merged
         {
-            std::string source_hex = "\\x" + left_hash.to_hex();
-            std::string target_hex = "\\x" + merged_hash.to_hex();
-
-            std::string val = "('" + source_hex + "', '" + target_hex + "', 'M', '" +
-                              config.model_name + "', -1, 'merge', 1500.0, 1, " +
-                              std::to_string(weight) + ", " + std::to_string(weight) + ")";
-            values.push_back(val);
-            merge_edges++;
+             hypercube::db::RelationEvidence ev;
+             ev.source_id = left_hash;
+             ev.target_id = merged_hash;
+             ev.role = "M";
+             ev.similarity = weight;
+             ev.model_id = config.model_name;
+             ev.layer = -1;
+             ev.component = "merge";
+             batch.push_back(ev);
+             merge_edges++;
         }
 
         // right -> merged
         {
-            std::string source_hex = "\\x" + right_hash.to_hex();
-            std::string target_hex = "\\x" + merged_hash.to_hex();
-
-            std::string val = "('" + source_hex + "', '" + target_hex + "', 'M', '" +
-                              config.model_name + "', -1, 'merge', 1500.0, 1, " +
-                              std::to_string(weight) + ", " + std::to_string(weight) + ")";
-            values.push_back(val);
-            merge_edges++;
+             hypercube::db::RelationEvidence ev;
+             ev.source_id = right_hash;
+             ev.target_id = merged_hash;
+             ev.role = "M";
+             ev.similarity = weight;
+             ev.model_id = config.model_name;
+             ev.layer = -1;
+             ev.component = "merge";
+             batch.push_back(ev);
+             merge_edges++;
         }
     }
 
     // Batch insert merge relations
-    if (!values.empty()) {
-        const size_t batch_size = 1000;
-        for (size_t i = 0; i < values.size(); i += batch_size) {
-            std::string batch_sql = insert_sql;
-            for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
-                if (j > i) batch_sql += ", ";
-                batch_sql += values[j];
-            }
-            batch_sql += R"SQL( ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
-            DO UPDATE SET
-                rating = relation_evidence.rating +
-                         LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
-                         (
-                             (EXCLUDED.normalized_weight + 1.0) / 2.0 -
-                             (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))
-                         ),
-                observation_count = relation_evidence.observation_count + 1,
-                raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
-                             (relation_evidence.observation_count + 1),
-                normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
-                                    (relation_evidence.observation_count + 1),
-                last_updated = NOW()
-        )SQL";
-
-            hypercube::db::Result res = hypercube::db::exec(conn, batch_sql);
-            if (!res.ok()) {
-                std::cerr << "[MERGE] Batch insert failed: " << res.error_message() << "\n";
-                return false;
-            }
-        }
+    if (!repo.insert_evidence_batch(batch)) {
+        return false;
     }
 
     // Ensure merge token compositions exist
@@ -1487,22 +1244,16 @@ static bool extract_merge_relations(PGconn* conn, IngestContext& ctx, const Inge
 static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const IngestConfig& config) {
     std::cerr << "\n[HIERARCHY] Extracting tensor hierarchy relations...\n";
 
-    hypercube::db::Transaction tx(conn);
+    hypercube::db::RelationRepository repo(conn);
 
-    std::string insert_sql = R"SQL(
-        INSERT INTO relation_evidence
-            (source_id, target_id, relation_type, source_model, layer, component,
-             rating, observation_count, raw_weight, normalized_weight)
-        VALUES
-    )SQL";
     // Use map to deduplicate edges (multiple tensors share parent paths)
     struct EdgeKey {
-        std::string parent_hex;
-        std::string child_hex;
+        Blake3Hash parent_hash;
+        Blake3Hash child_hash;
         int layer;
         bool operator<(const EdgeKey& other) const {
-            if (parent_hex != other.parent_hex) return parent_hex < other.parent_hex;
-            if (child_hex != other.child_hex) return child_hex < other.child_hex;
+            if (parent_hash != other.parent_hash) return parent_hash < other.parent_hash;
+            if (child_hash != other.child_hash) return child_hash < other.child_hash;
             return layer < other.layer;
         }
     };
@@ -1532,9 +1283,6 @@ static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const 
                 auto parent_hash = AtomCalculator::compute_vocab_token(parent_path).hash;
                 auto child_hash = AtomCalculator::compute_vocab_token(current_path).hash;
 
-                std::string parent_hex = "\\x" + parent_hash.to_hex();
-                std::string child_hex = "\\x" + child_hash.to_hex();
-
                 // Parse layer number if present
                 int layer = -1;
                 if (parent_path.find("layers.") != std::string::npos) {
@@ -1553,54 +1301,33 @@ static bool extract_hierarchy_relations(PGconn* conn, IngestContext& ctx, const 
                 // Weight = 1.0 for direct hierarchy (strong relation)
                 float weight = 1.0f;
 
-                EdgeKey key{parent_hex, child_hex, layer};
+                EdgeKey key{parent_hash, child_hash, layer};
                 unique_edges[key] = weight;
             }
         }
     }
 
-    // Convert unique edges to values for insertion
-    std::vector<std::string> values;
+    // Convert unique edges to batch
+    std::vector<hypercube::db::RelationEvidence> batch;
+    batch.reserve(unique_edges.size());
+    
     size_t hierarchy_edges = 0;
     for (const auto& [key, weight] : unique_edges) {
-        std::string val = "('" + key.parent_hex + "', '" + key.child_hex + "', 'H', '" +
-                          config.model_name + "', " + std::to_string(key.layer) + ", 'hierarchy', 1500.0, 1, " +
-                          std::to_string(weight) + ", " + std::to_string(weight) + ")";
-        values.push_back(val);
-        hierarchy_edges++;
+         hypercube::db::RelationEvidence ev;
+         ev.source_id = key.parent_hash;
+         ev.target_id = key.child_hash;
+         ev.role = "H";
+         ev.similarity = weight;
+         ev.model_id = config.model_name;
+         ev.layer = key.layer;
+         ev.component = "hierarchy";
+         batch.push_back(ev);
+         hierarchy_edges++;
     }
 
     // Batch insert hierarchy relations
-    if (!values.empty()) {
-        const size_t batch_size = 1000;
-        for (size_t i = 0; i < values.size(); i += batch_size) {
-            std::string batch_sql = insert_sql;
-            for (size_t j = i; j < std::min(i + batch_size, values.size()); ++j) {
-                if (j > i) batch_sql += ", ";
-                batch_sql += values[j];
-            }
-            batch_sql += R"SQL( ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
-            DO UPDATE SET
-                rating = relation_evidence.rating +
-                         LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
-                         (
-                             (EXCLUDED.normalized_weight + 1.0) / 2.0 -
-                             (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))
-                         ),
-                observation_count = relation_evidence.observation_count + 1,
-                raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
-                             (relation_evidence.observation_count + 1),
-                normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
-                                    (relation_evidence.observation_count + 1),
-                last_updated = NOW()
-        )SQL";
-
-            hypercube::db::Result res = hypercube::db::exec(conn, batch_sql);
-            if (!res.ok()) {
-                std::cerr << "[HIERARCHY] Batch insert failed: " << res.error_message() << "\n";
-                return false;
-            }
-        }
+    if (!repo.insert_evidence_batch(batch)) {
+        return false;
     }
 
     tx.commit();
@@ -1675,7 +1402,7 @@ static bool extract_temporal_relations(PGconn* conn, IngestContext& ctx, const I
         std::cerr << "[TEMPORAL] Processing " << emb_name << " [" << seq_len << " x " << embed_dim << "]...\n";
 
         // Load position embeddings
-        auto pos_data = load_tensor(*pos_emb);
+        auto pos_data = hypercube::io::TensorLoader::load_tensor(*pos_emb);
         if (pos_data.empty()) {
             std::cerr << "[TEMPORAL] Failed to load position embeddings for " << emb_name << "\n";
             continue;
@@ -1698,100 +1425,36 @@ static bool extract_temporal_relations(PGconn* conn, IngestContext& ctx, const I
         std::cerr << "[TEMPORAL] Found " << temporal_edges.size() << " temporal relations\n";
 
         if (!temporal_edges.empty()) {
-            // Insert T-relations using the same pattern as the existing insert function
-            // Use temp table then INSERT with existence checks
-            PQexec(conn, "DROP TABLE IF EXISTS tmp_temporal_rel");
-            PQexec(conn, "CREATE TEMP TABLE tmp_temporal_rel ("
-                      "source_type CHAR(1), source_id BYTEA, target_type CHAR(1), target_id BYTEA, "
-                      "relation_type CHAR(1), weight REAL, source_model TEXT, layer INTEGER, component TEXT)");
+            // CRITICAL FIX: Ensure position compositions exist BEFORE inserting relations
+            ensure_position_compositions_exist(conn, emb_name, valid_positions);
 
-            std::string copy_cmd = "COPY tmp_temporal_rel FROM STDIN";
-            PGresult* res = PQexec(conn, copy_cmd.c_str());
-            if (PQresultStatus(res) != PGRES_COPY_IN) {
-                std::cerr << "[TEMPORAL] COPY start failed: " << PQerrorMessage(conn) << "\n";
-                PQclear(res);
-                return false;
-            }
-            PQclear(res);
+            // Insert T-relations using RelationRepository
+            hypercube::db::RelationRepository repo(conn);
+            std::vector<hypercube::db::RelationEvidence> batch;
+            batch.reserve(temporal_edges.size());
 
             for (const auto& e : temporal_edges) {
-                // Create position composition hashes
                 std::string src_key = "pos:" + emb_name + ":" + std::to_string(valid_positions[e.src]);
                 std::string tgt_key = "pos:" + emb_name + ":" + std::to_string(valid_positions[e.tgt]);
 
                 auto src_hash = AtomCalculator::compute_vocab_token(src_key).hash;
                 auto tgt_hash = AtomCalculator::compute_vocab_token(tgt_key).hash;
 
-                std::string source_hex = "\\x" + src_hash.to_hex();
-                std::string target_hex = "\\x" + tgt_hash.to_hex();
-
-                std::string line = "C\t" + source_hex + "\tC\t" + target_hex +
-                                  "\tT\t" + std::to_string(e.sim) + "\t" + config.model_name +
-                                  "\t-1\t" + emb_name + "\n";
-
-                if (PQputCopyData(conn, line.c_str(), (int)line.size()) != 1) {
-                    std::cerr << "[TEMPORAL] COPY data failed: " << PQerrorMessage(conn) << "\n";
-                    return false;
-                }
+                hypercube::db::RelationEvidence ev;
+                ev.source_id = src_hash;
+                ev.target_id = tgt_hash;
+                ev.role = "T";
+                ev.similarity = e.sim;
+                ev.model_id = config.model_name;
+                ev.layer = -1;
+                ev.component = emb_name;
+                batch.push_back(ev);
             }
-
-            if (PQputCopyEnd(conn, nullptr) != 1) {
-                std::cerr << "[TEMPORAL] COPY to temp failed: " << PQerrorMessage(conn) << "\n";
+            
+            if (!repo.insert_evidence_batch(batch)) {
                 return false;
             }
-
-            res = PQgetResult(conn);
-            PQclear(res);
-
-            // CRITICAL FIX: Ensure position compositions exist BEFORE inserting relations
-            // The INSERT has WHERE EXISTS clauses that filter out missing compositions
-            ensure_position_compositions_exist(conn, emb_name, valid_positions);
-
-            // INSERT into relation_evidence with ELO rating updates
-            std::string insert_sql = R"SQL(
-                INSERT INTO relation_evidence
-                    (source_id, target_id, relation_type, source_model, layer, component,
-                     rating, observation_count, raw_weight, normalized_weight)
-                SELECT
-                    DECODE(SUBSTRING(source_id, 3), 'hex'),
-                    DECODE(SUBSTRING(target_id, 3), 'hex'),
-                    relation_type::CHAR(1),
-                    source_model,
-                    layer::INT,
-                    component,
-                    1500.0,  -- Initial ELO rating
-                    1,        -- First observation
-                    weight,   -- Raw weight
-                    weight    -- Normalized weight
-                FROM tmp_temporal_rel t
-                WHERE EXISTS (SELECT 1 FROM composition WHERE id = DECODE(SUBSTRING(t.source_id, 3), 'hex'))
-                AND EXISTS (SELECT 1 FROM composition WHERE id = DECODE(SUBSTRING(t.target_id, 3), 'hex'))
-                ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
-                DO UPDATE SET
-                    -- ELO rating update with dynamic K-factor
-                    rating = relation_evidence.rating +
-                             LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
-                             (
-                                 (EXCLUDED.normalized_weight + 1.0) / 2.0 -  -- Actual score [0,1]
-                                 (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))  -- Expected
-                             ),
-                    observation_count = relation_evidence.observation_count + 1,
-                    raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
-                                 (relation_evidence.observation_count + 1),
-                    normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
-                                        (relation_evidence.observation_count + 1),
-                    last_updated = NOW()
-            )SQL";
-
-            res = PQexec(conn, insert_sql.c_str());
-            int inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
-            PQclear(res);
-
-            std::cerr << "[TEMPORAL] Inserted " << inserted << " temporal relations (filtered " << (temporal_edges.size() - inserted) << " missing refs)\n";
-
-            // Ensure position compositions exist
-            ensure_position_compositions_exist(conn, emb_name, valid_positions);
-
+            
             total_temporal_edges += temporal_edges.size();
         }
     }
@@ -1874,7 +1537,7 @@ static bool extract_visual_relations(PGconn* conn, IngestContext& ctx, const Ing
         std::cerr << "[VISION] Processing " << emb_name << " [" << num_features << " x " << feature_dim << "]...\n";
 
         // Load vision features
-        auto vis_data = load_tensor(*vis_emb);
+        auto vis_data = hypercube::io::TensorLoader::load_tensor(*vis_emb);
         if (vis_data.empty()) {
             std::cerr << "[VISION] Failed to load vision features for " << emb_name << "\n";
             continue;
@@ -1897,20 +1560,10 @@ static bool extract_visual_relations(PGconn* conn, IngestContext& ctx, const Ing
         std::cerr << "[VISION] Found " << visual_edges.size() << " visual relations\n";
 
         if (!visual_edges.empty()) {
-            // Insert V-relations using the same pattern as the existing insert function
-            PQexec(conn, "DROP TABLE IF EXISTS tmp_visual_rel");
-            PQexec(conn, "CREATE TEMP TABLE tmp_visual_rel ("
-                      "source_type CHAR(1), source_id BYTEA, target_type CHAR(1), target_id BYTEA, "
-                      "relation_type CHAR(1), weight REAL, source_model TEXT, layer INTEGER, component TEXT)");
-
-            std::string copy_cmd = "COPY tmp_visual_rel FROM STDIN";
-            PGresult* res = PQexec(conn, copy_cmd.c_str());
-            if (PQresultStatus(res) != PGRES_COPY_IN) {
-                std::cerr << "[VISION] COPY start failed: " << PQerrorMessage(conn) << "\n";
-                PQclear(res);
-                return false;
-            }
-            PQclear(res);
+            // Insert V-relations using RelationRepository
+            hypercube::db::RelationRepository repo(conn);
+            std::vector<hypercube::db::RelationEvidence> batch;
+            batch.reserve(visual_edges.size());
 
             for (const auto& e : visual_edges) {
                 // Create visual feature composition hashes
@@ -1920,73 +1573,25 @@ static bool extract_visual_relations(PGconn* conn, IngestContext& ctx, const Ing
                 auto src_hash = AtomCalculator::compute_vocab_token(src_key).hash;
                 auto tgt_hash = AtomCalculator::compute_vocab_token(tgt_key).hash;
 
-                std::string source_hex = "\\x" + src_hash.to_hex();
-                std::string target_hex = "\\x" + tgt_hash.to_hex();
-
-                std::string line = "C\t" + source_hex + "\tC\t" + target_hex +
-                                  "\tV\t" + std::to_string(e.sim) + "\t" + config.model_name +
-                                  "\t-1\t" + emb_name + "\n";
-
-                if (PQputCopyData(conn, line.c_str(), (int)line.size()) != 1) {
-                    std::cerr << "[VISION] COPY data failed: " << PQerrorMessage(conn) << "\n";
-                    return false;
-                }
+                hypercube::db::RelationEvidence ev;
+                ev.source_id = src_hash;
+                ev.target_id = tgt_hash;
+                ev.role = "V";
+                ev.similarity = e.sim;
+                ev.model_id = config.model_name;
+                ev.layer = -1;
+                ev.component = emb_name;
+                batch.push_back(ev);
             }
-
-            if (PQputCopyEnd(conn, nullptr) != 1) {
-                std::cerr << "[VISION] COPY to temp failed: " << PQerrorMessage(conn) << "\n";
+            
+            if (!repo.insert_evidence_batch(batch)) {
                 return false;
             }
-
-            res = PQgetResult(conn);
-            PQclear(res);
-
-            // INSERT into relation_evidence with ELO rating updates
-            std::string insert_sql = R"SQL(
-                INSERT INTO relation_evidence
-                    (source_id, target_id, relation_type, source_model, layer, component,
-                     rating, observation_count, raw_weight, normalized_weight)
-                SELECT
-                    DECODE(SUBSTRING(source_id, 3), 'hex'),
-                    DECODE(SUBSTRING(target_id, 3), 'hex'),
-                    relation_type::CHAR(1),
-                    source_model,
-                    layer::INT,
-                    component,
-                    1500.0,  -- Initial ELO rating
-                    1,        -- First observation
-                    weight,   -- Raw weight
-                    weight    -- Normalized weight
-                FROM tmp_visual_rel t
-                WHERE EXISTS (SELECT 1 FROM composition WHERE id = DECODE(SUBSTRING(t.source_id, 3), 'hex'))
-                AND EXISTS (SELECT 1 FROM composition WHERE id = DECODE(SUBSTRING(t.target_id, 3), 'hex'))
-                ON CONFLICT (source_id, target_id, relation_type, source_model, layer, component)
-                DO UPDATE SET
-                    -- ELO rating update with dynamic K-factor
-                    rating = relation_evidence.rating +
-                             LEAST(32.0 * POWER(0.95, relation_evidence.observation_count), 4.0) *
-                             (
-                                 (EXCLUDED.normalized_weight + 1.0) / 2.0 -  -- Actual score [0,1]
-                                 (1.0 / (1.0 + EXP(-(relation_evidence.rating - 1500.0) / 400.0)))  -- Expected
-                             ),
-                    observation_count = relation_evidence.observation_count + 1,
-                    raw_weight = (relation_evidence.raw_weight * relation_evidence.observation_count + EXCLUDED.raw_weight) /
-                                 (relation_evidence.observation_count + 1),
-                    normalized_weight = (relation_evidence.normalized_weight * relation_evidence.observation_count + EXCLUDED.normalized_weight) /
-                                        (relation_evidence.observation_count + 1),
-                    last_updated = NOW()
-            )SQL";
-
-            res = PQexec(conn, insert_sql.c_str());
-            int inserted = (PQresultStatus(res) == PGRES_COMMAND_OK) ? atoi(PQcmdTuples(res)) : 0;
-            PQclear(res);
-
-            std::cerr << "[VISION] Inserted " << inserted << " visual relations (filtered " << (visual_edges.size() - inserted) << " missing refs)\n";
+            
+            total_visual_edges += visual_edges.size();
 
             // Ensure visual compositions exist
             ensure_visual_compositions_exist(conn, emb_name, valid_features);
-
-            total_visual_edges += visual_edges.size();
         }
     }
 

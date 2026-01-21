@@ -281,7 +281,7 @@ build_postgresql_extensions() {
 # ============================================================================
 
 install_postgresql_extensions() {
-    log_subsection "Installing PostgreSQL Extensions"
+    log_subsection "Installing PostgreSQL Extensions (Symlinked Mode)"
 
     if ! command -v pg_config &> /dev/null; then
         log_error "pg_config not found. Cannot install PostgreSQL extensions."
@@ -291,17 +291,25 @@ install_postgresql_extensions() {
     PG_LIBDIR=$(pg_config --pkglibdir)
     PG_SHAREDIR=$(pg_config --sharedir)
     PG_EXTDIR="$PG_SHAREDIR/extension"
+    
+    # Persistent storage for artifacts
+    OPT_LIB="/opt/libraries/lib"
+    OPT_EXT="/opt/libraries/pgext"
 
-    log_info "Installing extensions to:"
-    echo "  pkglibdir:  $PG_LIBDIR"
-    echo "  extension:  $PG_EXTDIR"
+    log_info "Installing extensions:"
+    echo "  Storage:    /opt/libraries"
+    echo "  Postgres:   $PG_LIBDIR"
 
     # Check if we need sudo
     SUDO=""
-    if [ ! -w "$PG_LIBDIR" ]; then
+    if [ ! -w "$PG_LIBDIR" ] || [ ! -w "/opt/libraries" ]; then
         SUDO="sudo"
         log_info "Using sudo for installation"
     fi
+    
+    # Ensure /opt structure exists
+    $SUDO mkdir -p "$OPT_LIB"
+    $SUDO mkdir -p "$OPT_EXT"
 
     # Find extensions build directory
     EXT_BUILD_DIR=""
@@ -331,33 +339,53 @@ install_postgresql_extensions() {
 
     log_info "Using extensions from: $EXT_BUILD_DIR"
 
-    # Install shared libraries
-    EXTENSIONS=(hypercube generative hypercube_ops embedding_ops semantic_ops)
-    for ext in "${EXTENSIONS[@]}"; do
-        lib_file="$EXT_BIN_DIR/$ext.so"
+    # Install shared libraries (Copy to /opt, Symlink to Postgres)
+    EXTENSIONS=("hypercube" "generative" "hypercube_ops" "embedding_ops" "semantic_ops")
+    BRIDGE_LIBS=("hypercube_c" "embedding_c" "generative_c" "db_wrapper_pg")
+    
+    for lib in "${EXTENSIONS[@]}" "${BRIDGE_LIBS[@]}"; do
+        lib_file="$EXT_BIN_DIR/$lib.so"
+        # Check alternative locations if not in bin
+        if [ ! -f "$lib_file" ]; then
+            lib_file="$EXT_BUILD_DIR/lib/$lib.so"
+        fi
+        
         if [ -f "$lib_file" ]; then
-            $SUDO cp "$lib_file" "$PG_LIBDIR/"
-            log_success "Installed library: $ext.so"
-        else
-            log_warning "Library not found: $lib_file"
+            # Copy to /opt
+            $SUDO cp "$lib_file" "$OPT_LIB/"
+            
+            # Symlink in Postgres
+            $SUDO rm -f "$PG_LIBDIR/$lib.so"
+            $SUDO ln -sf "$OPT_LIB/$lib.so" "$PG_LIBDIR/$lib.so"
+            
+            log_success "Installed library: $lib.so (symlinked)"
+        elif [[ " ${EXTENSIONS[*]} " =~ " ${lib} " ]]; then
+            log_warning "Extension library not found: $lib.so"
         fi
     done
 
-    # Install control files
+    # Install control/SQL files (Copy to /opt, Symlink to Postgres)
+    deploy_ext_file() {
+        local src="$1"
+        local filename=$(basename "$src")
+        
+        $SUDO cp "$src" "$OPT_EXT/"
+        $SUDO rm -f "$PG_EXTDIR/$filename"
+        $SUDO ln -sf "$OPT_EXT/$filename" "$PG_EXTDIR/$filename"
+        log_success "Installed: $filename"
+    }
+
     for ext in "${EXTENSIONS[@]}"; do
+        # Control files
         ctrl_file="$PROJECT_ROOT/cpp/$ext.control"
         if [ -f "$ctrl_file" ]; then
-            $SUDO cp "$ctrl_file" "$PG_EXTDIR/"
-            log_success "Installed control: $ext.control"
+            deploy_ext_file "$ctrl_file"
         fi
-    done
-
-    # Install SQL files
-    for ext in "${EXTENSIONS[@]}"; do
+        
+        # SQL files
         sql_file="$PROJECT_ROOT/cpp/sql/$ext--1.0.sql"
         if [ -f "$sql_file" ]; then
-            $SUDO cp "$sql_file" "$PG_EXTDIR/"
-            log_success "Installed SQL: $(basename "$sql_file")"
+            deploy_ext_file "$sql_file"
         fi
     done
 

@@ -26,6 +26,7 @@ add_library(hypercube_core STATIC
     src/core/runtime_dispatch.cpp
     src/core/kernel_dispatch.cpp
     src/core/function_pointers.cpp
+    src/io/tensor_loader.cpp
     src/simd_kernels_distance.cpp
     src/simd_kernels_vector.cpp
 )
@@ -145,4 +146,4 @@ endfunction()
 
 hc_add_c_bridge(hypercube_c  src/bridge/hypercube_c.cpp  HYPERCUBE_C_EXPORTS)
 hc_add_c_bridge(embedding_c  src/bridge/embedding_c.cpp  EMBEDDING_C_EXPORTS)
-hc_add_c_bridge(generative_c src/bridge/generative_c.cpp GENERATIVE_C_EXPORTS)
+hc_add_c_bridge(hypercube_generative src/bridge/generative_c.cpp GENERATIVE_C_EXPORTS)

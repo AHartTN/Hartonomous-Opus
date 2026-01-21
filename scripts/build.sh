@@ -205,8 +205,8 @@ cmake_args=(
     "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$BIN_DIR"
 )
 
-# Use Ninja if available (cross-platform)
-if command -v ninja &> /dev/null; then
+# Use Ninja if available (cross-platform) AND no existing configuration
+if [ ! -f "CMakeCache.txt" ] && command -v ninja &> /dev/null; then
     cmake_args+=("-G" "Ninja")
     log_info "Using Ninja generator"
 fi

@@ -39,12 +39,12 @@ extern "C" {
  * Type Definitions
  * ============================================================================ */
 
-/** 4D point with 64-bit coordinates per dimension */
+/** 4D point with 32-bit coordinates per dimension */
 typedef struct {
-    uint64_t x;
-    uint64_t y;
-    uint64_t z;
-    uint64_t m;
+    uint32_t x;
+    uint32_t y;
+    uint32_t z;
+    uint32_t m;
 } hc_point4d_t;
 
 /** 128-bit Hilbert curve index (two 64-bit parts) */

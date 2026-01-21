@@ -108,28 +108,24 @@ public static class GenerativeInterop
     // Geometric Operations (4D Coordinate System)
     // ==========================================================================
 
-    [DllImport(DllName, CallingConvention = CallConv)]
-    public static extern void geom_map_codepoint(
-        uint codepoint,
-        out Point4D coords);
+    [DllImport(DllName, CallingConvention = CallConv, EntryPoint = "geom_map_codepoint")]
+    public static extern Point4D geom_map_codepoint(uint codepoint);
 
-    [DllImport(DllName, CallingConvention = CallConv)]
+    [DllImport(DllName, CallingConvention = CallConv, EntryPoint = "geom_euclidean_distance")]
     public static extern double geom_euclidean_distance(
-        [In] ref Point4D a,
-        [In] ref Point4D b);
+        Point4D a,
+        Point4D b);
 
-    [DllImport(DllName, CallingConvention = CallConv)]
-    public static extern void geom_centroid(
+    [DllImport(DllName, CallingConvention = CallConv, EntryPoint = "geom_centroid")]
+    public static extern Point4D geom_centroid(
         [In] Point4D[] points,
-        UIntPtr count,
-        out Point4D result);
+        UIntPtr count);
 
-    [DllImport(DllName, CallingConvention = CallConv)]
-    public static extern void geom_weighted_centroid(
+    [DllImport(DllName, CallingConvention = CallConv, EntryPoint = "geom_weighted_centroid")]
+    public static extern Point4D geom_weighted_centroid(
         [In] Point4D[] points,
         [In] double[] weights,
-        UIntPtr count,
-        out Point4D result);
+        UIntPtr count);
 }
 
 /// <summary>
@@ -189,14 +185,14 @@ public struct GenSimilarResult
 }
 
 /// <summary>
-/// 4D point for geometric operations (matches C++ Point4D)
+/// 4D point for geometric operations (matches C++ Point4D with 32-bit coords)
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 8)]
 public struct Point4D
 {
-    public ulong x, y, z, m;
+    public uint x, y, z, m;
 
-    public Point4D(ulong x = 0, ulong y = 0, ulong z = 0, ulong m = 0)
+    public Point4D(uint x = 0, uint y = 0, uint z = 0, uint m = 0)
     {
         this.x = x;
         this.y = y;
@@ -204,11 +200,17 @@ public struct Point4D
         this.m = m;
     }
 
-    public double[] ToArray() => new[] { x / 18446744073709551615.0, y / 18446744073709551615.0, z / 18446744073709551615.0, m / 18446744073709551615.0 };
+    public double[] ToArray() => new[] { 
+        x / (double)uint.MaxValue, 
+        y / (double)uint.MaxValue, 
+        z / (double)uint.MaxValue, 
+        m / (double)uint.MaxValue 
+    };
+    
     public static Point4D FromArray(double[] coords) => new(
-        (ulong)(coords[0] * 18446744073709551615.0),
-        (ulong)(coords[1] * 18446744073709551615.0),
-        (ulong)(coords[2] * 18446744073709551615.0),
-        (ulong)(coords[3] * 18446744073709551615.0)
+        (uint)(coords[0] * uint.MaxValue),
+        (uint)(coords[1] * uint.MaxValue),
+        (uint)(coords[2] * uint.MaxValue),
+        (uint)(coords[3] * uint.MaxValue)
     );
 }

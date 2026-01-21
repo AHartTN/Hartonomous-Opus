@@ -19,6 +19,51 @@ public class TokenizationService
     }
 
     /// <summary>
+    /// Represents a token with its 4D geometric coordinates
+    /// </summary>
+    public struct GeometricToken
+    {
+        public string Token;
+        public uint Codepoint;
+        public Point4D Coordinates;
+    }
+
+    /// <summary>
+    /// Tokenize a prompt into its geometric representation (4D coordinates)
+    /// This bypasses the mock database ID system and accesses the core C++ geometry directly.
+    /// </summary>
+    /// <param name="prompt">The input prompt</param>
+    /// <returns>Array of GeometricTokens with their 4D coordinates</returns>
+    public Task<GeometricToken[]> TokenizeToGeometryAsync(string prompt)
+    {
+        if (string.IsNullOrEmpty(prompt))
+        {
+            return Task.FromResult(Array.Empty<GeometricToken>());
+        }
+
+        var results = new List<GeometricToken>();
+
+        // For now, we tokenize by character (codepoint) to prove the geometry works
+        // Future versions can do centroid calculations for words
+        foreach (var c in prompt)
+        {
+            uint codepoint = (uint)c;
+            
+            // Call the NATIVE C++ engine
+            Point4D coords = GenerativeInterop.geom_map_codepoint(codepoint);
+            
+            results.Add(new GeometricToken 
+            {
+                Token = c.ToString(),
+                Codepoint = codepoint,
+                Coordinates = coords
+            });
+        }
+
+        return Task.FromResult(results.ToArray());
+    }
+
+    /// <summary>
     /// Tokenize a prompt and encode to composition IDs
     /// </summary>
     /// <param name="prompt">The input prompt to tokenize</param>

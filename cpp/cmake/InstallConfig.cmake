@@ -94,6 +94,25 @@ if(BUILD_PG_EXTENSION AND TARGET hypercube_c AND TARGET hypercube)
         sql/generative.control
         DESTINATION ${PG_SHAREDIR}/extension
     )
+
+    # ========================================================================
+    # Generic Library Installation (e.g. for /opt/libraries)
+    # ========================================================================
+    # Install shared libraries to standard locations relative to CMAKE_INSTALL_PREFIX
+    install(TARGETS 
+        hypercube_c 
+        embedding_c 
+        hypercube_generative
+        hypercube
+        semantic_ops
+        hypercube_ops
+        embedding_ops
+        generative
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        OPTIONAL # Avoid failure if some targets are not built
+    )
 endif()
 
 # ============================================================================
