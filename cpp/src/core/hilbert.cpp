@@ -44,13 +44,13 @@ void HilbertCurve::transpose_to_axes(uint32_t* x, uint32_t n, uint32_t bits) noe
 
     // Undo rotations - use unsigned arithmetic, consistent with axes_to_transpose
     for (uint32_t b = 1; b < bits; ++b) {
-        uint64_t Q = 1ULL << b;
-        uint64_t P = Q - 1ULL;
+        uint32_t Q = 1U << b;
+        uint32_t P = Q - 1U;
         for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
-            if (x[i] & static_cast<uint32_t>(Q)) {
-                x[0] ^= static_cast<uint32_t>(P);
+            if (x[i] & Q) {
+                x[0] ^= P;
             } else {
-                t = (x[0] ^ x[i]) & static_cast<uint32_t>(P);
+                t = (x[0] ^ x[i]) & P;
                 x[0] ^= t;
                 x[i] ^= t;
             }
@@ -63,27 +63,27 @@ void HilbertCurve::axes_to_transpose(uint32_t* x, uint32_t n, uint32_t bits) noe
 
     // Rotations - iterate from bits-1 down to 1
     for (int b = static_cast<int>(bits) - 1; b >= 1; --b) {
-        uint64_t Q = 1ULL << b;
-        uint64_t P = Q - 1ULL;
+        uint32_t Q = 1U << b;
+        uint32_t P = Q - 1U;
         for (uint32_t i = 0; i < n; ++i) {
-            if (x[i] & static_cast<uint32_t>(Q)) {
-                x[0] ^= static_cast<uint32_t>(P);
+            if (x[i] & Q) {
+                x[0] ^= P;
             } else {
-                uint32_t t = (x[0] ^ x[i]) & static_cast<uint32_t>(P);
+                uint32_t t = (x[0] ^ x[i]) & P;
                 x[0] ^= t;
                 x[i] ^= t;
             }
         }
     }
-    
+
     // Gray encode
     for (uint32_t i = 1; i < n; ++i) {
         x[i] ^= x[i - 1];
     }
     uint32_t t = 0;
     for (int b = static_cast<int>(bits) - 1; b >= 1; --b) {
-        uint64_t Q = 1ULL << b;
-        if (x[n - 1] & static_cast<uint32_t>(Q)) t ^= static_cast<uint32_t>((Q - 1));
+        uint32_t Q = 1U << b;
+        if (x[n - 1] & Q) t ^= (Q - 1);
     }
     for (uint32_t i = 0; i < n; ++i) {
         x[i] ^= t;
@@ -105,34 +105,25 @@ HilbertIndex HilbertCurve::coords_to_index(const Point4D& point) noexcept {
     };
     axes_to_transpose(X, 4, 32);
     
-    // Interleave the 4 transposed coordinates into 128-bit index using BMI2
+    // Interleave the 4 transposed coordinates into 128-bit index
     // Bit-plane interleave: bit i of dimension d goes to position i*4 + d
     HilbertIndex result{0, 0};
 
 #ifdef __BMI2__
     // Use BMI2 _pdep_u64 for hardware-accelerated bit deposition
     // Masks for bit positions: for dimension d, bits at 4*i + d
-    const uint64_t mask_low[4] = {
+    const uint64_t mask[4] = {
         0x1111111111111111ULL,  // d=0: bits 0,4,8,...,60
         0x2222222222222222ULL,  // d=1: bits 1,5,9,...,61
         0x4444444444444444ULL,  // d=2: bits 2,6,10,...,62
         0x8888888888888888ULL   // d=3: bits 3,7,11,...,63
     };
-    const uint64_t mask_high[4] = {
-        0x1111111111111111ULL,  // Upper 64: same pattern
-        0x2222222222222222ULL,
-        0x4444444444444444ULL,
-        0x8888888888888888ULL
-    };
 
     for (int d = 0; d < 4; ++d) {
-        uint32_t x = X[d];
-        // Deposit lower 16 bits into lower 64 positions
-        uint64_t low = _pdep_u64(x & 0xFFFF, mask_low[d]);
-        // Deposit upper 16 bits into upper 64 positions
-        uint64_t high = _pdep_u64((x >> 16) & 0xFFFF, mask_high[d]);
-        result.lo |= low;
-        result.hi |= high;
+        uint64_t x = X[d];
+        // Deposit bits into two 64-bit parts
+        result.lo |= _pdep_u64(x & 0xFFFF, mask[d]);
+        result.hi |= _pdep_u64((x >> 16) & 0xFFFF, mask[d]);
     }
 #else
     // Fallback: original bit-loop implementation
@@ -157,28 +148,28 @@ HilbertIndex HilbertCurve::coords_to_index(const Point4D& point) noexcept {
 Point4D HilbertCurve::index_to_coords(const HilbertIndex& index) noexcept {
     // De-interleave 128-bit index into 4 transposed coordinates
     uint32_t X[4] = {0, 0, 0, 0};
-    
+
     for (uint32_t bit = 0; bit < 32; ++bit) {
         uint32_t in_pos = bit * 4;
         uint64_t nibble;
-        
+
         if (in_pos < 64) {
             nibble = (index.lo >> in_pos) & 0xF;
         } else {
             nibble = (index.hi >> (in_pos - 64)) & 0xF;
         }
-        
-        X[0] |= ((nibble >> 0) & 1) << bit;
-        X[1] |= ((nibble >> 1) & 1) << bit;
-        X[2] |= ((nibble >> 2) & 1) << bit;
-        X[3] |= ((nibble >> 3) & 1) << bit;
+
+        X[0] |= ((nibble >> 0) & 1U) << bit;
+        X[1] |= ((nibble >> 1) & 1U) << bit;
+        X[2] |= ((nibble >> 2) & 1U) << bit;
+        X[3] |= ((nibble >> 3) & 1U) << bit;
     }
-    
+
     // Transform back to Cartesian (corner-origin)
     transpose_to_axes(X, 4, 32);
 
     // Convert back from Hilbert corner-origin to our CENTER-origin coords
-    // XOR with 0x80000000 maps Hilbert 0 back to our CENTER (0x80000000)
+    // XOR with 0x80000000 maps Hilbert 0 back to our CENTER
     constexpr uint32_t CORNER_TO_CENTER = 0x80000000U;
     return Point4D(
         X[0] ^ CORNER_TO_CENTER,
@@ -191,23 +182,23 @@ Point4D HilbertCurve::index_to_coords(const HilbertIndex& index) noexcept {
 Point4D HilbertCurve::index_to_raw_coords(const HilbertIndex& index) noexcept {
     // De-interleave 128-bit index into 4 transposed coordinates
     uint32_t X[4] = {0, 0, 0, 0};
-    
+
     for (uint32_t bit = 0; bit < 32; ++bit) {
         uint32_t in_pos = bit * 4;
         uint64_t nibble;
-        
+
         if (in_pos < 64) {
             nibble = (index.lo >> in_pos) & 0xF;
         } else {
             nibble = (index.hi >> (in_pos - 64)) & 0xF;
         }
-        
-        X[0] |= ((nibble >> 0) & 1) << bit;
-        X[1] |= ((nibble >> 1) & 1) << bit;
-        X[2] |= ((nibble >> 2) & 1) << bit;
-        X[3] |= ((nibble >> 3) & 1) << bit;
+
+        X[0] |= ((nibble >> 0) & 1U) << bit;
+        X[1] |= ((nibble >> 1) & 1U) << bit;
+        X[2] |= ((nibble >> 2) & 1U) << bit;
+        X[3] |= ((nibble >> 3) & 1U) << bit;
     }
-    
+
     // Transform back to Cartesian (corner-origin)
     // NO CENTER adjustment - returns raw corner-origin coordinates
     transpose_to_axes(X, 4, 32);
@@ -393,12 +384,7 @@ void HilbertCurve::indices_to_coords_batch_avx512(const HilbertIndex* indices,
             }
 
             // Perform transpose_to_axes for each coordinate set
-            uint32_t X_batch[16][4];
-            _mm512_storeu_si512(reinterpret_cast<__m512i*>(&X_batch[0][0]), x_coords);
-            _mm512_storeu_si512(reinterpret_cast<__m512i*>(&X_batch[8][0]), _mm512_permutexvar_epi32(_mm512_setr_epi32(8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7), x_coords)); // wait, need to store properly
-
-            // Actually, since X_batch is array of arrays, better to store each dimension separately.
-            uint32_t x_array[16], y_array[16], z_array[16], m_array[16];
+            uint64_t x_array[16], y_array[16], z_array[16], m_array[16];
             _mm512_storeu_si512(reinterpret_cast<__m512i*>(&x_array[0]), x_coords);
             _mm512_storeu_si512(reinterpret_cast<__m512i*>(&x_array[8]), _mm512_extracti32x8_epi32(x_coords, 1));
             _mm512_storeu_si512(reinterpret_cast<__m512i*>(&y_array[0]), y_coords);

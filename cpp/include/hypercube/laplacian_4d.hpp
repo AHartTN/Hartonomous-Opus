@@ -2,18 +2,20 @@
 
 /**
  * Laplacian Eigenmaps + Gram-Schmidt for 4D Hypercube Projection
- * 
- * Projects high-dimensional embeddings (384D MiniLM, 5120D LLaMA, etc.) into
- * the 4D hypercube coordinate space using spectral graph theory.
- * 
+ *
+ * Projects high-dimensional embeddings into the 4D hypercube coordinate space.
+ * This module prioritizes industrial libraries (MKL, HNSWLib, Eigen) over custom numerics.
+ *
  * Algorithm:
- * 1. Build k-NN similarity graph from embeddings (adjacency matrix W)
- * 2. Compute degree matrix D and UNNORMALIZED graph Laplacian L = D - W
- * 3. Solve eigenvalue problem for 4 smallest non-zero eigenvectors
- * 4. Apply Gram-Schmidt orthonormalization to columns
+ * 1. Build k-NN similarity graph using HNSWLib (or brute force fallback)
+ * 2. Compute unnormalized graph Laplacian L = D - W
+ * 3. Solve for 4 smallest non-zero eigenvectors using MKL DSYEV (or Eigen fallback)
+ * 4. Apply Gram-Schmidt orthonormalization
  * 5. Normalize to [0, 2^32-1]^4 hypercube coordinates
- * 6. Optionally project onto hypersphere for Unicode alignment
- * 
+ *
+ * Note: This module is not bit-deterministic and favors speed over reproducibility.
+ * Use only for approximate projections where industrial library performance matters.
+ *
  * References:
  * - Belkin & Niyogi, "Laplacian Eigenmaps for Dimensionality Reduction", 2003
  */
@@ -33,22 +35,9 @@ namespace hypercube {
 struct LaplacianConfig;
 struct ProjectionResult;
 
-/**
- * Backend selection for eigenvector computation
- */
-enum class EigenBackend {
-    MKL_DENSE,      // Intel MKL LAPACK (fastest, most accurate)
-    EIGEN_DENSE,    // Eigen library (portable fallback)
-    LANCZOS_SPARSE  // Custom Lanczos (handles large sparse matrices)
-};
+// Eigenvector computation: MKL_DENSE if available, EIGEN_DENSE fallback
 
-/**
- * Backend selection for k-NN neighbor search
- */
-enum class NeighborSearchBackend {
-    HNSW,           // Hierarchical Navigable Small World (fast, approximate)
-    BRUTE_FORCE     // Brute force cosine similarity (exact but slow)
-};
+// No runtime choice for neighbor search: always HNSW if available, brute force fallback
 
 /**
  * Anchor point for constrained Laplacian projection
@@ -73,21 +62,19 @@ struct LaplacianConfig {
     // Graph construction parameters
     int k_neighbors = 50;               // k for k-NN graph construction (increased for better graphs)
     float similarity_threshold = 0.0f;  // Minimum similarity for edges (negative = include all)
-    NeighborSearchBackend neighbor_backend = NeighborSearchBackend::HNSW;  // k-NN search method
 
-    // HNSW parameters (only used when neighbor_backend == HNSW)
+    // HNSW parameters (always used for neighbor search)
     size_t hnsw_M = 16;                 // Max connections per layer (higher = more accurate, slower)
     size_t hnsw_ef_construction = 200;  // Construction-time parameter (higher = more accurate)
 
-    // Eigenvalue solver parameters
-    EigenBackend eigen_backend = EigenBackend::LANCZOS_SPARSE;  // Which eigensolver to use
-    size_t dense_threshold = 20000;      // Matrix size threshold for dense vs sparse solvers
-    int power_iterations = 200;         // Iterations for inverse power method
+    // Eigenvalue solver parameters (MKL_DENSE first, Eigen fallback)
+    size_t dense_threshold = 20000;     // Matrix size threshold (always dense for now)
+    int power_iterations = 200;         // Iterations for inverse power method (unused)
     int num_threads = 0;                // 0 = auto-detect
 
-    // Convergence tolerance for eigensolver (relaxed for 10x speedup)
-    double convergence_tol = 1e-4;      // Looser tolerance = faster convergence
-    int max_deflation_iterations = 50;  // Fewer iterations needed with looser tolerance
+    // Convergence tolerance (unused in dense solvers)
+    double convergence_tol = 1e-4;      // Tolerance for any iterative methods
+    int max_deflation_iterations = 50;  // Unused now
 
     // Projection parameters
     bool project_to_sphere = true;      // Project final coords onto hypersphere
@@ -240,22 +227,27 @@ private:
     // Compute unnormalized Laplacian L = D - W
     SparseSymmetricMatrix build_laplacian(const SparseSymmetricMatrix& W);
     
-    // Find k smallest non-zero eigenvectors using policy-based backend selection
-    std::vector<std::vector<double>> find_smallest_eigenvectors(
+    // Solve for 4 smallest non-zero eigenvectors using MKL or Eigen dense solver
+    std::vector<std::vector<double>> solve_eigenvectors(
         SparseSymmetricMatrix& L,
         int k,
-        std::array<double, 4>& eigenvalues_out,
-        bool& converged_out
+        std::array<double, 4>& eigenvalues_out
     );
 
-    // Backend-specific eigenvector solvers
+    // MKL dense solver for eigenvectors
     std::vector<std::vector<double>> solve_eigenvectors_mkl_dense(
-        SparseSymmetricMatrix& L, int k, std::array<double, 4>& eigenvalues_out);
+        SparseSymmetricMatrix& L,
+        int k,
+        std::array<double, 4>& eigenvalues_out
+    );
+
+    // Eigen dense solver for eigenvectors
     std::vector<std::vector<double>> solve_eigenvectors_eigen_dense(
-        SparseSymmetricMatrix& L, int k, std::array<double, 4>& eigenvalues_out);
-    std::vector<std::vector<double>> solve_eigenvectors_lanczos_sparse(
-        SparseSymmetricMatrix& L, int k, std::array<double, 4>& eigenvalues_out, bool& converged_out);
-    
+        SparseSymmetricMatrix& L,
+        int k,
+        std::array<double, 4>& eigenvalues_out
+    );
+
     // Gram-Schmidt orthonormalization on columns
     void gram_schmidt_columns(std::vector<std::vector<double>>& Y);
     

@@ -42,6 +42,7 @@
 #include "hypercube/ingest/metadata.hpp"
 #include "hypercube/ingest/metadata_db.hpp"
 #include "hypercube/thread_config.hpp"
+#include "hypercube/function_pointers.hpp"
 
 // Forward declarations for command modules
 namespace hypercube::cli {
@@ -673,6 +674,9 @@ int parse_global_options(int& argc, char**& argv) {
 }
 
 int main(int argc, char* argv[]) {
+    // Initialize SIMD function pointers for zero-overhead dispatch
+    hypercube::dispatch::initialize_function_pointers();
+
     // Initialize threading configuration early
     hypercube::ThreadConfig::instance().configure_openmp();
     hypercube::ThreadConfig::instance().configure_mkl();

@@ -154,10 +154,10 @@ class GenTokenResult(ctypes.Structure):
 
 class GeomPoint4D(ctypes.Structure):
     _fields_ = [
-        ("x", ctypes.c_uint32),
-        ("y", ctypes.c_uint32),
-        ("z", ctypes.c_uint32),
-        ("m", ctypes.c_uint32),
+        ("x", ctypes.c_uint64),
+        ("y", ctypes.c_uint64),
+        ("z", ctypes.c_uint64),
+        ("m", ctypes.c_uint64),
     ]
 
 

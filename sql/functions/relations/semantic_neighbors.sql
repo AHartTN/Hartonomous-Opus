@@ -1,3 +1,4 @@
+-- semantic_neighbors - get semantic neighbors from relation table
 CREATE OR REPLACE FUNCTION semantic_neighbors(p_id BYTEA, p_limit INTEGER DEFAULT 10)
 RETURNS TABLE(neighbor_id BYTEA, weight REAL, relation_type CHAR(1)) AS $$
     SELECT r.target_id, r.weight, r.relation_type

@@ -194,9 +194,9 @@ public struct GenSimilarResult
 [StructLayout(LayoutKind.Sequential, Pack = 8)]
 public struct Point4D
 {
-    public uint x, y, z, m;
+    public ulong x, y, z, m;
 
-    public Point4D(uint x = 0, uint y = 0, uint z = 0, uint m = 0)
+    public Point4D(ulong x = 0, ulong y = 0, ulong z = 0, ulong m = 0)
     {
         this.x = x;
         this.y = y;
@@ -204,11 +204,11 @@ public struct Point4D
         this.m = m;
     }
 
-    public double[] ToArray() => new[] { x / 4294967295.0, y / 4294967295.0, z / 4294967295.0, m / 4294967295.0 };
+    public double[] ToArray() => new[] { x / 18446744073709551615.0, y / 18446744073709551615.0, z / 18446744073709551615.0, m / 18446744073709551615.0 };
     public static Point4D FromArray(double[] coords) => new(
-        (uint)(coords[0] * 4294967295.0),
-        (uint)(coords[1] * 4294967295.0),
-        (uint)(coords[2] * 4294967295.0),
-        (uint)(coords[3] * 4294967295.0)
+        (ulong)(coords[0] * 18446744073709551615.0),
+        (ulong)(coords[1] * 18446744073709551615.0),
+        (ulong)(coords[2] * 18446744073709551615.0),
+        (ulong)(coords[3] * 18446744073709551615.0)
     );
 }

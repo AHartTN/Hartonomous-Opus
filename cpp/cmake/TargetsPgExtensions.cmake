@@ -28,6 +28,37 @@ else()
     )
 endif()
 
+# Create db_wrapper_pg library (PostgreSQL database wrapper)
+# Built as SHARED library to be deployed alongside extensions
+add_library(db_wrapper_pg SHARED src/pg/db_wrapper_pg.c)
+set_source_files_properties(src/pg/db_wrapper_pg.c PROPERTIES LANGUAGE C)
+
+target_include_directories(db_wrapper_pg PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${PG_INCLUDE_DIRS}
+)
+
+target_compile_definitions(db_wrapper_pg PRIVATE
+    ${PG_COMPILE_DEFS}
+    HYPERCUBE_VERSION="${PROJECT_VERSION}"
+)
+
+# Link to PostgreSQL server libraries - wrapper is the only component linking to PG libs
+if(WIN32)
+    target_link_libraries(db_wrapper_pg PRIVATE ${POSTGRES_LIB})
+else()
+    # On Unix-like systems, link to PostgreSQL server libraries
+    target_link_libraries(db_wrapper_pg PRIVATE pq)
+endif()
+
+# Set library properties for deployment
+set_target_properties(db_wrapper_pg PROPERTIES
+    LINKER_LANGUAGE C
+    PREFIX ""
+    OUTPUT_NAME "db_wrapper_pg"
+    INSTALL_RPATH "$ORIGIN"
+)
+
 function(hc_add_pg_extension EXT_NAME SRC_FILE)
     set(options)
     set(oneValueArgs C_BRIDGE OUTPUT_NAME)
@@ -39,6 +70,7 @@ function(hc_add_pg_extension EXT_NAME SRC_FILE)
 
     target_include_directories(${EXT_NAME} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/pg
         ${PG_INCLUDE_DIRS}
     )
 
@@ -51,6 +83,7 @@ function(hc_add_pg_extension EXT_NAME SRC_FILE)
         LINKER_LANGUAGE C
         PREFIX ""
         OUTPUT_NAME "${HC_EXT_OUTPUT_NAME}"
+        INSTALL_RPATH "$ORIGIN"
     )
 
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -67,12 +100,10 @@ function(hc_add_pg_extension EXT_NAME SRC_FILE)
         target_compile_options(${EXT_NAME} PRIVATE /wd4244 /wd4267 /wd4996 /wd4005 /wd4200)
     endif()
 
+    # Link to database wrapper first, then computation libraries
+    target_link_libraries(${EXT_NAME} PRIVATE db_wrapper_pg)
     if(HC_EXT_C_BRIDGE)
         target_link_libraries(${EXT_NAME} PRIVATE ${HC_EXT_C_BRIDGE})
-    endif()
-
-    if(WIN32 AND POSTGRES_LIB)
-        target_link_libraries(${EXT_NAME} PRIVATE ${POSTGRES_LIB})
     endif()
 endfunction()
 

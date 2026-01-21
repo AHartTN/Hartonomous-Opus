@@ -10,14 +10,14 @@
 namespace hypercube {
 
 // 32-bit unsigned coordinate per dimension
-using Coord32 = uint32_t;
+using Coord64 = uint32_t;
 
 // 4D point with 32-bit coordinates
 struct Point4D {
-    Coord32 x, y, z, m;
-    
+    Coord64 x, y, z, m;
+
     constexpr Point4D() noexcept : x(0), y(0), z(0), m(0) {}
-    constexpr Point4D(Coord32 x_, Coord32 y_, Coord32 z_, Coord32 m_) noexcept
+    constexpr Point4D(Coord64 x_, Coord64 y_, Coord64 z_, Coord64 m_) noexcept
         : x(x_), y(y_), z(z_), m(m_) {}
     
     // Comparison operators defined below
@@ -121,12 +121,12 @@ struct Point4F {
 
     // Convert to quantized Point4D
     Point4D to_quantized() const noexcept {
-        auto quantize = [](double v) -> Coord32 {
+        auto quantize = [](double v) -> Coord64 {
             if (v <= -1.0) return 0;
             if (v >= 1.0) return UINT32_MAX;
             double scaled = (v + 1.0) * 0.5 * static_cast<double>(UINT32_MAX);
-            uint64_t rounded = static_cast<uint64_t>(std::floor(scaled + 0.5));
-            return static_cast<Coord32>(rounded > static_cast<uint64_t>(UINT32_MAX) ? UINT32_MAX : rounded);
+            uint32_t rounded = static_cast<uint32_t>(std::floor(scaled + 0.5));
+            return rounded > UINT32_MAX ? UINT32_MAX : rounded;
         };
         return Point4D(quantize(x), quantize(y), quantize(z), quantize(m));
     }
@@ -208,11 +208,12 @@ struct Point4F {
 // but Blake3Hash provides the unique content-derived identifier.
 //
 struct HilbertIndex {
-    uint64_t lo;  // Lower 64 bits
-    uint64_t hi;  // Upper 64 bits
+    uint64_t lo;      // Lower 64 bits
+    uint64_t hi;      // Upper 64 bits
 
     constexpr HilbertIndex() noexcept : lo(0), hi(0) {}
-    constexpr HilbertIndex(uint64_t lo_, uint64_t hi_) noexcept : lo(lo_), hi(hi_) {}
+    constexpr HilbertIndex(uint64_t lo_, uint64_t hi_) noexcept
+        : lo(lo_), hi(hi_) {}
 
     // Compare: hi first, then lo (big-endian order)
     constexpr bool operator==(const HilbertIndex& other) const noexcept {
@@ -493,8 +494,8 @@ namespace constants {
 
     // Coordinate space origin (center of uint32 range)
     // This allows both positive and negative semantic directions
-    constexpr Coord32 COORD_ORIGIN = UINT32_MAX / 2;  // 2^31 = 2147483648
-    constexpr Coord32 COORD_RADIUS = COORD_ORIGIN - 1; // Max deviation from center
+    constexpr Coord64 COORD_ORIGIN = UINT32_MAX / 2;  // 2^31
+    constexpr Coord64 COORD_RADIUS = COORD_ORIGIN - 1; // Max deviation from center
 
     // Unicode ranges
     constexpr uint32_t MAX_CODEPOINT = 0x10FFFF;
@@ -503,8 +504,8 @@ namespace constants {
     constexpr uint32_t SURROGATE_END = 0xDFFF;
 
     // Hypercube surface: points where at least one coordinate is 0 or MAX
-    constexpr Coord32 SURFACE_MIN = 0;
-    constexpr Coord32 SURFACE_MAX = UINT32_MAX;
+    constexpr Coord64 SURFACE_MIN = 0;
+    constexpr Coord64 SURFACE_MAX = UINT32_MAX;
 
     // Number of valid Unicode codepoints (excluding surrogates)
     constexpr uint32_t VALID_CODEPOINTS = MAX_CODEPOINT + 1 - (SURROGATE_END - SURROGATE_START + 1);

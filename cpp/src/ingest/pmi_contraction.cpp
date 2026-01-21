@@ -68,10 +68,10 @@ struct Vec4D {
 
     Point4D to_point() const {
         Point4D p;
-        p.x = static_cast<Coord32>(std::round(CENTER + x * SCALE));
-        p.y = static_cast<Coord32>(std::round(CENTER + y * SCALE));
-        p.z = static_cast<Coord32>(std::round(CENTER + z * SCALE));
-        p.m = static_cast<Coord32>(std::round(CENTER + m * SCALE));
+        p.x = static_cast<Coord64>(std::round(CENTER + x * SCALE));
+        p.y = static_cast<Coord64>(std::round(CENTER + y * SCALE));
+        p.z = static_cast<Coord64>(std::round(CENTER + z * SCALE));
+        p.m = static_cast<Coord64>(std::round(CENTER + m * SCALE));
         return p;
     }
 };
@@ -144,6 +144,9 @@ class PMIContractor {
 public:
     double pmi_threshold = 0.0;
     size_t min_pair_count = 2;
+    size_t max_chunk_size = 2000;
+    size_t max_completion_iterations = 10000;
+    size_t no_progress_threshold = 10;
 
     // Use std::list for O(1) splice/removal
     std::list<Token> sequence;
@@ -381,10 +384,40 @@ public:
         return replacements;
     }
 
-    void run(size_t max_iterations = 1000000) {
+    Token process_recursive(std::list<Token> seq) {
+        if (seq.size() <= max_chunk_size) {
+            PMIContractor temp;
+            temp.pmi_threshold = this->pmi_threshold;
+            temp.min_pair_count = this->min_pair_count;
+            temp.max_chunk_size = this->max_chunk_size;
+            temp.max_completion_iterations = this->max_completion_iterations;
+            temp.no_progress_threshold = this->no_progress_threshold;
+            temp.sequence = std::move(seq);
+            temp.build_initial_statistics();
+            temp.run_phases();
+            // merge composites
+            for (auto& p : temp.composites) {
+                this->composites[p.first] = std::move(p.second);
+            }
+            return temp.get_root();
+        } else {
+            size_t mid = seq.size() / 2;
+            auto mid_it = std::next(seq.begin(), mid);
+            std::list<Token> left(seq.begin(), mid_it);
+            std::list<Token> right(mid_it, seq.end());
+            Token left_root = process_recursive(std::move(left));
+            Token right_root = process_recursive(std::move(right));
+            std::list<Token> new_seq = {left_root, right_root};
+            return process_recursive(std::move(new_seq));
+        }
+    }
+
+    void run_phases(size_t max_iterations = 1000000) {
         size_t iteration = 0;
         size_t high_pmi_phase = 0;
         size_t completion_phase = 0;
+        size_t no_progress_count = 0;
+        size_t completion_iters = 0;
 
         auto start_time = std::chrono::high_resolution_clock::now();
         size_t last_report = 0;
@@ -395,7 +428,12 @@ public:
             if (best_pmi <= pmi_threshold) break;
 
             size_t replacements = contract_pair(best_pair);
-            if (replacements == 0) break;
+            if (replacements == 0) {
+                no_progress_count++;
+            } else {
+                no_progress_count = 0;
+            }
+            if (no_progress_count >= no_progress_threshold) break;
 
             iteration++;
             high_pmi_phase++;
@@ -415,6 +453,9 @@ public:
 
         // Phase 2: Complete using geometric nearest-neighbor
         while (sequence.size() > 1 && iteration < max_iterations) {
+            completion_iters++;
+            if (completion_iters >= max_completion_iterations) break;
+
             // Try remaining frequent pairs first
             auto [best_pair, best_pmi] = find_best_pair();
             if (best_pmi > -100.0) {
@@ -492,6 +533,16 @@ public:
         std::cerr << "\n[PMI] Complete: " << high_pmi_phase << " high-PMI + "
                   << completion_phase << " geometric = " << composites.size()
                   << " compositions (" << total_ms << " ms)\n";
+    }
+
+    void run(size_t max_iterations = 1000000) {
+        if (sequence.size() <= max_chunk_size) {
+            run_phases(max_iterations);
+        } else {
+            Token root = process_recursive(std::move(sequence));
+            sequence.clear();
+            sequence.push_back(root);
+        }
     }
 
     Token get_root() {

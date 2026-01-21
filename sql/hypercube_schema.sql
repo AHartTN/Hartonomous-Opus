@@ -26,6 +26,8 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- Geometry and math functions (foundational)
 \i functions/geometry/distance.sql
+\i functions/geometry/centroid_distance.sql
+\i functions/geometry/centroid_similarity.sql
 
 -- Atom operations (Unicode leaves) - ONE FUNCTION PER FILE
 \i functions/atoms/atom_is_leaf.sql
@@ -41,6 +43,9 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 \i functions/atoms/atom_by_codepoint.sql
 \i functions/atoms/get_atoms_by_codepoints.sql
 \i functions/atoms/atom_distance.sql
+\i functions/atoms/atom_nearest_spatial.sql
+\i functions/atoms/composition_content_hash.sql
+\i functions/atoms/atom_content_hash.sql
 
 -- Composition operations (token aggregations)
 \i functions/compositions/atom_children.sql
@@ -50,6 +55,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 \i functions/compositions/recompute_composition_centroids.sql
 \i functions/compositions/maintain_child_count_integrity.sql
 \i functions/compositions/validate_child_references.sql
+\i functions/compositions/composition_centroid.sql
 
 -- Relation operations (semantic graph)
 \i functions/relations/semantic_neighbors.sql
@@ -57,6 +63,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 \i functions/relations/analogy.sql
 \i functions/relations/upsert_relation.sql
 \i functions/relations/edges.sql
+\i functions/relations/generate_knn_edges.sql
 
 -- Query operations (user-facing)
 \i functions/queries/search_text.sql
@@ -69,6 +76,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- Statistics and reporting
 \i functions/stats/db_stats.sql
+\i functions/stats/validate_atoms.sql
 
 -- =============================================================================
 -- 4. PROCEDURES: Complex multi-step operations (NO in-line SQL)

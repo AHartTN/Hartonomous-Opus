@@ -99,11 +99,11 @@ void test_locality() {
 void test_ordering() {
     std::cout << "Testing Hilbert index ordering..." << std::endl;
 
-    assert(HilbertIndex(100, 0) < HilbertIndex(200, 0));
-    assert(HilbertIndex(100, 0) < HilbertIndex(100, 1));
-    assert(HilbertIndex(200, 0) < HilbertIndex(100, 1));
-    assert(HilbertIndex(100, 1) < HilbertIndex(200, 1));
-    assert(HilbertIndex(100, 0) < HilbertIndex(200, 1));
+    assert(HilbertIndex(0, 0, 0, 100) < HilbertIndex(0, 0, 0, 200));
+    assert(HilbertIndex(0, 0, 0, 100) < HilbertIndex(1, 0, 0, 100));
+    assert(HilbertIndex(0, 0, 0, 200) < HilbertIndex(1, 0, 0, 100));
+    assert(HilbertIndex(1, 0, 0, 100) < HilbertIndex(1, 0, 0, 200));
+    assert(HilbertIndex(0, 0, 0, 100) < HilbertIndex(1, 0, 0, 200));
 
     std::cout << "  Index comparison: PASS" << std::endl;
 }
@@ -111,20 +111,20 @@ void test_ordering() {
 void test_arithmetic() {
     std::cout << "Testing Hilbert index arithmetic..." << std::endl;
 
-    HilbertIndex a(UINT64_MAX, 0);
-    HilbertIndex b(1, 0);
+    HilbertIndex a(0, 0, 0, UINT32_MAX);
+    HilbertIndex b(0, 0, 0, 1);
     HilbertIndex sum_result = a + b;
 
     assert(sum_result.lo == 0);
     assert(sum_result.hi == 1);
     (void)sum_result;  // Mark as used
 
-    HilbertIndex c(100, 5);
-    HilbertIndex d(50, 3);
+    HilbertIndex c(5, 0, 0, 100);
+    HilbertIndex d(3, 0, 0, 50);
     HilbertIndex diff_result = c - d;
 
-    assert(diff_result.lo == 50);
-    assert(diff_result.hi == 2);
+    assert(diff_result.lo == 2);
+    assert(diff_result.hi == 50);
     (void)diff_result;  // Mark as used
 
     std::cout << "  Arithmetic: PASS" << std::endl;
@@ -133,14 +133,14 @@ void test_arithmetic() {
 void test_abs_distance() {
     std::cout << "Testing Hilbert index abs_distance..." << std::endl;
 
-    HilbertIndex a(100, 5);
-    HilbertIndex b(50, 3);
+    HilbertIndex a(5, 0, 0, 100);
+    HilbertIndex b(3, 0, 0, 50);
     HilbertIndex dist1 = HilbertIndex::abs_distance(a, b);
     HilbertIndex dist2 = HilbertIndex::abs_distance(b, a);
 
     assert(dist1 == dist2);
-    assert(dist1.lo == 50);
-    assert(dist1.hi == 2);
+    assert(dist1.lo == 2);
+    assert(dist1.hi == 50);
     (void)dist1; (void)dist2; // Suppress unused warnings in release builds
 
     // Test with zero

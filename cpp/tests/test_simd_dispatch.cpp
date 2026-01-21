@@ -13,6 +13,7 @@
 #include "hypercube/cpu_features.h"
 #include "hypercube/isa_class.h"
 #include "hypercube/dispatch.h"
+#include "hypercube/function_pointers.hpp"
 
 using namespace hypercube;
 
@@ -77,14 +78,16 @@ int main() {
     std::cout << "   AVX512-VNNI:" << (features.avx512_vnni ? "yes" : "no") << "\n";
     std::cout << "\n";
 
+    // Initialize function pointers for zero-overhead dispatch
+    initialize_function_pointers();
+
     // Test ISA class detection
     std::cout << "2. Testing ISA class selection...\n";
     IsaClass isa = classify_isa(features);
     std::cout << "   Selected ISA: " << isa_class_name(isa) << "\n\n";
 
-    // Test kernel vtable
-    std::cout << "3. Testing kernel dispatch...\n";
-    const KernelVtable& kernels = get_kernels();
+    // Test global function pointers
+    std::cout << "3. Testing global function pointers...\n";
 
     // Generate test data
     constexpr size_t N = 1024;
@@ -95,7 +98,7 @@ int main() {
 
     // Test double dot product
     double expected_d = ref_dot_product_d(a_d.data(), b_d.data(), N);
-    double actual_d = kernels.dot_product_d(a_d.data(), b_d.data(), N);
+    double actual_d = dot_product_d(a_d.data(), b_d.data(), N);
     double error_d = std::abs(actual_d - expected_d);
     bool pass_d = error_d < 1e-10;
     std::cout << "   Double dot product: " << (pass_d ? "PASS" : "FAIL")
@@ -104,7 +107,7 @@ int main() {
 
     // Test float dot product
     float expected_f = ref_dot_product_f(a_f.data(), b_f.data(), N);
-    float actual_f = kernels.dot_product_f(a_f.data(), b_f.data(), N);
+    float actual_f = dot_product_f(a_f.data(), b_f.data(), N);
     float error_f = std::abs(actual_f - expected_f);
     bool pass_f = error_f < 1e-4f;
     std::cout << "   Float dot product:  " << (pass_f ? "PASS" : "FAIL")
@@ -113,13 +116,13 @@ int main() {
 
     // Test scale in-place
     std::vector<double> v = {1.0, 2.0, 3.0, 4.0};
-    kernels.scale_inplace_d(v.data(), 2.0, v.size());
+    scale_inplace_d(v.data(), 2.0, v.size());
     bool pass_scale = (v[0] == 2.0 && v[1] == 4.0 && v[2] == 6.0 && v[3] == 8.0);
     std::cout << "   Scale in-place:     " << (pass_scale ? "PASS" : "FAIL") << "\n";
 
     // Test norm
     std::vector<double> unit = {3.0, 4.0}; // ||[3,4]|| = 5
-    double norm_val = kernels.norm_d(unit.data(), unit.size());
+    double norm_val = norm_d(unit.data(), unit.size());
     bool pass_norm = std::abs(norm_val - 5.0) < 1e-10;
     std::cout << "   Norm:               " << (pass_norm ? "PASS" : "FAIL")
               << " (expected=5.0, actual=" << norm_val << ")\n";

@@ -12,7 +12,7 @@ namespace hypercube::db {
 // Coordinates are unsigned 32-bit values from YOUR Hilbert mapping
 struct AtomInfo {
     Blake3Hash hash;
-    int64_t coord_x, coord_y, coord_z, coord_m;  // BIGINT from DB (unsigned 32-bit fits in signed 64-bit)
+    double coord_x, coord_y, coord_z, coord_m;  // BIGINT from DB (unsigned 32-bit fits in signed 64-bit)
 };
 
 // Load atoms for specific codepoints only (fast - queries only needed atoms)

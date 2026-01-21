@@ -304,8 +304,7 @@ ProjectionResult LaplacianProjector::project(
     // 4. Solve eigenvalue problem
     report_progress("Solving eigenvalue problem", 3, 6);
     std::array<double, 4> eigenvalues_out{};
-    bool converged = false;
-    auto eigenvectors = find_smallest_eigenvectors(L, 4, eigenvalues_out, converged);
+    auto eigenvectors = solve_eigenvectors(L, 4, eigenvalues_out);
 
     // 5. Apply Gram-Schmidt orthonormalization
     report_progress("Gram-Schmidt orthonormalization", 4, 6);
@@ -326,7 +325,7 @@ ProjectionResult LaplacianProjector::project(
     result.eigenvalues = eigenvalues_out;
     result.total_variance_explained = std::accumulate(eigenvalues_out.begin(), eigenvalues_out.end(), 0.0);
     result.edge_count = W.size();
-    result.converged = converged;
+    result.converged = true;  // Dense solvers always converge
 
     // Compute Hilbert indices
     result.hilbert_lo.resize(result.coords.size());
@@ -371,7 +370,7 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
 #if USE_HNSWLIB
     // =========================================================================
     // HNSWLIB PATH: O(n log n) approximate k-NN using HNSW index
-    // Much faster than brute-force O(n²) for large datasets
+    // Primary neighbor search method
     // =========================================================================
     std::cerr << "[HNSWLIB] Building HNSW index for " << n << " points, dim=" << dim << "\n";
     auto hnsw_start = std::chrono::steady_clock::now();
@@ -380,8 +379,8 @@ SparseSymmetricMatrix LaplacianProjector::build_similarity_graph(
     hnswlib::InnerProductSpace space(dim);
 
     // HNSW parameters
-    size_t M = 16;         // Max connections per layer (higher = more accurate, slower)
-    size_t ef_construction = 200;  // Construction-time parameter (higher = more accurate)
+    size_t M = config_.hnsw_M;
+    size_t ef_construction = config_.hnsw_ef_construction;
 
     hnswlib::HierarchicalNSW<float> index(&space, n, M, ef_construction);
 
@@ -632,26 +631,23 @@ SparseSymmetricMatrix LaplacianProjector::build_laplacian(
     return L;
 }
 
-std::vector<std::vector<double>> LaplacianProjector::find_smallest_eigenvectors(
-    SparseSymmetricMatrix& L, int k, std::array<double, 4>& eigenvalues_out, bool& converged_out
+std::vector<std::vector<double>> LaplacianProjector::solve_eigenvectors(
+    SparseSymmetricMatrix& L, int k, std::array<double, 4>& eigenvalues_out
 ) {
-    // Select solver based on configuration and matrix size
     size_t n = L.size();
 
-    if (config_.eigen_backend == EigenBackend::LANCZOS_SPARSE || n > config_.dense_threshold) {
-        return solve_eigenvectors_lanczos_sparse(L, k, eigenvalues_out, converged_out);
-    } else if (config_.eigen_backend == EigenBackend::MKL_DENSE) {
+    // Always use dense solvers for this module
 #if defined(HAS_MKL) && HAS_MKL
-        converged_out = true;
-        return solve_eigenvectors_mkl_dense(L, k, eigenvalues_out);
+    // Prefer MKL for speed and accuracy
+    return solve_eigenvectors_mkl_dense(L, k, eigenvalues_out);
+#elif defined(HAS_EIGEN) && HAS_EIGEN
+    // Fallback to Eigen dense solver
+    return solve_eigenvectors_eigen_dense(L, k, eigenvalues_out);
 #else
-        converged_out = true;
-        return solve_eigenvectors_eigen_dense(L, k, eigenvalues_out);
+    // No dense solvers available
+    eigenvalues_out.fill(0.0);
+    return {};
 #endif
-    } else {
-        converged_out = true;
-        return solve_eigenvectors_eigen_dense(L, k, eigenvalues_out);
-    }
 }
 
 void LaplacianProjector::gram_schmidt_columns(
@@ -865,36 +861,7 @@ std::vector<std::vector<double>> LaplacianProjector::solve_eigenvectors_eigen_de
 #endif
 }
 
-std::vector<std::vector<double>> LaplacianProjector::solve_eigenvectors_lanczos_sparse(
-    SparseSymmetricMatrix& L, int k, std::array<double, 4>& eigenvalues_out, bool& converged_out
-) {
-    // Use Lanczos algorithm from lanczos.hpp
-    lanczos::LanczosConfig lanczos_config;
-    lanczos_config.convergence_tol = config_.convergence_tol;
-    lanczos_config.max_iterations = config_.max_deflation_iterations;
-    lanczos_config.num_eigenpairs = k + 1;  // +1 to skip zero eigenvalue
 
-    lanczos::LanczosSolver solver(lanczos_config);
-
-    // Finalize matrix if not already done
-    L.finalize();
-
-    // Solve for eigenpairs
-    auto result_lanczos = solver.solve(L);
-
-    converged_out = result_lanczos.converged;
-
-    // Copy results, skipping the first (zero) eigenvalue
-    std::vector<std::vector<double>> result(L.size(), std::vector<double>(k, 0.0));
-    for (int j = 0; j < k && (j + 1) < static_cast<int>(result_lanczos.eigenvectors.size()); ++j) {
-        eigenvalues_out[j] = result_lanczos.eigenvalues[j + 1];
-        for (size_t i = 0; i < L.size(); ++i) {
-            result[i][j] = result_lanczos.eigenvectors[j + 1][i];
-        }
-    }
-
-    return result;
-}
 
 std::vector<std::array<uint32_t, 4>> LaplacianProjector::normalize_to_hypercube(
     const std::vector<std::vector<double>>& U

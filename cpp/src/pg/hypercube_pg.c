@@ -26,6 +26,7 @@
 #include "catalog/pg_type.h"
 
 #include "hypercube_c.h"
+#include "db_wrapper_pg.h"
 
 #ifdef PG_MODULE_MAGIC
 PG_MODULE_MAGIC;
@@ -44,25 +45,25 @@ Datum hypercube_coords_to_hilbert(PG_FUNCTION_ARGS)
     int64 m = PG_GETARG_INT64(3);
     
     hc_point4d_t point;
-    point.x = (uint32)x;
-    point.y = (uint32)y;
-    point.z = (uint32)z;
-    point.m = (uint32)m;
-    
+    point.x = (uint64)x;
+    point.y = (uint64)y;
+    point.z = (uint64)z;
+    point.m = (uint64)m;
+
     hc_hilbert_t hilbert = hc_coords_to_hilbert(point);
-    
+
     TupleDesc tupdesc;
-    Datum values[2];
-    bool nulls[2] = {false, false};
+    Datum values[4];
+    bool nulls[4] = {false, false, false, false};
     HeapTuple tuple;
-    
+
     if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
         ereport(ERROR,
                 (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                  errmsg("function returning record called in context that cannot accept type record")));
-    
+
     tupdesc = BlessTupleDesc(tupdesc);
-    
+
     values[0] = Int64GetDatum((int64)hilbert.lo);
     values[1] = Int64GetDatum((int64)hilbert.hi);
     
@@ -75,7 +76,7 @@ Datum hypercube_hilbert_to_coords(PG_FUNCTION_ARGS)
 {
     int64 lo = PG_GETARG_INT64(0);
     int64 hi = PG_GETARG_INT64(1);
-    
+
     hc_hilbert_t hilbert;
     hilbert.lo = (uint64)lo;
     hilbert.hi = (uint64)hi;
@@ -110,24 +111,24 @@ Datum hypercube_hilbert_distance(PG_FUNCTION_ARGS)
     int64 hi1 = PG_GETARG_INT64(1);
     int64 lo2 = PG_GETARG_INT64(2);
     int64 hi2 = PG_GETARG_INT64(3);
-    
+
     hc_hilbert_t a = {(uint64)lo1, (uint64)hi1};
     hc_hilbert_t b = {(uint64)lo2, (uint64)hi2};
-    
+
     hc_hilbert_t dist = hc_hilbert_distance(a, b);
-    
+
     TupleDesc tupdesc;
-    Datum values[2];
-    bool nulls[2] = {false, false};
+    Datum values[4];
+    bool nulls[4] = {false, false, false, false};
     HeapTuple tuple;
-    
+
     if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
         ereport(ERROR,
                 (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                  errmsg("function returning record called in context that cannot accept type record")));
-    
+
     tupdesc = BlessTupleDesc(tupdesc);
-    
+
     values[0] = Int64GetDatum((int64)dist.lo);
     values[1] = Int64GetDatum((int64)dist.hi);
     
@@ -181,31 +182,31 @@ Datum hypercube_map_codepoint(PG_FUNCTION_ARGS)
     hc_atom_t atom = hc_map_atom((uint32)codepoint);
     
     TupleDesc tupdesc;
-    Datum values[8];
-    bool nulls[8] = {false, false, false, false, false, false, false, false};
+    Datum values[10];
+    bool nulls[10] = {false, false, false, false, false, false, false, false, false, false};
     HeapTuple tuple;
     bytea *hash_bytea;
-    
+
     if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
         ereport(ERROR,
                 (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                  errmsg("function returning record called in context that cannot accept type record")));
-    
+
     tupdesc = BlessTupleDesc(tupdesc);
-    
+
     values[0] = Int64GetDatum((int64)atom.coords.x);
     values[1] = Int64GetDatum((int64)atom.coords.y);
     values[2] = Int64GetDatum((int64)atom.coords.z);
     values[3] = Int64GetDatum((int64)atom.coords.m);
     values[4] = Int64GetDatum((int64)atom.hilbert.lo);
     values[5] = Int64GetDatum((int64)atom.hilbert.hi);
-    
+
     hash_bytea = (bytea *)palloc(VARHDRSZ + HC_HASH_SIZE);
     SET_VARSIZE(hash_bytea, VARHDRSZ + HC_HASH_SIZE);
     memcpy(VARDATA(hash_bytea), atom.hash.bytes, HC_HASH_SIZE);
-    values[6] = PointerGetDatum(hash_bytea);
-    
-    values[7] = CStringGetTextDatum(hc_category_name(atom.category));
+    values[8] = PointerGetDatum(hash_bytea);
+
+    values[9] = CStringGetTextDatum(hc_category_name(atom.category));
     
     tuple = heap_form_tuple(tupdesc, values, nulls);
     PG_RETURN_DATUM(HeapTupleGetDatum(tuple));
@@ -228,10 +229,10 @@ Datum hypercube_is_on_surface(PG_FUNCTION_ARGS)
     int64 m = PG_GETARG_INT64(3);
     
     hc_point4d_t point;
-    point.x = (uint32)x;
-    point.y = (uint32)y;
-    point.z = (uint32)z;
-    point.m = (uint32)m;
+    point.x = (uint64)x;
+    point.y = (uint64)y;
+    point.z = (uint64)z;
+    point.m = (uint64)m;
     
     PG_RETURN_BOOL(hc_is_on_surface(point));
 }
@@ -284,11 +285,11 @@ Datum hypercube_seed_atoms(PG_FUNCTION_ARGS)
     {
         hc_atom_t atom = hc_map_atom(state->current_codepoint);
         
-        Datum values[9];
-        bool nulls[9] = {false, false, false, false, false, false, false, false, false};
+        Datum values[11];
+        bool nulls[11] = {false, false, false, false, false, false, false, false, false, false, false};
         HeapTuple tuple;
         bytea *hash_bytea;
-        
+
         values[0] = Int32GetDatum((int32)atom.codepoint);
         values[1] = Int64GetDatum((int64)atom.coords.x);
         values[2] = Int64GetDatum((int64)atom.coords.y);
@@ -296,12 +297,12 @@ Datum hypercube_seed_atoms(PG_FUNCTION_ARGS)
         values[4] = Int64GetDatum((int64)atom.coords.m);
         values[5] = Int64GetDatum((int64)atom.hilbert.lo);
         values[6] = Int64GetDatum((int64)atom.hilbert.hi);
-        
+
         hash_bytea = (bytea *)palloc(VARHDRSZ + HC_HASH_SIZE);
         SET_VARSIZE(hash_bytea, VARHDRSZ + HC_HASH_SIZE);
         memcpy(VARDATA(hash_bytea), atom.hash.bytes, HC_HASH_SIZE);
         values[7] = PointerGetDatum(hash_bytea);
-        
+
         values[8] = CStringGetTextDatum(hc_category_name(atom.category));
         
         tuple = heap_form_tuple(state->tupdesc, values, nulls);
@@ -337,10 +338,10 @@ Datum hypercube_centroid(PG_FUNCTION_ARGS)
     hc_point4d_t *points = (hc_point4d_t *)palloc(n * sizeof(hc_point4d_t));
     for (int i = 0; i < n; ++i)
     {
-        points[i].x = (uint32)x_data[i];
-        points[i].y = (uint32)y_data[i];
-        points[i].z = (uint32)z_data[i];
-        points[i].m = (uint32)m_data[i];
+        points[i].x = (uint64)x_data[i];
+        points[i].y = (uint64)y_data[i];
+        points[i].z = (uint64)z_data[i];
+        points[i].m = (uint64)m_data[i];
     }
     
     hc_point4d_t centroid = hc_centroid(points, n);

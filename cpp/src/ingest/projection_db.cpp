@@ -209,46 +209,44 @@ size_t ProjectionPersister::persist_atoms(const std::vector<TokenData>& atoms) {
 
     Transaction tx(conn_);
 
-    // Prepare statement for binary bytea insert
-    const char* stmt_name = "insert_atom_binary";
-    const char* stmt_sql = "INSERT INTO atom (id, geom, hilbert_lo, hilbert_hi) VALUES ($1, ST_GeomFromEWKB(decode($2, 'hex')), $3, $4) "
-                          "ON CONFLICT (id) DO UPDATE SET geom = EXCLUDED.geom, hilbert_lo = EXCLUDED.hilbert_lo, hilbert_hi = EXCLUDED.hilbert_hi";
-
-    Result prep_res = exec(conn_, std::string("PREPARE ") + stmt_name + " AS " + stmt_sql);
-    if (!prep_res.ok()) {
-        std::cerr << "[DB] Failed to prepare atom insert statement: " << prep_res.error_message() << "\n";
+    // Create temp table for bulk atom insert
+    std::string temp_table_sql = sql::atom_temp_table_sql();
+    Result temp_res = exec(conn_, temp_table_sql);
+    if (!temp_res.ok()) {
+        std::cerr << "[DB] Failed to create atom temp table: " << temp_res.error_message() << "\n";
         return 0;
     }
 
-    size_t updated = 0;
-    for (const auto& token : atoms) {
-        std::string geom_ewkb = build_pointzm_ewkb(token.coords);
-        std::string hilbert_lo_str = std::to_string(token.hilbert_lo);
-        std::string hilbert_hi_str = std::to_string(token.hilbert_hi);
-
-        // Execute with binary bytea parameter
-        const char* params[4] = {
-            reinterpret_cast<const char*>(token.hash.data()),
-            geom_ewkb.c_str(),
-            hilbert_lo_str.c_str(),
-            hilbert_hi_str.c_str()
-        };
-        int param_lengths[4] = {32, static_cast<int>(geom_ewkb.size()), static_cast<int>(hilbert_lo_str.size()), static_cast<int>(hilbert_hi_str.size())};
-        int param_formats[4] = {1, 0, 0, 0};  // 1 = binary, 0 = text
-
-        PGresult* res = PQexecPrepared(conn_, stmt_name, 4, params, param_lengths, param_formats, 0);
-        Result result(res);
-
-        if (result.ok()) {
-            updated += static_cast<size_t>(cmd_tuples(result));
-        } else {
-            std::cerr << "[DB] Atom insert failed: " << result.error_message() << "\n";
-        }
+    // Bulk COPY atoms into temp table
+    CopyWriter writer(conn_, "tmp_atom_proj", {"id", "geom_ewkb", "hilbert_lo", "hilbert_hi"});
+    if (!writer.ok()) {
+        std::cerr << "[DB] Failed to start atom COPY: " << writer.error() << "\n";
+        return 0;
     }
 
-    // Deallocate prepared statement
-    exec(conn_, std::string("DEALLOCATE ") + stmt_name);
+    for (const auto& token : atoms) {
+        std::string geom_ewkb = build_pointzm_ewkb(token.coords);
+        writer.col_bytea(token.hash)
+              .col(geom_ewkb)
+              .col(token.hilbert_lo)
+              .col(token.hilbert_hi)
+              .end_row();
+    }
 
+    if (!writer.finish()) {
+        std::cerr << "[DB] Failed to finish atom COPY: " << writer.error() << "\n";
+        return 0;
+    }
+
+    // Insert from temp table to final atom table
+    std::string merge_sql = sql::atom_merge_sql();
+    Result merge_res = exec(conn_, merge_sql);
+    if (!merge_res.ok()) {
+        std::cerr << "[DB] Failed to merge atoms: " << merge_res.error_message() << "\n";
+        return 0;
+    }
+
+    size_t updated = static_cast<size_t>(cmd_tuples(merge_res));
     tx.commit();
     return updated;
 }
@@ -325,11 +323,11 @@ static std::vector<uint32_t> utf8_to_codepoints(const std::string& label) {
 
 size_t ProjectionPersister::persist_compositions(const std::vector<TokenData>& compositions) {
     if (compositions.empty()) return 0;
-    
+
     // ==========================================================================
     // PHYSICAL-FIRST: Compute centroids deterministically in C++ from codepoints
     // ==========================================================================
-    
+
     struct CompositionWithCentroid {
         Blake3Hash hash;
         std::string label;
@@ -337,154 +335,142 @@ size_t ProjectionPersister::persist_compositions(const std::vector<TokenData>& c
         HilbertIndex hilbert;
         std::vector<std::pair<Blake3Hash, uint32_t>> atoms;  // (hash, codepoint)
     };
-    
+
     std::vector<CompositionWithCentroid> computed;
     computed.reserve(compositions.size());
-    
+
     for (const auto& token : compositions) {
         CompositionWithCentroid comp;
         comp.hash = token.hash;
         comp.label = token.label;
-        
+
         // Parse label into codepoints
         std::vector<uint32_t> codepoints = utf8_to_codepoints(token.label);
-        
+
         if (codepoints.empty()) {
             // Empty label - skip
             continue;
         }
-        
+
         // Compute atom coordinates and centroid
         std::vector<Point4D> atom_coords;
         atom_coords.reserve(codepoints.size());
-        
+
         for (uint32_t cp : codepoints) {
             // Deterministic coordinate from codepoint
             Point4D coord = CoordinateMapper::map_codepoint(cp);
             atom_coords.push_back(coord);
-            
+
             // Compute atom hash for composition_child
             Blake3Hash atom_hash = Blake3Hasher::hash_codepoint(cp);
             comp.atoms.emplace_back(atom_hash, cp);
         }
-        
+
         // Compute centroid as average of atom coordinates
         comp.centroid = CoordinateMapper::centroid(atom_coords);
-        
+
         // Compute Hilbert index for the centroid
         comp.hilbert = HilbertCurve::coords_to_index(comp.centroid);
-        
+
         computed.push_back(std::move(comp));
     }
-    
+
     std::cerr << "[DB] Computed " << computed.size() << " composition centroids from atoms\n";
-    
+
     // ==========================================================================
-    // Database persistence with Transaction RAII
+    // Database persistence with Transaction RAII and bulk COPY
     // ==========================================================================
-    
+
     Transaction tx(conn_);
 
-    // Prepare statement for composition insert with binary bytea
-    const char* comp_stmt_name = "insert_composition_binary";
-    const char* comp_stmt_sql = "INSERT INTO composition (id, label, depth, child_count, atom_count, centroid, hilbert_lo, hilbert_hi) "
-                               "VALUES ($1, $2, 1, $3, $4, ST_GeomFromEWKB(decode($5, 'hex')), $6, $7) "
-                               "ON CONFLICT (id) DO UPDATE SET label = COALESCE(EXCLUDED.label, composition.label), "
-                               "child_count = EXCLUDED.child_count, atom_count = EXCLUDED.atom_count, "
-                               "centroid = EXCLUDED.centroid, hilbert_lo = EXCLUDED.hilbert_lo, hilbert_hi = EXCLUDED.hilbert_hi";
-
-    Result comp_prep_res = exec(conn_, std::string("PREPARE ") + comp_stmt_name + " AS " + comp_stmt_sql);
-    if (!comp_prep_res.ok()) {
-        std::cerr << "[DB] Failed to prepare composition insert statement: " << comp_prep_res.error_message() << "\n";
+    // Create temp tables for bulk composition insert
+    std::string temp_comp_sql = sql::composition_temp_table_sql();
+    Result temp_comp_res = exec(conn_, temp_comp_sql);
+    if (!temp_comp_res.ok()) {
+        std::cerr << "[DB] Failed to create composition temp table: " << temp_comp_res.error_message() << "\n";
         return 0;
     }
 
-    size_t updated = 0;
+    std::string temp_child_sql = sql::composition_child_temp_table_sql();
+    Result temp_child_res = exec(conn_, temp_child_sql);
+    if (!temp_child_res.ok()) {
+        std::cerr << "[DB] Failed to create composition_child temp table: " << temp_child_res.error_message() << "\n";
+        return 0;
+    }
+
+    // Bulk COPY compositions into temp table
+    CopyWriter comp_writer(conn_, "tmp_comp_proj", {"id", "label", "centroid_ewkb", "hilbert_lo", "hilbert_hi", "child_count", "atom_count"});
+    if (!comp_writer.ok()) {
+        std::cerr << "[DB] Failed to start composition COPY: " << comp_writer.error() << "\n";
+        return 0;
+    }
+
     for (const auto& comp : computed) {
         std::array<uint32_t, 4> coords = {comp.centroid.x, comp.centroid.y, comp.centroid.z, comp.centroid.m};
         std::string centroid_ewkb = build_pointzm_ewkb(coords);
-        int64_t h_lo = static_cast<int64_t>(comp.hilbert.lo);
-        int64_t h_hi = static_cast<int64_t>(comp.hilbert.hi);
         size_t atom_count = comp.atoms.size();
 
-        std::string child_count_str = std::to_string(atom_count);
-        std::string atom_count_str = std::to_string(atom_count);
-        std::string h_lo_str = std::to_string(h_lo);
-        std::string h_hi_str = std::to_string(h_hi);
-
-        const char* params[7] = {
-            reinterpret_cast<const char*>(comp.hash.data()),
-            comp.label.c_str(),
-            child_count_str.c_str(),
-            atom_count_str.c_str(),
-            centroid_ewkb.c_str(),
-            h_lo_str.c_str(),
-            h_hi_str.c_str()
-        };
-        int param_lengths[7] = {32, static_cast<int>(comp.label.size()), static_cast<int>(child_count_str.size()),
-                               static_cast<int>(atom_count_str.size()), static_cast<int>(centroid_ewkb.size()),
-                               static_cast<int>(h_lo_str.size()), static_cast<int>(h_hi_str.size())};
-        int param_formats[7] = {1, 0, 0, 0, 0, 0, 0};  // 1 = binary for hash, 0 = text for others
-
-        PGresult* res = PQexecPrepared(conn_, comp_stmt_name, 7, params, param_lengths, param_formats, 0);
-        Result result(res);
-
-        if (result.ok()) {
-            updated += static_cast<size_t>(cmd_tuples(result));
-        } else {
-            std::cerr << "[DB] Composition insert failed: " << result.error_message() << "\n";
-        }
+        comp_writer.col_bytea(comp.hash)
+                   .col(comp.label)
+                   .col(centroid_ewkb)
+                   .col(static_cast<int64_t>(comp.hilbert.lo))
+                   .col(static_cast<int64_t>(comp.hilbert.hi))
+                   .col(static_cast<int64_t>(atom_count))
+                   .col(static_cast<int64_t>(atom_count))
+                   .end_row();
     }
 
-    // Deallocate prepared statement
-    exec(conn_, std::string("DEALLOCATE ") + comp_stmt_name);
-
-    std::cerr << "[DB] Inserted " << updated << " compositions\n";
-
-    // Prepare statement for composition_child insert with binary bytea
-    const char* child_stmt_name = "insert_composition_child_binary";
-    const char* child_stmt_sql = "INSERT INTO composition_child (composition_id, ordinal, child_type, child_id) "
-                                "VALUES ($1, $2, 'A', $3) ON CONFLICT (composition_id, ordinal) DO NOTHING";
-
-    Result child_prep_res = exec(conn_, std::string("PREPARE ") + child_stmt_name + " AS " + child_stmt_sql);
-    if (!child_prep_res.ok()) {
-        std::cerr << "[DB] Failed to prepare composition_child insert statement: " << child_prep_res.error_message() << "\n";
+    if (!comp_writer.finish()) {
+        std::cerr << "[DB] Failed to finish composition COPY: " << comp_writer.error() << "\n";
         return 0;
     }
 
-    size_t child_count = 0;
+    // Bulk COPY composition_child relationships into temp table
+    CopyWriter child_writer(conn_, "tmp_comp_child", {"composition_id", "child_id", "child_type", "ordinal"});
+    if (!child_writer.ok()) {
+        std::cerr << "[DB] Failed to start composition_child COPY: " << child_writer.error() << "\n";
+        return 0;
+    }
+
     for (const auto& comp : computed) {
         int ordinal = 0;
         for (const auto& [atom_hash, codepoint] : comp.atoms) {
-            std::string ordinal_str = std::to_string(ordinal);
-
-            const char* params[3] = {
-                reinterpret_cast<const char*>(comp.hash.data()),
-                ordinal_str.c_str(),
-                reinterpret_cast<const char*>(atom_hash.data())
-            };
-            int param_lengths[3] = {32, static_cast<int>(ordinal_str.size()), 32};
-            int param_formats[3] = {1, 0, 1};  // 1 = binary for bytea, 0 = text for ordinal
-
-            PGresult* res = PQexecPrepared(conn_, child_stmt_name, 3, params, param_lengths, param_formats, 0);
-            Result result(res);
-
-            if (result.ok()) {
-                child_count += static_cast<size_t>(cmd_tuples(result));
-            } else {
-                std::cerr << "[DB] Composition_child insert failed: " << result.error_message() << "\n";
-            }
+            child_writer.col_bytea(comp.hash)
+                        .col_bytea(atom_hash)
+                        .col("A")
+                        .col(static_cast<int64_t>(ordinal))
+                        .end_row();
             ++ordinal;
         }
     }
 
-    // Deallocate prepared statement
-    exec(conn_, std::string("DEALLOCATE ") + child_stmt_name);
+    if (!child_writer.finish()) {
+        std::cerr << "[DB] Failed to finish composition_child COPY: " << child_writer.error() << "\n";
+        return 0;
+    }
 
-    std::cerr << "[DB] Inserted " << child_count << " composition_child entries\n";
+    // Insert from temp tables to final tables
+    std::string comp_merge_sql = sql::composition_merge_sql();
+    Result comp_merge_res = exec(conn_, comp_merge_sql);
+    if (!comp_merge_res.ok()) {
+        std::cerr << "[DB] Failed to merge compositions: " << comp_merge_res.error_message() << "\n";
+        return 0;
+    }
+
+    std::string child_merge_sql = sql::composition_child_merge_sql();
+    Result child_merge_res = exec(conn_, child_merge_sql);
+    if (!child_merge_res.ok()) {
+        std::cerr << "[DB] Failed to merge composition_child: " << child_merge_res.error_message() << "\n";
+        return 0;
+    }
+
+    size_t updated = static_cast<size_t>(cmd_tuples(comp_merge_res));
+    size_t child_count = static_cast<size_t>(cmd_tuples(child_merge_res));
+
+    std::cerr << "[DB] Inserted " << updated << " compositions, " << child_count << " composition_child entries\n";
 
     tx.commit();
-    
+
     std::cerr << "[DB] Persisted " << updated << " compositions with physical-first centroids\n";
     return updated;
 }

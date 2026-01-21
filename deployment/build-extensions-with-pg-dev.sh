@@ -94,7 +94,11 @@ echo "Building PostgreSQL extensions..."
 echo "============================================"
 echo ""
 
-# Build only the extension targets
+# Build the database wrapper library first, then extension targets
+# The wrapper is the only component linking to PostgreSQL libraries
+make -j$(nproc) db_wrapper_pg
+
+# Build the extensions (they depend on the wrapper but don't link to PostgreSQL directly)
 make -j$(nproc) hypercube generative hypercube_ops embedding_ops semantic_ops
 
 echo ""

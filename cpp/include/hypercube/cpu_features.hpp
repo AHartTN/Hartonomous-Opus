@@ -1,8 +1,8 @@
 /**
  * CPU Feature Detection - Runtime SIMD/AVX capability checks
  *
- * Provides runtime detection of CPU features like AVX2, AVX-512, etc.
- * Allows the application to choose optimal code paths based on actual hardware capabilities.
+ * Provides comprehensive runtime detection of CPU features for dynamic dispatch.
+ * Supports safe execution validation and fallback mechanisms.
  */
 
 #pragma once
@@ -10,12 +10,13 @@
 #include <cstdint>
 #include <string>
 #include <cstring>  // For memcpy in vendor string
+#include <stdexcept> // For std::runtime_error
 
 namespace hypercube {
 namespace cpu_features {
 
 /**
- * CPU feature flags
+ * Legacy CPU feature flags (for backward compatibility)
  */
 enum class Feature {
     AVX2 = 1 << 0,      // AVX2 instructions
@@ -27,6 +28,91 @@ enum class Feature {
     BMI2 = 1 << 6,      // Bit Manipulation Instructions 2
     AVX_VNNI = 1 << 7,  // AVX-512 Vector Neural Network Instructions
 };
+
+/**
+ * Comprehensive runtime CPU features structure
+ */
+struct RuntimeCpuFeatures {
+    std::string vendor;
+    uint32_t family;
+    uint32_t model;
+
+    // SSE family
+    bool sse;
+    bool sse2;
+    bool sse3;
+    bool ssse3;
+    bool sse4_1;
+    bool sse4_2;
+
+    // AVX family
+    bool avx;
+    bool avx2;
+    bool fma3;
+
+    // AVX-512 extensions
+    bool avx512f;      // Foundation
+    bool avx512dq;     // Doubleword/Quadword
+    bool avx512bw;     // Byte/Word
+    bool avx512vl;     // Vector Length
+    bool avx512vnni;   // Vector Neural Network Instructions
+    bool avx512bf16;   // BFloat16
+    bool avx512fp16;   // Float16 (if available)
+
+    // VNNI variants
+    bool avx_vnni;     // 256-bit VNNI
+    bool avx512_vnni;  // 512-bit VNNI
+
+    // Advanced features
+    bool amx_tile;
+    bool amx_int8;
+    bool amx_bf16;
+
+    // OS support indicators
+    bool os_avx_support;     // XSAVE/XRSTOR for AVX state
+    bool os_avx512_support;  // XSAVE/XRSTOR for AVX-512 state
+    bool os_amx_support;     // XSAVE/XRSTOR for AMX state
+
+    // Safety flags
+    bool safe_avx_execution;
+    bool safe_avx512_execution;
+    bool safe_amx_execution;
+
+    // Utility functions
+    bool has_avx() const { return avx && os_avx_support; }
+    bool has_avx2() const { return avx2 && safe_avx_execution; }
+    bool has_avx512f() const { return avx512f && safe_avx512_execution; }
+    bool has_amx() const { return amx_tile && safe_amx_execution; }
+};
+
+/**
+ * Exception thrown when CPU features are not available for safe execution
+ */
+class CpuFeatureException : public std::runtime_error {
+public:
+    explicit CpuFeatureException(const std::string& feature)
+        : std::runtime_error("CPU feature not available: " + feature) {}
+};
+
+/**
+ * Detect comprehensive CPU features at runtime
+ */
+RuntimeCpuFeatures detect_runtime_cpu_features();
+
+/**
+ * Check if OS supports AVX state saving (XCR0 bits for SSE/AVX)
+ */
+bool check_os_avx_support();
+
+/**
+ * Check if OS supports AVX-512 state saving (XCR0 bits for AVX-512)
+ */
+bool check_os_avx512_support();
+
+/**
+ * Check if OS supports AMX state saving (XCR0 bits for AMX)
+ */
+bool check_os_amx_support();
 
 /**
  * CPUID result structure
@@ -152,6 +238,87 @@ inline uint32_t get_supported_features() {
 inline bool has_feature(Feature feature) {
     return (get_supported_features() & static_cast<uint32_t>(feature)) != 0;
 }
+
+/**
+ * Kernel capability levels for runtime dispatch
+ */
+enum class KernelCapability {
+    BASELINE,      // Scalar fallback
+    SSE42,         // SSE4.2 optimized
+    AVX2,          // AVX2 optimized
+    AVX2_FMA3,     // AVX2 with FMA3
+    AVX2_VNNI,     // AVX2 with VNNI
+    AVX512F,       // AVX-512 Foundation
+    AVX512_BW,     // AVX-512 with Byte/Word
+    AVX512_VNNI,   // AVX-512 with VNNI
+    AVX512_BF16,   // AVX-512 with BFloat16
+    AMX,           // AMX tile operations
+};
+
+/**
+ * Kernel preference structure for fallback hierarchy
+ */
+struct KernelPreference {
+    KernelCapability primary;
+    KernelCapability fallback;
+    KernelCapability emergency; // Always BASELINE
+};
+
+/**
+ * Select optimal kernel implementation based on runtime CPU capabilities
+ */
+KernelPreference select_kernel_implementation(
+    const RuntimeCpuFeatures& features,
+    const std::string& kernel_type);
+
+/**
+ * Hierarchical fallback dispatcher for safe kernel execution
+ */
+class FallbackDispatcher {
+public:
+    /**
+     * Dispatch with automatic fallback mechanism
+     */
+    template<typename KernelFn, typename... Args>
+    auto dispatch_with_fallback(const std::string& kernel_type, Args&&... args) {
+        auto features = detect_runtime_cpu_features();
+        auto preference = select_kernel_implementation(features, kernel_type);
+
+        // Try primary implementation
+        try {
+            if (auto primary = get_kernel_function(kernel_type, preference.primary)) {
+                return primary(std::forward<Args>(args)..., features);
+            }
+        } catch (const CpuFeatureException&) {
+            // Primary failed, try fallback
+        }
+
+        // Try fallback implementation
+        try {
+            if (auto fallback = get_kernel_function(kernel_type, preference.fallback)) {
+                return fallback(std::forward<Args>(args)..., features);
+            }
+        } catch (const CpuFeatureException&) {
+            // Fallback failed, use emergency
+        }
+
+        // Emergency fallback - always BASELINE which should never fail
+        if (auto emergency = get_kernel_function(kernel_type, preference.emergency)) {
+            return emergency(std::forward<Args>(args)..., features);
+        }
+
+        // If we get here, something is very wrong
+        throw CpuFeatureException("No viable kernel implementation found for " + kernel_type);
+    }
+
+private:
+    using KernelFunctionPtr = void*;
+
+    /**
+     * Get kernel function pointer for specific capability level
+     */
+    KernelFunctionPtr get_kernel_function(const std::string& kernel_type, KernelCapability capability);
+};
 
 /**
  * Get human-readable CPU information

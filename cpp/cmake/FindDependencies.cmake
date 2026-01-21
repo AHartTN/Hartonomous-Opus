@@ -276,6 +276,13 @@ else()
             message(STATUS "[deps] libpq: found manually at ${LIBPQ_LIB}")
         endif()
     endif()
+
+    # If pg_config found but libpq not, assume it's available
+    if(BUILD_PG_EXTENSION AND NOT PostgreSQL_FOUND)
+        set(PostgreSQL_FOUND ON)
+        set(PostgreSQL_LIBRARIES pq)
+        message(STATUS "[deps] libpq: assuming available since pg_config found")
+    endif()
 endif()
 
 # On Windows, try to find postgres.lib for linking extensions

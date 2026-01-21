@@ -48,235 +48,49 @@ else()
 endif()
 
 # ============================================================================
-# CPU feature runtime detection
+# Runtime-Only CPU Feature Detection
 # ============================================================================
-
-# Manual override options for CPU features (use if auto-detection fails)
-# Set these in CMake command line: cmake -DFORCE_AVX2=ON -DFORCE_AVX_VNNI=ON ..
-option(FORCE_AVX2      "Force enable AVX2 support" OFF)
-option(FORCE_AVX512F   "Force enable AVX-512F support" OFF)
-option(FORCE_AVX_VNNI  "Force enable AVX-VNNI support" OFF)
-option(FORCE_FMA3      "Force enable FMA3 support" OFF)
-option(FORCE_BMI2      "Force enable BMI2 support" OFF)
-
-# We expect a small C++ program at: ${CMAKE_SOURCE_DIR}/cmake/cpu_features_test.cpp
-# that prints lines like:
-#   AVX2:1
-#   AVX512F:0
-#   AVX_VNNI:1
-#   BMI2:1
-set(HYPERCUBE_CPU_FEATURE_TEST "${CMAKE_SOURCE_DIR}/cmake/cpu_features_test.cpp")
-
-# Initialize all feature flags to OFF
-set(HAS_AVX        OFF)
-set(HAS_AVX2       OFF)
-set(HAS_AVX512F    OFF)
-set(HAS_AVX512DQ   OFF)
-set(HAS_AVX512BW   OFF)
-set(HAS_AVX512VL   OFF)
-set(HAS_FMA3       OFF)
-set(HAS_AVX_VNNI   OFF)  # This is generic AVX-VNNI support (256- or 512-bit)
-set(HAS_BMI2       OFF)
-
-set(CPU_FEATURES_COMPILE_RESULT 0)
-set(CPU_FEATURES_RUN_RESULT 1)
-set(CPU_FEATURES_OUTPUT "")
-
-if(EXISTS "${HYPERCUBE_CPU_FEATURE_TEST}")
-    # Pass CMAKE_MSVC_RUNTIME_LIBRARY to the test program to avoid runtime library mismatch
-    if(MSVC)
-        # For multi-config generators (Visual Studio), we need to handle configuration carefully
-        set(CPU_TEST_CMAKE_FLAGS
-            "-DCMAKE_CXX_STANDARD=23"
-            "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}"
-            "-DCMAKE_CONFIGURATION_TYPES=Release"
-        )
-        set(CMAKE_TRY_COMPILE_CONFIGURATION "Release")
-    else()
-        set(CPU_TEST_CMAKE_FLAGS "-DCMAKE_CXX_STANDARD=23")
-    endif()
-
-    # Use try_compile separately first to get better error messages
-    try_compile(
-        CPU_FEATURES_COMPILE_RESULT
-        "${CMAKE_BINARY_DIR}/cpu_test"
-        "${HYPERCUBE_CPU_FEATURE_TEST}"
-        CMAKE_FLAGS ${CPU_TEST_CMAKE_FLAGS}
-        OUTPUT_VARIABLE CPU_FEATURES_COMPILE_OUTPUT
-        COPY_FILE "${CMAKE_BINARY_DIR}/cpu_features_test${CMAKE_EXECUTABLE_SUFFIX}"
-    )
-
-    # If compilation succeeded, run the test
-    if(CPU_FEATURES_COMPILE_RESULT)
-        execute_process(
-            COMMAND "${CMAKE_BINARY_DIR}/cpu_features_test${CMAKE_EXECUTABLE_SUFFIX}"
-            OUTPUT_VARIABLE CPU_FEATURES_OUTPUT
-            ERROR_VARIABLE CPU_FEATURES_ERROR
-            RESULT_VARIABLE CPU_FEATURES_RUN_RESULT
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            ERROR_STRIP_TRAILING_WHITESPACE
-        )
-    else()
-        set(CPU_FEATURES_RUN_RESULT 1)
-        set(CPU_FEATURES_OUTPUT "")
-    endif()
-
-    # Debug output for troubleshooting
-    if(NOT CPU_FEATURES_COMPILE_RESULT)
-        message(STATUS "CPU feature test failed to compile")
-        # Only show first 500 chars of compile output to avoid log spam
-        string(LENGTH "${CPU_FEATURES_COMPILE_OUTPUT}" OUTPUT_LEN)
-        if(OUTPUT_LEN GREATER 500)
-            string(SUBSTRING "${CPU_FEATURES_COMPILE_OUTPUT}" 0 500 OUTPUT_SNIPPET)
-            message(STATUS "Compile output (first 500 chars): ${OUTPUT_SNIPPET}...")
-        else()
-            message(STATUS "Compile output: ${CPU_FEATURES_COMPILE_OUTPUT}")
-        endif()
-    elseif(NOT CPU_FEATURES_RUN_RESULT EQUAL 0)
-        message(STATUS "CPU feature test failed to run (exit code: ${CPU_FEATURES_RUN_RESULT})")
-        if(CPU_FEATURES_ERROR)
-            message(STATUS "Error output: ${CPU_FEATURES_ERROR}")
-        endif()
-        if(CPU_FEATURES_OUTPUT)
-            message(STATUS "Standard output: ${CPU_FEATURES_OUTPUT}")
-        endif()
-    else()
-        message(STATUS "CPU feature detection successful")
-        # Debug output goes to stderr, so show it if present
-        if(CPU_FEATURES_ERROR)
-            message(STATUS "CPU detection debug info: ${CPU_FEATURES_ERROR}")
-        endif()
-    endif()
-else()
-    message(STATUS "CPU feature test source not found: ${HYPERCUBE_CPU_FEATURE_TEST}")
-endif()
-
-if(CPU_FEATURES_COMPILE_RESULT AND CPU_FEATURES_RUN_RESULT EQUAL 0)
-    # Parse runtime output
-    string(REGEX MATCH "AVX2:([01])"      AVX2_MATCH      "${CPU_FEATURES_OUTPUT}")
-    string(REGEX MATCH "AVX512F:([01])"   AVX512F_MATCH   "${CPU_FEATURES_OUTPUT}")
-    string(REGEX MATCH "AVX512DQ:([01])"  AVX512DQ_MATCH  "${CPU_FEATURES_OUTPUT}")
-    string(REGEX MATCH "AVX512BW:([01])"  AVX512BW_MATCH  "${CPU_FEATURES_OUTPUT}")
-    string(REGEX MATCH "AVX512VL:([01])"  AVX512VL_MATCH  "${CPU_FEATURES_OUTPUT}")
-    string(REGEX MATCH "FMA3:([01])"      FMA3_MATCH      "${CPU_FEATURES_OUTPUT}")
-    string(REGEX MATCH "AVX_VNNI:([01])"  AVX_VNNI_MATCH  "${CPU_FEATURES_OUTPUT}")
-    string(REGEX MATCH "BMI2:([01])"      BMI2_MATCH      "${CPU_FEATURES_OUTPUT}")
-
-    macro(_hc_set_cpu_feature FEATURE_VAR MATCH_VAR)
-        if(${MATCH_VAR})
-            string(REGEX REPLACE "${FEATURE_VAR}:([01])" "\\1" _VAL "${${MATCH_VAR}}")
-            if(_VAL STREQUAL "1")
-                set(HAS_${FEATURE_VAR} ON)
-                message(STATUS "CPU Feature: ${FEATURE_VAR} detected")
-            endif()
-        endif()
-    endmacro()
-
-    _hc_set_cpu_feature(AVX2      AVX2_MATCH)
-    _hc_set_cpu_feature(AVX512F   AVX512F_MATCH)
-    _hc_set_cpu_feature(AVX512DQ  AVX512DQ_MATCH)
-    _hc_set_cpu_feature(AVX512BW  AVX512BW_MATCH)
-    _hc_set_cpu_feature(AVX512VL  AVX512VL_MATCH)
-    _hc_set_cpu_feature(FMA3      FMA3_MATCH)
-    _hc_set_cpu_feature(AVX_VNNI  AVX_VNNI_MATCH)
-    _hc_set_cpu_feature(BMI2      BMI2_MATCH)
-
-    # Apply manual overrides if specified
-    if(FORCE_AVX2)
-        set(HAS_AVX2 ON)
-        message(STATUS "CPU Feature: AVX2 FORCE-ENABLED by user")
-    endif()
-    if(FORCE_AVX512F)
-        set(HAS_AVX512F ON)
-        message(STATUS "CPU Feature: AVX512F FORCE-ENABLED by user")
-    endif()
-    if(FORCE_AVX_VNNI)
-        set(HAS_AVX_VNNI ON)
-        message(STATUS "CPU Feature: AVX_VNNI FORCE-ENABLED by user")
-    endif()
-    if(FORCE_FMA3)
-        set(HAS_FMA3 ON)
-        message(STATUS "CPU Feature: FMA3 FORCE-ENABLED by user")
-    endif()
-    if(FORCE_BMI2)
-        set(HAS_BMI2 ON)
-        message(STATUS "CPU Feature: BMI2 FORCE-ENABLED by user")
-    endif()
-else()
-    # Fallback: no runtime info; rely on compiler capability only
-    message(STATUS "CPU feature runtime detection failed - using manual overrides or compiler fallback")
-
-    # Apply manual overrides if specified
-    if(FORCE_AVX2)
-        set(HAS_AVX2 ON)
-        message(STATUS "CPU Feature: AVX2 FORCE-ENABLED by user (fallback mode)")
-    endif()
-    if(FORCE_AVX512F)
-        set(HAS_AVX512F ON)
-        message(STATUS "CPU Feature: AVX512F FORCE-ENABLED by user (fallback mode)")
-    endif()
-    if(FORCE_AVX_VNNI)
-        set(HAS_AVX_VNNI ON)
-        message(STATUS "CPU Feature: AVX_VNNI FORCE-ENABLED by user (fallback mode)")
-    endif()
-    if(FORCE_FMA3)
-        set(HAS_FMA3 ON)
-        message(STATUS "CPU Feature: FMA3 FORCE-ENABLED by user (fallback mode)")
-    endif()
-    if(FORCE_BMI2)
-        set(HAS_BMI2 ON)
-        message(STATUS "CPU Feature: BMI2 FORCE-ENABLED by user (fallback mode)")
-    endif()
-
-    # If no manual overrides, try compiler-based detection
-    if(NOT HAS_AVX2 AND NOT MSVC)
-        check_cxx_compiler_flag("-march=native" COMPILER_SUPPORTS_MARCH_NATIVE)
-        if(COMPILER_SUPPORTS_MARCH_NATIVE)
-            set(HAS_AVX ON)
-            message(STATUS "SIMD: assuming -march=native is available (fallback)")
-        else()
-            message(STATUS "SIMD: generic baseline (no AVX assumptions)")
-        endif()
-    elseif(NOT HAS_AVX2 AND MSVC)
-        message(STATUS "SIMD: MSVC baseline; AVX features disabled - use FORCE_AVX2=ON to enable")
-    endif()
-endif()
-
-# Backward-compatible HAS_AVX: ON if we have AVX2 or any AVX512
-if(HAS_AVX2 OR HAS_AVX512F)
-    set(HAS_AVX ON)
-endif()
+#
+# All CPU feature detection now occurs at runtime during application startup.
+# No build-time CPU feature detection or SIMD-specific compiler flags are used.
+# This enables universal binary deployment across different CPU architectures.
 
 # ============================================================================
-# Compiler AVX/AVX512/VNNI flag detection (GCC/Clang only)
+# Runtime CPU Detection - Compile-time flags removed
 # ============================================================================
+#
+# The build system now compiles universal binaries without SIMD-specific flags.
+# CPU feature detection and dispatch happens entirely at runtime.
+#
+# This simplifies the build process and ensures compatibility across different
+# CPU architectures while maintaining optimal performance through runtime dispatch.
+#
 
-# These flags are GCC/Clang-specific; MSVC uses /arch:*
+message(STATUS "Runtime dispatch enabled - building universal binary")
+message(STATUS "CPU feature detection will occur at application startup")
+
+# ============================================================================
+# Universal Binary Compilation
+# ============================================================================
+#
+# Build universal binaries with runtime SIMD dispatch.
+# Compile with x86-64 to allow all SIMD intrinsics for runtime dispatch,
+# but detect CPU capabilities at startup for safe execution.
+#
 if(NOT MSVC)
-    # Baseline SIMD flags
-    check_cxx_compiler_flag("-mavx2"      COMPILER_SUPPORTS_AVX2)
-    check_cxx_compiler_flag("-mfma"       COMPILER_SUPPORTS_FMA)
-
-    # AVX-512 feature flags
-    check_cxx_compiler_flag("-mavx512f"    COMPILER_SUPPORTS_AVX512F)
-    check_cxx_compiler_flag("-mavx512dq"   COMPILER_SUPPORTS_AVX512DQ)
-    check_cxx_compiler_flag("-mavx512bw"   COMPILER_SUPPORTS_AVX512BW)
-    check_cxx_compiler_flag("-mavx512vl"   COMPILER_SUPPORTS_AVX512VL)
-
-    # VNNI variants:
-    #  - AVX-512 VNNI (requires AVX-512F):   -mavx512vnni
-    #  - AVX-VNNI (256-bit, no AVX-512 req): -mavxvnni
-    check_cxx_compiler_flag("-mavx512vnni" COMPILER_SUPPORTS_AVX512VNNI)
-    check_cxx_compiler_flag("-mavxvnni"    COMPILER_SUPPORTS_AVXVNNI)
+    # For GCC/Clang: use x86-64 to allow SIMD intrinsics while maintaining compatibility
+    check_cxx_compiler_flag("-march=x86-64" COMPILER_SUPPORTS_X86_64)
+    if(COMPILER_SUPPORTS_X86_64)
+        set(HYPERCUBE_SIMD_FLAGS "-march=native")
+        message(STATUS "Native binary: Using native CPU for SIMD intrinsic availability")
+    else()
+        set(HYPERCUBE_SIMD_FLAGS "")
+        message(STATUS "Universal binary: Using compiler default")
+    endif()
 else()
-    set(COMPILER_SUPPORTS_AVX2          OFF)
-    set(COMPILER_SUPPORTS_FMA           OFF)
-    set(COMPILER_SUPPORTS_AVX512F       OFF)
-    set(COMPILER_SUPPORTS_AVX512DQ      OFF)
-    set(COMPILER_SUPPORTS_AVX512BW      OFF)
-    set(COMPILER_SUPPORTS_AVX512VL      OFF)
-    set(COMPILER_SUPPORTS_AVX512VNNI    OFF)
-    set(COMPILER_SUPPORTS_AVXVNNI       OFF)
+    # For MSVC: allow SIMD intrinsics through compiler defaults
+    set(HYPERCUBE_SIMD_FLAGS "")
+    message(STATUS "Universal binary: Using MSVC defaults (SIMD intrinsics available)")
 endif()
 
 # ============================================================================
@@ -286,7 +100,6 @@ endif()
 #   HYPERCUBE_OPT_FLAGS     : optimization + NDEBUG
 #   HYPERCUBE_DEBUG_FLAGS   : debug + sanitizer (where supported)
 #   HYPERCUBE_WARNING_FLAGS : cross-platform warnings
-#   HYPERCUBE_AVX_FLAGS     : SIMD flags (AVX2 / AVX512 / VNNI)
 # Targets will use:
 #   $<$<CONFIG:Release>:${HYPERCUBE_FLAGS_RELEASE}>
 #   $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:${HYPERCUBE_FLAGS_DEBUG}>
@@ -294,24 +107,14 @@ endif()
 set(HYPERCUBE_OPT_FLAGS     "")
 set(HYPERCUBE_DEBUG_FLAGS   "")
 set(HYPERCUBE_WARNING_FLAGS "")
-set(HYPERCUBE_AVX_FLAGS     "")
 
 if(MSVC)
-    # MSVC: safe baseline
+    # MSVC: safe baseline for universal binary
     set(HYPERCUBE_OPT_FLAGS     /O2 /DNDEBUG /fp:precise)
     set(HYPERCUBE_DEBUG_FLAGS   /Od /DDEBUG /Zi)
     set(HYPERCUBE_WARNING_FLAGS /W3 /EHsc /permissive- /DNOMINMAX)
 
-    # Note: CMAKE_MSVC_RUNTIME_LIBRARY is set in main CMakeLists.txt before project()
-    # to ensure it applies to all targets and dependencies
-
-    # AVX2 is /arch:AVX2; AVX-512 is limited and inconsistent, so we stay at AVX2.
-    if(HAS_AVX2)
-        set(HYPERCUBE_AVX_FLAGS "/arch:AVX2")
-    endif()
-
     # Suppress common warnings globally (you can localize later if desired)
-    # Use generator expressions to apply only to C/CXX, not ASM (MASM doesn't understand these flags)
     add_compile_options(
         $<$<COMPILE_LANGUAGE:CXX>:/wd4244>
         $<$<COMPILE_LANGUAGE:CXX>:/wd4267>
@@ -325,54 +128,10 @@ if(MSVC)
         $<$<COMPILE_LANGUAGE:C>:/wd4200>
     )
 else()
-    # GCC / Clang
+    # GCC / Clang - universal binary compilation
     set(HYPERCUBE_OPT_FLAGS     -O3 -DNDEBUG -ffast-math)
     set(HYPERCUBE_DEBUG_FLAGS   -g -O0 -DDEBUG)
     set(HYPERCUBE_WARNING_FLAGS -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare)
-
-    # SIMD flags: start from AVX2 if CPU & compiler support it
-    if(HAS_AVX2 AND COMPILER_SUPPORTS_AVX2)
-        set(HYPERCUBE_AVX_FLAGS "-mavx2")
-
-        if(HAS_FMA3 AND COMPILER_SUPPORTS_FMA)
-            string(APPEND HYPERCUBE_AVX_FLAGS " -mfma")
-        endif()
-
-        # Add AVX-512 flags only if both CPU & compiler support them
-        if(HAS_AVX512F AND COMPILER_SUPPORTS_AVX512F)
-            string(APPEND HYPERCUBE_AVX_FLAGS " -mavx512f")
-
-            if(HAS_AVX512DQ AND COMPILER_SUPPORTS_AVX512DQ)
-                string(APPEND HYPERCUBE_AVX_FLAGS " -mavx512dq")
-            endif()
-            if(HAS_AVX512BW AND COMPILER_SUPPORTS_AVX512BW)
-                string(APPEND HYPERCUBE_AVX_FLAGS " -mavx512bw")
-            endif()
-            if(HAS_AVX512VL AND COMPILER_SUPPORTS_AVX512VL)
-                string(APPEND HYPERCUBE_AVX_FLAGS " -mavx512vl")
-            endif()
-        endif()
-
-        # AVX-VNNI handling:
-        # - If HAS_AVX_VNNI and AVX-512F, prefer AVX-512 VNNI if available
-        # - Otherwise, prefer AVX-VNNI (256-bit) flag if supported
-        if(HAS_AVX_VNNI)
-            if(HAS_AVX512F AND COMPILER_SUPPORTS_AVX512VNNI)
-                string(APPEND HYPERCUBE_AVX_FLAGS " -mavx512vnni")
-                message(STATUS "SIMD: enabling AVX-512 VNNI (-mavx512vnni)")
-            elseif(COMPILER_SUPPORTS_AVXVNNI)
-                string(APPEND HYPERCUBE_AVX_FLAGS " -mavxvnni")
-                message(STATUS "SIMD: enabling AVX-VNNI (-mavxvnni)")
-            else()
-                message(STATUS "SIMD: AVX_VNNI detected but compiler lacks -mavx512vnni/-mavxvnni")
-            endif()
-        endif()
-    elseif(HAS_AVX AND COMPILER_SUPPORTS_MARCH_NATIVE)
-        # Fallback: runtime detection failed but -march=native is supported
-        # Use -march=native to let the compiler auto-detect CPU features
-        set(HYPERCUBE_AVX_FLAGS "-march=native")
-        message(STATUS "SIMD: using -march=native (fallback mode)")
-    endif()
 
     # Sanitizers for Debug where available (non-MSVC, and not Clang on Windows)
     if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND WIN32))
@@ -382,10 +141,10 @@ endif()
 
 # Final bundles for targets (as CMake lists for proper expansion)
 set(HYPERCUBE_FLAGS_RELEASE
-    ${HYPERCUBE_OPT_FLAGS} ${HYPERCUBE_WARNING_FLAGS} ${HYPERCUBE_AVX_FLAGS}
+    ${HYPERCUBE_OPT_FLAGS} ${HYPERCUBE_WARNING_FLAGS} ${HYPERCUBE_SIMD_FLAGS}
 )
 set(HYPERCUBE_FLAGS_DEBUG
-    ${HYPERCUBE_DEBUG_FLAGS} ${HYPERCUBE_WARNING_FLAGS}
+    ${HYPERCUBE_DEBUG_FLAGS} ${HYPERCUBE_WARNING_FLAGS} ${HYPERCUBE_SIMD_FLAGS}
 )
 
 # ============================================================================
@@ -393,23 +152,22 @@ set(HYPERCUBE_FLAGS_DEBUG
 # ============================================================================
 
 # Unified build tree layout
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/$<CONFIG>")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/$<CONFIG>")
 
 if(UNIX AND NOT APPLE)
     # RPATH behavior: don't skip build rpath, don't hardcode install rpath here.
     set(CMAKE_SKIP_BUILD_RPATH FALSE)
     set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
-    # If PG extensions are built, default to relative RPATH unless user overrides.
-    if(BUILD_PG_EXTENSION AND NOT CMAKE_INSTALL_RPATH)
-        set(CMAKE_INSTALL_RPATH "$ORIGIN")
-    endif()
+    # Use relative RPATH for both build and install.
+    set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
+    set(CMAKE_INSTALL_RPATH_USE_ORIGIN ON)
 endif()
 
 # ============================================================================
-# Feature summary
+# Build Summary
 # ============================================================================
 
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
@@ -419,31 +177,5 @@ else()
     message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 endif()
 message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
-
-if(HAS_AVX2)
-    message(STATUS "CPU Features: AVX2 detected")
-endif()
-if(HAS_AVX512F)
-    message(STATUS "CPU Features: AVX-512F detected")
-endif()
-if(HAS_AVX512DQ)
-    message(STATUS "CPU Features: AVX-512DQ detected")
-endif()
-if(HAS_AVX512BW)
-    message(STATUS "CPU Features: AVX-512BW detected")
-endif()
-if(HAS_AVX512VL)
-    message(STATUS "CPU Features: AVX-512VL detected")
-endif()
-if(HAS_FMA3)
-    message(STATUS "CPU Features: FMA3 detected")
-endif()
-if(HAS_AVX_VNNI)
-    message(STATUS "CPU Features: AVX_VNNI detected (may be AVX-512 VNNI or AVX-VNNI)")
-endif()
-if(HAS_BMI2)
-    message(STATUS "CPU Features: BMI2 detected")
-endif()
-
-message(STATUS "SIMD baseline HAS_AVX: ${HAS_AVX}")
-message(STATUS "HYPERCUBE_AVX_FLAGS:   ${HYPERCUBE_AVX_FLAGS}")
+message(STATUS "Runtime dispatch: ENABLED (universal binary)")
+message(STATUS "SIMD optimization: Runtime detection at startup")

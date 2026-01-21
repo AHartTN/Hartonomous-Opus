@@ -59,6 +59,9 @@ inline bool parse_safetensor_header(
         std::cerr << "[DEBUG] Header size: " << header_size << "\n";
     }
 
+    // DIAGNOSTIC: Log basic file info
+    std::cerr << "[DIAGNOSTIC] File: " << path << ", Header size: " << header_size << " bytes\n";
+
     // Read JSON header
     std::vector<char> buf(header_size);
     file.read(buf.data(), header_size);
@@ -72,11 +75,47 @@ inline bool parse_safetensor_header(
         std::cerr << "[DEBUG] JSON header length: " << json.size() << "\n";
         std::cerr << "[DEBUG] JSON start: " << json.substr(0, std::min<size_t>(200, json.size())) << "\n";
     }
-    
+
+    // DIAGNOSTIC: Log full JSON for small headers, or summary for large ones
+    if (json.size() <= 10000) {
+        std::cerr << "[DIAGNOSTIC] Full JSON header:\n" << json << "\n";
+    } else {
+        std::cerr << "[DIAGNOSTIC] JSON header too large (" << json.size() << " chars), showing first/last 500 chars\n";
+        std::cerr << "[DIAGNOSTIC] Start: " << json.substr(0, 500) << "\n";
+        std::cerr << "[DIAGNOSTIC] End: " << json.substr(json.size() - 500) << "\n";
+    }
+
+    // DIAGNOSTIC: Count all tensor keys in JSON by looking for "dtype" fields
+    size_t tensor_key_count = 0;
+    size_t dtype_pos = 0;
+    while ((dtype_pos = json.find("\"dtype\"", dtype_pos)) != std::string::npos) {
+        // Find the key that precedes this dtype field
+        size_t key_end = json.rfind("\"", dtype_pos - 1);
+        if (key_end != std::string::npos) {
+            size_t key_start = json.rfind("\"", key_end - 1);
+            if (key_start != std::string::npos && key_start < key_end) {
+                std::string key = json.substr(key_start + 1, key_end - key_start - 1);
+                tensor_key_count++;
+                if (key != "__metadata__") {
+                    if (ctx.verbose) {
+                        std::cerr << "[DIAGNOSTIC] Found tensor key: '" << key << "'\n";
+                    }
+                }
+            }
+        }
+        dtype_pos += 7; // Skip past this "dtype" occurrence
+    }
+    std::cerr << "[DIAGNOSTIC] Tensor keys found in JSON (excluding __metadata__): " << tensor_key_count << "\n";
+
     // Simple parser: find each tensor entry
     size_t pos = 0;
     int tensor_count = 0;
+    int dtype_matches = 0;
     while ((pos = json.find("\"dtype\"", pos)) != std::string::npos) {
+        dtype_matches++;
+        if (ctx.verbose) {
+            std::cerr << "[DEBUG] Found 'dtype' #" << dtype_matches << " at pos " << pos << "\n";
+        }
         if (ctx.verbose) {
             std::cerr << "[DEBUG] Found 'dtype' at pos " << pos << "\n";
         }
@@ -97,6 +136,7 @@ inline bool parse_safetensor_header(
 
         if (name_start == std::string::npos || name_end == std::string::npos ||
             name_start >= name_end || name_end >= json.size()) {
+            std::cerr << "[DIAGNOSTIC] Malformed tensor name boundaries - skipping entry at pos " << pos << "\n";
             if (ctx.verbose) {
                 std::cerr << "[DEBUG] Skipping malformed entry\n";
             }
@@ -109,13 +149,20 @@ inline bool parse_safetensor_header(
             std::cerr << "[DEBUG] Tensor name: '" << name << "'\n";
         }
 
+        // DIAGNOSTIC: Log all tensor names found
+        std::cerr << "[DIAGNOSTIC] Processing tensor candidate: '" << name << "'\n";
+
         if (name == "__metadata__" || name == "format") {
+            std::cerr << "[DIAGNOSTIC] Skipping metadata entry: '" << name << "'\n";
             if (ctx.verbose) {
                 std::cerr << "[DEBUG] Skipping metadata entry\n";
             }
             pos++;
             continue;
         }
+
+        // DIAGNOSTIC: Log successful tensor parsing start
+        std::cerr << "[DIAGNOSTIC] Starting to parse tensor: '" << name << "'\n";
 
         safetensor::TensorMeta meta;
         meta.name = name;
@@ -197,6 +244,7 @@ inline bool parse_safetensor_header(
 
         if (shape_error || meta.shape.empty()) {
             std::cerr << "[ERROR] Failed to parse shape for tensor " << name << "\n";
+            std::cerr << "[DIAGNOSTIC] Shape error - skipping tensor '" << name << "'\n";
             pos++;
             continue;
         }
@@ -275,6 +323,10 @@ inline bool parse_safetensor_header(
 
         ctx.tensors[name] = meta;
         tensor_count++;
+        std::cerr << "[DIAGNOSTIC] Successfully parsed tensor #" << tensor_count << ": '" << name << "' [" << meta.shape.size() << "D";
+        for (size_t s : meta.shape) std::cerr << "," << s;
+        std::cerr << "] " << meta.dtype << " offset:" << meta.data_offset_start << "-" << meta.data_offset_end << "\n";
+
         if (ctx.verbose) {
             std::cerr << "[DEBUG] Added tensor: " << name << " with shape [";
             for (size_t i = 0; i < meta.shape.size(); ++i) {
@@ -287,6 +339,12 @@ inline bool parse_safetensor_header(
     }
 
     std::cerr << "[DEBUG] parse_safetensor_header: Successfully parsed " << tensor_count << " tensors from " << path << "\n";
+    std::cerr << "[DIAGNOSTIC] SUMMARY for " << path << ":\n";
+    std::cerr << "[DIAGNOSTIC]   Tensor keys found: " << tensor_key_count << "\n";
+    std::cerr << "[DIAGNOSTIC]   'dtype' matches found: " << dtype_matches << "\n";
+    std::cerr << "[DIAGNOSTIC]   Tensors successfully parsed: " << tensor_count << "\n";
+    std::cerr << "[DIAGNOSTIC]   Potential missed tensors: " << (tensor_key_count - tensor_count - 2) << " (excluding __metadata__ and format)\n";
+
     if (ctx.verbose) {
         std::cerr << "[DEBUG] Total tensors parsed: " << tensor_count << "\n";
     }

@@ -1,20 +1,15 @@
 /**
- * SIMD Intrinsics Wrapper
+ * SIMD Intrinsics Wrapper for Runtime Dispatch
  *
- * Conditionally includes AVX intrinsics based on CPU support.
- * Prevents AVX512 header inclusion when CPU doesn't support it.
+ * Always includes SIMD intrinsics headers for runtime dispatch.
+ * Runtime checks prevent illegal instruction exceptions.
  */
 
 #ifndef HYPERCUBE_SIMD_INTRINSICS_HPP
 #define HYPERCUBE_SIMD_INTRINSICS_HPP
 
-// Include AVX intrinsics only when AVX is supported
-// Modern compilers (GCC 11+) include AVX512 headers by default in immintrin.h,
-// but we control this via compiler flags and CPU detection
-// Use __AVX__ which is defined by the compiler when -mavx or equivalent is used
-
-#if defined(__AVX__) || defined(__SSE4_2__)
+// Always include SIMD intrinsics for runtime dispatch
+// Runtime CPU feature detection and safety checks prevent illegal instructions
 #include <immintrin.h>
-#endif
 
 #endif // HYPERCUBE_SIMD_INTRINSICS_HPP

@@ -155,8 +155,8 @@ ensure_schema() {
 }
 
 ensure_atoms() {
-    # Check if atoms exist (unified schema: depth=0 rows with codepoint)
-    local count=$(psql -tAc "SELECT COUNT(*) FROM atom WHERE depth = 0" 2>/dev/null || echo 0)
+    # Check if atoms exist
+    local count=$(psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null || echo 0)
 
     if [ "$count" -gt 1000000 ]; then
         return 0
@@ -169,11 +169,23 @@ ensure_atoms() {
         ensure_build
     fi
 
-    # Run parallel seeder
-    ./cpp/build/seed_atoms_parallel -d "$PGDATABASE" -U "$PGUSER" -h "$PGHOST" 2>&1 | \
-        grep -E "(Complete|Rate|atoms)" || true
-
-    log_ok "Atoms seeded"
+    # Run parallel seeder with proper error checking
+    if ./cpp/build/seed_atoms_parallel -d "$PGDATABASE" -U "$PGUSER" -h "$PGHOST" >/tmp/seeder_output.txt 2>&1; then
+        # Check if seeding actually succeeded by counting atoms
+        local new_count=$(psql -tAc "SELECT COUNT(*) FROM atom" 2>/dev/null || echo 0)
+        if [ "$new_count" -gt 1000000 ]; then
+            log_ok "Atoms seeded successfully ($new_count atoms)"
+        else
+            log_error "Seeder completed but only $new_count atoms found (expected >1M)"
+            return 1
+        fi
+    else
+        log_error "Parallel seeder failed"
+        cat /tmp/seeder_output.txt >&2
+        rm -f /tmp/seeder_output.txt
+        return 1
+    fi
+    rm -f /tmp/seeder_output.txt
 }
 
 
@@ -242,9 +254,20 @@ ensure_build() {
     log_info "Building C++ tools..."
     mkdir -p cpp/build
     cd cpp/build
-    cmake .. -DCMAKE_BUILD_TYPE=Release >/dev/null
-    make -j$(nproc) 2>&1 | grep -E "(Built|Linking|error)" || true
+    if ! cmake .. -DCMAKE_BUILD_TYPE=Release >/dev/null; then
+        log_error "CMake configuration failed"
+        cd ../..
+        return 1
+    fi
+    if ! make -j$(nproc) >/tmp/build_output.txt 2>&1; then
+        log_error "Build failed"
+        cat /tmp/build_output.txt >&2
+        rm -f /tmp/build_output.txt
+        cd ../..
+        return 1
+    fi
     cd ../..
+    rm -f /tmp/build_output.txt
     log_ok "Build complete"
 }
 
@@ -307,23 +330,21 @@ cmd_status() {
         return 1
     fi
 
-    # Unified schema: single atom table with depth column
+    # Show atom and composition counts
     psql -c "
-    SELECT
-        CASE WHEN depth = 0 THEN 'atoms (leaves)' ELSE 'compositions' END as entity,
-        count(*)::text as count,
-        CASE WHEN depth = 0 THEN '-' ELSE 'depth 1-' || max(depth)::text END as info
-    FROM atom
-    GROUP BY (depth = 0)
-    ORDER BY (depth = 0) DESC;
+    SELECT 'atoms' as entity, count(*)::text as count, 'Unicode codepoints' as info FROM atom
+    UNION ALL
+    SELECT 'compositions' as entity, count(*)::text as count,
+           CASE WHEN count(*) > 0 THEN 'depth 1-' || max(depth)::text ELSE 'none' END as info
+    FROM composition;
     "
 
     # Show depth distribution if we have compositions
-    local comp_count=$(psql -tAc "SELECT COUNT(*) FROM atom WHERE depth > 0")
+    local comp_count=$(psql -tAc "SELECT COUNT(*) FROM composition")
     if [ "$comp_count" -gt 0 ]; then
         echo ""
         echo "=== Composition Depth Distribution ==="
-        psql -c "SELECT * FROM atom_stats LIMIT 10;" 2>/dev/null || true
+        psql -c "SELECT depth, count(*) as count FROM composition GROUP BY depth ORDER BY depth;" 2>/dev/null || true
     fi
 }
 
@@ -352,17 +373,33 @@ cmd_tree() {
     # Show tree structure using recursive CTE
     psql -c "
     WITH RECURSIVE tree AS (
-        SELECT id, children, value, depth, 0 as level, ARRAY[]::INTEGER[] as path
-        FROM atom WHERE id = decode('$root_id', 'hex')
+        SELECT
+            CASE WHEN a.id IS NOT NULL THEN a.id ELSE c.id END as id,
+            CASE WHEN a.id IS NOT NULL THEN convert_from(a.value, 'UTF8') ELSE c.label END as display_text,
+            CASE WHEN a.id IS NOT NULL THEN 0 ELSE c.depth END as depth,
+            0 as level,
+            ARRAY[]::INTEGER[] as path,
+            CASE WHEN a.id IS NOT NULL THEN 'atom' ELSE 'composition' END as type
+        FROM (SELECT decode('$root_id', 'hex') as root_id) r
+        LEFT JOIN atom a ON a.id = r.root_id
+        LEFT JOIN composition c ON c.id = r.root_id
+        WHERE a.id IS NOT NULL OR c.id IS NOT NULL
         UNION ALL
-        SELECT a.id, a.children, a.value, a.depth, t.level + 1, t.path || c.ordinal::INTEGER
+        SELECT
+            CASE WHEN a.id IS NOT NULL THEN a.id ELSE c.id END as id,
+            CASE WHEN a.id IS NOT NULL THEN convert_from(a.value, 'UTF8') ELSE c.label END as display_text,
+            CASE WHEN a.id IS NOT NULL THEN 0 ELSE c.depth END as depth,
+            t.level + 1,
+            t.path || cc.ordinal::INTEGER,
+            CASE WHEN a.id IS NOT NULL THEN 'atom' ELSE 'composition' END as type
         FROM tree t
-        CROSS JOIN LATERAL unnest(t.children) WITH ORDINALITY AS c(child_id, ordinal)
-        JOIN atom a ON a.id = c.child_id
-        WHERE t.children IS NOT NULL AND t.level < 10
+        JOIN composition_child cc ON cc.composition_id = t.id
+        LEFT JOIN atom a ON a.id = cc.child_id AND cc.child_type = 'A'
+        LEFT JOIN composition c ON c.id = cc.child_id AND cc.child_type = 'C'
+        WHERE t.level < 10 AND t.type = 'composition'
     )
     SELECT
-        repeat('  ', level) || CASE WHEN value IS NOT NULL THEN convert_from(value, 'UTF8') ELSE '...' END as node,
+        repeat('  ', level) || COALESCE(display_text, '...') as node,
         encode(id, 'hex')::text as id,
         depth
     FROM tree
@@ -393,15 +430,21 @@ cmd_ingest() {
             model_name=$(basename "$target")
         fi
         log_info "Ingesting model: $model_name from $target"
-        ./cpp/build/hc.exe ingest -d "$PGDATABASE" -n "$model_name" "$target"
+        if ! ./cpp/build/hc.exe ingest -d "$PGDATABASE" -n "$model_name" "$target"; then
+            log_error "Model ingestion failed"
+            return 1
+        fi
     else
         # Text ingestion
         log_info "Ingesting text: $target"
-        ./cpp/build/cpe_ingest \
-            -d "$PGDATABASE" \
-            -U "$PGUSER" \
-            -h "$PGHOST" \
-            "$target"
+        if ! ./cpp/build/cpe_ingest \
+                -d "$PGDATABASE" \
+                -U "$PGUSER" \
+                -h "$PGHOST" \
+                "$target"; then
+            log_error "Text ingestion failed"
+            return 1
+        fi
     fi
 
     echo ""
@@ -471,14 +514,21 @@ ingest_model() {
     [ -n "$vocab_file" ] && ingest_file "$vocab_file"
     
     log_info "Extracting semantic edges (threshold 0.85)..."
-    ./cpp/build/extract_embeddings \
-        --model "$model" \
-        ${vocab_file:+--vocab "$vocab_file"} \
-        --threshold 0.85 \
-        -d "$PGDATABASE" \
-        -U "$PGUSER" \
-        -h "$PGHOST" 2>&1 | grep -E "(Complete|Edges|Sparsity)"
-    
+    if ! ./cpp/build/extract_embeddings \
+            --model "$model" \
+            ${vocab_file:+--vocab "$vocab_file"} \
+            --threshold 0.85 \
+            -d "$PGDATABASE" \
+            -U "$PGUSER" \
+            -h "$PGHOST" >/tmp/extract_output.txt 2>&1; then
+        log_error "Semantic edge extraction failed"
+        cat /tmp/extract_output.txt >&2
+        rm -f /tmp/extract_output.txt
+        return 1
+    fi
+    cat /tmp/extract_output.txt | grep -E "(Complete|Edges|Sparsity)" || true
+    rm -f /tmp/extract_output.txt
+
     log_ok "Model ingested"
 }
 
@@ -522,20 +572,21 @@ cmd_similar() {
     # Find compositions with similar centroids using 4D spatial distance
     psql -c "
     WITH query AS (
-        -- For atoms, geom is already a 4D point, no centroid needed
-        SELECT geom as centroid
-        FROM atom WHERE id = decode('$query_id', 'hex')
+        SELECT COALESCE(a.geom, c.centroid) as centroid
+        FROM (SELECT decode('$query_id', 'hex') as id) q
+        LEFT JOIN atom a ON a.id = q.id
+        LEFT JOIN composition c ON c.id = q.id
     )
     SELECT
-        left(encode(a.id, 'hex'), 16) || '...' as id,
-        a.depth,
-        a.atom_count as atoms,
-        centroid_distance(a.geom, q.centroid)::numeric(12,8) as distance,
-        atom_reconstruct_text(a.id) as content
-    FROM atom a, query q
-    WHERE a.id != decode('$query_id', 'hex')
-      AND a.depth > 0
-    ORDER BY centroid_distance(a.geom, q.centroid)
+        left(encode(c.id, 'hex'), 16) || '...' as id,
+        c.depth,
+        c.atom_count as atoms,
+        centroid_distance(c.centroid, q.centroid)::numeric(12,8) as distance,
+        c.label as content
+    FROM composition c, query q
+    WHERE c.id != decode('$query_id', 'hex')
+      AND c.centroid IS NOT NULL
+    ORDER BY centroid_distance(c.centroid, q.centroid)
     LIMIT 10;
     "
 }

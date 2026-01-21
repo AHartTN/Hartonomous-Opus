@@ -38,9 +38,12 @@ protected:
         conninfo += " user=" + (!user.empty() ? user : "postgres");
         conninfo += " host=" + (!host.empty() ? host : "hart-server");
         conninfo += " port=" + (!port.empty() ? port : "5432");
+        conninfo += " connect_timeout=5";
         if (!pass.empty()) conninfo += " password=" + pass;
-        
+
+        std::cout << "Attempting database connection with timeout..." << std::endl;
         conn = PQconnectdb(conninfo.c_str());
+        std::cout << "Database connection attempt completed." << std::endl;
         if (PQstatus(conn) != CONNECTION_OK) {
             GTEST_SKIP() << "Database connection failed: " << PQerrorMessage(conn);
         }

@@ -207,40 +207,40 @@ uint64_t SemanticOrdering::compute_semantic_key(uint32_t codepoint) noexcept {
     }
     else if (codepoint >= '0' && codepoint <= '9') {
         semantic_class = 3; // Digits with visual similarity clustering
-        base_similarity = 1000000 + homoglyph_group * 10000;
+        base_similarity = homoglyph_group * 10000;
     }
     else if ((codepoint >= 0x21 && codepoint <= 0x2F) || (codepoint >= 0x3A && codepoint <= 0x40) ||
              (codepoint >= 0x5B && codepoint <= 0x60) || (codepoint >= 0x7B && codepoint <= 0x7E)) {
         semantic_class = 10; // ASCII punctuation
-        base_similarity = 2000000 + codepoint;
+        base_similarity = 100000 + codepoint;
     }
     else if (codepoint >= 0x0391 && codepoint <= 0x03C9) { // Greek letters
         semantic_class = 4; // Greek with case clustering
-        base_similarity = 3000000 + homoglyph_group * 1000 + (base_char % 1000);
+        base_similarity = 200000 + homoglyph_group * 1000 + (base_char % 1000);
     }
     else if (codepoint >= 0x0410 && codepoint <= 0x044F) { // Cyrillic letters
         semantic_class = 5; // Cyrillic with case clustering
-        base_similarity = 4000000 + homoglyph_group * 1000 + (base_char % 1000);
+        base_similarity = 300000 + homoglyph_group * 1000 + (base_char % 1000);
     }
     else if (codepoint >= 0x1F600 && codepoint <= 0x1F64F) {
         semantic_class = 20; // Emoji faces
-        base_similarity = 5000000 + (codepoint - 0x1F600);
+        base_similarity = 400000 + (codepoint - 0x1F600);
     }
     else if (codepoint >= 0x1F300 && codepoint <= 0x1F5FF) {
         semantic_class = 21; // Emoji symbols
-        base_similarity = 6000000 + (codepoint - 0x1F300);
+        base_similarity = 500000 + (codepoint - 0x1F300);
     }
     else if (codepoint >= 0x4E00 && codepoint <= 0x9FFF) {
         semantic_class = 30; // CJK unified
-        base_similarity = 7000000 + (codepoint - 0x4E00);
+        base_similarity = 600000 + (codepoint - 0x4E00);
     }
     else if (codepoint >= 0xD800 && codepoint <= 0xDFFF) {
         semantic_class = 50; // Surrogates - special handling
-        base_similarity = 8000000 + (codepoint - 0xD800);
+        base_similarity = 700000 + (codepoint - 0xD800);
     }
     else {
         semantic_class = 99; // Other characters
-        base_similarity = 9000000 + codepoint;
+        base_similarity = 800000 + codepoint % 100000;
     }
 
     // Step 4: Diacritic ordering (combining class)

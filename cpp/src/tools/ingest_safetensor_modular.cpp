@@ -66,6 +66,7 @@
 #include "hypercube/ingest/metadata.hpp"
 #include "hypercube/ingest/metadata_db.hpp"
 #include "hypercube/ingest/model_manifest.hpp"
+using namespace hypercube::ingest;
 #include "hypercube/ingest/multimodal_extraction.hpp"
 #include "hypercube/db/helpers.hpp"
 #include "hypercube/ingest/db_operations.hpp"
@@ -306,11 +307,11 @@ int main(int argc, char* argv[]) {
     std::cerr << "[INFO] Found " << ctx.tensors.size() << " tensors\n";
 
     // Log tensor names for debugging
-    std::cerr << "[DEBUG] Tensor names:\n";
+    std::cerr << "[DEBUG] Tensor names (" << ctx.tensors.size() << " total):\n";
     for (const auto& [name, meta] : ctx.tensors) {
         std::cerr << "  " << name << " [" << meta.shape.size() << "D";
         for (size_t s : meta.shape) std::cerr << "," << s;
-        std::cerr << "] " << meta.dtype << "\n";
+        std::cerr << "] " << meta.dtype << " (" << meta.element_count() << " elements)\n";
     }
     
     // Categorize tensors in manifest for extraction planning
@@ -323,6 +324,28 @@ int main(int argc, char* argv[]) {
 
         // Now print the summary with the categorized tensors
         ctx.manifest->print_summary();
+
+        // DEBUG: Show which tensors will be processed vs skipped
+        std::cerr << "\n[DEBUG] Extraction plan details:\n";
+        size_t will_extract = 0, will_skip = 0, stats_only = 0;
+        for (const auto& plan : ctx.manifest->extraction_plans) {
+            std::string action;
+            if (plan.skip) {
+                action = "SKIP";
+                will_skip++;
+            } else if (plan.extract_embeddings || plan.extract_attention) {
+                action = plan.extract_embeddings && plan.extract_attention ? "EXTRACT_EMB+REL" :
+                        plan.extract_embeddings ? "EXTRACT_EMB" : "EXTRACT_REL";
+                will_extract++;
+            } else if (plan.extract_statistics) {
+                action = "STATS_ONLY";
+                stats_only++;
+            } else {
+                action = "NO_ACTION";
+            }
+            std::cerr << "  " << action << ": " << plan.name << " [" << category_to_string(plan.category) << "]\n";
+        }
+        std::cerr << "[INFO] Will extract: " << will_extract << ", Skip: " << will_skip << ", Stats only: " << stats_only << "\n";
     }
     
     // Connect to database
@@ -367,7 +390,7 @@ int main(int argc, char* argv[]) {
         ingest::db::project_and_update_embeddings(conn, ctx, config);
         auto projection_end = std::chrono::steady_clock::now();
         auto projection_ms = std::chrono::duration_cast<std::chrono::milliseconds>(projection_end - projection_start).count();
-        std::cerr << "[5.5] Laplacian projection completed in " << projection_ms << "ms\n";
+        std::cerr << "[5.5] Laplacian projection completed in " << projection_ms << "ms (" << (projection_ms / 1000.0) << "s)\n";
     } else {
         std::cerr << "[PROJECTION] No vocab tokens loaded, skipping Laplacian projection\n";
     }
@@ -409,21 +432,29 @@ int main(int argc, char* argv[]) {
     }
     
     // === EXTRACT RELATIONS (MODEL-SPECIFIC EDGES) ===
-    
+
     // Step 7: Extract semantic relations from ALL projection matrices
     // This processes: embeddings, Q/K/V projections, FFN layers - everything
     // Each model contributes relations tagged with (source_model, layer, component)
     // Relations ACCUMULATE across models - the semantic substrate grows
     std::cerr << "\n[7] Extracting complete semantic relations (all projections)...\n";
+    auto semantic_start = std::chrono::steady_clock::now();
     if (!ctx.tensors.empty()) {
         ingest::db::extract_all_semantic_relations(conn, ctx, config);
     } else {
         std::cerr << "[SEMANTIC] No tensors found, skipping extraction\n";
     }
+    auto semantic_end = std::chrono::steady_clock::now();
+    auto semantic_ms = std::chrono::duration_cast<std::chrono::milliseconds>(semantic_end - semantic_start).count();
+    std::cerr << "[7] Semantic relations extraction completed in " << semantic_ms << "ms (" << (semantic_ms / 1000.0) << "s)\n";
     
     // Step 8: Extract router/attention relations (MoE models, attention weights)
     std::cerr << "\n[8] Extracting weight-based relations (router, attention, MLP)...\n";
+    auto attention_start = std::chrono::steady_clock::now();
     ingest::db::insert_attention_relations(conn, ctx, config);
+    auto attention_end = std::chrono::steady_clock::now();
+    auto attention_ms = std::chrono::duration_cast<std::chrono::milliseconds>(attention_end - attention_start).count();
+    std::cerr << "[8] Attention relations extraction completed in " << attention_ms << "ms (" << (attention_ms / 1000.0) << "s)\n";
     
     // Step 9: Extract multimodal structures (object queries, MoE routers, positional, vision)
     // This extracts semantic structures that make DETR, Florence, MoE models actually work
@@ -450,12 +481,19 @@ int main(int argc, char* argv[]) {
     
     auto total_end = std::chrono::steady_clock::now();
     auto total_secs = std::chrono::duration_cast<std::chrono::seconds>(total_end - total_start).count();
-    
+
+    // Calculate total tensor data size
+    size_t total_elements = 0;
+    for (const auto& [name, meta] : ctx.tensors) {
+        total_elements += meta.element_count();
+    }
+
     std::cerr << "\n=== Complete ===\n";
     std::cerr << "Total time: " << total_secs << " seconds\n";
-    std::cerr << "Tensors: " << ctx.tensors.size() << "\n";
+    std::cerr << "Tensors found: " << ctx.tensors.size() << " (" << total_elements << " elements total)\n";
     std::cerr << "BPE merges: " << ctx.bpe_merges.size() << "\n";
     std::cerr << "Vocab: " << ctx.vocab_tokens.size() << " tokens\n";
+    std::cerr << "NOTE: Only a subset of tensor data was actually loaded and processed!\n";
     
     return 0;
 }

@@ -6,11 +6,11 @@ namespace hypercube {
 
 /**
  * 4D Hilbert Curve implementation
- * 
+ *
  * Maps 4D coordinates (each 32-bit) to a 128-bit Hilbert index and vice versa.
  * The Hilbert curve preserves locality: nearby points in 4D space map to
  * nearby indices on the curve.
- * 
+ *
  * Implementation based on:
  * - Butz, A.R. "Alternative Algorithm for Hilbert's Space-Filling Curve" (1971)
  * - Hamilton, C.H. "Compact Hilbert Indices" (2006)
@@ -20,18 +20,18 @@ class HilbertCurve {
 public:
     static constexpr uint32_t DIMS = 4;
     static constexpr uint32_t BITS = 32;
-    
+
     /**
      * Convert 4D coordinates to Hilbert index
-     * @param point 4D point with 32-bit coordinates per dimension
-     * @return 128-bit Hilbert index as two 64-bit integers
+     * @param point 4D point with 64-bit coordinates per dimension
+     * @return 256-bit Hilbert index as four 64-bit integers
      */
     static HilbertIndex coords_to_index(const Point4D& point) noexcept;
-    
+
     /**
      * Convert Hilbert index to 4D coordinates
-     * @param index 128-bit Hilbert index
-     * @return 4D point with 32-bit coordinates per dimension
+     * @param index 256-bit Hilbert index
+     * @return 4D point with 64-bit coordinates per dimension
      */
     static Point4D index_to_coords(const HilbertIndex& index) noexcept;
     
@@ -48,8 +48,8 @@ public:
 
     /**
      * Convert Hilbert index to raw 4D coordinates (corner-origin, no CENTER adjustment)
-     * @param index 128-bit Hilbert index
-     * @return 4D point in [0, UINT32_MAX]^4 corner-origin space
+     * @param index 256-bit Hilbert index
+     * @return 4D point in [0, UINT64_MAX]^4 corner-origin space
      *
      * This is used for semantic coordinate mapping where we need the raw
      * Hilbert decode without the CENTER-origin transformation.

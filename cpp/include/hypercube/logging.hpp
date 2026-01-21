@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <cstring>
 #include <chrono>
 #include <sstream>
 #include <iomanip>
@@ -10,11 +11,11 @@
 namespace hypercube {
 
 enum class LogLevel {
-    DEBUG = 0,
-    INFO = 1,
-    WARN = 2,
-    ERROR = 3,
-    FATAL = 4
+    LOG_DEBUG = 0,
+    LOG_INFO = 1,
+    LOG_WARN = 2,
+    LOG_ERROR = 3,
+    LOG_FATAL = 4
 };
 
 class Logger {
@@ -53,11 +54,11 @@ public:
         // Level string
         const char* level_str = "UNKN";
         switch (level) {
-            case LogLevel::DEBUG: level_str = "DEBG"; break;
-            case LogLevel::INFO:  level_str = "INFO"; break;
-            case LogLevel::WARN:  level_str = "WARN"; break;
-            case LogLevel::ERROR: level_str = "EROR"; break;
-            case LogLevel::FATAL: level_str = "FATL"; break;
+            case LogLevel::LOG_DEBUG: level_str = "DEBG"; break;
+            case LogLevel::LOG_INFO:  level_str = "INFO"; break;
+            case LogLevel::LOG_WARN:  level_str = "WARN"; break;
+            case LogLevel::LOG_ERROR: level_str = "EROR"; break;
+            case LogLevel::LOG_FATAL: level_str = "FATL"; break;
         }
 
         // Extract filename from path
@@ -73,14 +74,14 @@ public:
 
         *output_ << msg.str() << std::endl;
 
-        if (level == LogLevel::FATAL) {
+        if (level == LogLevel::LOG_FATAL) {
             *output_ << std::flush;
             std::abort();
         }
     }
 
 private:
-    Logger() : level_(LogLevel::INFO), output_(&std::cout) {}
+    Logger() : level_(LogLevel::LOG_INFO), output_(&std::cout) {}
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
 
@@ -98,11 +99,11 @@ private:
 };
 
 // Convenience macros
-#define LOG_DEBUG(...) hypercube::Logger::getInstance().log(hypercube::LogLevel::DEBUG, __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define LOG_INFO(...)  hypercube::Logger::getInstance().log(hypercube::LogLevel::INFO,  __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define LOG_WARN(...)  hypercube::Logger::getInstance().log(hypercube::LogLevel::WARN,  __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define LOG_ERROR(...) hypercube::Logger::getInstance().log(hypercube::LogLevel::ERROR, __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define LOG_FATAL(...) hypercube::Logger::getInstance().log(hypercube::LogLevel::FATAL, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define LOG_DEBUG(...) hypercube::Logger::getInstance().log(hypercube::LogLevel::LOG_DEBUG, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define LOG_INFO(...)  hypercube::Logger::getInstance().log(hypercube::LogLevel::LOG_INFO,  __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define LOG_WARN(...)  hypercube::Logger::getInstance().log(hypercube::LogLevel::LOG_WARN,  __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define LOG_ERROR(...) hypercube::Logger::getInstance().log(hypercube::LogLevel::LOG_ERROR, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define LOG_FATAL(...) hypercube::Logger::getInstance().log(hypercube::LogLevel::LOG_FATAL, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 // Set log level convenience functions
 inline void set_log_level(LogLevel level) {

@@ -1,0 +1,14 @@
+cmake_minimum_required(VERSION 3.20)
+project(TestAtomRegistry)
+
+set(CMAKE_CXX_STANDARD 23)
+
+add_executable(test_atom_registry test_atom_registry.cpp)
+
+target_include_directories(test_atom_registry PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(test_atom_registry PRIVATE
+    hypercube_core
+)

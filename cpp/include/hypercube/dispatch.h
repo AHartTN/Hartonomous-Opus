@@ -180,4 +180,8 @@ IsaClass get_active_isa();
  */
 const KernelVtable& get_kernels();
 
+namespace dispatch {
+    void initialize_function_pointers();
+}
+
 } // namespace hypercube

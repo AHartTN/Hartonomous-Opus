@@ -249,14 +249,14 @@ TEST(hilbert_roundtrip) {
 
 TEST(full_projection_small) {
     // Test full projection pipeline with small synthetic data
-    const size_t n = 50;
-    const size_t d = 32;
-    
+    const size_t n = 20;  // Reduced for faster unit test
+    const size_t d = 16;  // Reduced dimensionality
+
     // Create embeddings that form 4 clusters
     std::vector<std::vector<float>> embeddings(n, std::vector<float>(d, 0.0f));
     std::mt19937 rng(42);
     std::normal_distribution<float> noise(0.0f, 0.1f);
-    
+
     // 4 cluster centers
     std::vector<std::vector<float>> centers = {
         std::vector<float>(d, 0.0f),
@@ -264,14 +264,14 @@ TEST(full_projection_small) {
         std::vector<float>(d, 0.0f),
         std::vector<float>(d, 0.0f)
     };
-    
+
     for (size_t j = 0; j < d; ++j) {
         centers[0][j] = (j % 4 == 0) ? 1.0f : 0.0f;
         centers[1][j] = (j % 4 == 1) ? 1.0f : 0.0f;
         centers[2][j] = (j % 4 == 2) ? 1.0f : 0.0f;
         centers[3][j] = (j % 4 == 3) ? 1.0f : 0.0f;
     }
-    
+
     // Assign points to clusters with noise
     for (size_t i = 0; i < n; ++i) {
         int cluster = i % 4;
@@ -279,32 +279,35 @@ TEST(full_projection_small) {
             embeddings[i][j] = centers[cluster][j] + noise(rng);
         }
     }
-    
-    // Run projection
+
+    // Run projection with optimized parameters for unit testing
     LaplacianConfig config;
-    config.k_neighbors = 10;
-    config.power_iterations = 50;
+    config.k_neighbors = 5;  // Reduced for small n
+    config.hnsw_M = 4;       // Reduced HNSW parameters
+    config.hnsw_ef_construction = 20;
+    config.dense_threshold = 100;  // Always use dense solver for small n
+    config.power_iterations = 20;  // Not used
     config.project_to_sphere = false;
     config.num_threads = 1;  // Single-threaded for determinism
-    
+
     LaplacianProjector projector(config);
     ProjectionResult result = projector.project(embeddings);
-    
+
     // Verify we got n coordinates
     ASSERT_EQ(result.coords.size(), n);
     ASSERT_EQ(result.hilbert_lo.size(), n);
     ASSERT_EQ(result.hilbert_hi.size(), n);
-    
+
     // Verify coordinates are in valid range
     for (size_t i = 0; i < n; ++i) {
         for (int j = 0; j < 4; ++j) {
             ASSERT_TRUE(result.coords[i][j] <= 4294967295u);
         }
     }
-    
+
     // Verify edges were created
     ASSERT_TRUE(result.edge_count > 0);
-    
+
     std::cerr << "(edges=" << result.edge_count << ") ";
 }
 

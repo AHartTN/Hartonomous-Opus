@@ -3,6 +3,14 @@
 # ============================================================================
 
 if(BUILD_PG_EXTENSION AND TARGET hypercube_c AND TARGET hypercube)
+    # Install db_wrapper_pg first as other extensions depend on it
+    if(TARGET db_wrapper_pg)
+        install(TARGETS db_wrapper_pg
+            LIBRARY DESTINATION ${PG_PKGLIBDIR}
+            RUNTIME DESTINATION ${PG_PKGLIBDIR}
+        )
+    endif()
+
     # The extension DLLs depend on hypercube_c.dll at runtime (Windows loader).
     # Install it into pkglibdir alongside the modules.
     install(TARGETS hypercube_c
@@ -111,8 +119,8 @@ endif()
 # Install Tools and CLI (Optional)
 # ============================================================================
 
-# Install CLI tools if PostgreSQL client library is available
-if(PostgreSQL_FOUND)
+# Install CLI tools if PostgreSQL client library is available and tools are enabled
+if(PostgreSQL_FOUND AND HYPERCUBE_ENABLE_TOOLS)
     # Install the unified CLI tool
     install(TARGETS hypercube_cli
         RUNTIME DESTINATION bin

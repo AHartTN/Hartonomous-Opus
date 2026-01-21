@@ -2,12 +2,18 @@
 
 #include "hypercube/types.hpp"
 #include "hypercube/hilbert.hpp"
+#include "hypercube/atom_registry.hpp"
 #include <vector>
 #include <map>
 #include <unordered_map>
 #include <mutex>
 
 namespace hypercube {
+
+/**
+ * Forward declaration for AtomRegistry
+ */
+class AtomRegistry;
 
 /**
  * Types of text compositions for centroid calculation
@@ -158,12 +164,37 @@ public:
     static Diagnostics compute_diagnostics(const std::map<uint32_t, Point4F>& points);
 
     /**
+     * Compute comprehensive diagnostics for an AtomRegistry
+     * @param reg AtomRegistry containing atoms with coordinates and metadata
+     * @return Diagnostics struct with all metrics
+     */
+    static Diagnostics compute_diagnostics(const AtomRegistry& reg);
+
+    /**
      * Apply deterministic jitter to break quantization collisions
      * @param points Input/output map of codepoints to points
      * @param epsilon Jitter magnitude (default 1e-7)
      */
     static void apply_deterministic_jitter(std::map<uint32_t, Point4F>& points,
                                            double epsilon = 1e-7);
+
+    /**
+     * Apply deterministic jitter to AtomRegistry
+     * @param reg Input/output AtomRegistry
+     * @param epsilon Jitter magnitude (default 1e-7)
+     */
+    static void apply_deterministic_jitter(AtomRegistry& reg,
+                                           double epsilon = 1e-7);
+
+    /**
+     * Perform bucketed tangent Lloyd relaxation on AtomRegistry
+     * @param reg Input/output AtomRegistry
+     * @param k Number of neighbors per iteration (default 32)
+     * @param alpha Step size (default 0.25)
+     * @param iterations Number of iterations (default 4)
+     */
+    static void bucketed_tangent_lloyd(AtomRegistry& reg,
+                                       size_t k = 32, double alpha = 0.25, int iterations = 4);
 
     /**
      * Perform bucketed tangent Lloyd relaxation

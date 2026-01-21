@@ -73,6 +73,11 @@ include(TargetsCore)
 # 4) PostgreSQL extensions (if enabled and dependencies present)
 if(HYPERCUBE_ENABLE_PG_EXTENSIONS AND BUILD_PG_EXTENSION)
     include(TargetsPgExtensions)
+
+    # Make extensions build by default
+    add_custom_target(pg_extensions ALL
+        DEPENDS hypercube semantic_ops hypercube_ops embedding_ops generative
+    )
 else()
     message(STATUS "PostgreSQL extensions are disabled or pg_config not found; skipping extension targets")
 endif()
@@ -80,6 +85,11 @@ endif()
 # 5) CLI tools and ingesters (if enabled and PostgreSQL client is available)
 if(HYPERCUBE_ENABLE_TOOLS AND PostgreSQL_FOUND)
     include(TargetsTools)
+
+    # Make tools build by default
+    add_custom_target(tools ALL
+        DEPENDS ingest_safetensor extract_embeddings ingest hypercube_cli model_discovery vocab_extract vocab_ingest seed_atoms_parallel test_integration test_query_api
+    )
 else()
     message(STATUS "CLI tools/ingesters are disabled or PostgreSQL client not found; skipping tool targets")
 endif()
@@ -169,12 +179,9 @@ message(STATUS "PostgreSQL extensions:   ${BUILD_PG_EXTENSION}")
 message(STATUS "PostgreSQL client libs:  ${PostgreSQL_FOUND}")
 message(STATUS "Google Test present:     ${GTest_FOUND}")
 
-# SIMD / CPU features (from CpuFeatures.cmake via CompilerFlags.cmake)
-message(STATUS "SIMD baseline HAS_AVX:   ${HAS_AVX}")
-message(STATUS "HAS_AVX2:                ${HAS_AVX2}")
-message(STATUS "HAS_AVX512F:             ${HAS_AVX512F}")
-message(STATUS "HAS_FMA3:                ${HAS_FMA3}")
-message(STATUS "HAS_AVX_VNNI:            ${HAS_AVX_VNNI}")
+# Runtime dispatch system
+message(STATUS "Runtime dispatch:        ENABLED (universal binary)")
+message(STATUS "CPU feature detection:   Runtime at application startup")
 message(STATUS "")
 
 message(STATUS "Hypercube configuration complete.")

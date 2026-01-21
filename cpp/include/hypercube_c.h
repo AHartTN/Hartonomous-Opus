@@ -39,18 +39,18 @@ extern "C" {
  * Type Definitions
  * ============================================================================ */
 
-/** 4D point with 32-bit coordinates per dimension */
+/** 4D point with 64-bit coordinates per dimension */
 typedef struct {
-    uint32_t x;
-    uint32_t y;
-    uint32_t z;
-    uint32_t m;
+    uint64_t x;
+    uint64_t y;
+    uint64_t z;
+    uint64_t m;
 } hc_point4d_t;
 
 /** 128-bit Hilbert curve index (two 64-bit parts) */
 typedef struct {
-    uint64_t lo;  /**< Lower 64 bits */
-    uint64_t hi;  /**< Upper 64 bits */
+    uint64_t lo;      /**< Lower 64 bits */
+    uint64_t hi;      /**< Upper 64 bits */
 } hc_hilbert_t;
 
 /** BLAKE3 hash (32 bytes) */
@@ -102,7 +102,7 @@ typedef enum {
 
 /**
  * Convert 4D coordinates to 128-bit Hilbert index
- * @param point 4D point with 32-bit coordinates per dimension
+ * @param point 4D point with 64-bit coordinates per dimension
  * @return 128-bit Hilbert index
  */
 HC_API hc_hilbert_t hc_coords_to_hilbert(hc_point4d_t point);
@@ -110,7 +110,7 @@ HC_API hc_hilbert_t hc_coords_to_hilbert(hc_point4d_t point);
 /**
  * Convert 128-bit Hilbert index to 4D coordinates
  * @param index 128-bit Hilbert index
- * @return 4D point with 32-bit coordinates per dimension
+ * @return 4D point with 64-bit coordinates per dimension
  */
 HC_API hc_point4d_t hc_hilbert_to_coords(hc_hilbert_t index);
 

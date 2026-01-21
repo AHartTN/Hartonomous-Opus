@@ -28,6 +28,7 @@
 
 #include "hypercube_c.h"
 #include "pg_utils.h"
+#include "db_wrapper_pg.h"
 
 #include <string.h>
 #include <math.h>
@@ -47,24 +48,24 @@ Datum semantic_hilbert_distance_128(PG_FUNCTION_ARGS)
     int64 hi1 = PG_GETARG_INT64(1);
     int64 lo2 = PG_GETARG_INT64(2);
     int64 hi2 = PG_GETARG_INT64(3);
-    
+
     hc_hilbert_t a = {(uint64)lo1, (uint64)hi1};
     hc_hilbert_t b = {(uint64)lo2, (uint64)hi2};
-    
+
     hc_hilbert_t dist = hc_hilbert_distance(a, b);
-    
+
     TupleDesc tupdesc;
-    Datum values[2];
-    bool nulls[2] = {false, false};
+    Datum values[4];
+    bool nulls[4] = {false, false, false, false};
     HeapTuple tuple;
-    
+
     if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
         ereport(ERROR,
                 (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                  errmsg("function returning record called in context that cannot accept type record")));
-    
+
     tupdesc = BlessTupleDesc(tupdesc);
-    
+
     values[0] = Int64GetDatum((int64)dist.lo);
     values[1] = Int64GetDatum((int64)dist.hi);
     
@@ -88,8 +89,8 @@ Datum semantic_4d_distance(PG_FUNCTION_ARGS)
     double z2 = PG_GETARG_FLOAT8(6);
     double m2 = PG_GETARG_FLOAT8(7);
     
-    hc_point4d_t a = {(uint32)x1, (uint32)y1, (uint32)z1, (uint32)m1};
-    hc_point4d_t b = {(uint32)x2, (uint32)y2, (uint32)z2, (uint32)m2};
+    hc_point4d_t a = {(uint64)x1, (uint64)y1, (uint64)z1, (uint64)m1};
+    hc_point4d_t b = {(uint64)x2, (uint64)y2, (uint64)z2, (uint64)m2};
     
     double dist = hc_euclidean_distance(a, b);
     
@@ -132,10 +133,10 @@ Datum semantic_centroid_4d(PG_FUNCTION_ARGS)
             (z_nulls && z_nulls[i]) || (m_nulls && m_nulls[i]))
             continue;
         
-        points[count].x = (uint32)DatumGetFloat8(x_elems[i]);
-        points[count].y = (uint32)DatumGetFloat8(y_elems[i]);
-        points[count].z = (uint32)DatumGetFloat8(z_elems[i]);
-        points[count].m = (uint32)DatumGetFloat8(m_elems[i]);
+        points[count].x = (uint64)DatumGetFloat8(x_elems[i]);
+        points[count].y = (uint64)DatumGetFloat8(y_elems[i]);
+        points[count].z = (uint64)DatumGetFloat8(z_elems[i]);
+        points[count].m = (uint64)DatumGetFloat8(m_elems[i]);
         count++;
     }
     
@@ -178,7 +179,7 @@ Datum semantic_coords_from_hilbert(PG_FUNCTION_ARGS)
 {
     int64 lo = PG_GETARG_INT64(0);
     int64 hi = PG_GETARG_INT64(1);
-    
+
     hc_hilbert_t idx = {(uint64)lo, (uint64)hi};
     hc_point4d_t point = hc_hilbert_to_coords(idx);
     
@@ -215,21 +216,21 @@ Datum semantic_hilbert_from_coords(PG_FUNCTION_ARGS)
     double z = PG_GETARG_FLOAT8(2);
     double m = PG_GETARG_FLOAT8(3);
     
-    hc_point4d_t point = {(uint32)x, (uint32)y, (uint32)z, (uint32)m};
+    hc_point4d_t point = {(uint64)x, (uint64)y, (uint64)z, (uint64)m};
     hc_hilbert_t idx = hc_coords_to_hilbert(point);
-    
+
     TupleDesc tupdesc;
-    Datum values[2];
-    bool nulls[2] = {false, false};
+    Datum values[4];
+    bool nulls[4] = {false, false, false, false};
     HeapTuple tuple;
-    
+
     if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
         ereport(ERROR,
                 (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                  errmsg("function returning record called in context that cannot accept type record")));
-    
+
     tupdesc = BlessTupleDesc(tupdesc);
-    
+
     values[0] = Int64GetDatum((int64)idx.lo);
     values[1] = Int64GetDatum((int64)idx.hi);
     

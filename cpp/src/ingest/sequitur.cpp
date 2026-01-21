@@ -327,10 +327,10 @@ public:
         size_t n = child_coords_vec.size();
         Point4D centroid{0, 0, 0, 0};
         if (n > 0) {
-            centroid.x = static_cast<Coord32>(sum_x / n);
-            centroid.y = static_cast<Coord32>(sum_y / n);
-            centroid.z = static_cast<Coord32>(sum_z / n);
-            centroid.m = static_cast<Coord32>(sum_m / n);
+            centroid.x = static_cast<Coord64>(sum_x / n);
+            centroid.y = static_cast<Coord64>(sum_y / n);
+            centroid.z = static_cast<Coord64>(sum_z / n);
+            centroid.m = static_cast<Coord64>(sum_m / n);
         }
         rule->centroid = centroid;
         

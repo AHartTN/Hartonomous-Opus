@@ -10,11 +10,13 @@
 #include <utils/array.h>
 #include <utils/builtins.h>
 #include <catalog/pg_type.h>
-#include <access/htup_details.h>
 #include <executor/spi.h>
+#include <access/htup_details.h>
 #include <utils/memutils.h>
 
+#include <math.h>
 #include "hypercube/generative_c.h"
+#include "db_wrapper_pg.h"
 
 PG_MODULE_MAGIC;
 
@@ -24,98 +26,39 @@ PG_MODULE_MAGIC;
 
 static int64 load_vocab_internal(void)
 {
-    int ret;
-    uint64 i;
     int64 count = 0;
     int64 centroid_count = 0;
-    
+
     /* Clear existing cache */
     gen_vocab_clear();
-    
-    if (SPI_connect() != SPI_OK_CONNECT) {
-        ereport(ERROR, (errmsg("SPI_connect failed")));
+
+    VocabCollection *vocab = load_vocab();
+    if (!vocab) {
+        ereport(ERROR, (errmsg("Failed to load vocab from wrapper")));
     }
-    
-    /* Load all compositions with 4D centroids */
-    ret = SPI_execute(
-        "SELECT c.id, c.label, c.depth, "
-        "       COALESCE((SELECT COUNT(*) FROM composition_child cc WHERE cc.child_id = c.id), 0) AS freq, "
-        "       ST_X(c.centroid) AS cx, ST_Y(c.centroid) AS cy, "
-        "       ST_Z(c.centroid) AS cz, ST_M(c.centroid) AS cm, "
-        "       (c.hilbert_lo::float8 / 9223372036854775807.0) AS hilbert "
-        "FROM composition c "
-        "WHERE c.label IS NOT NULL "
-        "  AND c.label NOT LIKE '[%' "
-        "  AND c.centroid IS NOT NULL "
-        "ORDER BY c.label",
-        true, 0
-    );
-    
-    if (ret != SPI_OK_SELECT) {
-        SPI_finish();
-        ereport(ERROR, (errmsg("Failed to load compositions")));
-    }
-    
-    for (i = 0; i < SPI_processed; i++) {
-        HeapTuple tuple = SPI_tuptable->vals[i];
-        TupleDesc tupdesc = SPI_tuptable->tupdesc;
-        bool isnull;
-        
-        /* Get ID (bytea) */
-        Datum id_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
-        if (isnull) continue;
-        bytea *id_bytea = DatumGetByteaP(id_datum);
-        uint8_t *id_data = (uint8_t *)VARDATA(id_bytea);
-        
-        /* Get label */
-        char *label = SPI_getvalue(tuple, tupdesc, 2);
-        if (!label) continue;
-        
-        /* Get depth */
-        Datum depth_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
-        int depth = isnull ? 1 : DatumGetInt32(depth_datum);
-        
-        /* Get frequency */
-        Datum freq_datum = SPI_getbinval(tuple, tupdesc, 4, &isnull);
-        double freq = isnull ? 1.0 : (double)DatumGetInt64(freq_datum);
-        
-        /* Get 4D centroid */
-        Datum cx_datum = SPI_getbinval(tuple, tupdesc, 5, &isnull);
-        double cx = isnull ? 0.0 : DatumGetFloat8(cx_datum);
-        
-        Datum cy_datum = SPI_getbinval(tuple, tupdesc, 6, &isnull);
-        double cy = isnull ? 0.0 : DatumGetFloat8(cy_datum);
-        
-        Datum cz_datum = SPI_getbinval(tuple, tupdesc, 7, &isnull);
-        double cz = isnull ? 0.0 : DatumGetFloat8(cz_datum);
-        
-        Datum cm_datum = SPI_getbinval(tuple, tupdesc, 8, &isnull);
-        double cm = isnull ? 0.0 : DatumGetFloat8(cm_datum);
-        
-        /* Get hilbert index */
-        Datum hilbert_datum = SPI_getbinval(tuple, tupdesc, 9, &isnull);
-        double hilbert = isnull ? 0.0 : DatumGetFloat8(hilbert_datum);
-        
+
+    for (size_t i = 0; i < vocab->count; i++) {
+        VocabEntry *entry = &vocab->entries[i];
+
         /* Add to vocab */
-        int64_t idx = gen_vocab_add(id_data, label, depth, freq, hilbert);
-        
+        int64_t idx = gen_vocab_add(entry->id, entry->label, entry->depth, entry->frequency, entry->hilbert);
+
         /* Set 4D centroid */
-        if (idx >= 0 && (cx != 0.0 || cy != 0.0 || cz != 0.0 || cm != 0.0)) {
-            gen_vocab_set_centroid((size_t)idx, cx, cy, cz, cm);
+        if (idx >= 0 && (entry->centroid_x != 0.0 || entry->centroid_y != 0.0 || entry->centroid_z != 0.0 || entry->centroid_m != 0.0)) {
+            gen_vocab_set_centroid((size_t)idx, entry->centroid_x, entry->centroid_y, entry->centroid_z, entry->centroid_m);
             centroid_count++;
         }
-        
+
         count++;
-        pfree(label);
     }
-    
-    ereport(NOTICE, (errmsg("Loaded %lld vocabulary entries with %lld 4D centroids", 
+
+    ereport(NOTICE, (errmsg("Loaded %lld vocabulary entries with %lld 4D centroids",
                             (long long)count, (long long)centroid_count)));
-    
+
     gen_vocab_finalize();
-    
-    SPI_finish();
-    
+
+    free_vocab_collection(vocab);
+
     return count;
 }
 
@@ -139,56 +82,27 @@ gen_load_vocab(PG_FUNCTION_ARGS)
 
 static int64 load_bigrams_internal(void)
 {
-    int ret;
-    uint64 i;
     int64 count = 0;
-    
+
     gen_bigram_clear();
-    
-    if (SPI_connect() != SPI_OK_CONNECT) {
-        ereport(ERROR, (errmsg("SPI_connect failed")));
+
+    RelationCollection *bigrams = load_relations("S");
+    if (!bigrams) {
+        ereport(ERROR, (errmsg("Failed to load bigrams from wrapper")));
     }
-    
-    /* Load from relation table - 'S' similarity edges are PMI-like scores from model */
-    ret = SPI_execute(
-        "SELECT source_id, target_id, weight "
-        "FROM relation "
-        "WHERE relation_type = 'S' "
-        "  AND weight > 0.3",
-        true, 0
-    );
-    
-    if (ret == SPI_OK_SELECT) {
-        for (i = 0; i < SPI_processed; i++) {
-            HeapTuple tuple = SPI_tuptable->vals[i];
-            TupleDesc tupdesc = SPI_tuptable->tupdesc;
-            bool isnull;
-            
-            Datum left_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
-            if (isnull) continue;
-            bytea *left_bytea = DatumGetByteaP(left_datum);
-            
-            Datum right_datum = SPI_getbinval(tuple, tupdesc, 2, &isnull);
-            if (isnull) continue;
-            bytea *right_bytea = DatumGetByteaP(right_datum);
-            
-            Datum score_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
-            /* weight is REAL (float4), not FLOAT8 */
-            double score = isnull ? 0.0 : (double)DatumGetFloat4(score_datum);
-            
-            gen_bigram_add(
-                (uint8_t *)VARDATA(left_bytea),
-                (uint8_t *)VARDATA(right_bytea),
-                score
-            );
+
+    for (size_t i = 0; i < bigrams->count; i++) {
+        RelationEntry *entry = &bigrams->entries[i];
+        if (entry->weight > 0.3) {
+            gen_bigram_add(entry->source_id, entry->target_id, entry->weight);
             count++;
         }
     }
-    
-    SPI_finish();
-    
+
+    free_relation_collection(bigrams);
+
     ereport(NOTICE, (errmsg("Loaded %lld bigram PMI scores", (long long)count)));
-    
+
     return count;
 }
 
@@ -212,57 +126,51 @@ gen_load_bigrams(PG_FUNCTION_ARGS)
 
 static int64 load_attention_internal(void)
 {
-    int ret;
-    uint64 i;
     int64 count = 0;
-    
+
     gen_attention_clear();
-    
-    if (SPI_connect() != SPI_OK_CONNECT) {
-        ereport(ERROR, (errmsg("SPI_connect failed")));
+
+    RelationCollection *attn_a = load_relations("A");
+    RelationCollection *attn_w = load_relations("W");
+    RelationCollection *attn_s = load_relations("S");
+
+    if (!attn_a || !attn_w || !attn_s) {
+        ereport(ERROR, (errmsg("Failed to load attention relations from wrapper")));
     }
-    
-    /* Load attention relations - 'A' explicit attention, 'W' weight, 'S' similarity edges */
-    /* Try A/W first, fall back to S if none exist */
-    ret = SPI_execute(
-        "SELECT source_id, target_id, weight "
-        "FROM relation "
-        "WHERE relation_type IN ('A', 'W', 'S') "
-        "  AND ABS(weight) > 0.1",  /* Weight edges can be negative */
-        true, 0
-    );
-    
-    if (ret == SPI_OK_SELECT) {
-        for (i = 0; i < SPI_processed; i++) {
-            HeapTuple tuple = SPI_tuptable->vals[i];
-            TupleDesc tupdesc = SPI_tuptable->tupdesc;
-            bool isnull;
-            
-            Datum src_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
-            if (isnull) continue;
-            bytea *src_bytea = DatumGetByteaP(src_datum);
-            
-            Datum tgt_datum = SPI_getbinval(tuple, tupdesc, 2, &isnull);
-            if (isnull) continue;
-            bytea *tgt_bytea = DatumGetByteaP(tgt_datum);
-            
-            Datum weight_datum = SPI_getbinval(tuple, tupdesc, 3, &isnull);
-            /* weight is REAL (float4), not FLOAT8 */
-            double weight = isnull ? 0.0 : (double)DatumGetFloat4(weight_datum);
-            
-            gen_attention_add(
-                (uint8_t *)VARDATA(src_bytea),
-                (uint8_t *)VARDATA(tgt_bytea),
-                weight
-            );
+
+    /* Load A relations */
+    for (size_t i = 0; i < attn_a->count; i++) {
+        RelationEntry *entry = &attn_a->entries[i];
+        if (fabs(entry->weight) > 0.1) {
+            gen_attention_add(entry->source_id, entry->target_id, entry->weight);
             count++;
         }
     }
-    
-    SPI_finish();
-    
+
+    /* Load W relations */
+    for (size_t i = 0; i < attn_w->count; i++) {
+        RelationEntry *entry = &attn_w->entries[i];
+        if (fabs(entry->weight) > 0.1) {
+            gen_attention_add(entry->source_id, entry->target_id, entry->weight);
+            count++;
+        }
+    }
+
+    /* Load S relations */
+    for (size_t i = 0; i < attn_s->count; i++) {
+        RelationEntry *entry = &attn_s->entries[i];
+        if (fabs(entry->weight) > 0.1) {
+            gen_attention_add(entry->source_id, entry->target_id, entry->weight);
+            count++;
+        }
+    }
+
+    free_relation_collection(attn_a);
+    free_relation_collection(attn_w);
+    free_relation_collection(attn_s);
+
     ereport(NOTICE, (errmsg("Loaded %lld attention edges", (long long)count)));
-    
+
     return count;
 }
 
@@ -291,61 +199,60 @@ gen_lookup_bigram(PG_FUNCTION_ARGS)
 {
     text *left_text = PG_GETARG_TEXT_PP(0);
     text *right_text = PG_GETARG_TEXT_PP(1);
-    
+
     char *left_label = text_to_cstring(left_text);
     char *right_label = text_to_cstring(right_text);
-    
+
     /* Find vocab indices by label */
     int64_t left_idx = gen_vocab_find_label(left_label);
     int64_t right_idx = gen_vocab_find_label(right_label);
-    
+
     if (left_idx < 0) {
         ereport(NOTICE, (errmsg("Left label '%s' not found in vocab", left_label)));
         pfree(left_label);
         pfree(right_label);
         PG_RETURN_FLOAT8(0.0);
     }
-    
+
     if (right_idx < 0) {
         ereport(NOTICE, (errmsg("Right label '%s' not found in vocab", right_label)));
         pfree(left_label);
         pfree(right_label);
         PG_RETURN_FLOAT8(0.0);
     }
-    
-    /* Get IDs from vocab entries */
-    /* We need to query the DB for the actual IDs since we don't have a direct API */
+
+    /* Get IDs from vocab entries - since no get_id function, query DB for debug */
     int ret;
     double score = 0.0;
-    
+
     if (SPI_connect() != SPI_OK_CONNECT) {
         ereport(ERROR, (errmsg("SPI_connect failed")));
     }
-    
+
     /* Get IDs for both labels from the database */
     char query[512];
     snprintf(query, sizeof(query),
         "SELECT a.id, b.id FROM composition a, composition b "
         "WHERE a.label = '%s' AND b.label = '%s'",
         left_label, right_label);
-    
+
     ret = SPI_execute(query, true, 1);
-    
+
     if (ret == SPI_OK_SELECT && SPI_processed > 0) {
         HeapTuple tuple = SPI_tuptable->vals[0];
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
         bool isnull;
-        
+
         Datum left_datum = SPI_getbinval(tuple, tupdesc, 1, &isnull);
         if (!isnull) {
             bytea *left_bytea = DatumGetByteaP(left_datum);
-            
+
             Datum right_datum = SPI_getbinval(tuple, tupdesc, 2, &isnull);
             if (!isnull) {
                 bytea *right_bytea = DatumGetByteaP(right_datum);
-                
+
                 /* Debug: print first 8 bytes of each hash */
-                ereport(NOTICE, (errmsg("Left ID hex: %02x%02x%02x%02x%02x%02x%02x%02x", 
+                ereport(NOTICE, (errmsg("Left ID hex: %02x%02x%02x%02x%02x%02x%02x%02x",
                     ((uint8_t *)VARDATA(left_bytea))[0],
                     ((uint8_t *)VARDATA(left_bytea))[1],
                     ((uint8_t *)VARDATA(left_bytea))[2],
@@ -354,7 +261,7 @@ gen_lookup_bigram(PG_FUNCTION_ARGS)
                     ((uint8_t *)VARDATA(left_bytea))[5],
                     ((uint8_t *)VARDATA(left_bytea))[6],
                     ((uint8_t *)VARDATA(left_bytea))[7])));
-                ereport(NOTICE, (errmsg("Right ID hex: %02x%02x%02x%02x%02x%02x%02x%02x", 
+                ereport(NOTICE, (errmsg("Right ID hex: %02x%02x%02x%02x%02x%02x%02x%02x",
                     ((uint8_t *)VARDATA(right_bytea))[0],
                     ((uint8_t *)VARDATA(right_bytea))[1],
                     ((uint8_t *)VARDATA(right_bytea))[2],
@@ -363,7 +270,7 @@ gen_lookup_bigram(PG_FUNCTION_ARGS)
                     ((uint8_t *)VARDATA(right_bytea))[5],
                     ((uint8_t *)VARDATA(right_bytea))[6],
                     ((uint8_t *)VARDATA(right_bytea))[7])));
-                
+
                 /* Use debug find to get more info */
                 double found_score = 0.0;
                 int result = gen_bigram_debug_find(
@@ -371,24 +278,24 @@ gen_lookup_bigram(PG_FUNCTION_ARGS)
                     (uint8_t *)VARDATA(right_bytea),
                     &found_score
                 );
-                
+
                 if (result == 1) {
                     score = found_score;
-                    ereport(NOTICE, (errmsg("Bigram FOUND '%s' -> '%s': %f", 
+                    ereport(NOTICE, (errmsg("Bigram FOUND '%s' -> '%s': %f",
                                             left_label, right_label, score)));
                 } else {
-                    ereport(NOTICE, (errmsg("Bigram NOT FOUND '%s' -> '%s' (left matches: %d)", 
+                    ereport(NOTICE, (errmsg("Bigram NOT FOUND '%s' -> '%s' (left matches: %d)",
                                             left_label, right_label, -result)));
                 }
             }
         }
     }
-    
+
     SPI_finish();
-    
+
     pfree(left_label);
     pfree(right_label);
-    
+
     PG_RETURN_FLOAT8(score);
 }
 

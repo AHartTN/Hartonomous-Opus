@@ -117,10 +117,7 @@ echo ""
 # FIND INGESTER
 # ============================================================================
 
-INGEST_EXE="$HC_BUILD_DIR/ingest_safetensor"
-if [ ! -x "$INGEST_EXE" ]; then
-    INGEST_EXE="$HC_BUILD_DIR/Release/ingest_safetensor"
-fi
+INGEST_EXE="$HC_BIN_DIR/ingest_safetensor"
 if [ ! -x "$INGEST_EXE" ]; then
     echo "ERROR: ingest_safetensor not found."
     echo "       Run: ./scripts/linux/build.sh"

@@ -53,6 +53,7 @@
 #include <map>
 #include <iostream>
 #include <unordered_set>
+#include <cstdint>
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
@@ -117,7 +118,7 @@ namespace hypercube
             coords.z = CoordinateUtilities::quantize_unit_to_u32(float_coords.z);
             coords.m = CoordinateUtilities::quantize_unit_to_u32(float_coords.m);
             HilbertIndex hilbert = HilbertCurve::coords_to_index(coords);
-            return CodepointMapping(float_coords, coords, hilbert);
+            return CodepointMapping{float_coords, coords, hilbert};
         }
 
         // Get floating point coordinates via Super-Fibonacci spiral
@@ -163,8 +164,8 @@ namespace hypercube
         // on the 3-sphere, ensuring CV ≤30% and perfect uniformity
 
         // Get dense rank (0, 1, 2, ... N-1) from enhanced semantic sorting
-        uint32_t rank = DenseRegistry::get_rank(codepoint);
-        size_t total_atoms = DenseRegistry::total_active();
+        uint32_t rank = SemanticOrdering::get_rank(codepoint);
+        size_t total_atoms = SemanticOrdering::total_codepoints();
 
         // Use Super-Fibonacci algorithm for optimal S³ sampling
         // Parameters from paper: φ² = 2, ψ⁴ = ψ + 4
@@ -402,10 +403,10 @@ namespace hypercube
     {
         // This is a reverse lookup approximation - in practice, we'd maintain
         // a mapping table, but for now use rank-based estimation
-        uint32_t total_atoms = DenseRegistry::total_active();
+        uint32_t total_atoms = SemanticOrdering::total_codepoints();
         double t = (std::acos(coords.z) / PI); // Approximate rank from z-coordinate
         uint32_t rank = static_cast<uint32_t>(t * total_atoms);
-        return DenseRegistry::get_codepoint(std::min(rank, total_atoms - 1));
+        return SemanticOrdering::get_codepoint(std::min(rank, total_atoms - 1));
     }
 
     Point4D CoordinateMapper::weighted_centroid(const std::vector<Point4D> &points,
@@ -575,21 +576,38 @@ namespace hypercube
 
     CoordinateMapper::Diagnostics CoordinateMapper::compute_diagnostics(const std::map<uint32_t, Point4F> &points)
     {
+        // Build AtomRegistry from the map as a compatibility wrapper
+        AtomRegistry reg;
+        reg.atoms.reserve(points.size());
+        for (const auto &[cp, pt] : points)
+        {
+            uint32_t dense_rank = DenseRegistry::get_rank(cp);
+            uint32_t semantic_rank = SemanticOrdering::get_rank(cp);
+            uint8_t category = static_cast<uint8_t>(categorize(cp));
+            reg.atoms.push_back(AtomEntry{cp, dense_rank, semantic_rank, category, pt, pt});
+        }
+
+        // Call the new AtomRegistry-based method
+        return compute_diagnostics(reg);
+    }
+
+    CoordinateMapper::Diagnostics CoordinateMapper::compute_diagnostics(const AtomRegistry& reg)
+    {
         Diagnostics diag;
 
-        if (points.empty())
+        if (reg.atoms.empty())
             return diag;
 
-        size_t n = points.size();
+        size_t n = reg.atoms.size();
         std::vector<Point4F> point_list;
         std::vector<uint32_t> codepoints;
         point_list.reserve(n);
         codepoints.reserve(n);
 
-        for (const auto &[cp, pt] : points)
+        for (const auto &atom : reg.atoms)
         {
-            point_list.push_back(pt);
-            codepoints.push_back(cp);
+            point_list.push_back(atom.jittered);
+            codepoints.push_back(atom.codepoint);
         }
 
         // Compute nearest neighbor chordal distances
@@ -597,9 +615,9 @@ namespace hypercube
         std::vector<double> geodesic_nn(n, std::numeric_limits<double>::max());
 
         // Brute force NN computation (for now - could use HNSW later)
-#ifdef HAS_OPENMP
-#pragma omp parallel for if (n > 1000)
-#endif
+    #ifdef HAS_OPENMP
+    #pragma omp parallel for if (n > 1000)
+    #endif
         for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(n); ++i)
         {
             for (size_t j = 0; j < n; ++j)
@@ -663,9 +681,9 @@ namespace hypercube
                  diag.local_density_cv, std::ignore, std::ignore) = compute_stats(densities);
 
         // Collision histogram (quantized tuples)
-        for (const auto &[cp, pt] : points)
+        for (const auto &atom : reg.atoms)
         {
-            Point4D quantized = pt.to_quantized();
+            Point4D quantized = atom.jittered.to_quantized();
             diag.collision_counts[quantized]++;
         }
 
@@ -673,7 +691,7 @@ namespace hypercube
         std::map<uint32_t, std::vector<double>> bucket_nns;
         for (size_t i = 0; i < n; ++i)
         {
-            uint32_t bucket = static_cast<uint32_t>(categorize(codepoints[i]));
+            uint32_t bucket = static_cast<uint32_t>(reg.atoms[i].category);
             bucket_nns[bucket].push_back(chordal_nn[i]);
         }
 
@@ -699,7 +717,30 @@ namespace hypercube
 
     void CoordinateMapper::apply_deterministic_jitter(std::map<uint32_t, Point4F> &points, double epsilon)
     {
-        if (points.empty())
+        // Build AtomRegistry from the map as a compatibility wrapper
+        AtomRegistry reg;
+        reg.atoms.reserve(points.size());
+        for (const auto &[cp, pt] : points)
+        {
+            uint32_t dense_rank = DenseRegistry::get_rank(cp);
+            uint32_t semantic_rank = SemanticOrdering::get_rank(cp);
+            uint8_t category = static_cast<uint8_t>(categorize(cp));
+            reg.atoms.push_back(AtomEntry{cp, dense_rank, semantic_rank, category, pt, pt});
+        }
+
+        // Apply jitter using the new AtomRegistry-based method
+        apply_deterministic_jitter(reg, epsilon);
+
+        // Write back to the original map
+        for (const auto &atom : reg.atoms)
+        {
+            points[atom.codepoint] = atom.jittered;
+        }
+    }
+
+    void CoordinateMapper::apply_deterministic_jitter(AtomRegistry& reg, double epsilon)
+    {
+        if (reg.atoms.empty())
             return;
 
         // Compute orthonormal tangent basis at each point
@@ -734,20 +775,20 @@ namespace hypercube
             return {t1, t2, t3};
         };
 
-        for (auto &[cp, p] : points)
+        for (auto &atom : reg.atoms)
         {
             // Generate deterministic values from BLAKE3 hash of codepoint
-            Blake3Hash hash = Blake3Hasher::hash_codepoint(cp);
+            Blake3Hash hash = Blake3Hasher::hash_codepoint(atom.codepoint);
             uint64_t v0 = *reinterpret_cast<const uint64_t *>(hash.data());
             uint64_t v1 = *reinterpret_cast<const uint64_t *>(hash.data() + 8);
             uint64_t v2 = *reinterpret_cast<const uint64_t *>(hash.data() + 16);
 
-            double f0 = static_cast<double>(v0) / static_cast<double>(UINT64_MAX);
-            double f1 = static_cast<double>(v1) / static_cast<double>(UINT64_MAX);
-            double f2 = static_cast<double>(v2) / static_cast<double>(UINT64_MAX);
+            double f0 = static_cast<double>(v0) / static_cast<double>(UINT32_MAX);
+            double f1 = static_cast<double>(v1) / static_cast<double>(UINT32_MAX);
+            double f2 = static_cast<double>(v2) / static_cast<double>(UINT32_MAX);
 
             // Get tangent basis
-            auto [t1, t2, t3] = tangent_basis(p);
+            auto [t1, t2, t3] = tangent_basis(atom.jittered);
 
             // Create jitter vector
             Point4F jitter = (t1 * (2.0 * f0 - 1.0) +
@@ -756,29 +797,27 @@ namespace hypercube
                              epsilon;
 
             // Apply and renormalize
-            p = (p + jitter).normalized();
+            atom.jittered = (atom.jittered + jitter).normalized();
         }
     }
 
 
 
-    void CoordinateMapper::bucketed_tangent_lloyd(std::map<uint32_t, Point4F> &points,
+    void CoordinateMapper::bucketed_tangent_lloyd(AtomRegistry& reg,
                                                   size_t k, double alpha, int iterations)
     {
-        if (points.empty())
+        if (reg.atoms.empty())
             return;
 
-        // Group points by semantic category
-        std::map<uint32_t, std::vector<std::pair<uint32_t, Point4F *>>> buckets;
-        for (auto &[cp, pt] : points)
+        // Group atoms by category
+        std::map<uint8_t, std::vector<size_t>> buckets;
+        for (size_t i = 0; i < reg.atoms.size(); ++i)
         {
-            uint32_t cat = static_cast<uint32_t>(categorize(cp));
-            buckets[cat].emplace_back(cp, &pt);
+            buckets[reg.atoms[i].category].push_back(i);
         }
 
         // Compute tangent basis function (shared with jitter)
-        [[maybe_unused]] auto tangent_basis = [](const Point4F &p) -> std::array<Point4F, 3>
-        {
+        auto tangent_basis = [](const Point4F &p) -> std::array<Point4F, 3> {
             Point4F a(1.0, 0.0, 0.0, 0.0);
             if (std::abs(p.dot(a)) > 0.9)
                 a = Point4F(0.0, 1.0, 0.0, 0.0);
@@ -805,41 +844,35 @@ namespace hypercube
         size_t MIN_BUCKET = 64;
 
         // Process each bucket
-        for (auto &[bucket_id, bucket_points] : buckets)
+        for (auto &[bucket_id, atom_indices] : buckets)
         {
-            size_t n_bucket = bucket_points.size();
-
-            // Build bucket_coords
-            std::vector<Point4F> bucket_coords;
-            for (const auto &[cp, pt_ptr] : bucket_points)
-            {
-                bucket_coords.push_back(*pt_ptr);
-            }
+            size_t n_bucket = atom_indices.size();
 
             if (n_bucket < MIN_BUCKET)
             {
                 // Use global kNN for small buckets
                 for (int iter = 0; iter < iterations; ++iter)
                 {
-                    for (size_t i = 0; i < n_bucket; ++i)
+                    for (size_t idx : atom_indices)
                     {
-                        const Point4F &p = bucket_coords[i];
+                        AtomEntry &atom = reg.atoms[idx];
+                        const Point4F &p = atom.jittered;
                         Point4F v_avg(0, 0, 0, 0);
 
-                        // Find k nearest in all points
-                        std::vector<std::pair<double, uint32_t>> neighbors;
-                        for (const auto &[cp, pt] : points)
+                        // Find k nearest in all atoms
+                        std::vector<std::pair<double, size_t>> neighbors;
+                        for (size_t j = 0; j < reg.atoms.size(); ++j)
                         {
-                            double dist = p.distance(pt);
-                            neighbors.emplace_back(dist, cp);
+                            double dist = p.distance(reg.atoms[j].jittered);
+                            neighbors.emplace_back(dist, j);
                         }
                         std::sort(neighbors.begin(), neighbors.end());
 
                         // Average neighbor vectors in tangent space
                         for (size_t ni = 0; ni < std::min(k, neighbors.size()); ++ni)
                         {
-                            uint32_t cp = neighbors[ni].second;
-                            const Point4F &q = points.at(cp);
+                            size_t j = neighbors[ni].second;
+                            const Point4F &q = reg.atoms[j].jittered;
 
                             // Project q onto tangent space at p
                             double pq_dot = p.dot(q);
@@ -851,9 +884,7 @@ namespace hypercube
                             v_avg = v_avg * (1.0 / std::min(k, neighbors.size()));
 
                         // Update point
-                        Point4F &target = *bucket_points[i].second;
-                        target = (p + v_avg * alpha).normalized();
-                        bucket_coords[i] = target;
+                        atom.jittered = (p + v_avg * alpha).normalized();
                     }
                 }
             }
@@ -862,18 +893,19 @@ namespace hypercube
                 // Original bucket-based for large buckets
                 for (int iter = 0; iter < iterations; ++iter)
                 {
-                    for (size_t i = 0; i < n_bucket; ++i)
+                    for (size_t idx : atom_indices)
                     {
-                        const Point4F &p = bucket_coords[i];
+                        AtomEntry &atom = reg.atoms[idx];
+                        const Point4F &p = atom.jittered;
                         Point4F v_avg(0, 0, 0, 0);
 
                         // Find k nearest neighbors in bucket
                         std::vector<std::pair<double, size_t>> neighbors;
-                        for (size_t j = 0; j < n_bucket; ++j)
+                        for (size_t j : atom_indices)
                         {
-                            if (i == j)
+                            if (idx == j)
                                 continue;
-                            double dist = p.distance(bucket_coords[j]);
+                            double dist = p.distance(reg.atoms[j].jittered);
                             neighbors.emplace_back(dist, j);
                         }
                         std::partial_sort(neighbors.begin(), neighbors.begin() + std::min(k, neighbors.size()),
@@ -883,7 +915,7 @@ namespace hypercube
                         for (size_t ni = 0; ni < std::min(k, neighbors.size()); ++ni)
                         {
                             size_t j = neighbors[ni].second;
-                            const Point4F &q = bucket_coords[j];
+                            const Point4F &q = reg.atoms[j].jittered;
 
                             // Project q onto tangent space at p
                             double pq_dot = p.dot(q);
@@ -895,12 +927,37 @@ namespace hypercube
                             v_avg = v_avg * (1.0 / std::min(k, neighbors.size()));
 
                         // Update point
-                        Point4F &target = *bucket_points[i].second;
-                        target = (p + v_avg * alpha).normalized();
-                        bucket_coords[i] = target;
+                        atom.jittered = (p + v_avg * alpha).normalized();
                     }
                 }
             }
+        }
+    }
+
+    void CoordinateMapper::bucketed_tangent_lloyd(std::map<uint32_t, Point4F> &points,
+                                                  size_t k, double alpha, int iterations)
+    {
+        if (points.empty())
+            return;
+
+        // Build AtomRegistry from the map as a compatibility wrapper
+        AtomRegistry reg;
+        reg.atoms.reserve(points.size());
+        for (const auto &[cp, pt] : points)
+        {
+            uint32_t dense_rank = DenseRegistry::get_rank(cp);
+            uint32_t semantic_rank = SemanticOrdering::get_rank(cp);
+            uint8_t category = static_cast<uint8_t>(categorize(cp));
+            reg.atoms.push_back(AtomEntry{cp, dense_rank, semantic_rank, category, pt, pt});
+        }
+
+        // Call the new AtomRegistry-based method
+        bucketed_tangent_lloyd(reg, k, alpha, iterations);
+
+        // Write back to the original map
+        for (const auto &atom : reg.atoms)
+        {
+            points[atom.codepoint] = atom.jittered;
         }
     }
 

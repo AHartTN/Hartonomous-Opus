@@ -45,7 +45,11 @@ add_executable(test_eigen_solver_paths test_eigen_solver_paths.cpp)
 target_link_libraries(test_eigen_solver_paths hypercube_core)
 
 add_executable(test_cpu_features tests/test_cpu_features.cpp)
-target_link_libraries(test_cpu_features hypercube_core)
+target_include_directories(test_cpu_features PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${GTEST_INCLUDE_DIRS}
+)
+target_link_libraries(test_cpu_features hypercube_core GTest::gtest GTest::gtest_main Threads::Threads)
 
 add_executable(test_int8_quantization tests/test_int8_quantization.cpp)
 target_link_libraries(test_int8_quantization hypercube_core)
@@ -61,6 +65,10 @@ add_test(NAME SimdDispatchTest COMMAND $<TARGET_FILE:test_simd_dispatch>)
 add_executable(test_thread_config tests/test_thread_config.cpp)
 target_link_libraries(test_thread_config hypercube_core)
 add_test(NAME ThreadConfigTest COMMAND $<TARGET_FILE:test_thread_config>)
+
+add_executable(test_atom_registry test_atom_registry.cpp)
+target_link_libraries(test_atom_registry hypercube_core)
+add_test(NAME TestAtomRegistry COMMAND $<TARGET_FILE:test_atom_registry>)
 
 add_executable(test_safetensor_fix src/test_safetensor_fix.cpp)
 target_link_libraries(test_safetensor_fix hypercube_ingest hypercube_core)

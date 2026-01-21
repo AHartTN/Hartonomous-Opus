@@ -1,4 +1,4 @@
--- Attention scores (similarity in 4D space)
+-- attention - attention scores (similarity in 4D space)
 CREATE OR REPLACE FUNCTION attention(p_id BYTEA, p_k INTEGER DEFAULT 5)
 RETURNS TABLE(target_id BYTEA, score DOUBLE PRECISION) AS $$
 DECLARE

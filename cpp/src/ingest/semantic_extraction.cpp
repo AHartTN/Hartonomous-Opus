@@ -126,9 +126,14 @@ static std::vector<float> load_tensor(const TensorMeta& meta) {
     size_t n = meta.element_count();
     std::vector<float> data(n);
 
-    std::cerr << "[LOAD_TENSOR] Opening file: " << meta.shard_file << "\n";
+    std::cerr << "[LOAD_TENSOR] Loading tensor '" << meta.name << "' from " << meta.shard_file << "\n";
+    std::cerr << "[LOAD_TENSOR] Shape: [";
+    for (size_t i = 0; i < meta.shape.size(); ++i) {
+        std::cerr << meta.shape[i];
+        if (i < meta.shape.size() - 1) std::cerr << ",";
+    }
+    std::cerr << "] " << meta.dtype << " (" << n << " elements, " << (n * 4) << " bytes)\n";
     std::cerr << "[LOAD_TENSOR] Seeking to offset: " << meta.data_offset_start << "\n";
-    std::cerr << "[LOAD_TENSOR] Reading " << n << " elements as " << meta.dtype << "\n";
 
     std::ifstream f(meta.shard_file, std::ios::binary);
     if (!f) {
@@ -348,6 +353,10 @@ static std::vector<Edge> knn(const float* data, const std::vector<size_t>& valid
     }
     idx.setEf(50);
 
+    auto build_end = std::chrono::steady_clock::now();
+    auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(build_end - build_start).count();
+    std::cerr << "[KNN] Index build completed in " << build_ms << "ms (" << (build_ms / 1000.0) << "s)\n";
+
     std::cerr << "[KNN] Querying " << n << " vectors (PARALLEL, " << g_num_threads << " threads)...\n";
 
     // PARALLEL query - searchKnn IS thread-safe
@@ -388,6 +397,10 @@ static std::vector<Edge> knn(const float* data, const std::vector<size_t>& valid
             }
         }
     }
+
+    auto query_end = std::chrono::steady_clock::now();
+    auto query_ms = std::chrono::duration_cast<std::chrono::milliseconds>(query_end - query_start).count();
+    std::cerr << "[KNN] Query phase completed in " << query_ms << "ms (" << (query_ms / 1000.0) << "s)\n";
 
     // Merge results
     std::set<std::tuple<size_t, size_t, float>> all_edges;
@@ -706,6 +719,9 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
     // This is the PRIMARY semantic relation extraction - connects tokens by learned similarity
     std::cerr << "[SEMANTIC] Extracting token embedding relations (k-NN similarity graph)...\n";
     extract_embedding_relations(conn, ctx, config);
+    std::cerr << "[SEMANTIC] Embedding relations completed\n";
+
+
 
     // Extract attention-based semantic relations from Q/K/V projections
     std::cerr << "[SEMANTIC] Extracting attention projection relations...\n";
@@ -874,6 +890,7 @@ bool extract_all_semantic_relations(PGconn* conn, IngestContext& ctx, const Inge
     // Skip projection k-NN if disabled (too slow due to single-threaded HNSW build)
     if (!ENABLE_PROJECTION_KNN) {
         std::cerr << "[SEMANTIC] Projection k-NN DISABLED (use attention_relations for token semantics)\n";
+        std::cerr << "[SEMANTIC] NOTE: Q/K/V/FFN projections are NOT being processed via k-NN\n";
         std::cerr << "[SEMANTIC] Total: 0 sparse relations\n";
         return true;
     }

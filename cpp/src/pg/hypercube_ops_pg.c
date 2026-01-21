@@ -27,22 +27,11 @@
 #include <math.h>
 
 #include "pg_utils.h"
+#include "db_wrapper_pg.h"
 
 #ifdef PG_MODULE_MAGIC
 PG_MODULE_MAGIC;
 #endif
-
-#define MAX_EDGES 100000
-
-/* ============================================================================
- * Data Structures (all local, no globals)
- * ============================================================================ */
-
-typedef struct SemanticEdge {
-    uint8   source[HASH_SIZE];
-    uint8   target[HASH_SIZE];
-    double  weight;
-} SemanticEdge;
 
 typedef struct WalkStep {
     uint8   id[HASH_SIZE];
@@ -51,76 +40,17 @@ typedef struct WalkStep {
 
 /* ============================================================================
  * Load Semantic Edges from Database (ONE query)
- * Uses relation table for proper edge traversal
+ * Uses wrapper for proper edge traversal
  * ============================================================================ */
 
 static SemanticEdge *load_all_edges(int *out_count)
 {
-    int ret;
-    
-    /* Query using composition_child table to get bigram children */
-    const char *query = 
-        "SELECT cc1.child_id as child1, cc2.child_id as child2, 1.0::float8 as weight "
-        "FROM composition c "
-        "JOIN composition_child cc1 ON cc1.composition_id = c.id AND cc1.ordinal = 1 AND cc1.child_type = 'A' "
-        "JOIN composition_child cc2 ON cc2.composition_id = c.id AND cc2.ordinal = 2 AND cc2.child_type = 'A' "
-        "WHERE c.depth = 1 AND c.atom_count = 2 "
-        "LIMIT 50000";
-    
-    ret = SPI_execute(query, true, 0);
-    if (ret != SPI_OK_SELECT || SPI_processed == 0) {
-        *out_count = 0;
-        return NULL;
-    }
-    
-    /* Allocate edge array - each row creates 2 bidirectional edges */
-    uint64 capacity = SPI_processed * 2 + 1;
-    SemanticEdge *edges = (SemanticEdge *)palloc0(sizeof(SemanticEdge) * capacity);
-    int count = 0;
-    
-    for (uint64 i = 0; i < SPI_processed && count + 2 < (int)capacity; i++) {
-        HeapTuple tuple = SPI_tuptable->vals[i];
-        TupleDesc tupdesc = SPI_tuptable->tupdesc;
-        bool isnull1, isnull2, isnull_w;
-        
-        Datum d1 = SPI_getbinval(tuple, tupdesc, 1, &isnull1);
-        Datum d2 = SPI_getbinval(tuple, tupdesc, 2, &isnull2);
-        Datum dw = SPI_getbinval(tuple, tupdesc, 3, &isnull_w);
-        
-        if (isnull1 || isnull2) continue;
-        
-        /* Use PG_DETOAST_DATUM_COPY to safely handle TOASTed data */
-        bytea *b1 = (bytea *)PG_DETOAST_DATUM_COPY(d1);
-        bytea *b2 = (bytea *)PG_DETOAST_DATUM_COPY(d2);
-        
-        /* Validate bytea size */
-        int len1 = VARSIZE(b1) - VARHDRSZ;
-        int len2 = VARSIZE(b2) - VARHDRSZ;
-        if (len1 < HASH_SIZE || len2 < HASH_SIZE) {
-            pfree(b1);
-            pfree(b2);
-            continue;
-        }
-        
-        double weight = isnull_w ? 1.0 : DatumGetFloat8(dw);
-        
-        /* Add bidirectional edges */
-        memcpy(edges[count].source, VARDATA(b1), HASH_SIZE);
-        memcpy(edges[count].target, VARDATA(b2), HASH_SIZE);
-        edges[count].weight = weight;
-        count++;
-        
-        memcpy(edges[count].source, VARDATA(b2), HASH_SIZE);
-        memcpy(edges[count].target, VARDATA(b1), HASH_SIZE);
-        edges[count].weight = weight;
-        count++;
-        
-        pfree(b1);
-        pfree(b2);
-    }
-    
-    *out_count = count;
-    return edges;
+    EdgeCollection *collection = load_edges();
+    *out_count = collection->count;
+    /* Note: collection->edges is allocated in CurrentMemoryContext, so it will be
+       automatically freed when the function context ends. We return the array directly
+       for backward compatibility with existing code. */
+    return collection->edges;
 }
 
 /* ============================================================================
@@ -1261,9 +1191,13 @@ Datum seed_atoms(PG_FUNCTION_ARGS)
     int64 inserted = 0;
     int ret;
     bool isnull;
+    int processed_count = 0;
+    const int TOTAL_CODEPOINTS = 1114112;
 
     if (SPI_connect() != SPI_OK_CONNECT)
         ereport(ERROR, (errmsg("SPI_connect failed")));
+
+    ereport(NOTICE, (errmsg("seed_atoms: starting")));
 
     /* Check if atoms already exist */
     ret = SPI_execute("SELECT COUNT(*) FROM atom", true, 0);
@@ -1318,13 +1252,13 @@ Datum seed_atoms(PG_FUNCTION_ARGS)
 
             /* Build EWKB geometry (POINTZM) */
             char ewkb[75];
-            memcpy(ewkb, "\\x01010000c0", 11);  /* POINTZM little-endian */
+            memcpy(ewkb, "01b90b0000", 10);  /* POINTZM little-endian */
 
             /* Double to hex for EWKB */
-            double_to_hex(coords.x, ewkb + 11);
-            double_to_hex(coords.y, ewkb + 27);
-            double_to_hex(coords.z, ewkb + 43);
-            double_to_hex(coords.m, ewkb + 59);
+            double_to_hex(coords.x, ewkb + 10);
+            double_to_hex(coords.y, ewkb + 26);
+            double_to_hex(coords.z, ewkb + 42);
+            double_to_hex(coords.m, ewkb + 58);
 
             /* Add to batch */
             if (batch_count > 0) appendStringInfoChar(&batch_sql, ',');
@@ -1347,18 +1281,20 @@ Datum seed_atoms(PG_FUNCTION_ARGS)
         /* Execute batch if we have items */
         if (batch_count > 0) {
             ret = SPI_execute(batch_sql.data, false, 0);
-            if (ret != SPI_OK_INSERT) {
+            if (ret == SPI_OK_INSERT) {
+                processed_count += batch_count;
+                if (processed_count % 10000 == 0) {
+                    ereport(NOTICE, (errmsg("seed_atoms: processed %d/%d atoms", processed_count, TOTAL_CODEPOINTS)));
+                }
+            } else {
                 ereport(WARNING, (errmsg("Failed batch insert for codepoints %u-%u", batch_start, codepoint - 1)));
             }
         }
 
         pfree(batch_sql.data);
-
-        /* Progress reporting */
-        if (codepoint % 50000 == 0) {
-            ereport(NOTICE, (errmsg("Processed %u codepoints...", codepoint)));
-        }
     }
+
+    ereport(NOTICE, (errmsg("seed_atoms: processed %d/%d atoms", processed_count, TOTAL_CODEPOINTS)));
 
     /* Create indexes after bulk insert */
     SPI_execute("CREATE INDEX IF NOT EXISTS idx_atom_codepoint ON atom(codepoint)", false, 0);
